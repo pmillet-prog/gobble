@@ -1,21 +1,7 @@
 import React from "react";
 
-import {
-  CHAT_DRAWER_CALIBRATION_MAX_RATIO,
-  CHAT_DRAWER_CALIBRATION_MIN_KEYBOARD_PX,
-  CHAT_DRAWER_CALIBRATION_MIN_RATIO,
-  CHAT_DRAWER_MAX_HEIGHT_PX,
-  CHAT_DRAWER_MIN_HEIGHT_PX,
-  CHAT_DRAWER_TOP_GAP_PX,
-  getChatDrawerOrientationKey,
-  readStoredChatDrawerCalibration,
-  writeStoredChatDrawerCalibration,
-} from "../../app/adapters/chatDrawerCalibration.js";
 import { useLazyArrayController } from "../../app/react/useLazyController.js";
 import { createChatInteractionController } from "../../components/chat/createChatInteractionController.js";
-import { VIEWPORT_EVENTS } from "../layout/createViewportEventHub.js";
-import { hasActiveChatDraft } from "../../utils/mobileChatHandoff.js";
-import { clampValue } from "../../utils/numbers.js";
 
 function createLobbyChatSubscriptionState() {
   return {
@@ -26,51 +12,27 @@ function createLobbyChatSubscriptionState() {
   };
 }
 
-export function useChatInteractionResources({ chatFeature, isChatClosing }) {
-  const chatBaselineHeightRef = React.useRef(0);
-  const chatBodyLockHeightRef = React.useRef(0);
+export function useChatInteractionResources({ isChatClosing }) {
   const chatCloseTimerRef = React.useRef(null);
-  const chatDrawerCalibrationRef = React.useRef(readStoredChatDrawerCalibration());
-  const chatDrawerSessionCalibrationRef = React.useRef(chatDrawerCalibrationRef.current);
   const chatInputRef = React.useRef(null);
-  const chatInputValueRef = React.useRef(chatFeature.store.getState().input);
   const chatRulesConfirmRef = React.useRef(null);
   const desktopReactionDetailsCloseTimerRef = React.useRef(null);
-  const gameViewportFreezeHeightRef = React.useRef(0);
   const isChatClosingRef = React.useRef(isChatClosing);
   const isChatOpenMobileRef = React.useRef(false);
-  const lastKeyboardInsetRef = React.useRef(0);
   const lobbyChatSubscriptionRef = React.useRef(createLobbyChatSubscriptionState());
-  const suppressChatResizeRef = React.useRef(false);
 
   React.useEffect(() => {
     isChatClosingRef.current = isChatClosing;
   }, [isChatClosing]);
 
-  React.useEffect(() => {
-    const syncChatInputRef = () => {
-      chatInputValueRef.current = chatFeature.store.getState().input;
-    };
-    syncChatInputRef();
-    return chatFeature.store.subscribe(syncChatInputRef);
-  }, [chatFeature]);
-
   return {
-    chatBaselineHeightRef,
-    chatBodyLockHeightRef,
     chatCloseTimerRef,
-    chatDrawerCalibrationRef,
-    chatDrawerSessionCalibrationRef,
     chatInputRef,
-    chatInputValueRef,
     chatRulesConfirmRef,
     desktopReactionDetailsCloseTimerRef,
-    gameViewportFreezeHeightRef,
     isChatClosingRef,
     isChatOpenMobileRef,
-    lastKeyboardInsetRef,
     lobbyChatSubscriptionRef,
-    suppressChatResizeRef,
   };
 }
 
@@ -84,7 +46,7 @@ export default function useChatInteractionController({
   notifications,
   resources,
 }) {
-  const { appView, isLoggedIn, isLoggedInRef, phase } = application;
+  const { isLoggedIn, isLoggedInRef } = application;
   const {
     accountSeenReady,
     isAccountAuthenticated,
@@ -104,11 +66,9 @@ export default function useChatInteractionController({
   } = chat;
   const {
     setActiveArea,
-    setChatKeyboardInsetPx,
     setChatOpenedAtMs,
     setChatRulesAccepted,
     setChatTab,
-    setChatViewportHeight,
     setDesktopChatReactionDetails,
     setDesktopChatReactionPicker,
     setHomeChatBotUnreadCount,
@@ -124,37 +84,22 @@ export default function useChatInteractionController({
     setUserMenu,
   } = chatActions;
   const { installId, normalizeUserIdForProfile } = identity;
-  const {
-    feature: layoutFeature,
-    isFullscreen,
-    isMobileLayout,
-    isMobileLayoutRef,
-    mobileHeaderOffsetPx,
-  } = layout;
+  const { isMobileLayout, isMobileLayoutRef } = layout;
   const { connectSocketWithAuth, roomIdRef, setConnectionError, socket } = network;
   const { showToast } = notifications;
   const {
-    chatBaselineHeightRef,
-    chatBodyLockHeightRef,
     chatCloseTimerRef,
-    chatDrawerCalibrationRef,
-    chatDrawerSessionCalibrationRef,
     chatInputRef,
-    chatInputValueRef,
     chatRulesConfirmRef,
     desktopReactionDetailsCloseTimerRef,
-    gameViewportFreezeHeightRef,
     isChatClosingRef,
     isChatOpenMobileRef,
-    lastKeyboardInsetRef,
     lobbyChatSubscriptionRef,
-    suppressChatResizeRef,
   } = resources;
 
   const [
-    captureChatViewportBaseline,
-    resetMobileChatPanelImmediately,
-    openChatPanel,
+    ,
+    ,
     closeChatPanel,
     subscribeLobbyChat,
     requestOpenChat,
@@ -176,18 +121,10 @@ export default function useChatInteractionController({
     closeReportDialog,
     submitReport,
   ] = useLazyArrayController(createChatInteractionController, [
-    chatBaselineHeightRef,
-    chatBodyLockHeightRef,
-    setChatViewportHeight,
     chatCloseTimerRef,
     chatInputRef,
     isChatOpenMobileRef,
     isChatClosingRef,
-    suppressChatResizeRef,
-    lastKeyboardInsetRef,
-    chatDrawerSessionCalibrationRef,
-    chatDrawerCalibrationRef,
-    gameViewportFreezeHeightRef,
     setChatOpenedAtMs,
     setIsChatClosing,
     setIsChatOpenMobile,
@@ -223,9 +160,7 @@ export default function useChatInteractionController({
     reportDialog,
     setChatRulesAccepted,
     lobbyChatSubscriptionRef,
-  ], 23);
-
-  const wasMobileLiveLobbyRef = React.useRef(false);
+  ], 22);
 
   React.useEffect(() => {
     if (tab === "system") {
@@ -255,50 +190,6 @@ export default function useChatInteractionController({
     setActiveArea("chat");
   }, [isOpenMobile, isMobileLayout, tab]);
 
-  React.useLayoutEffect(() => {
-    const isMobileLiveLobby =
-      isMobileLayout && isLoggedIn && appView === "live" && phase === "lobby";
-    const wasMobileLiveLobby = wasMobileLiveLobbyRef.current;
-    wasMobileLiveLobbyRef.current = isMobileLiveLobby;
-
-    if (isMobileLiveLobby) {
-      resetMobileChatPanelImmediately({ preserveInputFocus: true });
-      return undefined;
-    }
-
-    if (
-      !wasMobileLiveLobby ||
-      !isMobileLayout ||
-      !isLoggedIn ||
-      appView !== "live"
-    ) {
-      return undefined;
-    }
-
-    if (!hasActiveChatDraft(chatInputValueRef.current)) {
-      resetMobileChatPanelImmediately();
-      return undefined;
-    }
-
-    openChatPanel();
-    if (typeof window === "undefined") return undefined;
-    const focusFrame = window.requestAnimationFrame(() => {
-      try {
-        chatInputRef.current?.focus?.({ preventScroll: true });
-      } catch (_) {
-        try {
-          chatInputRef.current?.focus?.();
-        } catch (_) {}
-      }
-    });
-    return () => window.cancelAnimationFrame(focusFrame);
-  }, [
-    appView,
-    isLoggedIn,
-    isMobileLayout,
-    phase,
-  ]);
-
   React.useEffect(() => {
     if (!isLoggedIn) return;
     if (tab === "system") return;
@@ -306,101 +197,6 @@ export default function useChatInteractionController({
     setMobileChatUnreadCount(0);
     setMobileChatBotUnreadCount(0);
   }, [isLoggedIn, tab, isMobileLayout, isOpenMobile, isClosing]);
-
-  React.useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    if (!isOpenMobile) {
-      chatBaselineHeightRef.current = 0;
-      setChatViewportHeight(0);
-      setChatKeyboardInsetPx(0);
-      return;
-    }
-
-    const visualViewport = window.visualViewport;
-    const baseHeight =
-      chatBodyLockHeightRef.current ||
-      chatBaselineHeightRef.current ||
-      Math.round(window.innerHeight || visualViewport?.height || 0);
-    chatBaselineHeightRef.current = baseHeight;
-    setChatViewportHeight((prev) => (prev === baseHeight ? prev : baseHeight));
-
-    const updateInset = () => {
-      if (suppressChatResizeRef.current) return;
-      const nextHeight =
-        chatBodyLockHeightRef.current ||
-        chatBaselineHeightRef.current ||
-        Math.round(window.innerHeight || visualViewport?.height || 0);
-      if (nextHeight > 0) {
-        chatBaselineHeightRef.current = nextHeight;
-        setChatViewportHeight((prev) => (prev === nextHeight ? prev : nextHeight));
-      }
-      const nextInset =
-        visualViewport && Number.isFinite(visualViewport.height)
-          ? Math.max(
-              0,
-              Math.round(
-                nextHeight -
-                  visualViewport.height -
-                  (Number.isFinite(visualViewport.offsetTop)
-                    ? visualViewport.offsetTop
-                    : 0)
-              )
-            )
-          : 0;
-      lastKeyboardInsetRef.current = nextInset > 0 ? nextInset : 0;
-
-      if (!chatDrawerCalibrationRef.current && nextHeight > 0) {
-        const keyboardThresholdPx = Math.max(
-          CHAT_DRAWER_CALIBRATION_MIN_KEYBOARD_PX,
-          Math.round(nextHeight * 0.12)
-        );
-        if (nextInset >= keyboardThresholdPx) {
-          const topInsetPx = isFullscreen ? mobileHeaderOffsetPx : 0;
-          const ceilingPx = Math.max(
-            220,
-            Math.round(nextHeight - topInsetPx - CHAT_DRAWER_TOP_GAP_PX)
-          );
-          const observedHeightPx = clampValue(
-            Math.round(nextHeight - nextInset - topInsetPx),
-            Math.min(CHAT_DRAWER_MIN_HEIGHT_PX, ceilingPx),
-            Math.min(CHAT_DRAWER_MAX_HEIGHT_PX, ceilingPx)
-          );
-          const nextCalibration = {
-            ratio: clampValue(
-              observedHeightPx / nextHeight,
-              CHAT_DRAWER_CALIBRATION_MIN_RATIO,
-              CHAT_DRAWER_CALIBRATION_MAX_RATIO
-            ),
-            heightPx: observedHeightPx,
-            orientation: getChatDrawerOrientationKey(),
-          };
-          chatDrawerCalibrationRef.current = nextCalibration;
-          writeStoredChatDrawerCalibration(nextCalibration);
-        }
-      }
-      setChatKeyboardInsetPx((prev) => (prev === nextInset ? prev : nextInset));
-    };
-
-    updateInset();
-    const unsubscribeViewport = layoutFeature.subscribeViewport(updateInset, [
-      VIEWPORT_EVENTS.WINDOW_RESIZE,
-      VIEWPORT_EVENTS.VISUAL_RESIZE,
-      VIEWPORT_EVENTS.VISUAL_SCROLL,
-    ]);
-    window.addEventListener("focusin", updateInset, true);
-    window.addEventListener("focusout", updateInset, true);
-    return () => {
-      unsubscribeViewport();
-      window.removeEventListener("focusin", updateInset, true);
-      window.removeEventListener("focusout", updateInset, true);
-    };
-  }, [
-    isOpenMobile,
-    isFullscreen,
-    layoutFeature,
-    mobileHeaderOffsetPx,
-  ]);
 
   React.useEffect(() => {
     if (!rulesOpen) return;

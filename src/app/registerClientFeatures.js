@@ -20,6 +20,7 @@ import { createNotificationsFeature } from "../features/notifications/createNoti
 import { createOcidFeature } from "../features/ocid/createOcidFeature.js";
 import { createOverlaysFeature } from "../features/overlays/createOverlaysFeature.js";
 import { createPreferencesFeature } from "../features/preferences/createPreferencesFeature.js";
+import { createPresenterHintsFeature } from "../features/presenters/createPresenterHintsController.js";
 import { createGameProgressFeature } from "../features/progress/createGameProgressFeature.js";
 import { createRefreshSchedulerFeature } from "../features/refresh/createRefreshSchedulerFeature.js";
 import { createResultsFeature } from "../features/results/createResultsFeature.js";
@@ -54,6 +55,7 @@ const FEATURE_FACTORIES = Object.freeze({
   ocid: createOcidFeature,
   overlays: createOverlaysFeature,
   preferences: createPreferencesFeature,
+  presenters: createPresenterHintsFeature,
   progress: createGameProgressFeature,
   refresh: createRefreshSchedulerFeature,
   results: createResultsFeature,

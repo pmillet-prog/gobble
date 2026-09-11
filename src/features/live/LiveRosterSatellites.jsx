@@ -20,20 +20,17 @@ export function DesktopLiveRankingSatellite({ rosterConfig, ...widgetProps }) {
   return <RankingWidgetMobile {...widgetProps} fullRanking={rankingSource || []} />;
 }
 
-export function MobileLiveRankingPanel({
+function MobileLiveRankingPanelComponent({
   assetVersion,
   canOpenPlayerProfile,
   darkMode,
   getNickClassName,
   gobbleAwardsForLive,
   highlightedPlayers,
-  isDailyPlay,
-  isOcidRound,
   mobileLayoutSizing,
   mobileRankingRef,
   nickDecorationKey,
   onOpenPlayerProfile,
-  onOpenPlayersOverlaySnapshot,
   renderNickSuffix,
   rosterConfig,
   selfNick,
@@ -43,7 +40,7 @@ export function MobileLiveRankingPanel({
   return (
     <div
       ref={mobileRankingRef}
-      className="relative rounded-xl border border-slate-200 dark:border-slate-700 px-3 py-2 bg-white/90 dark:bg-slate-900/90 shadow-sm flex-none overflow-hidden box-border"
+      className="relative flex-none overflow-hidden box-border"
       style={
         mobileLayoutSizing.rankingHeight > 0
           ? {
@@ -54,25 +51,14 @@ export function MobileLiveRankingPanel({
           : undefined
       }
     >
-      {!isDailyPlay && !isOcidRound ? (
-        <button
-          type="button"
-          className={`absolute top-2 right-2 z-10 rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide backdrop-blur ${
-            darkMode
-              ? "bg-slate-900/70 text-white border border-white/10"
-              : "bg-white/80 text-slate-900 border border-slate-200"
-          }`}
-          onClick={() => onOpenPlayersOverlaySnapshot?.(fullRanking)}
-        >
-          Liste des joueurs
-        </button>
-      ) : null}
       <RankingWidgetMobile
         fullRanking={fullRanking}
         selfNick={selfNick}
         darkMode={darkMode}
         expanded={false}
         flatStyle={true}
+        compactRoller={true}
+        compactRollerHeight={mobileLayoutSizing.rankingHeight}
         highlightedPlayers={highlightedPlayers}
         fitHeight={false}
         animateRank={false}
@@ -90,6 +76,9 @@ export function MobileLiveRankingPanel({
     </div>
   );
 }
+
+export const MobileLiveRankingPanel = React.memo(MobileLiveRankingPanelComponent);
+MobileLiveRankingPanel.displayName = "MobileLiveRankingPanel";
 
 export function MobileLobbyPlayersControls({ darkMode, getLiveNickClassName }) {
   const visiblePlayerList = useVisibleLivePlayers();

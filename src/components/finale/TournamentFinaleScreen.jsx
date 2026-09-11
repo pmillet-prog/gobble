@@ -10,7 +10,10 @@ import {
   CHAT_DESKTOP_FONT_SCALE_STEP,
   QUICK_REPLIES,
 } from "../chat/chatPresentationConfig.js";
+import PresenterChatAvatar from "../chat/PresenterChatAvatar.jsx";
 import RankingWidgetMobile from "../RankingWidgetMobile.jsx";
+import DesktopPresenterActionBar from "../../features/presenters/DesktopPresenterActionBar.jsx";
+import MobilePresenterActionBar from "../../features/presenters/MobilePresenterActionBar.jsx";
 import {
   formatChatMessageTime,
   formatChatUnreadSuffix,
@@ -72,6 +75,8 @@ export default function TournamentFinaleScreen({
     lastMessageId: lastMessageIdProp,
     openDesktopChatReactionDetails,
     openDesktopChatReactionPicker,
+    openPlayersOverlayAlpha,
+    requestOpenChat,
     openUserMenu,
     renderBlockedListPanel,
     safeChatTab,
@@ -86,7 +91,12 @@ export default function TournamentFinaleScreen({
     visibleMessages: visibleMessagesProp,
   } = chat;
   const { chatInput, setChatInput } = useChatDraft();
-  const { lastMessageId, visibleMessages } = useChatPresentation();
+  const {
+    lastMessageId,
+    showBotMessages,
+    toggleBotMessages,
+    visibleMessages,
+  } = useChatPresentation();
   const desktopChatPresentation = useDesktopChatPresentationController({
     chatDesktopFontScale,
     chatInputRef,
@@ -129,6 +139,7 @@ export default function TournamentFinaleScreen({
     tournamentDuelDeltaRef,
     tournamentFinaleMedals,
     tournamentFinaleSummary,
+    tournamentPresenterScopeId,
     tournamentRanking,
     tournamentRef,
   } = finale;
@@ -150,6 +161,7 @@ export default function TournamentFinaleScreen({
     weeklyVocabLookup,
     weeklyWeekNumber,
   } = weekly;
+  const finalePresenterHostRef = React.useRef(null);
 
   function renderRankDeltaIndicator(delta) {
     if (!delta) return null;
@@ -405,6 +417,7 @@ export default function TournamentFinaleScreen({
         nick: e.nick,
         score: typeof e.points === "number" ? e.points : e.score || 0,
         gobbles: typeof e.gobbles === "number" ? e.gobbles : 0,
+        lepersBonus: typeof e.lepersBonus === "number" ? e.lepersBonus : 0,
         rightLabel: renderTournamentTotalRightLabel(
           typeof e.points === "number" ? e.points : e.score || 0,
           typeof e.gobbles === "number" ? e.gobbles : 0
@@ -439,7 +452,7 @@ export default function TournamentFinaleScreen({
     const finaleBoards = FINALE_WEEKLY_BOARDS;
     const finalePagesCount = 1 + finaleBoards.length;
     const finaleCanNavigate = !isMobileLayout && finalePagesCount > 1;
-    const { height: finaleViewportHeight } = getViewportSize();
+    const { height: finaleViewportHeight, width: finaleViewportWidth } = getViewportSize();
     const finaleSafeHeight = Math.max(0, finaleViewportHeight || 0);
     const finalePaddingY = isMobileLayout ? 12 : 24;
     const finaleHeaderHeight = clampValue(
@@ -452,9 +465,17 @@ export default function TournamentFinaleScreen({
       18,
       28
     );
+    const finaleActionBarHeight = isMobileLayout
+      ? clampValue(Math.round(finaleViewportWidth * 0.18), 66, 78)
+      : 112;
     const finaleContentHeight = Math.max(
       0,
-      finaleSafeHeight - finalePaddingY * 2 - finaleHeaderHeight - finaleDotsHeight
+      finaleSafeHeight -
+        finalePaddingY * 2 -
+        finaleHeaderHeight -
+        finaleDotsHeight -
+        finaleActionBarHeight -
+        12
     );
     const finaleShellClass = isMobileLayout
       ? "relative z-10 max-w-6xl mx-auto px-4"
@@ -630,7 +651,7 @@ export default function TournamentFinaleScreen({
           )}
           <div className={finaleShellClass} style={finaleShellStyle}>
             <div className={finaleColumnsClass}>
-              <div className={finaleMainColumnClass}>
+              <div ref={finalePresenterHostRef} className={finaleMainColumnClass}>
               <div className="text-center flex flex-col justify-center" style={finaleHeaderStyle}>
                 <div className="text-sm font-semibold tracking-widest opacity-80">
                   FIN DU MINI-TOURNOI
@@ -762,6 +783,23 @@ export default function TournamentFinaleScreen({
                   })}
                 </div>
               </div>
+              {isMobileLayout ? (
+                <MobilePresenterActionBar
+                  darkMode={darkMode}
+                  height={finaleActionBarHeight}
+                  hostRef={finalePresenterHostRef}
+                  onOpenChat={requestOpenChat}
+                  onOpenPlayers={openPlayersOverlayAlpha}
+                  roundId={tournamentPresenterScopeId}
+                />
+              ) : (
+                <DesktopPresenterActionBar
+                  buttonSize="72px"
+                  darkMode={darkMode}
+                  hostRef={finalePresenterHostRef}
+                  roundId={tournamentPresenterScopeId}
+                />
+              )}
               </div>
             {!isMobileLayout ? (
               <div className="w-[340px] xl:w-[360px] shrink-0 min-h-0 h-full">
@@ -850,6 +888,35 @@ export default function TournamentFinaleScreen({
                       aria-label="Taille de la police du chat"
                     />
                   </label>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={showBotMessages ? "true" : "false"}
+                    className={`inline-flex items-center gap-2 rounded-full border px-2 py-1 text-[11px] font-bold ${
+                      darkMode
+                        ? "border-white/10 bg-slate-800/70 text-slate-100"
+                        : "border-slate-200 bg-slate-100 text-slate-700"
+                    }`}
+                    onClick={toggleBotMessages}
+                  >
+                    Bots
+                    <span
+                      className={`relative h-5 w-9 rounded-full ${
+                        showBotMessages
+                          ? "bg-emerald-500"
+                          : darkMode
+                          ? "bg-slate-700"
+                          : "bg-slate-300"
+                      }`}
+                      aria-hidden="true"
+                    >
+                      <span
+                        className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all ${
+                          showBotMessages ? "left-[18px]" : "left-0.5"
+                        }`}
+                      />
+                    </span>
+                  </button>
                 </div>
                 {renderBlockedListPanel()}
                 <div
@@ -876,7 +943,9 @@ export default function TournamentFinaleScreen({
                     const isAmbientBot =
                       !isSystem &&
                       (msg?.meta?.kind === "ambient_bot_chat" ||
-                        authorInstallId.startsWith("ambient-bot:"));
+                        msg?.meta?.kind === "presenter_chat_copy" ||
+                        authorInstallId.startsWith("ambient-bot:") ||
+                        authorInstallId.startsWith("presenter-copy:"));
                     const isYou =
                       !isAmbientBot &&
                       (authorInstallId ? authorInstallId === installId : author === selfNick);
@@ -974,6 +1043,12 @@ export default function TournamentFinaleScreen({
                               </div>
                             ) : null}
 	                            <div className="flex items-baseline gap-1.5 flex-wrap">
+	                              {isAmbientBot ? (
+	                                <PresenterChatAvatar
+	                                  message={msg}
+	                                  className="-my-1 mr-0.5 h-7 w-7 self-center"
+	                                />
+	                              ) : null}
 	                              {canOpenMenu ? (
 	                                <button
 	                                  type="button"

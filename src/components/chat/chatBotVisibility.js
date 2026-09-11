@@ -1,13 +1,13 @@
-export const CHAT_SHOW_BOT_MESSAGES_STORAGE_KEY = "gobble_chat_show_bot_messages";
+export const CHAT_SHOW_BOT_MESSAGES_STORAGE_KEY = "gobble_chat_show_bot_messages_v2";
 export const CHAT_BOT_VISIBILITY_STORAGE_KEY = "gobble_chat_bot_visibility_v1";
 export const CHAT_BOT_VISIBILITY_OPTIONS = Object.freeze([
-  { key: "linguist", nick: "GrosRobert" },
-  { key: "statistician", nick: "Statatouille" },
+  { key: "linguist", nick: "Bernard Pinot" },
+  { key: "statistician", nick: "Laurent Rhum&Co" },
   { key: "detective", nick: "Inspecteur Grille" },
   { key: "commentator", nick: "RadioBoggle" },
-  { key: "culture", nick: "WikiMama" },
+  { key: "culture", nick: "Julien Lechéper" },
   { key: "narrator", nick: "Oraclettres" },
-  { key: "coach", nick: "CaSuffix" },
+  { key: "coach", nick: "Maître Gobbello" },
   { key: "record_hunter", nick: "Recordator" },
   { key: "hidden_word", nick: "MomoMotus" },
   { key: "trend", nick: "Webomètre" },
@@ -23,7 +23,12 @@ export function isChatBotMessage(message) {
   const installId = typeof message.installId === "string" ? message.installId : "";
   if (installId.startsWith("ambient-bot:") || installId.startsWith("dev-bot:")) return true;
   const kind = typeof message.meta?.kind === "string" ? message.meta.kind : "";
-  return kind === "ambient_bot_chat" || kind === "dev_bot_chat" || kind === "dev_chat_fill";
+  return (
+    kind === "ambient_bot_chat" ||
+    kind === "presenter_chat_copy" ||
+    kind === "dev_bot_chat" ||
+    kind === "dev_chat_fill"
+  );
 }
 
 export function normalizeChatBotVisibility(source) {

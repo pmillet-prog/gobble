@@ -128,11 +128,11 @@ export const BOT_ROSTER_5X5 = [
 export const BOT_ROSTER = BOT_ROSTER_4X4;
 
 export const BOT_ANIMATOR_ROSTER = [
-  { nick: "GrosRobert", skill: 0.58, maxWordsPerRound: 44, minWordsPerRound: 8, pointBias: 0.84, rarityBias: 1, pace: 0.68, alwaysPresent: true, animator: true },
-  { nick: "Statatouille", skill: 0.64, maxWordsPerRound: 110, minWordsPerRound: 44, pointBias: 0.36, rarityBias: 0.05, pace: 1.25, alwaysPresent: true, animator: true },
+  { nick: "Bernard Pinot", skill: 0.58, maxWordsPerRound: 44, minWordsPerRound: 8, pointBias: 0.84, rarityBias: 1, pace: 0.68, alwaysPresent: true, animator: true },
+  { nick: "Laurent Rhum&Co", skill: 0.64, maxWordsPerRound: 110, minWordsPerRound: 44, pointBias: 0.36, rarityBias: 0.05, pace: 1.25, alwaysPresent: true, animator: true },
   { nick: "Inspecteur Grille", skill: 0.56, maxWordsPerRound: 66, minWordsPerRound: 22, pointBias: 0.64, rarityBias: 0.28, pace: 0.95, alwaysPresent: true, animator: true },
-  { nick: "WikiMama", skill: 0.52, maxWordsPerRound: 58, minWordsPerRound: 18, pointBias: 0.54, rarityBias: 0.22, pace: 0.88, alwaysPresent: true, animator: true },
-  { nick: "CaSuffix", skill: 0.58, maxWordsPerRound: 76, minWordsPerRound: 26, pointBias: 0.46, rarityBias: 0.12, pace: 1.08, alwaysPresent: true, animator: true },
+  { nick: "Julien Lechéper", skill: 0.52, maxWordsPerRound: 58, minWordsPerRound: 18, pointBias: 0.54, rarityBias: 0.22, pace: 0.88, alwaysPresent: true, animator: true },
+  { nick: "Maître Gobbello", skill: 0.58, maxWordsPerRound: 76, minWordsPerRound: 26, pointBias: 0.46, rarityBias: 0.12, pace: 1.08, alwaysPresent: true, animator: true },
   { nick: "MomoMotus", skill: 0.5, maxWordsPerRound: 50, minWordsPerRound: 14, pointBias: 0.66, rarityBias: 0.42, pace: 0.82, alwaysPresent: true, animator: true },
 ];
 

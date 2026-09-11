@@ -538,9 +538,6 @@ export default function useDesktopResultsPresentation(runtime) {
   const targetDefinitionList = targetDefinition.complete
     ? pickDefinitionList(targetDefinition)
     : [];
-  const targetDefinitionEtymology = targetDefinition.complete
-    ? sanitizeDefinitionText(targetDefinition.etymology)
-    : "";
   const renderTargetDefinitionBody = ({ compact = false } = {}) => {
     if (targetDefinition.loading && !targetDefinition.definition) {
       return <span>Définition en cours...</span>;
@@ -550,9 +547,8 @@ export default function useDesktopResultsPresentation(runtime) {
         <DefinitionDetails
           definition={targetDefinition.definition}
           definitions={targetDefinitionList}
-          etymology={targetDefinitionEtymology}
           darkMode={darkMode}
-          showEtymology={targetDefinition.complete}
+          showEtymology={false}
           compact={compact}
         />
       );

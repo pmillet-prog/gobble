@@ -39,10 +39,10 @@ export const AUDIO_COOLDOWNS_MS = {
 };
 export const VOCAB_SAMPLE_BASE_FREQ = 440;
 
-const MEDIA_CACHE_PURGE_VERSION = "2026-07-14-bonus-sfx-1";
+const MEDIA_CACHE_PURGE_VERSION = "2026-09-05-presenter-sfx-1";
 export const MEDIA_CACHE_PURGE_STORAGE_KEY = `gobbleMediaCachePurged:${MEDIA_CACHE_PURGE_VERSION}`;
 export const SW_MEDIA_CACHE_PREFIX = "gobble-cache-media-";
-export const SOUND_ASSET_VERSION = "2026-07-14-bonus-sfx-1";
+export const SOUND_ASSET_VERSION = "2026-09-05-presenter-sfx-1";
 export const SOUND_ROOT = "/sound";
 const AMBIENT_MUSIC_MANIFEST = `${SOUND_ROOT}/music/index.json`;
 const AMBIENT_MUSIC_TRACKS_BASE = [
@@ -148,6 +148,18 @@ const SOUND_PATHS = {
   uiClose: withSoundAssetVersion(`${SOUND_ROOT}/ui/bipmontre.wav`),
   tournamentFireworks: withSoundAssetVersion(`${SOUND_ROOT}/game/artifice.mp3`),
   tournamentApplause: withSoundAssetVersion(`${SOUND_ROOT}/game/applause.wav`),
+  qpugIntro: withSoundAssetVersion(`${SOUND_ROOT}/game/QPUG.mp3`),
+  presenterAppearance: withSoundAssetVersion(`${SOUND_ROOT}/presenters/appearance.wav`),
+  lepersBuzzer: withSoundAssetVersion(`${SOUND_ROOT}/presenters/Lepers/buzzer.mp3`),
+  lepersBonusCaCestBo: withSoundAssetVersion(`${SOUND_ROOT}/presenters/Lepers/cacestbo.mp3`),
+  lepersBonusBienSur: withSoundAssetVersion(`${SOUND_ROOT}/presenters/Lepers/biensur.mp3`),
+  lepersBonusAhOui: withSoundAssetVersion(`${SOUND_ROOT}/presenters/Lepers/ahoui.mp3`),
+  lepersBonusOuiOui: withSoundAssetVersion(`${SOUND_ROOT}/presenters/Lepers/ouiouiouiouioui.mp3`),
+  presenterPunch1: withSoundAssetVersion(`${SOUND_ROOT}/presenters/punch1.mp3`),
+  presenterPunch2: withSoundAssetVersion(`${SOUND_ROOT}/presenters/punch2.mp3`),
+  presenterPunch3: withSoundAssetVersion(`${SOUND_ROOT}/presenters/punch3.mp3`),
+  presenterPunch4: withSoundAssetVersion(`${SOUND_ROOT}/presenters/punch4.mp3`),
+  presenterPunch5: withSoundAssetVersion(`${SOUND_ROOT}/presenters/punch5.mp3`),
 };
 export const SCORE_SFX_KEYS = SCORE_SOUND_PATHS.map((src) => {
   const label = src.split("/").pop()?.split(".")[0] || "00";
@@ -180,6 +192,18 @@ const BOOT_ASSET_SOUNDS_BASE = [
   { key: SFX_KEYS.uiClose, url: SOUND_PATHS.uiClose, priority: "high", meta: { eqKey: "bipmontre" } },
   { key: SFX_KEYS.tournamentFireworks, url: SOUND_PATHS.tournamentFireworks, priority: "high", meta: { eqKey: "tournamentFireworks" } },
   { key: SFX_KEYS.tournamentApplause, url: SOUND_PATHS.tournamentApplause, priority: "high", meta: { eqKey: "tournamentApplause" } },
+  { key: SFX_KEYS.qpugIntro, url: SOUND_PATHS.qpugIntro, priority: "high", meta: { eqKey: "presenter" } },
+  { key: SFX_KEYS.presenterAppearance, url: SOUND_PATHS.presenterAppearance, priority: "high", meta: { eqKey: "presenter" } },
+  { key: SFX_KEYS.lepersBuzzer, url: SOUND_PATHS.lepersBuzzer, priority: "high", meta: { eqKey: "presenter" } },
+  { key: SFX_KEYS.lepersBonusCaCestBo, url: SOUND_PATHS.lepersBonusCaCestBo, priority: "high", meta: { eqKey: "bonusVoice" } },
+  { key: SFX_KEYS.lepersBonusBienSur, url: SOUND_PATHS.lepersBonusBienSur, priority: "high", meta: { eqKey: "bonusVoice" } },
+  { key: SFX_KEYS.lepersBonusAhOui, url: SOUND_PATHS.lepersBonusAhOui, priority: "high", meta: { eqKey: "bonusVoice" } },
+  { key: SFX_KEYS.lepersBonusOuiOui, url: SOUND_PATHS.lepersBonusOuiOui, priority: "high", meta: { eqKey: "bonusVoice" } },
+  { key: SFX_KEYS.presenterPunch1, url: SOUND_PATHS.presenterPunch1, priority: "high", meta: { eqKey: "presenterPunch" } },
+  { key: SFX_KEYS.presenterPunch2, url: SOUND_PATHS.presenterPunch2, priority: "high", meta: { eqKey: "presenterPunch" } },
+  { key: SFX_KEYS.presenterPunch3, url: SOUND_PATHS.presenterPunch3, priority: "high", meta: { eqKey: "presenterPunch" } },
+  { key: SFX_KEYS.presenterPunch4, url: SOUND_PATHS.presenterPunch4, priority: "high", meta: { eqKey: "presenterPunch" } },
+  { key: SFX_KEYS.presenterPunch5, url: SOUND_PATHS.presenterPunch5, priority: "high", meta: { eqKey: "presenterPunch" } },
   { key: SCORE_LOW_KEY, url: SCORE_LOW_PATH, priority: "critical", meta: { eqKey: "score" } },
   { key: SCORE2_LOW_KEY, url: SCORE2_LOW_PATH, priority: "critical", meta: { eqKey: "score2" } },
   { key: SFX_KEYS.errorAlt, url: "/error.mp3", priority: "low", meta: { eqKey: "error" } },
@@ -202,6 +226,18 @@ const ESSENTIAL_SFX_KEYS = new Set([
   SFX_KEYS.shortWord,
   SFX_KEYS.uiClick,
   SFX_KEYS.uiClose,
+  SFX_KEYS.qpugIntro,
+  SFX_KEYS.presenterAppearance,
+  SFX_KEYS.lepersBuzzer,
+  SFX_KEYS.lepersBonusCaCestBo,
+  SFX_KEYS.lepersBonusBienSur,
+  SFX_KEYS.lepersBonusAhOui,
+  SFX_KEYS.lepersBonusOuiOui,
+  SFX_KEYS.presenterPunch1,
+  SFX_KEYS.presenterPunch2,
+  SFX_KEYS.presenterPunch3,
+  SFX_KEYS.presenterPunch4,
+  SFX_KEYS.presenterPunch5,
   INCREMENTAL_BASE_SFX_KEY,
   SCORE_LOW_KEY,
   SCORE2_LOW_KEY,

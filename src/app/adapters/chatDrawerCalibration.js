@@ -12,10 +12,12 @@ const clampRatio = (ratio) =>
     Math.min(CHAT_DRAWER_CALIBRATION_MAX_RATIO, ratio)
   );
 
-export function getChatDrawerOrientationKey() {
-  if (typeof window === "undefined") return "portrait";
-  const width = Number(window.innerWidth) || 0;
-  const height = Number(window.innerHeight) || 0;
+export function getChatDrawerOrientationKey(
+  measuredWidth = globalThis.window?.innerWidth,
+  measuredHeight = globalThis.window?.innerHeight
+) {
+  const width = Number(measuredWidth) || 0;
+  const height = Number(measuredHeight) || 0;
   return width > height ? "landscape" : "portrait";
 }
 

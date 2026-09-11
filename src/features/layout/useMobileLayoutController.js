@@ -1,10 +1,6 @@
 import React from "react";
 
 import { clampValue } from "../../utils/numbers.js";
-import {
-  createMobileViewportPanGuard,
-  isViewportKeyboardTarget,
-} from "./createMobileViewportPanGuard.js";
 import { VIEWPORT_EVENTS } from "./createViewportEventHub.js";
 
 export function areMobileLayoutSizingsEqual(left, right) {
@@ -17,14 +13,36 @@ export function areMobileLayoutSizingsEqual(left, right) {
     left.wordPreviewHeight === right.wordPreviewHeight &&
     left.liveFeedHeight === right.liveFeedHeight &&
     left.liveFeedMinHeight === right.liveFeedMinHeight &&
+    left.liveActionBarHeight === right.liveActionBarHeight &&
+    left.adaptiveRanking === right.adaptiveRanking &&
     left.bodyHeight === right.bodyHeight
   );
+}
+
+export function resolveMobileGameViewportLock(previous, measured) {
+  const measuredWidth = Math.max(0, Math.round(Number(measured?.width) || 0));
+  const measuredHeight = Math.max(0, Math.round(Number(measured?.height) || 0));
+  const previousWidth = Math.max(0, Math.round(Number(previous?.width) || 0));
+  const previousHeight = Math.max(0, Math.round(Number(previous?.height) || 0));
+  if (!(measuredWidth > 0) || !(measuredHeight > 0)) {
+    return { width: previousWidth, height: previousHeight };
+  }
+  if (
+    !(previousWidth > 0) ||
+    !(previousHeight > 0) ||
+    measuredWidth !== previousWidth
+  ) {
+    return { width: measuredWidth, height: measuredHeight };
+  }
+  return { width: previousWidth, height: previousHeight };
 }
 
 export function computeMobileGameLayoutSizing({
   baseFontSize,
   bodyHeight,
   maxGridWidth,
+  adaptiveRanking = false,
+  showLiveActionBar = false,
   viewportHeight,
   viewportWidth,
 }) {
@@ -34,10 +52,13 @@ export function computeMobileGameLayoutSizing({
   const safeMaxGridWidth = Math.max(1, Number(maxGridWidth) || 720);
   const safeBaseFontSize = Math.max(1, Number(baseFontSize) || 16);
   const verticalPadding = 4 + 8;
-  const layoutGaps = 8 + 4;
+  let liveActionBarHeight = showLiveActionBar
+    ? clampValue(Math.round(safeViewportWidth * 0.18), 66, 78)
+    : 0;
+  const layoutGaps = 8 + 4 + (liveActionBarHeight > 0 ? 4 : 0);
   const availableHeight = Math.max(
     0,
-    safeBodyHeight - verticalPadding - layoutGaps,
+    safeBodyHeight - verticalPadding - layoutGaps - liveActionBarHeight,
   );
   const blocksBudget = availableHeight > 0 ? availableHeight : safeBodyHeight;
   const availableWidth = Math.max(
@@ -54,77 +75,107 @@ export function computeMobileGameLayoutSizing({
     liveFeedGapPx +
     liveFeedRowPx * 3 +
     liveFeedGapPx * 2;
-  const minRanking = 120;
-  const maxRanking = 150;
-  const minPreview = 36;
+  if (adaptiveRanking) {
+    // Compact the surrounding UI first, then shrink the board only if needed.
+    const minRanking = 90; // Keep all five ranking rows readable.
+    const minPreview = 30;
+    const minFeed = 40;
+    const availableBelowGrid = Math.max(
+      0, safeBodyHeight - verticalPadding - layoutGaps - availableWidth,
+    );
+    if (liveActionBarHeight > 0) {
+      liveActionBarHeight = clampValue(
+        availableBelowGrid - minRanking - minPreview - minFeed,
+        52, // 44px touch targets + 8px of vertical breathing room.
+        liveActionBarHeight,
+      );
+    }
+    const contentHeight = Math.max(
+      0, safeBodyHeight - verticalPadding - layoutGaps - liveActionBarHeight,
+    );
+    const gridSide = Math.min(
+      availableWidth,
+      Math.max(0, contentHeight - minRanking - minPreview - minFeed),
+    );
+    const remaining = Math.max(0, contentHeight - gridSide);
+    const previewTarget = clampValue(Math.round(safeBodyHeight * 0.08), 30, 51);
+    const wordPreviewHeight = clampValue(
+      remaining - minRanking - liveFeedMinHeight, minPreview, previewTarget,
+    );
+    const rankingHeight = clampValue(
+      remaining - wordPreviewHeight - liveFeedMinHeight, minRanking, 128,
+    );
+    const liveFeedHeight = Math.max(minFeed, remaining - rankingHeight - wordPreviewHeight);
+    return {
+      adaptiveRanking: true,
+      viewportWidth: safeViewportWidth,
+      viewportHeight: safeViewportHeight,
+      gridSide,
+      rankingHeight,
+      wordPreviewHeight,
+      liveFeedHeight,
+      liveFeedMinHeight: minFeed,
+      liveActionBarHeight,
+      bodyHeight: safeBodyHeight,
+    };
+  }
+  const minRanking = 118;
+  const maxRanking = 128;
+  const minPreview = 30;
   let rankingTarget = clampValue(
-    Math.round(Math.max(safeBaseFontSize * 7, safeBodyHeight * 0.26)),
+    Math.round(Math.max(safeBaseFontSize * 7.5, safeBodyHeight * 0.21)),
     minRanking,
     maxRanking,
   );
   let previewTarget = clampValue(
     Math.round(Math.max(safeBaseFontSize * 2.6, safeBodyHeight * 0.08)),
     minPreview,
-    68,
+    34 + liveFeedRowPx,
   );
-  let requiredBelowGrid = rankingTarget + previewTarget + liveFeedMinHeight;
-  let maxGridFromHeight = Math.max(100, blocksBudget - requiredBelowGrid);
-
-  if (maxGridFromHeight < availableWidth) {
-    let needed = Math.max(0, availableWidth - maxGridFromHeight);
-    if (needed > 0) {
-      const previewShrink = Math.min(needed, previewTarget - minPreview);
-      previewTarget -= previewShrink;
-      needed -= previewShrink;
-    }
-    if (needed > 0) {
-      const rankingShrink = Math.min(needed, rankingTarget - minRanking);
-      rankingTarget -= rankingShrink;
-    }
-    requiredBelowGrid = rankingTarget + previewTarget;
-    maxGridFromHeight = Math.max(100, blocksBudget - requiredBelowGrid);
-  }
-
+  const minimumBlocksBelowGrid = minRanking + minPreview;
+  const maxGridFromHeight = Math.max(
+    100,
+    blocksBudget - minimumBlocksBelowGrid,
+  );
   const gridSide = Math.max(100, Math.min(availableWidth, maxGridFromHeight));
   const remaining = Math.max(0, blocksBudget - gridSide);
-  if (remaining <= 0) {
-    return {
-      viewportWidth: safeViewportWidth,
-      viewportHeight: safeViewportHeight,
-      gridSide,
-      rankingHeight: rankingTarget,
-      wordPreviewHeight: previewTarget,
-      liveFeedHeight: 0,
-      liveFeedMinHeight,
-      bodyHeight: safeBodyHeight,
-    };
-  }
-
-  const reservedLiveFeed = Math.min(remaining, liveFeedMinHeight);
-  const remainingAfterFeed = Math.max(0, remaining - reservedLiveFeed);
   let rankingHeight = 0;
   let wordPreviewHeight = 0;
-  if (remainingAfterFeed > 0) {
+  const totalTarget = rankingTarget + previewTarget;
+  if (remaining >= totalTarget) {
+    rankingHeight = rankingTarget;
+    wordPreviewHeight = previewTarget;
+  } else if (remaining >= minimumBlocksBelowGrid) {
+    const extraSpace = remaining - minimumBlocksBelowGrid;
+    const rankingExtraTarget = rankingTarget - minRanking;
+    const previewExtraTarget = previewTarget - minPreview;
+    const totalExtraTarget = rankingExtraTarget + previewExtraTarget;
+    const previewExtra = Math.min(
+      previewExtraTarget,
+      Math.round(
+        extraSpace * (previewExtraTarget / Math.max(1, totalExtraTarget)),
+      ),
+    );
+    wordPreviewHeight = minPreview + previewExtra;
+    rankingHeight = Math.min(
+      rankingTarget,
+      minRanking + Math.max(0, extraSpace - previewExtra),
+    );
+  } else if (remaining > 0) {
     const previewBias = 1.25;
-    const totalTarget = rankingTarget + previewTarget;
-    if (remainingAfterFeed >= totalTarget) {
-      rankingHeight = rankingTarget;
-      wordPreviewHeight = previewTarget;
-    } else {
-      const weightedTotal = rankingTarget + previewTarget * previewBias;
-      const previewShare =
-        (previewTarget * previewBias) / Math.max(1, weightedTotal);
-      const previewRaw = remainingAfterFeed * previewShare;
-      wordPreviewHeight = Math.max(
-        0,
-        Math.min(previewTarget, Math.floor(previewRaw)),
-      );
-      rankingHeight = Math.max(0, remainingAfterFeed - wordPreviewHeight);
-    }
+    const weightedTotal = rankingTarget + previewTarget * previewBias;
+    const previewShare =
+      (previewTarget * previewBias) / Math.max(1, weightedTotal);
+    const previewRaw = remaining * previewShare;
+    wordPreviewHeight = Math.max(
+      0,
+      Math.min(previewTarget, Math.floor(previewRaw)),
+    );
+    rankingHeight = Math.max(0, remaining - wordPreviewHeight);
   }
-  const leftover = Math.max(
+  const liveFeedHeight = Math.max(
     0,
-    remaining - reservedLiveFeed - rankingHeight - wordPreviewHeight,
+    remaining - rankingHeight - wordPreviewHeight,
   );
 
   return {
@@ -133,8 +184,9 @@ export function computeMobileGameLayoutSizing({
     gridSide: gridSide || 0,
     rankingHeight: rankingHeight || 0,
     wordPreviewHeight: wordPreviewHeight || 0,
-    liveFeedHeight: reservedLiveFeed + leftover,
+    liveFeedHeight,
     liveFeedMinHeight,
+    liveActionBarHeight,
     bodyHeight: safeBodyHeight,
   };
 }
@@ -159,24 +211,25 @@ function removeProbe(probeRef) {
   probeRef.current = null;
 }
 
+function minPositive(values) {
+  const valid = values.filter(
+    (value) => Number.isFinite(value) && value > 0,
+  );
+  return valid.length ? Math.min(...valid) : 0;
+}
+
 export default function useMobileLayoutController({
-  chat,
   game,
   layout,
 }) {
-  const {
-    gameViewportFreezeHeightRef,
-    isChatClosing,
-    isChatClosingRef,
-    isChatOpenMobile,
-    isChatOpenMobileRef,
-  } = chat;
   const { gridSize, phase, showHelp } = game;
   const {
     isFullscreen,
     isMobileLayout,
     layoutFeature,
     maxGridWidth,
+    adaptiveRanking = false,
+    showLiveActionBar = false,
     setMobileHeaderOffsetPx,
     setMobileLayoutSizing,
   } = layout;
@@ -185,17 +238,7 @@ export default function useMobileLayoutController({
   const mobileGameViewportLockRef = React.useRef({ width: 0, height: 0 });
   const safeAreaProbeRef = React.useRef(null);
   const safeAreaTopProbeRef = React.useRef(null);
-  const chatScrollLockRef = React.useRef(0);
-  const viewportPanGuardRef = React.useRef(null);
-
-  React.useEffect(
-    () =>
-      layoutFeature.subscribeViewport(() => {
-        if (isChatOpenMobileRef.current) return;
-        layoutFeature.refreshViewportMode();
-      }, [VIEWPORT_EVENTS.VISUAL_RESIZE]),
-    [isChatOpenMobileRef, layoutFeature],
-  );
+  const documentScrollLockRef = React.useRef(0);
 
   React.useEffect(() => {
     if (!isMobileLayout || typeof screen === "undefined") return;
@@ -214,7 +257,6 @@ export default function useMobileLayoutController({
     }
 
     const updateViewportLock = () => {
-      if (isChatOpenMobileRef.current || isChatClosingRef.current) return;
       const widthCandidates = [
         window.innerWidth,
         document.documentElement?.clientWidth,
@@ -231,40 +273,18 @@ export default function useMobileLayoutController({
         : 0;
       if (!(measuredWidth > 0) || !(measuredHeight > 0)) return;
 
-      const previous = mobileGameViewportLockRef.current || {
-        width: 0,
-        height: 0,
-      };
-      const previousWidth = Number(previous.width) || 0;
-      const previousHeight = Number(previous.height) || 0;
-      const widthDelta = Math.abs(measuredWidth - previousWidth);
-      if (!(previousWidth > 0) || !(previousHeight > 0) || widthDelta > 64) {
-        mobileGameViewportLockRef.current = {
-          width: Math.round(measuredWidth),
-          height: Math.round(measuredHeight),
-        };
-        return;
-      }
-
-      const nextHeight = Math.min(previousHeight, Math.round(measuredHeight));
-      if (nextHeight !== previousHeight) {
-        mobileGameViewportLockRef.current = {
-          width: previousWidth,
-          height: nextHeight,
-        };
-      }
+      mobileGameViewportLockRef.current = resolveMobileGameViewportLock(
+        mobileGameViewportLockRef.current,
+        { width: measuredWidth, height: measuredHeight },
+      );
     };
 
     updateViewportLock();
     return layoutFeature.subscribeViewport(updateViewportLock, [
       VIEWPORT_EVENTS.WINDOW_RESIZE,
       VIEWPORT_EVENTS.ORIENTATION_CHANGE,
-      VIEWPORT_EVENTS.VISUAL_RESIZE,
     ]);
   }, [
-    isChatClosing,
-    isChatClosingRef,
-    isChatOpenMobile,
     isMobileLayout,
     layoutFeature,
     phase,
@@ -318,26 +338,21 @@ export default function useMobileLayoutController({
     };
     const computeMobileLayoutNow = () => {
       if (document.visibilityState === "hidden") return;
-      if (isChatOpenMobileRef.current) return;
       const lockedHeight =
         Number(mobileGameViewportLockRef.current?.height) || 0;
       const lockedWidth = Number(mobileGameViewportLockRef.current?.width) || 0;
-      const viewportHeightCandidates = [
-        lockedHeight,
-        window.innerHeight,
-        document.documentElement?.clientHeight,
-      ].filter((value) => Number.isFinite(value) && value > 0);
-      const viewportWidthCandidates = [
-        lockedWidth,
-        window.innerWidth,
-        document.documentElement?.clientWidth,
-      ].filter((value) => Number.isFinite(value) && value > 0);
-      const viewportHeight = viewportHeightCandidates.length
-        ? Math.min(...viewportHeightCandidates)
-        : 0;
-      const viewportWidth = viewportWidthCandidates.length
-        ? Math.min(...viewportWidthCandidates)
-        : 0;
+      const viewportHeight = lockedHeight || minPositive(
+        [
+          window.innerHeight,
+          document.documentElement?.clientHeight,
+        ],
+      );
+      const viewportWidth = lockedWidth || minPositive(
+        [
+          window.innerWidth,
+          document.documentElement?.clientWidth,
+        ],
+      );
       if (viewportHeight < 120 || viewportWidth < 120) return;
 
       if (!safeAreaProbeRef.current) {
@@ -396,6 +411,8 @@ export default function useMobileLayoutController({
           baseFontSize,
           bodyHeight,
           maxGridWidth,
+          adaptiveRanking,
+          showLiveActionBar,
           viewportHeight,
           viewportWidth,
         }),
@@ -409,13 +426,15 @@ export default function useMobileLayoutController({
     };
 
     scheduleComputeMobileLayout();
+    const headerObserver = typeof ResizeObserver === "undefined"
+      ? null : new ResizeObserver(scheduleComputeMobileLayout);
+    if (mobileHeaderRef.current) headerObserver?.observe(mobileHeaderRef.current);
     const unsubscribeViewport = layoutFeature.subscribeViewport(
       scheduleComputeMobileLayout,
       [
         VIEWPORT_EVENTS.WINDOW_RESIZE,
         VIEWPORT_EVENTS.ORIENTATION_CHANGE,
         VIEWPORT_EVENTS.PAGE_SHOW,
-        VIEWPORT_EVENTS.VISUAL_RESIZE,
       ],
     );
     document.addEventListener("visibilitychange", scheduleComputeMobileLayout);
@@ -423,6 +442,7 @@ export default function useMobileLayoutController({
       if (frameId) window.cancelAnimationFrame(frameId);
       if (timeoutId) window.clearTimeout(timeoutId);
       unsubscribeViewport();
+      headerObserver?.disconnect();
       document.removeEventListener(
         "visibilitychange",
         scheduleComputeMobileLayout,
@@ -437,45 +457,12 @@ export default function useMobileLayoutController({
     isMobileLayout,
     layoutFeature,
     maxGridWidth,
+    adaptiveRanking,
     phase,
     setMobileHeaderOffsetPx,
     setMobileLayoutSizing,
+    showLiveActionBar,
     showHelp,
-  ]);
-
-  React.useEffect(() => {
-    if (
-      !isMobileLayout ||
-      typeof window === "undefined" ||
-      typeof ResizeObserver === "undefined"
-    ) {
-      return;
-    }
-    const headerElement = mobileHeaderRef.current;
-    if (!headerElement) return;
-    const updateHeight = () => {
-      const nextOffset = getHeaderOffsetPx();
-      if (!nextOffset) return;
-      setMobileHeaderOffsetPx((previous) =>
-        previous === nextOffset ? previous : nextOffset,
-      );
-    };
-    updateHeight();
-    const observer = new ResizeObserver(updateHeight);
-    observer.observe(headerElement);
-    const unsubscribeViewport = layoutFeature.subscribeViewport(updateHeight, [
-      VIEWPORT_EVENTS.VISUAL_RESIZE,
-    ]);
-    return () => {
-      observer.disconnect();
-      unsubscribeViewport();
-    };
-  }, [
-    getHeaderOffsetPx,
-    isFullscreen,
-    isMobileLayout,
-    layoutFeature,
-    setMobileHeaderOffsetPx,
   ]);
 
   React.useLayoutEffect(() => {
@@ -494,43 +481,6 @@ export default function useMobileLayoutController({
     setMobileHeaderOffsetPx,
   ]);
 
-  const shouldGuardViewportPan =
-    isMobileLayout && (phase === "playing" || phase === "results");
-
-  React.useEffect(() => {
-    if (!shouldGuardViewportPan) return undefined;
-    const guard = createMobileViewportPanGuard({
-      documentTarget: document,
-      isChatKeyboardExpected: () =>
-        isChatOpenMobileRef.current &&
-        isViewportKeyboardTarget(document.activeElement),
-      subscribeViewport: (listener) =>
-        layoutFeature.subscribeViewport(listener, [
-          VIEWPORT_EVENTS.VISUAL_RESIZE,
-          VIEWPORT_EVENTS.VISUAL_SCROLL,
-        ]),
-      windowTarget: window,
-    });
-    viewportPanGuardRef.current = guard;
-    return () => {
-      if (viewportPanGuardRef.current === guard) {
-        viewportPanGuardRef.current = null;
-      }
-      guard.dispose();
-    };
-  }, [isChatOpenMobileRef, layoutFeature, shouldGuardViewportPan]);
-
-  React.useEffect(() => {
-    if (!shouldGuardViewportPan || isChatOpenMobile || isChatClosing) return;
-    viewportPanGuardRef.current?.scheduleRecovery();
-    layoutFeature.refreshViewportMode();
-  }, [
-    isChatClosing,
-    isChatOpenMobile,
-    layoutFeature,
-    shouldGuardViewportPan,
-  ]);
-
   React.useEffect(() => {
     if (typeof window === "undefined") return;
     if (!isMobileLayout || (phase !== "playing" && phase !== "results")) return;
@@ -540,9 +490,7 @@ export default function useMobileLayoutController({
   React.useEffect(() => {
     if (typeof window === "undefined" || typeof document === "undefined") return;
     const shouldLock =
-      (isMobileLayout && (phase === "playing" || phase === "results")) ||
-      isChatOpenMobile ||
-      isChatClosing;
+      isMobileLayout && (phase === "playing" || phase === "results");
     if (!shouldLock) return;
 
     const bodyStyle = document.body.style;
@@ -583,25 +531,18 @@ export default function useMobileLayoutController({
     bodyStyle.left = "0";
     bodyStyle.right = "0";
     bodyStyle.touchAction = "none";
-    if (!chatScrollLockRef.current) chatScrollLockRef.current = window.scrollY || 0;
-    bodyStyle.top = `-${chatScrollLockRef.current}px`;
+    if (!documentScrollLockRef.current) {
+      documentScrollLockRef.current = window.scrollY || 0;
+    }
+    bodyStyle.top = `-${documentScrollLockRef.current}px`;
     window.scrollTo(0, 0);
 
     const applyLockedHeight = () => {
-      const frozen =
-        (isChatOpenMobileRef.current || isChatClosing) &&
-        gameViewportFreezeHeightRef.current > 0
-          ? gameViewportFreezeHeightRef.current
-          : 0;
       const lockedGameHeight =
         Number(mobileGameViewportLockRef.current?.height) || 0;
-      const candidates = frozen
-        ? [frozen]
-        : [
-            lockedGameHeight,
-            window.innerHeight,
-            document.documentElement?.clientHeight,
-          ];
+      const candidates = lockedGameHeight
+        ? [lockedGameHeight]
+        : [window.innerHeight, document.documentElement?.clientHeight];
       const validCandidates = candidates.filter(
         (value) => Number.isFinite(value) && value > 0,
       );
@@ -615,26 +556,16 @@ export default function useMobileLayoutController({
       }
     };
     applyLockedHeight();
-    const unsubscribeViewport = layoutFeature.subscribeViewport(
-      applyLockedHeight,
-      [VIEWPORT_EVENTS.WINDOW_RESIZE, VIEWPORT_EVENTS.VISUAL_RESIZE],
-    );
     return () => {
-      unsubscribeViewport();
       Object.assign(bodyStyle, previous.body);
       Object.assign(rootStyle, previous.root);
-      if (chatScrollLockRef.current) {
-        window.scrollTo(0, chatScrollLockRef.current);
-        chatScrollLockRef.current = 0;
+      if (documentScrollLockRef.current) {
+        window.scrollTo(0, documentScrollLockRef.current);
+        documentScrollLockRef.current = 0;
       }
     };
   }, [
-    gameViewportFreezeHeightRef,
-    isChatClosing,
-    isChatOpenMobile,
-    isChatOpenMobileRef,
     isMobileLayout,
-    layoutFeature,
     phase,
   ]);
 

@@ -42,7 +42,7 @@ test("does not show grid preparation while returning to the lobby", () => {
   );
 });
 
-test("keeps an anticipated preparation notice behind the results", () => {
+test("never covers the results with a preparation overlay", () => {
   assert.equal(
     shouldShowRoundPreparationOverlay({
       phase: "results",
@@ -57,7 +57,7 @@ test("keeps an anticipated preparation notice behind the results", () => {
       preparationAnnounced: true,
       startDelayed: true,
     }),
-    true
+    false
   );
 });
 

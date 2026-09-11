@@ -20,7 +20,7 @@ test("a daily start response becomes stale after navigation or a newer request",
     false
   );
   dailyLifecycleRef.current.startGeneration = 3;
-  appViewRef.current = "stats";
+  appViewRef.current = "home";
   assert.equal(
     isCurrentDailyStartRequest({ appViewRef, dailyLifecycleRef, startGeneration: 3 }),
     false

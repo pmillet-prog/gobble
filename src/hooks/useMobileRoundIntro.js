@@ -1,5 +1,9 @@
 import React from "react";
 import { FINALE_TYPE } from "../../shared/finaleRules.js";
+import { LEPERS_ROUND_ANNOUNCEMENT_MS } from "../../shared/lepersRules.js";
+import AssetManager from "../assets/assetManager.js";
+import { SFX_KEYS } from "../assets/assetKeys.js";
+import { loadQuestions3DOverlay } from "../features/presenters/qpug/loadQuestions3DOverlay.js";
 
 export function resolveMobileRoundIntroLifecycle({
   introWindow,
@@ -86,6 +90,7 @@ export default function useMobileRoundIntro(
 ) {
 
   const previousPhaseRef = React.useRef(phase);
+  const qpugSoundHandleRef = React.useRef(null);
 
   const stopMobileRoundIntro = React.useCallback(
     ({ unlockInput = true, keepRoundStartSuppressed = false } = {}) => {
@@ -93,6 +98,8 @@ export default function useMobileRoundIntro(
       clearMobileRoundIntroTimers();
       clearTileIntroAnimationFnRef.current?.();
       stopIntroCountdownSound({ fadeMs: 80 });
+      qpugSoundHandleRef.current?.fadeOut?.(80);
+      qpugSoundHandleRef.current = null;
       introCountdownTickGuardRef.current = { at: 0, token: 0, value: null, roundId: null };
       setMobileRoundIntroStage("idle");
       setMobileRoundIntroCountdown(null);
@@ -159,14 +166,21 @@ export default function useMobileRoundIntro(
         : roundNow
         ? `MANCHE ${roundNow}`
         : "MANCHE";
-    const specialLabel = specialRound?.isSpecial
+    const hasLepersChallenge = introWindow.hasLepersChallenge === true;
+    const baseSpecialLabel = specialRound?.isSpecial
       ? specialRound?.type === FINALE_TYPE
         ? "FINALE : BONUS DE TUILES ×2"
         : `MANCHE SPECIALE : ${String(getSpecialRoundDisplayLabel(specialRound)).toUpperCase()}`
       : "manche classique";
-    const specialDescription = specialRound?.isSpecial
+    const baseSpecialDescription = specialRound?.isSpecial
       ? getSpecialRoundDescription(specialRound)
       : "";
+    const specialLabel = baseSpecialLabel;
+    const specialDescription = baseSpecialDescription;
+
+    if (hasLepersChallenge) {
+      void loadQuestions3DOverlay().catch(() => {});
+    }
 
     setMobileRoundIntroRoundLabel(roundLabel);
     setMobileRoundIntroRoundTypeLabel(specialLabel);
@@ -262,8 +276,27 @@ export default function useMobileRoundIntro(
               const tileIntroMs = triggerTileIntroAnimationFnRef.current?.() || 0;
               scheduleStep(() => {
                 if (isStale()) return;
-                setMobileRoundIntroStage("countdown");
-                runCountdownPhase();
+                const startCountdown = () => {
+                  if (isStale()) return;
+                  qpugSoundHandleRef.current = null;
+                  setMobileRoundIntroStage("countdown");
+                  runCountdownPhase();
+                };
+                if (!hasLepersChallenge) {
+                  startCountdown();
+                  return;
+                }
+                setMobileRoundIntroStage("lepers_jingle");
+                qpugSoundHandleRef.current = AssetManager.playSfx(
+                  SFX_KEYS.qpugIntro,
+                  {
+                    allowQueue: false,
+                    cooldownKey: SFX_KEYS.qpugIntro,
+                    cooldownMs: LEPERS_ROUND_ANNOUNCEMENT_MS,
+                    eqKey: "presenter",
+                  }
+                );
+                scheduleStep(startCountdown, LEPERS_ROUND_ANNOUNCEMENT_MS);
               }, Math.max(0, tileIntroMs + MOBILE_ROUND_INTRO_TILE_HOLD_MS));
             };
             startTileIntro();
@@ -317,6 +350,8 @@ export default function useMobileRoundIntro(
       clearMobileRoundIntroTimers();
       clearTileIntroAnimationFnRef.current?.();
       stopIntroCountdownSound({ fadeMs: 80 });
+      qpugSoundHandleRef.current?.fadeOut?.(80);
+      qpugSoundHandleRef.current = null;
       mobileRoundIntroSuppressRoundStartRef.current = false;
       if (roundIntroStartedForRoundRef.current === roundIdRef.current) {
         roundIntroStartedForRoundRef.current = null;

@@ -2,6 +2,8 @@ import React from "react";
 import AssetManager from "../assets/assetManager";
 import { IMAGE_KEYS } from "../assets/assetKeys";
 import TrainingPlayerBadge from "./training/TrainingPlayerBadge.jsx";
+import LepersBonusBadge from "./results/LepersBonusBadge.jsx";
+import { getCompactRankingLayout } from "./ranking/compactRankingLayout.js";
 
 function clampValue(value, min, max) {
   if (!Number.isFinite(value)) return min;
@@ -28,6 +30,7 @@ function areRankingListsEquivalent(left, right) {
     if ((a.team || "") !== (b.team || "")) return false;
     if ((a.gobbles || 0) !== (b.gobbles || 0)) return false;
     if ((a.roundGobbles || 0) !== (b.roundGobbles || 0)) return false;
+    if ((a.roundLepersBonus || 0) !== (b.roundLepersBonus || 0)) return false;
     if ((a.roundPoints || 0) !== (b.roundPoints || 0)) return false;
     if ((a.fakeTwinsCompletionBonus || 0) !== (b.fakeTwinsCompletionBonus || 0)) return false;
     if (!!a.inTraining !== !!b.inTraining) return false;
@@ -366,6 +369,8 @@ function RankingWidgetMobile({
   stackNickDecorations = false,
   showGobbleWordAwards = true,
   showScores = true,
+  compactRoller = false,
+  compactRollerHeight = 0,
   highlightedPlayers = [],
   getNickClassName = null,
   renderNickSuffix = null,
@@ -418,6 +423,14 @@ function RankingWidgetMobile({
   const BASE_ROW_PX = 26;
   const BASE_RING_SIZE = 40;
   const BASE_RING_FONT = 18;
+  const compactWheelActive = compactRoller && !expanded;
+  const compactWheelLayout = getCompactRankingLayout(compactWheelActive ? compactRollerHeight : 128);
+  const compactWheelScale = compactWheelLayout.fontScale;
+  const compactPx = (value) => Math.round(value * compactWheelScale * 10) / 10;
+  const compactWheelRowHeights = compactWheelLayout.rowHeights;
+  const compactWheelGapPx = compactWheelLayout.gap;
+  const compactWheelTopInsetPx = compactWheelLayout.inset;
+  const compactWheelBottomInsetPx = compactWheelLayout.inset;
   const wheelRowEm = expanded ? 1.4 : 1.6;
   const wheelHeight = `calc(${wheelRowEm}em * ${WHEEL_ROWS})`;
   const wheelHeightStyle = {
@@ -701,8 +714,8 @@ function RankingWidgetMobile({
     ? "border-slate-500/70"
     : "border-slate-300/70";
   const centerBarBgColor = darkMode
-    ? "bg-slate-800/25"
-    : "bg-slate-200/15";
+    ? "bg-slate-800/35"
+    : "bg-slate-200/25";
 
   const extendedBg = flatStyle
     ? "bg-transparent"
@@ -869,6 +882,10 @@ function RankingWidgetMobile({
           showRoundAward && typeof entry?.roundGobbles === "number"
             ? entry.roundGobbles
             : 0;
+        const roundLepersBonus =
+          showRoundAward && typeof entry?.roundLepersBonus === "number"
+            ? entry.roundLepersBonus
+            : 0;
         const gobblesBadge =
           !entry?.rightLabel && gobbles > 0
             ? renderGobbleCountBadge(gobbles, `flat-nick-gobble-${entry.nick}`, "ml-1")
@@ -884,6 +901,9 @@ function RankingWidgetMobile({
         );
         const scoreContent = (
           <>
+            {roundLepersBonus > 0 ? (
+              <LepersBonusBadge bonus={roundLepersBonus} className="mr-1" />
+            ) : null}
             {roundPoints != null && roundPoints > 0 ? (
               <span className="mr-1 text-blue-600 dark:text-blue-300 font-extrabold">
                 +{roundPoints}
@@ -1091,6 +1111,8 @@ function RankingWidgetMobile({
 
   const OFFSETS = expanded
     ? safeRanking.map((_, idx) => idx - (youIdx >= 0 ? youIdx : 0))
+    : compactWheelActive
+    ? compactWheelLayout.offsets
     : rowsCount === 3
     ? [-1, 0, 1]
     : [-2, -1, 0, 1, 2];
@@ -1102,6 +1124,30 @@ function RankingWidgetMobile({
         scoreClass: "text-[11px]",
         rankClass: "text-[11px]",
         opacity: 1,
+      };
+    }
+    if (compactWheelActive) {
+      if (offset === 0) {
+        return {
+          pseudoFontPx: compactPx(21),
+          scoreFontPx: compactPx(15),
+          rankFontPx: compactPx(17),
+          opacity: 1,
+        };
+      }
+      if (offset === -1 || offset === 1) {
+        return {
+          pseudoFontPx: compactPx(16),
+          scoreFontPx: Math.max(10, compactPx(12)),
+          rankFontPx: Math.max(10, compactPx(12)),
+          opacity: 0.82,
+        };
+      }
+      return {
+        pseudoFontPx: Math.max(10, compactPx(11)),
+        scoreFontPx: Math.max(10, compactPx(10)),
+        rankFontPx: Math.max(10, compactPx(10)),
+        opacity: 0.58,
       };
     }
     if (rowPx) {
@@ -1210,25 +1256,64 @@ function RankingWidgetMobile({
 
   const rollContainerClass = "relative overflow-hidden flex-none";
   const effectiveRowPx = rowPx && !expanded ? rowPx : null;
-  const rowsHeightPx = effectiveRowPx
+  const wheelGapPx = compactWheelActive ? compactWheelGapPx : gapPx;
+  const rowsHeightPx = compactWheelActive
+    ? compactWheelRowHeights.reduce((sum, height) => sum + height, 0) +
+      wheelGapPx * (compactWheelRowHeights.length - 1) +
+      compactWheelTopInsetPx +
+      compactWheelBottomInsetPx
+    : effectiveRowPx
     ? effectiveRowPx * rowsCount + gapPx * (rowsCount - 1)
     : null;
   const rollContainerStyle = rowsHeightPx
-    ? { height: `${rowsHeightPx}px`, minHeight: `${rowsHeightPx}px` }
+    ? {
+        height: `${rowsHeightPx}px`,
+        minHeight: `${rowsHeightPx}px`,
+      }
     : wheelHeightStyle;
-  const rowStyle = effectiveRowPx ? { height: `${effectiveRowPx}px` } : null;
-  const centerRingSize = effectiveRowPx
+  const getWheelRowStyle = (offset, index) => {
+    const height = compactWheelActive
+      ? compactWheelRowHeights[index]
+      : effectiveRowPx;
+    if (!height) return null;
+    const slotConfig = getSlotConfig(offset);
+    return {
+      height: `${height}px`,
+      lineHeight: `${height}px`,
+      transform:
+        slotConfig.scaleY && slotConfig.scaleY !== 1
+          ? `scaleY(${slotConfig.scaleY})`
+          : undefined,
+      transformOrigin: "center",
+    };
+  };
+  const centerRankLabel =
+    typeof displayRank === "number" && displayRank > 0
+      ? displayRank
+      : youRank != null
+      ? youRank
+      : "?";
+  const centerRankDigits = String(centerRankLabel).length;
+  const centerRingSize = compactWheelActive
+    ? compactWheelRowHeights[Math.floor(compactWheelRowHeights.length / 2)]
+    : effectiveRowPx
     ? clampValue(Math.round(BASE_RING_SIZE * (effectiveRowPx / BASE_ROW_PX)), 16, BASE_RING_SIZE)
     : BASE_RING_SIZE;
-  const centerRingFontPx = effectiveRowPx
+  const centerRingFontPx = compactWheelActive
+    ? compactPx(centerRankDigits >= 3 ? 11 : centerRankDigits === 2 ? 14 : 18)
+    : effectiveRowPx
     ? clampValue(
         Math.round(BASE_RING_FONT * (effectiveRowPx / BASE_ROW_PX)),
         10,
         Math.max(10, Math.floor(centerRingSize * 0.6))
       )
     : BASE_RING_FONT;
-  const centerBarHeight = effectiveRowPx ? `${effectiveRowPx}px` : "26px";
-  const centerBarLeft = `${Math.round(centerRingSize + 8)}px`;
+  const centerBarHeight = compactWheelActive
+    ? `${centerRingSize}px`
+    : effectiveRowPx
+    ? `${effectiveRowPx}px`
+    : "26px";
+  const centerBarLeft = `${Math.round(centerRingSize + (compactWheelActive ? 6 : 8))}px`;
 
   return (
     <div
@@ -1259,15 +1344,25 @@ function RankingWidgetMobile({
       {showWheel && !expanded && (
         <div className={rollContainerClass} style={rollContainerStyle}>
           <div
-            className="absolute inset-0 grid grid-cols-[auto,1fr] items-center gap-y-1 gap-x-3"
+            className={`absolute inset-0 grid grid-cols-[auto,1fr] items-center ${
+              compactWheelActive ? "gap-x-2" : "gap-x-3"
+            }`}
             style={{
-              gridTemplateRows: effectiveRowPx
+              gridTemplateRows: compactWheelActive
+                ? compactWheelRowHeights.map((height) => `${height}px`).join(" ")
+                : effectiveRowPx
                 ? `repeat(${rows.length}, ${effectiveRowPx}px)`
                 : `repeat(${rows.length}, minmax(0,1fr))`,
+              rowGap: `${wheelGapPx}px`,
+              left: compactWheelActive ? "2px" : undefined,
+              right: compactWheelActive ? "2px" : undefined,
+              top: compactWheelActive ? `${compactWheelTopInsetPx}px` : undefined,
+              bottom: compactWheelActive ? `${compactWheelBottomInsetPx}px` : undefined,
             }}
           >
             {rows.map((row, index) => {
               const cfg = getSlotConfig(row.offset);
+              const rowStyle = getWheelRowStyle(row.offset, index);
               const rowIsPalier = !!row.entry?.isPalier;
               const isSelfLine = row.type === "self";
               const isHighlighted =
@@ -1277,24 +1372,17 @@ function RankingWidgetMobile({
               let leftContent = null;
 
               if (row.offset === 0) {
-                const centerLabel =
-                  typeof displayRank === "number" && displayRank > 0
-                    ? displayRank
-                    : youRank != null
-                    ? youRank
-                    : "?";
-
                 leftContent = (
                   <div
                     className="flex items-center justify-center"
-                    style={{ opacity: cfg.opacity, ...(rowStyle || {}) }}
+                    style={{
+                      opacity: cfg.opacity,
+                      ...(rowStyle || {}),
+                    }}
                   >
                     <div
                       className={
-                        "relative w-10 h-10 rounded-full border-2 shadow-inner flex items-center justify-center overflow-hidden " +
-                        ringBorderColor +
-                        " " +
-                        ringBg
+                        `relative flex items-center justify-center rounded-full overflow-hidden border-2 shadow-inner ${ringBorderColor} ${ringBg}`
                       }
                       style={{
                         width: `${centerRingSize}px`,
@@ -1303,11 +1391,11 @@ function RankingWidgetMobile({
                     >
                       <span
                         className={
-                          "font-extrabold " + ringTextColor
+                          "relative z-[1] font-extrabold leading-none " + ringTextColor
                         }
                         style={{ fontSize: `${centerRingFontPx}px` }}
                       >
-                        {centerLabel}
+                        {centerRankLabel}
                       </span>
                     </div>
                   </div>
@@ -1316,7 +1404,10 @@ function RankingWidgetMobile({
                 leftContent = (
                   <div
                     className="flex items-center justify-center"
-                    style={{ opacity: rowIsPalier ? cfg.opacity : 0, ...(rowStyle || {}) }}
+                    style={{
+                      opacity: rowIsPalier ? cfg.opacity : 0,
+                      ...(rowStyle || {}),
+                    }}
                   >
                     <span
                       className={
@@ -1338,11 +1429,26 @@ function RankingWidgetMobile({
                   </div>
                 );
               } else {
-                const rankColor = darkMode ? "text-slate-100" : "text-slate-700";
+                const isCompactOuter = compactWheelActive && Math.abs(row.offset) === 2;
+                const isCompactNeighbor = compactWheelActive && Math.abs(row.offset) === 1;
+                const rankColor = isCompactOuter
+                  ? darkMode
+                    ? "text-slate-400"
+                    : "text-slate-400"
+                  : isCompactNeighbor
+                  ? darkMode
+                    ? "text-slate-200"
+                    : "text-slate-700"
+                  : darkMode
+                  ? "text-slate-100"
+                  : "text-slate-700";
                 leftContent = (
                   <div
                     className="flex items-center justify-center transition-all duration-150"
-                    style={{ opacity: cfg.opacity, ...(rowStyle || {}) }}
+                    style={{
+                      opacity: cfg.opacity,
+                      ...(rowStyle || {}),
+                    }}
                   >
                     <span
                       className={
@@ -1390,6 +1496,10 @@ function RankingWidgetMobile({
                 showRoundAward && typeof labelEntry?.roundGobbles === "number"
                   ? labelEntry.roundGobbles
                   : 0;
+              const roundLepersBonus =
+                showRoundAward && typeof labelEntry?.roundLepersBonus === "number"
+                  ? labelEntry.roundLepersBonus
+                  : 0;
               const fakeTwinsBonusBadge = renderFakeTwinsBonusBadge(
                 labelEntry,
                 `wheel-fake-twins-bonus-${displayNick || index}`,
@@ -1410,23 +1520,37 @@ function RankingWidgetMobile({
                 ? darkMode
                   ? "text-emerald-100"
                   : "text-emerald-900"
+                : compactWheelActive && Math.abs(row.offset) === 2
+                ? darkMode
+                  ? "text-slate-400"
+                  : "text-slate-400"
+                : compactWheelActive && Math.abs(row.offset) === 1
+                ? darkMode
+                  ? "text-slate-200"
+                  : "text-slate-700"
                 : isSelfLine
                 ? selfTextColor
                 : normalTextColor;
-              const lineBg = isPalier
+              const lineBg = compactWheelActive
+                ? ""
+                : isPalier
                 ? palierBg
                 : isHighlighted
                 ? darkMode
                   ? "bg-emerald-500/25"
                   : "bg-emerald-100"
                 : isSelfLine
-                ? darkMode
+                ? compactWheelActive
+                  ? ""
+                  : darkMode
                   ? "bg-slate-800/60"
                   : "bg-blue-50"
                 : "";
 
               const rightClasses =
-                "flex items-baseline justify-between w-full transition-all duration-200 " +
+                `flex ${
+                  compactWheelActive ? "items-center" : "items-baseline"
+                } justify-between w-full transition-all duration-200 ` +
                 (cfg.pseudoClass || "") +
                 " " +
                 lineColor +
@@ -1437,7 +1561,11 @@ function RankingWidgetMobile({
                 opacity: row.type === "empty" ? 0 : wheelNickHasPodiumStyle ? 1 : cfg.opacity,
                 fontSize: cfg.pseudoFontPx ? `${cfg.pseudoFontPx}px` : undefined,
                 ...(rowStyle || {}),
-                lineHeight: effectiveRowPx ? `${effectiveRowPx}px` : undefined,
+                lineHeight:
+                  compactWheelActive
+                    ? 1
+                    : rowStyle?.lineHeight ||
+                  (effectiveRowPx ? `${effectiveRowPx}px` : undefined),
               };
               const wheelNickClickable =
                 row.type !== "empty" &&
@@ -1456,7 +1584,9 @@ function RankingWidgetMobile({
 
               return (
                 <React.Fragment key={index}>
-                  <div className={"col-start-1 row-start-" + (index + 1)}>
+                  <div
+                    className={"col-start-1 row-start-" + (index + 1)}
+                  >
                     {leftContent}
                   </div>
 
@@ -1467,7 +1597,7 @@ function RankingWidgetMobile({
                       " " +
                       rightClasses +
                       (wheelNickClickable
-                        ? " cursor-pointer rounded px-1 hover:bg-slate-100/60 dark:hover:bg-slate-700/40"
+                        ? " cursor-pointer rounded hover:bg-slate-100/60 dark:hover:bg-slate-700/40"
                         : "")
                     }
                     style={rightStyle}
@@ -1519,7 +1649,11 @@ function RankingWidgetMobile({
                       </div>
                     ) : (
                       <>
-                      <span className="flex-1 min-w-0 flex items-baseline gap-1">
+                      <span
+                        className={`flex-1 min-w-0 flex gap-1 ${
+                          compactWheelActive ? "items-center" : "items-baseline"
+                        }`}
+                      >
                         <span
                           className={["truncate", wheelNickClassName].filter(Boolean).join(" ")}
                         >
@@ -1557,7 +1691,9 @@ function RankingWidgetMobile({
                         : null}
                     </span>
                     <span
-                      className={"ml-2 tabular-nums " + (cfg.scoreClass || "")}
+                      className={
+                        "ml-2 shrink-0 tabular-nums " + (cfg.scoreClass || "")
+                      }
                       style={
                         cfg.scoreFontPx ? { fontSize: `${cfg.scoreFontPx}px` } : undefined
                       }
@@ -1566,6 +1702,9 @@ function RankingWidgetMobile({
                         ""
                       ) : (
                         <>
+                          {roundLepersBonus > 0 ? (
+                            <LepersBonusBadge bonus={roundLepersBonus} className="mr-1" />
+                          ) : null}
                           {roundPoints != null && roundPoints > 0 ? (
                             <span className="mr-1 text-blue-600 dark:text-blue-300 font-extrabold">
                               +{roundPoints}
@@ -1584,19 +1723,21 @@ function RankingWidgetMobile({
           </div>
 
           {/* gradients haut/bas */}
-          <div className="pointer-events-none absolute inset-0">
-            <div
-              className={
-                "h-2 bg-gradient-to-b to-transparent " + gradFromColor
-              }
-            />
-            <div
-              className={
-                "absolute bottom-0 left-0 right-0 h-2 bg-gradient-to-t to-transparent " +
-                gradFromColor
-              }
-            />
-          </div>
+          {!compactWheelActive ? (
+            <div className="pointer-events-none absolute inset-0">
+              <div
+                className={
+                  "h-2 bg-gradient-to-b to-transparent " + gradFromColor
+                }
+              />
+              <div
+                className={
+                  "absolute bottom-0 left-0 right-0 h-2 bg-gradient-to-t to-transparent " +
+                  gradFromColor
+                }
+              />
+            </div>
+          ) : null}
 
           {/* barre centrale, qui commence à droite du cercle */}
           <div
@@ -1647,6 +1788,8 @@ function areRankingWidgetPropsEqual(prev, next) {
   if (!!prev.stackNickDecorations !== !!next.stackNickDecorations) return false;
   if ((prev.showGobbleWordAwards ?? true) !== (next.showGobbleWordAwards ?? true)) return false;
   if ((prev.showScores ?? true) !== (next.showScores ?? true)) return false;
+  if (!!prev.compactRoller !== !!next.compactRoller) return false;
+  if ((prev.compactRollerHeight || 0) !== (next.compactRollerHeight || 0)) return false;
   if ((prev.className || "") !== (next.className || "")) return false;
   if ((prev.assetVersion || "") !== (next.assetVersion || "")) return false;
   if (prev.recordBadgesByNick !== next.recordBadgesByNick) return false;

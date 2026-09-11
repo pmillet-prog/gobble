@@ -9,9 +9,9 @@ export const APP_VIEWS = Object.freeze([
   "daily",
   "daily_play",
   "daily_results",
-  "stats",
   "duel",
   "vault",
+  "chalkboard",
 ]);
 
 const APP_VIEW_SET = new Set(APP_VIEWS);

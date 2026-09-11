@@ -31,6 +31,7 @@ const styles = `
   overflow: hidden;
   background: #fff;
   color: white;
+  touch-action: pan-x pan-y;
 }
 .home-lobby-backdrop {
   position: absolute;
@@ -93,24 +94,24 @@ const styles = `
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: 12px;
   padding: 10px 18px;
   overflow: hidden;
-  border: 3px solid rgba(255, 230, 230, 0.96);
+  border: 1px solid rgba(186, 230, 253, 0.72);
   border-radius: 14px;
   background:
-    linear-gradient(105deg, rgba(90, 0, 0, 0.96), rgba(220, 24, 36, 0.98) 48%, rgba(112, 0, 0, 0.96));
-  color: #fff;
-  font-size: clamp(18px, 4.8vw, 28px);
-  font-weight: 1000;
-  line-height: 1;
-  letter-spacing: 0.08em;
+    linear-gradient(135deg, rgba(7, 31, 51, 0.97), rgba(10, 79, 112, 0.98) 52%, rgba(9, 42, 68, 0.97));
+  color: #effaff;
+  font-size: clamp(17px, 4.6vw, 27px);
+  font-weight: 900;
+  line-height: 1.08;
+  letter-spacing: 0.035em;
   text-align: center;
-  text-transform: uppercase;
-  text-shadow: 0 2px 2px rgba(70, 0, 0, 0.9);
+  text-shadow: 0 1px 2px rgba(2, 20, 34, 0.72);
   box-shadow:
-    0 10px 28px rgba(70, 0, 0, 0.56),
-    inset 0 1px 0 rgba(255, 255, 255, 0.42);
+    0 10px 28px rgba(2, 27, 46, 0.46),
+    0 0 0 1px rgba(14, 165, 233, 0.13),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
   isolation: isolate;
 }
 .home-maintenance-banner::before {
@@ -118,16 +119,26 @@ const styles = `
   position: absolute;
   z-index: -1;
   inset: 0;
-  background: repeating-linear-gradient(
-    -45deg,
-    transparent 0 18px,
-    rgba(255, 255, 255, 0.08) 18px 30px
-  );
+  background:
+    radial-gradient(circle at 18% 10%, rgba(125, 211, 252, 0.28), transparent 28%),
+    linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.06) 48%, transparent 72%);
+}
+.home-maintenance-icon {
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(186, 230, 253, 0.58);
+  border-radius: 999px;
+  background: rgba(2, 28, 48, 0.48);
+  color: #bae6fd;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15);
 }
 .home-maintenance-banner .material-symbols-outlined {
-  flex: 0 0 auto;
-  font-size: 1.25em;
-  font-variation-settings: "FILL" 1, "wght" 700;
+  font-size: 1.05em;
+  font-variation-settings: "FILL" 0, "wght" 650;
 }
 .home-lobby-button {
   appearance: none;
@@ -876,8 +887,10 @@ function HomeLobby({
             role="status"
             aria-live="polite"
           >
-            <span className="material-symbols-outlined" aria-hidden="true">
-              construction
+            <span className="home-maintenance-icon" aria-hidden="true">
+              <span className="material-symbols-outlined">
+                settings
+              </span>
             </span>
             <span>
               {maintenanceLiveJoinAllowed
@@ -1056,6 +1069,7 @@ function HomeLobby({
               <ol>
                 <li>Touche le bouton Partager de ton navigateur.</li>
                 <li>Choisis « Sur l’écran d’accueil ».</li>
+                <li>Active impérativement « Utiliser comme app web ».</li>
                 <li>Ajoute Gobble, puis lance-le depuis sa nouvelle icône.</li>
               </ol>
               <button

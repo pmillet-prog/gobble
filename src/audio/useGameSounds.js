@@ -89,11 +89,11 @@ export default function useGameSounds({
     });
   }
 
-  function playBonusVoice() {
+  function playBonusVoice(sfxKey = SFX_KEYS.bonusVoice) {
     if (!isPlayingContext()) return;
     if (!hasPlayableSession()) return;
     if (!soundGobbleEnabled) return;
-    playOneShotAudio?.(SFX_KEYS.bonusVoice, {
+    playOneShotAudio?.(sfxKey, {
       cooldownKey: "bonusVoice",
       eqKey: "bonusVoice",
     });

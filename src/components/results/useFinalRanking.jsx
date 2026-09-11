@@ -45,6 +45,8 @@ export default function useFinalRanking({
             typeof roundAward?.points === "number" ? roundAward.points : null;
           const roundGobbles =
             typeof roundAward?.gobbles === "number" ? roundAward.gobbles : 0;
+          const roundLepersBonus =
+            typeof roundAward?.lepersBonus === "number" ? roundAward.lepersBonus : 0;
           const rareBonusInline = renderRareBonusInline(entry?.rareBonusPoints);
           const fakeTwinsCompletionBonusInline =
             specialRound?.type === FAKE_TWINS_TYPE
@@ -114,6 +116,7 @@ export default function useFinalRanking({
               wordsCount: null,
               roundPoints,
               roundGobbles,
+              roundLepersBonus,
               rightLabel: parts.length ? (
                 <>
                   {entry.score || 0} pts
@@ -136,6 +139,7 @@ export default function useFinalRanking({
               wordsCount: null,
               roundPoints,
               roundGobbles,
+              roundLepersBonus,
               rightLabel: Number.isFinite(timeMs) ? formatTargetTime(timeMs) : "PAS TROUVÉ",
             };
           }
@@ -144,6 +148,7 @@ export default function useFinalRanking({
             wordsCount: Array.isArray(entry.words) ? entry.words.length : null,
             roundPoints,
             roundGobbles,
+            roundLepersBonus,
             rightLabel:
               specialRound?.type === FAKE_TWINS_TYPE &&
               Number.isFinite(entry.fakeTwinWordsFound) &&

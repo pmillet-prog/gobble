@@ -129,7 +129,7 @@ test("live feed owns scoped announcements, effects and socket cleanup", () => {
   assert.equal(sounds.length, 4);
   assert.deepEqual(toasts.slice(1), [
     ["Test complète les faux jumeaux : +20 pts", 3200],
-    ["Tigre complète WikiMama Nature : +30 pts", 3200],
+    ["Tigre complète Julien Lechéper Nature : +30 pts", 3200],
   ]);
 
   liveSessionReadyRef.current = false;

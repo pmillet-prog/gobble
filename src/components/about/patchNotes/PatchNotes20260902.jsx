@@ -48,8 +48,7 @@ export default function PatchNotes20260902({ menuDarkMode = false }) {
           une perte de connexion ou un passage en arrière-plan, ont été consolidés.
         </li>
         <li>
-          l'animation d'introduction accompagne de nouveau les véritables démarrages à froid, sur
-          un fond blanc plein écran. Elle est entièrement ignorée lors d'un simple rechargement ou
+          l'animation d'introduction est entièrement ignorée lors d'un simple rechargement ou
           lorsque les ressources du jeu sont déjà disponibles.
         </li>
         <li>

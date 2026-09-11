@@ -12,26 +12,39 @@ function mutableRef(current) {
   return { current };
 }
 
-test("chat feature owns mobile viewport, handoff, and interaction resources", () => {
+test("chat feature owns mobile viewport and interaction resources without phase handoff", () => {
   const applicationSource = read("../../src/GobbleApplication.jsx");
   const ownerSource = read(
     "../../src/features/chat/useChatInteractionController.js"
+  );
+  const viewportSource = read(
+    "../../src/components/chat/useChatViewport.js"
+  );
+  const slideSource = read("../../src/components/chat/ChatStyleSlide.jsx");
+  const controllerSource = read(
+    "../../src/components/chat/createChatInteractionController.js"
   );
 
   assert.match(applicationSource, /useChatInteractionResources\(/);
   assert.match(applicationSource, /useChatInteractionController\(/);
   assert.doesNotMatch(applicationSource, /createChatInteractionController/);
   assert.doesNotMatch(applicationSource, /wasMobileLiveLobbyRef/);
-  assert.doesNotMatch(applicationSource, /window\.addEventListener\("focusin"/);
-  assert.doesNotMatch(applicationSource, /chatBaselineHeightRef = useRef/);
+  assert.doesNotMatch(applicationSource, /chatViewportHeight|chatBodyLockHeightRef/);
+  assert.doesNotMatch(applicationSource, /gameViewportFreezeHeightRef/);
   assert.doesNotMatch(applicationSource, /lobbyChatSubscriptionRef = useRef/);
 
   assert.match(ownerSource, /createChatInteractionController/);
-  assert.match(ownerSource, /wasMobileLiveLobbyRef = React\.useRef/);
-  assert.match(ownerSource, /window\.addEventListener\("focusin"/);
-  assert.match(ownerSource, /chatBaselineHeightRef = React\.useRef/);
+  assert.doesNotMatch(ownerSource, /wasMobileLiveLobbyRef|hasActiveChatDraft/);
+  assert.doesNotMatch(ownerSource, /visualViewport|chatBodyLockHeightRef/);
   assert.match(ownerSource, /lobbyChatSubscriptionRef = React\.useRef/);
-  assert.match(ownerSource, /hasActiveChatDraft/);
+  assert.match(applicationSource, /key="global-chat-layer"/);
+  assert.match(viewportSource, /visualViewport/);
+  assert.match(viewportSource, /offsetTop/);
+  assert.match(viewportSource, /baselineRef = React\.useRef/);
+  assert.match(slideSource, /createPortal/);
+  assert.match(slideSource, /document\.body/);
+  assert.match(slideSource, /useChatViewport/);
+  assert.doesNotMatch(controllerSource, /documentElement|body\.style|scrollTo/);
 });
 
 test("chat controller receives rules and lobby subscription ownership", () => {
@@ -54,18 +67,10 @@ test("chat controller receives rules and lobby subscription ownership", () => {
   };
   const noop = () => {};
   const actions = createChatInteractionController([
-    mutableRef(0),
-    mutableRef(0),
-    noop,
     mutableRef(null),
     mutableRef(null),
     mutableRef(false),
     mutableRef(false),
-    mutableRef(false),
-    mutableRef(0),
-    mutableRef(null),
-    mutableRef(null),
-    mutableRef(0),
     noop,
     noop,
     noop,
@@ -103,8 +108,8 @@ test("chat controller receives rules and lobby subscription ownership", () => {
     lobbyChatSubscriptionRef,
   ]);
 
-  actions[10]();
-  actions[4]();
+  actions[9]();
+  actions[3]();
 
   assert.deepEqual(acceptedValues, [true]);
   assert.deepEqual(rulesOpenValues, [false]);

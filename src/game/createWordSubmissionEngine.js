@@ -79,6 +79,7 @@ export function createWordSubmissionEngine({
   liveSessionReadyRef,
   maybeAnnounceBestWord,
   nickname,
+  onValidWordSubmission,
   ocidLatestProposalRef,
   pendingQueueRef,
   pendingWordsRef,
@@ -193,6 +194,8 @@ export function createWordSubmissionEngine({
       }
       if (reason === "not_target") {
         setStatusMessageWithHold("Pas le mot cible", 1400);
+      } else if (reason === "invalid_word") {
+        setStatusMessageWithHold("Mot invalide", 1400);
       } else if (reason === "already_found") {
         setStatusMessageWithHold("Déjà trouvé", 1200);
         playAlreadyPlayedSound();
@@ -929,8 +932,8 @@ export function createWordSubmissionEngine({
   }
 
   function getTargetSubmissionErrorMessage(rawWord) {
-    if (!serverSolutionsReadyRef.current && dictionary && !hasClientDictionaryWord(rawWord)) {
-      return "INVALIDE";
+    if (dictionary && !hasClientDictionaryWord(rawWord)) {
+      return "Mot invalide";
     }
     return "Pas le mot cible";
   }
@@ -1312,6 +1315,7 @@ export function createWordSubmissionEngine({
       setOcidProposalPath(proposalPath);
       setOcidProposalSubmitted("");
       setOcidStatusMessage("Mot prêt à envoyer.");
+      onValidWordSubmission?.({ inputMode: lastInputModeRef.current, word: preferredRaw });
       if (roundId && socket.connected && isLoggedIn) {
         const requestGeneration = submissionGenerationRef?.current ?? 0;
         socket.emit(
@@ -1429,9 +1433,12 @@ export function createWordSubmissionEngine({
     }
     if (!playableCandidates.length) return error("Déjà trouvé");
 
+    onValidWordSubmission?.({ inputMode: lastInputModeRef.current, word: raw });
+
     // Mode en ligne : envoi optimiste + batch une fois la session rattachee.
     if (roundId && socket.connected && isLoggedIn && liveSessionReadyRef.current) {
       queueLiveSubmissionCandidates(playableCandidates, path, { flush: true });
+      if (isTargetSubmissionRound()) clearSelection();
       return;
     }
 
@@ -1440,6 +1447,7 @@ export function createWordSubmissionEngine({
       (!socket.connected || !isLoggedIn || !liveSessionReadyRef.current)
     ) {
       queueLiveSubmissionCandidates(playableCandidates, path, { flush: false });
+      if (isTargetSubmissionRound()) clearSelection();
       handleForeground("submit_disconnected");
       scheduleForegroundRetry("submit_retry", 1200);
       setStatusMessageWithHold("Mot conservé hors ligne", 1200);
@@ -1579,6 +1587,7 @@ export function createWordSubmissionEngine({
     const rareBonusAllowedNow = isRareBonusEnabledForSpecial(specialRound);
     if (roundId && socket.connected && isLoggedIn && liveSessionReadyRef.current) {
       queueLiveSubmissionCandidates(playableCandidates, path, { flush: true });
+      if (isTargetSubmissionRound()) clearSelection();
       return true;
     }
 
@@ -1587,6 +1596,7 @@ export function createWordSubmissionEngine({
       (!socket.connected || !isLoggedIn || !liveSessionReadyRef.current)
     ) {
       queueLiveSubmissionCandidates(playableCandidates, path, { flush: false });
+      if (isTargetSubmissionRound()) clearSelection();
       handleForeground("round_end_submit_disconnected");
       return true;
     }

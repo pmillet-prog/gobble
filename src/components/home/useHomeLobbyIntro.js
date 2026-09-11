@@ -57,7 +57,13 @@ export default function useHomeLobbyIntro({
   const [stage, setStage] = React.useState(enabled ? "waiting" : "complete");
   const onCompleteRef = React.useRef(onComplete);
   onCompleteRef.current = onComplete;
-  const uiSignature = uniqueUrls(uiUrls).join("|");
+  const introAssetsRef = React.useRef(null);
+  if (introAssetsRef.current === null) {
+    introAssetsRef.current = {
+      backgroundUrl,
+      uiUrls: uniqueUrls(uiUrls),
+    };
+  }
 
   React.useEffect(() => {
     if (!enabled) {
@@ -80,12 +86,14 @@ export default function useHomeLobbyIntro({
       timerIds.add(timerId);
     };
     const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
-    const urls = uiSignature ? uiSignature.split("|") : [];
-    const uiReadyPromise = Promise.all(urls.map((url) => waitForDecodedImage(url)));
+    const introAssets = introAssetsRef.current;
+    const uiReadyPromise = Promise.all(
+      introAssets.uiUrls.map((url) => waitForDecodedImage(url))
+    );
 
     setStage("waiting");
     const startedAt = performance.now();
-    void waitForDecodedImage(backgroundUrl).then(async () => {
+    void waitForDecodedImage(introAssets.backgroundUrl).then(async () => {
       if (cancelled) return;
       backgroundAdvanced = true;
       setStage("background");
@@ -126,7 +134,7 @@ export default function useHomeLobbyIntro({
       timerIds.forEach((timerId) => window.clearTimeout(timerId));
       timerIds.clear();
     };
-  }, [backgroundUrl, enabled, uiSignature]);
+  }, [enabled]);
 
   return stage;
 }

@@ -22,16 +22,17 @@ export function useChatPresentation() {
     const filteredMessages = (state.messages || []).filter((message) => {
       const installId =
         typeof message?.installId === "string" ? message.installId : "";
-      return !installId || !blockedSet.has(installId);
-    });
-    const messagesOnly = filteredMessages.filter(
-      (message) =>
-        !isSystemChatMessage(message) &&
+      return (
+        (!installId || !blockedSet.has(installId)) &&
         shouldDisplayChatMessageForBotSettings(
           message,
           state.showBotMessages,
           state.botVisibility
         )
+      );
+    });
+    const messagesOnly = filteredMessages.filter(
+      (message) => !isSystemChatMessage(message)
     );
     const systemMessages = filteredMessages.filter(isSystemChatMessage);
     const safeTab = state.tab === "system" ? "system" : "messages";
@@ -55,7 +56,10 @@ export function useChatPresentation() {
       messagesOnly,
       systemCount: systemMessages.length,
       systemMessages,
+      showBotMessages: !!state.showBotMessages,
+      toggleBotMessages: () =>
+        chat.set("showBotMessages", (previous) => !previous),
       visibleMessages,
     };
-  }, [state]);
+  }, [chat, state]);
 }

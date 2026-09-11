@@ -875,7 +875,7 @@ export default function DailyHubScreen({
               Grilles du jour
             </div>
             <div className="text-2xl font-black leading-tight">
-              Lancer {getDailySectionMeta(dailyLaunchDialog.mode).label}
+              Lancer {getDailySectionDefinition(dailyLaunchDialog.mode, { isMobileLayout }).label}
             </div>
             <div className="text-sm opacity-80">
               Assurez-vous d'avoir une connexion stable avant de lancer la grille.
@@ -1020,7 +1020,7 @@ export default function DailyHubScreen({
 
             <div className="grid grid-cols-4 gap-2">
               {dailySections.map((section) => {
-                const meta = getDailySectionMeta(section.key);
+                const meta = getDailySectionDefinition(section.key, { isMobileLayout });
                 const active = dailySection === section.key;
                 return (
                   <button

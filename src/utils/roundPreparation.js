@@ -23,8 +23,8 @@ export function shouldShowRoundPreparationOverlay({
   if (standaloneTraining) return false;
   if (!preparationAnnounced && !startDelayed) return false;
 
-  // Pendant les résultats, une préparation anticipée reste discrète : l'écran
-  // ne prend le relais qu'une fois l'heure réelle de départ dépassée.
-  if (phase === "results") return !!startDelayed;
+  // Les résultats doivent toujours rester consultables. Un retour d'arrière-plan
+  // peut rendre l'heure de départ obsolète, sans que cela justifie un popup bloquant.
+  if (phase === "results") return false;
   return true;
 }

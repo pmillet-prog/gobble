@@ -1,6 +1,9 @@
 import React from "react";
 import { createPortal } from "react-dom";
 import ChatContent from "./ChatContent";
+import useChatViewport, {
+  computeChatKeyboardSessionTransition,
+} from "./useChatViewport.js";
 
 export default function ChatStyleSlide(props) {
   const {
@@ -9,9 +12,7 @@ export default function ChatStyleSlide(props) {
     isChatClosing,
     chatOpenedAtMs,
     chatAnimationMs,
-    chatOverlayStyle,
-    chatViewportStyle,
-    chatSheetStyle,
+    chatTopInsetPx = 0,
     onCloseSound,
     setIsChatOpenMobile,
   } = props;
@@ -26,6 +27,38 @@ export default function ChatStyleSlide(props) {
   const [isRenderedOpen, setIsRenderedOpen] = React.useState(
     () => shouldSkipInitialOpenAnimation
   );
+  const {
+    keyboardConstrained,
+    keyboardInsetPx,
+    keyboardOpen,
+    keyboardVisible,
+    overlayStyle,
+    sheetStyle,
+  } = useChatViewport({
+    enabled: isChatVisible,
+    frozen: isChatClosing,
+    topInsetPx: chatTopInsetPx,
+  });
+  const keyboardSessionSeenRef = React.useRef(false);
+
+  const closeChat = React.useCallback(() => {
+    if (typeof onCloseSound === "function") {
+      onCloseSound();
+    }
+    setIsChatOpenMobile?.(false);
+  }, [onCloseSound, setIsChatOpenMobile]);
+
+  React.useLayoutEffect(() => {
+    const transition = computeChatKeyboardSessionTransition({
+      isChatOpen: isOpen,
+      keyboardOpen,
+      keyboardWasOpen: keyboardSessionSeenRef.current,
+    });
+    keyboardSessionSeenRef.current = transition.keyboardWasOpen;
+    if (!transition.shouldCloseChat) return;
+    setIsRenderedOpen(false);
+    closeChat();
+  }, [closeChat, isOpen, keyboardOpen]);
 
   React.useEffect(() => {
     if (!isChatVisible) {
@@ -57,12 +90,6 @@ export default function ChatStyleSlide(props) {
 
   if (!isChatVisible) return null;
 
-  const closeChat = () => {
-    if (typeof onCloseSound === "function") {
-      onCloseSound();
-    }
-    setIsChatOpenMobile?.(false);
-  };
   const sheetThemeClass = darkMode
     ? "bg-[linear-gradient(180deg,rgba(18,47,103,0.97),rgba(7,22,55,0.99))] text-amber-50 border-amber-300/70"
     : "bg-[linear-gradient(180deg,rgba(255,250,232,0.97),rgba(226,238,255,0.98))] text-slate-900 border-amber-300/80";
@@ -74,9 +101,11 @@ export default function ChatStyleSlide(props) {
       className="fixed inset-0 z-[20050] flex items-start justify-center overflow-hidden"
       data-chat-panel="true"
       style={{
-        ...(chatViewportStyle || {}),
-        ...(chatOverlayStyle || {}),
+        ...overlayStyle,
         overscrollBehavior: "none",
+        paddingTop: chatTopInsetPx
+          ? `${Math.max(0, chatTopInsetPx)}px`
+          : undefined,
       }}
     >
       <button
@@ -94,8 +123,14 @@ export default function ChatStyleSlide(props) {
         <div
           className={`pointer-events-auto w-full rounded-b-[28px] border-x-2 border-b-2 flex flex-col shadow-2xl ${sheetThemeClass}`}
           style={{
-            ...(chatSheetStyle || {}),
-            transitionProperty: "transform, opacity, height, max-height",
+            ...(sheetStyle || {}),
+            boxSizing: "border-box",
+            paddingBottom: keyboardConstrained
+              ? "max(6px, env(safe-area-inset-bottom, 0px))"
+              : undefined,
+            transitionProperty: keyboardVisible
+              ? "transform, opacity"
+              : "transform, opacity, height, max-height",
             transitionDuration: `${durationMs}ms`,
             transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)",
             transform: isRenderedOpen ? "translateY(0)" : "translateY(calc(-100% - 24px))",
@@ -103,7 +138,13 @@ export default function ChatStyleSlide(props) {
             willChange: "transform, opacity, height, max-height",
           }}
         >
-          <ChatContent {...props} isOpen={isOpen} closeChat={closeChat} />
+          <ChatContent
+            {...props}
+            chatKeyboardInsetPx={keyboardInsetPx}
+            keyboardInsetReservePx={0}
+            isOpen={isOpen}
+            closeChat={closeChat}
+          />
         </div>
       </div>
     </div>,

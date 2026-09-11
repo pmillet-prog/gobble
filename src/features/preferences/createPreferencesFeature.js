@@ -41,6 +41,7 @@ const PERSISTED_PREFERENCE_FIELDS = Object.freeze([
   "visualGoldNickFxEnabled",
   "visualInvalidWordsEnabled",
   "visualPraiseEnabled",
+  "visualPresenterAnimationsEnabled",
   "visualScoreFlightsEnabled",
   "visualScreenShakeEnabled",
 ]);
@@ -213,6 +214,10 @@ export function createInitialPreferencesState(options = {}) {
       typeof settings.visualPraiseEnabled === "boolean"
         ? settings.visualPraiseEnabled
         : true,
+    visualPresenterAnimationsEnabled:
+      typeof settings.visualPresenterAnimationsEnabled === "boolean"
+        ? settings.visualPresenterAnimationsEnabled
+        : true,
     visualScoreFlightsEnabled:
       typeof settings.visualScoreFlightsEnabled === "boolean"
         ? settings.visualScoreFlightsEnabled
@@ -262,6 +267,7 @@ function getPersistedPreferences(state) {
     visualGoldNickFxEnabled: state.visualGoldNickFxEnabled,
     visualInvalidWordsEnabled: state.visualInvalidWordsEnabled,
     visualPraiseEnabled: state.visualPraiseEnabled,
+    visualPresenterAnimationsEnabled: state.visualPresenterAnimationsEnabled,
     visualScoreFlightsEnabled: state.visualScoreFlightsEnabled,
     visualScreenShakeEnabled: state.visualScreenShakeEnabled,
   };

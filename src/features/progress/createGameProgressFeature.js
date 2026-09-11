@@ -151,7 +151,7 @@ function buildBannerText(config, fakeTwinsProgress, cultureThemeProgress) {
     const bonus = Number(challenge?.bonus) || 0;
     const suffix = bonus > 0 ? ` · bonus ${bonus} pts` : "";
     labels.push(
-      `${formatProgressNumber(cultureThemeProgress.remaining)} mots WikiMama${theme} restants${suffix}`
+      `${formatProgressNumber(cultureThemeProgress.remaining)} mots Julien Lechéper${theme} restants${suffix}`
     );
   }
   return labels.join(" · ");

@@ -50,8 +50,6 @@ function SettingsMenu(props) {
     confirmThemePurchase,
     darkMode,
     defaultTileBaseClass,
-    chatBotVisibility,
-    chatBotVisibilityOptions,
     devAccountAllowed,
     devAccountLabel,
     devBots,
@@ -161,11 +159,11 @@ function SettingsMenu(props) {
     setVisualGoldNickFxEnabled,
     setVisualGobbleEnabled,
     setVisualInvalidWordsEnabled,
+    setVisualPresenterAnimationsEnabled,
     setVisualPraiseEnabled,
     setVisualScoreFlightsEnabled,
     setVisualScreenShakeEnabled,
     setAllDevBotsActive,
-    setChatBotVisibility,
     setDevBotActive,
     showDevDuelWeekRecap,
     soundGobbleEnabled,
@@ -216,6 +214,7 @@ function SettingsMenu(props) {
     visualGoldNickFxEnabled,
     visualGobbleEnabled,
     visualInvalidWordsEnabled,
+    visualPresenterAnimationsEnabled,
     visualPraiseEnabled,
     visualScoreFlightsEnabled,
     visualScreenShakeEnabled,
@@ -239,7 +238,6 @@ function SettingsMenu(props) {
     ? "bg-rose-950/55 border-rose-300/40 text-rose-50 hover:bg-rose-950/70"
     : "bg-rose-50/85 border-rose-300/60 text-rose-800 hover:bg-rose-100";
   const [isGeneralMenuOpen, setIsGeneralMenuOpen] = React.useState(false);
-  const [isBotsMenuOpen, setIsBotsMenuOpen] = React.useState(false);
   const [playtimeHours, setPlaytimeHours] = React.useState(1);
   const [playtimeMinutes, setPlaytimeMinutes] = React.useState(0);
   const [playtimeConfirmOpen, setPlaytimeConfirmOpen] = React.useState(false);
@@ -273,9 +271,6 @@ function SettingsMenu(props) {
     }
     playtimeRollTimersRef.current = [];
   }, []);
-  React.useEffect(() => {
-    if (!isGeneralMenuOpen) setIsBotsMenuOpen(false);
-  }, [isGeneralMenuOpen]);
   React.useEffect(() => clearPlaytimeRollTimers, [clearPlaytimeRollTimers]);
   const playPlaytimeRollClick = React.useCallback(() => {
     if (typeof playUiClickSound === "function") playUiClickSound();
@@ -481,7 +476,7 @@ function SettingsMenu(props) {
               <span className="inline-flex flex-col items-start leading-tight">
                 <span className="font-semibold">Apparence</span>
                 <span className="text-[10px] opacity-70">
-                  {enabledVisualCount}/7 effets actifs
+                  {enabledVisualCount}/8 effets actifs
                 </span>
               </span>
             </span>
@@ -674,7 +669,6 @@ function SettingsMenu(props) {
               <button
                 type="button"
                 onClick={() => {
-                  setIsBotsMenuOpen(false);
                   setIsGeneralMenuOpen(false);
                 }}
                 className={`h-8 px-2 rounded-lg border text-xs font-semibold ${settingsGoldButtonClass}`}
@@ -701,22 +695,6 @@ function SettingsMenu(props) {
               </span>
               <span className="text-[10px] font-semibold opacity-70">
                 {canVibrate ? (isVibrationEnabled ? "On" : "Off") : "--"}
-              </span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setIsBotsMenuOpen(true)}
-              className={`w-full flex items-center justify-between gap-3 rounded-xl border px-3 py-2 ${settingsPanelButtonClass}`}
-            >
-              <span className="inline-flex items-center gap-2">
-                <span className="material-symbols-outlined text-[18px] leading-none">smart_toy</span>
-                <span>Bots</span>
-              </span>
-              <span className="text-[10px] font-semibold opacity-70">
-                {Array.isArray(chatBotVisibilityOptions)
-                  ? `${chatBotVisibilityOptions.filter((bot) => chatBotVisibility?.[bot.key] !== false).length}/${chatBotVisibilityOptions.length}`
-                  : "--"}
               </span>
             </button>
 
@@ -781,63 +759,6 @@ function SettingsMenu(props) {
             </div>
           </div>
         </div>
-        {isBotsMenuOpen ? (
-          <div className="absolute inset-0 z-[3] bg-[linear-gradient(180deg,rgba(18,47,103,0.98),rgba(7,22,55,0.99))] text-amber-50">
-            <div className="h-full flex flex-col">
-              <div className="shrink-0 px-4 py-3 border-b border-amber-200/25 bg-amber-300/10">
-                <div className="flex items-center justify-between gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setIsBotsMenuOpen(false)}
-                    className={`h-8 px-2 rounded-lg border text-xs font-semibold ${settingsGoldButtonClass}`}
-                  >
-                    Retour
-                  </button>
-                  <div className="text-sm font-extrabold tracking-wide">Bots</div>
-                  <span className="text-[10px] font-bold opacity-75">chat</span>
-                </div>
-              </div>
-              <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2 text-sm">
-                {(Array.isArray(chatBotVisibilityOptions) ? chatBotVisibilityOptions : []).map((bot) => {
-                  const enabled = chatBotVisibility?.[bot.key] !== false;
-                  return (
-                    <button
-                      key={bot.key}
-                      type="button"
-                      role="switch"
-                      aria-checked={enabled ? "true" : "false"}
-                      onClick={() =>
-                        typeof setChatBotVisibility === "function"
-                          ? setChatBotVisibility((prev) => ({
-                              ...(prev || {}),
-                              [bot.key]: prev?.[bot.key] === false,
-                            }))
-                          : null
-                      }
-                      className={`w-full flex items-center justify-between gap-3 rounded-xl border px-3 py-2 ${
-                        enabled ? settingsPositiveButtonClass : settingsMutedButtonClass
-                      }`}
-                    >
-                      <span className="font-semibold">{bot.nick}</span>
-                      <span
-                        className={`relative h-5 w-9 rounded-full transition ${
-                          enabled ? "bg-emerald-500" : "bg-slate-700"
-                        }`}
-                        aria-hidden="true"
-                      >
-                        <span
-                          className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition ${
-                            enabled ? "left-[18px]" : "left-0.5"
-                          }`}
-                        />
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        ) : null}
         {playtimeConfirmOpen ? (
           <div className="absolute inset-0 z-[4] flex items-center justify-center p-3">
             <button
@@ -915,6 +836,7 @@ function SettingsMenu(props) {
             enabledVisualCount,
             allVisualOn,
             visualGobbleEnabled,
+            visualPresenterAnimationsEnabled,
             visualPraiseEnabled,
             visualScoreFlightsEnabled,
             visualInvalidWordsEnabled,
@@ -927,6 +849,8 @@ function SettingsMenu(props) {
             themeBadgeUrl: gobblarsBadgeUrl,
             onToggleAll: () => setAllVisualEnabled(!allVisualOn),
             onToggleGobble: () => setVisualGobbleEnabled((prev) => !prev),
+            onTogglePresenterAnimations: () =>
+              setVisualPresenterAnimationsEnabled((prev) => !prev),
             onTogglePraise: () => setVisualPraiseEnabled((prev) => !prev),
             onToggleScoreFlights: () => setVisualScoreFlightsEnabled((prev) => !prev),
             onToggleInvalidWords: () => setVisualInvalidWordsEnabled((prev) => !prev),

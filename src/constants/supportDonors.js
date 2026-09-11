@@ -4,16 +4,16 @@ export const SUPPORT_DONORS = Object.freeze([
     name: "Isabelle Locher-Dizerens",
   },
   {
-    id: "martin-hivert",
-    name: "Martin Hivert",
-  },
-  {
     id: "voggle",
     name: "Voggle",
   },
   {
     id: "beerman",
     name: "Beerman",
+  },
+  {
+    id: "axioum",
+    name: "Axioum",
   },
 ]);
 

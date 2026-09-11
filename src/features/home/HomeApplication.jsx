@@ -171,6 +171,7 @@ export default function HomeApplication({
       ) : null}
       <HomeChatModalHost {...chat} />
       <HomeLobby
+        key="home-lobby"
         accountLabel={accountLabel}
         accountOnline={account?.isAuthenticated}
         accountNotice={account?.notice}

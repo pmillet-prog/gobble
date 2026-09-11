@@ -6,6 +6,7 @@ export default function VisualSettingsPanel({
   enabledVisualCount = 0,
   allVisualOn = false,
   visualGobbleEnabled = false,
+  visualPresenterAnimationsEnabled = false,
   visualPraiseEnabled = false,
   visualScoreFlightsEnabled = false,
   visualInvalidWordsEnabled = false,
@@ -18,6 +19,7 @@ export default function VisualSettingsPanel({
   themeBadgeUrl = "",
   onToggleAll = null,
   onToggleGobble = null,
+  onTogglePresenterAnimations = null,
   onTogglePraise = null,
   onToggleScoreFlights = null,
   onToggleInvalidWords = null,
@@ -75,7 +77,7 @@ export default function VisualSettingsPanel({
             </button>
             <div className="text-sm font-extrabold tracking-wide">Apparence</div>
             <span className="inline-flex items-center rounded-full px-2 py-1 text-[10px] font-bold border border-slate-300/40">
-              {enabledVisualCount}/7
+              {enabledVisualCount}/8
             </span>
           </div>
         </div>
@@ -117,6 +119,11 @@ export default function VisualSettingsPanel({
             enabled: visualGobbleEnabled,
             label: "Gobble / double gobble",
             onClick: onToggleGobble,
+          })}
+          {renderToggle({
+            enabled: visualPresenterAnimationsEnabled,
+            label: "Animations des présentateurs TV",
+            onClick: onTogglePresenterAnimations,
           })}
           {renderToggle({
             enabled: visualPraiseEnabled,

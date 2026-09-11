@@ -392,6 +392,7 @@ export default function useDesktopSceneLayout({
       persisted,
       desktopColumnBaseDefs,
     );
+    desktopColumnOrderRef.current = normalized;
     desktopColumnOrderPersistSignatureRef.current = JSON.stringify(normalized);
     desktopColumnOrderHydratedInstallIdRef.current = `${desktopColumnStorageScope}:${key}`;
     setDesktopColumnOrder((previous) => {
@@ -420,7 +421,7 @@ export default function useDesktopSceneLayout({
       return;
     }
     const normalized = normalizeDesktopColumnOrder(
-      desktopColumnOrder,
+      desktopColumnOrderRef.current,
       desktopColumnBaseDefs,
     );
     const signature = JSON.stringify(normalized);

@@ -1,0 +1,1 @@
+export const LEPERS_ROUND_ANNOUNCEMENT_MS = 3000;

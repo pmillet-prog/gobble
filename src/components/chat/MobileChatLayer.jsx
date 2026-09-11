@@ -16,14 +16,11 @@ function MobileChatLayer(props) {
     chatInputRef = null,
     chatInputType = "text",
     chatOpenedAtMs = 0,
-    chatKeyboardInsetPx = 0,
     chatMessagesUnreadCount = 0,
-    chatOverlayStyle = undefined,
     chatReplyTarget = null,
-    chatSheetStyle = undefined,
     chatSystemCount = 0,
     chatTab = "messages",
-    chatViewportStyle = undefined,
+    chatTopInsetPx = 0,
     closeChatPanel = null,
     cycleChatHistory = null,
     darkMode = false,
@@ -33,7 +30,6 @@ function MobileChatLayer(props) {
     isLoggedIn = false,
     isMobileLayout = false,
     isSpecial3WordsMode = false,
-    keyboardInsetReservePx = 0,
     mobileChatUnreadIsBotOnly = false,
     mobileChatUnreadCount = 0,
     getAuthorNickClassName = null,
@@ -55,16 +51,15 @@ function MobileChatLayer(props) {
     selfNick = "",
     setChatInput = null,
     showLauncherButton = true,
-    showBotMessages = true,
     showBlockedList = false,
     submitChat = null,
-    onToggleShowBotMessages = null,
-    visibleMessages = [],
   } = props;
 
   const shouldRender = isMobileLayout && (isLoggedIn || (!isLoggedIn && appView === "home"));
   if (!shouldRender) return null;
 
+  // ChatContent owns the live message subscription. Forwarding the root snapshot
+  // here would freeze the open drawer until GobbleApplication renders again.
   return (
     <ChatWidget
       chatInput={chatInput}
@@ -87,15 +82,10 @@ function MobileChatLayer(props) {
       messagesUnreadCount={chatMessagesUnreadCount}
       systemCount={chatSystemCount}
       onChatInputFocus={onChatInputFocus}
-      chatOverlayStyle={chatOverlayStyle}
-      chatViewportStyle={chatViewportStyle}
-      chatSheetStyle={chatSheetStyle}
+      chatTopInsetPx={chatTopInsetPx}
       chatAnimationMs={chatAnimationMs}
       cycleChatHistory={cycleChatHistory}
       darkMode={darkMode}
-      hasKeyboardInset={chatKeyboardInsetPx > 0 || keyboardInsetReservePx > 0}
-      chatKeyboardInsetPx={chatKeyboardInsetPx}
-      keyboardInsetReservePx={keyboardInsetReservePx}
       getAuthorNickClassName={getAuthorNickClassName}
       isChatOpenMobile={isChatOpenMobile}
       isChatClosing={isChatClosing}
@@ -113,12 +103,9 @@ function MobileChatLayer(props) {
       selfNick={selfNick}
       selfInstallId={installId}
       setChatInput={setChatInput}
-      showBotMessages={showBotMessages}
       setIsChatOpenMobile={closeChatPanel}
       submitChat={submitChat}
-      onToggleShowBotMessages={onToggleShowBotMessages}
       showLauncherButton={showLauncherButton && isLoggedIn && !isSpecial3WordsMode}
-      visibleMessages={visibleMessages}
       reactionEmojis={reactionEmojis}
     />
   );

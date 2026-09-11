@@ -103,7 +103,7 @@ export function createLiveFeedFeature(context) {
     const nick = String(entry.nick || "").trim();
     const theme = String(entry.theme || "").trim();
     const label = bonus > 0 ? `+${bonus} pts` : "bonus validé";
-    const subject = theme ? `WikiMama ${theme}` : "WikiMama";
+    const subject = theme ? `Julien Lechéper ${theme}` : "Julien Lechéper";
     realtimeConfig.showToast?.(
       nick
         ? `${nick} complète ${subject} : ${label}`

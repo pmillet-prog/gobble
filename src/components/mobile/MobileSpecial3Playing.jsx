@@ -315,6 +315,7 @@ function MobileSpecial3Playing(props) {
                 maxHeight="100%"
                 bannerText={trainingFeedBannerText}
                 getNickClassName={getNickClassName}
+                showTitle={false}
               />
             </div>
           </div>

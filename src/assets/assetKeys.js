@@ -49,9 +49,28 @@ export const SFX_KEYS = {
   uiClose: "sfx_ui_close",
   tournamentFireworks: "sfx_tournament_fireworks",
   tournamentApplause: "sfx_tournament_applause",
+  qpugIntro: "sfx_qpug_intro",
+  presenterAppearance: "sfx_presenter_appearance",
+  lepersBuzzer: "sfx_lepers_buzzer",
+  lepersBonusCaCestBo: "sfx_lepers_bonus_ca_cest_bo",
+  lepersBonusBienSur: "sfx_lepers_bonus_bien_sur",
+  lepersBonusAhOui: "sfx_lepers_bonus_ah_oui",
+  lepersBonusOuiOui: "sfx_lepers_bonus_oui_oui",
+  presenterPunch1: "sfx_presenter_punch_1",
+  presenterPunch2: "sfx_presenter_punch_2",
+  presenterPunch3: "sfx_presenter_punch_3",
+  presenterPunch4: "sfx_presenter_punch_4",
+  presenterPunch5: "sfx_presenter_punch_5",
   clickAlt: "sfx_ui_click2",
   errorAlt: "sfx_error_alt",
 };
+
+export const LEPERS_BONUS_SFX_KEYS = Object.freeze([
+  SFX_KEYS.lepersBonusCaCestBo,
+  SFX_KEYS.lepersBonusBienSur,
+  SFX_KEYS.lepersBonusAhOui,
+  SFX_KEYS.lepersBonusOuiOui,
+]);
 
 export function makeIncrementalSfxKey(label) {
   return `sfx_tile_step_${label}`;

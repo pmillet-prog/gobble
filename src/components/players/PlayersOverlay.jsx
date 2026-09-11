@@ -225,6 +225,15 @@ export default function PlayersOverlay({ actions, appearance, directory, rendere
                         <span className={`font-semibold truncate ${renderers.nickClassName(entry, nick)}`}>
                           {nick || "Joueur"}
                         </span>
+                        {!entry?.isBot && entry?.deviceKind ? (
+                          <span
+                            className="material-symbols-outlined shrink-0 text-[15px] opacity-65"
+                            title={entry.deviceKind === "mobile" ? "Sur téléphone" : "Sur ordinateur"}
+                            aria-label={entry.deviceKind === "mobile" ? "Sur téléphone" : "Sur ordinateur"}
+                          >
+                            {entry.deviceKind === "mobile" ? "smartphone" : "computer"}
+                          </span>
+                        ) : null}
                         {entry?.afk ? (
                           <span className="text-[10px] font-extrabold italic text-red-600 dark:text-red-300">
                             AFK

@@ -102,13 +102,15 @@ export function buildMixedFeed({ announcements = [], lastWords = [] }) {
 }
 
 const FALLBACK_VISIBLE = 18; // limite de secours pour éviter l'inflation du DOM
-const ROW_ESTIMATE = 17; // hauteur approx. d'une ligne (text-[11px] + leading-tight)
-const GAP_ESTIMATE = 4; // gap-1 en Tailwind
+const ROW_ESTIMATE = 14; // text-[11px] avec leading-tight
+const GAP_ESTIMATE = 4; // marge basse mb-1 de chaque ligne
 
 function LiveFeed({
   items = [],
   darkMode,
   maxHeight = "220px",
+  showTitle = true,
+  compact = false,
   wrapAroundBottomRight = false,
   wrapAroundWidth = "clamp(48px, 12vw, 72px)",
   wrapAroundHeight = "clamp(48px, 12vw, 72px)",
@@ -128,7 +130,7 @@ function LiveFeed({
       const h = el.clientHeight || 0;
       if (!h) return;
       const estimatedRows = Math.floor((h + GAP_ESTIMATE) / (ROW_ESTIMATE + GAP_ESTIMATE));
-      const nextVisible = Math.max(4, estimatedRows || FALLBACK_VISIBLE);
+      const nextVisible = Math.max(1, estimatedRows || FALLBACK_VISIBLE);
       setMaxVisible((prev) => (prev === nextVisible ? prev : nextVisible));
     };
 
@@ -221,15 +223,17 @@ function LiveFeed({
 
   return (
     <div
-      className={`flex flex-col gap-2 ${color}`}
+      className={`flex flex-col ${compact ? "gap-0.5" : "gap-2"} ${color}`}
       style={{ maxHeight, minHeight: maxHeight, height: maxHeight, overflow: "hidden" }}
     >
-      <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-        Flux live
-      </div>
+      {showTitle ? (
+        <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+          Flux live
+        </div>
+      ) : null}
       {bannerText ? (
         <div
-          className={`shrink-0 rounded-lg border px-2.5 py-1 text-[11px] font-semibold leading-tight ${
+          className={`shrink-0 rounded-lg border px-2.5 ${compact ? "py-0" : "py-1"} text-[11px] font-semibold leading-tight ${
             darkMode
               ? "border-emerald-400/20 bg-emerald-500/10 text-emerald-100"
               : "border-emerald-500/15 bg-emerald-50 text-emerald-800"

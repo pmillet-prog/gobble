@@ -33,6 +33,7 @@ export function buildPlayersSignature(list) {
     const userId = Number.isInteger(Number(entry.userId)) ? Number(entry.userId) : "";
     const team = String(entry.team || "");
     const bot = entry.isBot ? "1" : "0";
+    const deviceKind = String(entry.deviceKind || "");
     const afk = entry.afk ? "1" : "0";
     const ready = entry.readyForTournament ? "1" : "0";
     const training = entry.inTraining ? `1:${String(entry.trainingMode || "")}` : "0";
@@ -40,7 +41,7 @@ export function buildPlayersSignature(list) {
       entry.isDailyChampion || entry.crowned || entry.isWeeklyChampion ? "1" : "0";
     const weeklyVocabPodiumRank =
       Number(entry.weeklyVocabPodiumRank) || (entry.isWeeklyVocabChampion ? 1 : 0);
-    signature += `${nick}:${userId}:${team}:${bot}:${afk}:${ready}:${training}:${dailyChampion}:${weeklyVocabPodiumRank}|`;
+    signature += `${nick}:${userId}:${team}:${bot}:${deviceKind}:${afk}:${ready}:${training}:${dailyChampion}:${weeklyVocabPodiumRank}|`;
   }
   return signature;
 }

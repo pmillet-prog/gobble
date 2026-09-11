@@ -8,6 +8,7 @@ import MobileWordPreview from "../MobileWordPreview.jsx";
 import TargetHintPattern from "../TargetHintPattern.jsx";
 import OcidVoteOptionsGrid from "../ocid/OcidVoteOptionsGrid.jsx";
 import { MobileLiveRankingPanel } from "../../features/live/LiveRosterSatellites.jsx";
+import MobilePresenterActionBar from "../../features/presenters/MobilePresenterActionBar.jsx";
 
 function MobileStandardPlaying(props) {
   const {
@@ -46,7 +47,6 @@ function MobileStandardPlaying(props) {
     hintOutlineStyleMap = null,
     implodeActive = false,
     inputControllerRef = null,
-    isChatOpenMobile = false,
     isDailyPlay = false,
     isFinaleBanner = false,
     isMobileLayout = true,
@@ -54,7 +54,7 @@ function MobileStandardPlaying(props) {
     isStandaloneTraining = false,
     isTargetRound = false,
     lightGridSurfaceStyle = undefined,
-    liveFeedMinHeight = 0,
+    showMobileLiveFeed = false,
     liveWord = "",
     liveWordTiles = [],
     mobileBodyHeightStyle = undefined,
@@ -79,8 +79,9 @@ function MobileStandardPlaying(props) {
     normalizeLetterKey = (value) => value,
     canOpenPlayerProfile = null,
     onOpenDefinition = null,
+    onOpenChat = null,
     onOpenPlayerProfile = null,
-    onOpenPlayersOverlaySnapshot = null,
+    onOpenPlayers = null,
     onOpenSettings = null,
     onOcidProposalChange = null,
     onClearOcidProposal = null,
@@ -91,6 +92,7 @@ function MobileStandardPlaying(props) {
     onToggleDarkMode = null,
     onToggleSound = null,
     phase = "playing",
+    presentersDisabled = false,
     praiseOverlay = null,
     previewBlockHeight = 0,
     previewGapPx = 0,
@@ -99,6 +101,7 @@ function MobileStandardPlaying(props) {
     nickDecorationKey = "",
     renderNickSuffix = null,
     rosterConfig = null,
+    roundId = null,
     roundTypeLabel = "",
     roundStats = null,
     roundTilePointsVisible = false,
@@ -138,6 +141,8 @@ function MobileStandardPlaying(props) {
   } = props;
 
   const hideOcidVotePlaySurface = phase === "playing" && isOcidRound && !!ocidVote;
+  const adaptiveRanking = mobileLayoutSizing.adaptiveRanking === true;
+  const compactFeed = adaptiveRanking && mobileLayoutSizing.liveFeedHeight < 74;
   const solvedTargetLength = String(solvedTargetWord || "").trim().length;
   const isSolvedTargetDisplay = solvedTargetLength > 0;
   const solvedTargetFontPx = isSolvedTargetDisplay
@@ -224,6 +229,7 @@ function MobileStandardPlaying(props) {
                 darkMode={darkMode}
                 maxHeight="100%"
                 getNickClassName={getNickClassName}
+                showTitle={false}
               />
             </div>
           ) : null}
@@ -430,7 +436,6 @@ function MobileStandardPlaying(props) {
               mobileRankingRef={mobileRankingRef}
               nickDecorationKey={nickDecorationKey}
               onOpenPlayerProfile={onOpenPlayerProfile}
-              onOpenPlayersOverlaySnapshot={onOpenPlayersOverlaySnapshot}
               renderNickSuffix={renderNickSuffix}
               rosterConfig={rosterConfig}
               selfNick={selfNick}
@@ -454,7 +459,7 @@ function MobileStandardPlaying(props) {
             />
           ) : null}
           {!hideOcidVotePlaySurface ? (
-          <div className="flex-1 min-h-0 flex flex-col gap-1">
+          <div className="flex-1 min-h-0 flex flex-col gap-1 overflow-hidden">
             <div className="relative w-full shrink-0">
             <MobileGrid
               board={boardForRender}
@@ -510,24 +515,29 @@ function MobileStandardPlaying(props) {
               />
             ) : null}
             </div>
-            {!isStandaloneTraining ? <div
-              className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white/90 dark:bg-slate-900/90 px-3 py-2 shadow-sm flex-1 min-h-0 box-border"
-              style={{
-                minHeight: `${liveFeedMinHeight}px`,
-                flexBasis: `${liveFeedMinHeight}px`,
-              }}
+            {!isStandaloneTraining && showMobileLiveFeed ? <div
+              className={`rounded-xl border border-slate-200 dark:border-slate-700 bg-white/90 dark:bg-slate-900/90 px-3 ${compactFeed ? "py-0.5" : "py-2"} shadow-sm flex-1 min-h-0 overflow-hidden box-border`}
             >
               <LiveFeedSatellite
-                limit={8}
                 darkMode={darkMode}
                 maxHeight="100%"
                 getNickClassName={getNickClassName}
-                wrapAroundBottomRight={!isChatOpenMobile}
-                wrapAroundWidth="clamp(44px, 11vw, 68px)"
-                wrapAroundHeight="clamp(44px, 11vw, 68px)"
+                showTitle={false}
+                compact={compactFeed}
               />
             </div> : null}
           </div>
+          ) : null}
+          {mobileLayoutSizing.liveActionBarHeight > 0 ? (
+            <MobilePresenterActionBar
+              darkMode={darkMode}
+              height={mobileLayoutSizing.liveActionBarHeight}
+              hostRef={gridRef}
+              onOpenChat={onOpenChat}
+              onOpenPlayers={onOpenPlayers}
+              presentersDisabled={presentersDisabled}
+              roundId={roundId}
+            />
           ) : null}
         </div>
       </div>

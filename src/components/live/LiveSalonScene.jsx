@@ -74,6 +74,7 @@ const styles = `
 .live-salon-utilities {
   right: 2.5%;
   top: 36.5%;
+  bottom: 3%;
   width: clamp(68px, 7.8%, 128px);
 }
 .live-salon-notebook {
@@ -318,6 +319,7 @@ const styles = `
   left: 10%;
   right: 10%;
   top: 14.2%;
+  bottom: auto;
   width: auto;
 }
 .live-salon-scene .live-salon-notebook {
@@ -547,7 +549,6 @@ export default function LiveSalonScene({
             selfNick={selfNick}
             setChatInput={setChatInput}
             showBlockedList={showBlockedList}
-            showBotMessages={false}
             submitChat={submitChat}
             variant="notebook"
           />

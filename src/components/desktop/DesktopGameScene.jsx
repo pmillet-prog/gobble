@@ -35,6 +35,8 @@ import {
   normalizeBonusLabel,
 } from "../daily/dailySpecialModel.js";
 import { FAKE_TWINS_TYPE, tileScore } from "../gameLogic.js";
+import DesktopPresenterActionBar from "../../features/presenters/DesktopPresenterActionBar.jsx";
+import { ResultsActionBar } from "../../features/presenters/MobilePresenterActionBar.jsx";
 import DesktopGameGrid from "../live/DesktopGameGrid.jsx";
 import DesktopSpecial3WordsPanel from "../live/DesktopSpecial3WordsPanel.jsx";
 import InterTournamentLobby from "../live/InterTournamentLobby.jsx";
@@ -46,6 +48,7 @@ import TrainingPlayerBadge from "../training/TrainingPlayerBadge.jsx";
 import useDesktopSceneLayout from "./useDesktopSceneLayout.js";
 
 export default function DesktopGameScene({ runtime }) {
+  const presenterInterventionHostRef = React.useRef(null);
   const {
     activeRoom,
     allSoundOn,
@@ -175,11 +178,13 @@ export default function DesktopGameScene({ runtime }) {
     openDesktopChatReactionDetails,
     openDesktopChatReactionPicker,
     openDefinition,
+    openLiveStatsOverlay,
     openPlayerProfile,
     openRoundPlayerModal,
     openUserMenu,
     openWeeklyStatsOverlay,
     phase,
+    presenterHintsDisabledForRound,
     praiseOverlay,
     prepareWordListFlip,
     previewBarMinHeight,
@@ -199,7 +204,9 @@ export default function DesktopGameScene({ runtime }) {
     resultsRankingList,
     resultsRankingMode,
     resultsReorderTick,
+    returnToLobby,
     rotateGridClockwise,
+    roundId,
     roundPreparationOverlay,
     roundPreparing,
     roundStats,
@@ -231,14 +238,12 @@ export default function DesktopGameScene({ runtime }) {
     setIsSettingsOpen,
     setResultsRankingModeWithPulse,
     setShowAllWords,
-    setShowBotMessages,
     setTargetWaitDevGridHost,
     setTargetWaitDevSideHost,
     setTournamentReady,
     shouldDefinitionBlink,
     showAllWords,
     showBlockedList,
-    showBotMessages,
     showPreviewStats,
     showResultsWordPath,
     showSolvedTargetLoupe,
@@ -286,7 +291,6 @@ export default function DesktopGameScene({ runtime }) {
     visibleMessages,
     visiblePlayerList: visiblePlayerListProp,
     visualScreenShakeEnabled,
-    statsApplication,
     WORDS_SCROLL_MAX_HEIGHT,
     rosterConfig,
   } = runtime;
@@ -1382,6 +1386,7 @@ export default function DesktopGameScene({ runtime }) {
             )}
           </div>
 
+          <div ref={presenterInterventionHostRef} className="flex flex-col flex-1 min-h-0 min-w-0">
           {phase === "playing" && isSpecial3WordsMode ? (
             <DesktopSpecial3WordsPanel
               activeSlotIndex={special3ActiveSlotIndex}
@@ -1403,13 +1408,13 @@ export default function DesktopGameScene({ runtime }) {
             />
           ) : phase === "playing" && isOcidRound ? null : phase === "playing" &&
             (!standaloneTrainingSession || !isTargetRound) ? (
-            <div className="flex flex-col flex-1 min-h-0">
-              <LiveFeedSatellite
-                darkMode={darkMode}
-                maxHeight="100%"
-                getNickClassName={getLiveNickClassName}
-              />
-            </div>
+              <div className="flex-1 min-h-0">
+                <LiveFeedSatellite
+                  darkMode={darkMode}
+                  maxHeight="100%"
+                  getNickClassName={getLiveNickClassName}
+                />
+              </div>
           ) : phase === "results" && ocidSummary ? (
             <div className="flex flex-col flex-1 min-h-0 gap-3 overflow-y-auto pr-1">
               <div className={`rounded-xl border p-3 ${darkMode ? "bg-slate-900/80 border-slate-700" : "bg-amber-50 border-amber-200"}`}>
@@ -1552,6 +1557,26 @@ export default function DesktopGameScene({ runtime }) {
               />
             </div>
           )}
+          </div>
+          {isLoggedIn && appView === "live" && !standaloneTrainingSession ? (
+            phase === "results" ? (
+              <ResultsActionBar
+                darkMode={darkMode}
+                hostRef={presenterInterventionHostRef}
+                layout="desktop"
+                onOpenStats={openLiveStatsOverlay}
+                onReturnLobby={returnToLobby}
+                roundId={roundId}
+              />
+            ) : phase === "playing" && !isSpecial3WordsMode ? (
+              <DesktopPresenterActionBar
+                darkMode={darkMode}
+                hostRef={presenterInterventionHostRef}
+                presentersDisabled={presenterHintsDisabledForRound}
+                roundId={roundId}
+              />
+            ) : null
+          ) : null}
         </div>
 
         {/* Colonne 4 : Chat */}
@@ -1602,8 +1627,6 @@ export default function DesktopGameScene({ runtime }) {
             selfNick={selfNick}
             setChatDesktopFontScale={setChatDesktopFontScale}
             showBlockedList={showBlockedList}
-            showBotMessages={showBotMessages}
-            onToggleShowBotMessages={() => setShowBotMessages((prev) => !prev)}
             visibleMessages={visibleMessages}
           />
         )}
@@ -1670,7 +1693,6 @@ export default function DesktopGameScene({ runtime }) {
       />
       {roundPreparationOverlay}
       {mobileRoundIntroOverlay}
-      {isLoggedIn && appView === "stats" ? statsApplication : null}
       {chatOverlays}
     </>
   );

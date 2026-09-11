@@ -31,6 +31,8 @@ import {
   FINALE_TYPE,
   getFinaleMinWords,
 } from "../shared/finaleRules.js";
+import { LEPERS_ROUND_ANNOUNCEMENT_MS } from "../shared/lepersRules.js";
+import { isTournamentCelebrationActive } from "../shared/presenterCelebrationPolicy.js";
 import { shouldPersistRoundProgress } from "./trainingProgressPolicy.js";
 import {
   TrainingPoolStore,
@@ -47,6 +49,25 @@ import {
   getTournamentLobbyCooldownStatus,
 } from "./tournamentLobbyCooldownPolicy.js";
 import { createBotManager, BOT_ROSTER_4X4 } from "./bots/botManager.js";
+import {
+  buildRomejkoInterventionText,
+  getRomejkoLongestWordSummary,
+  getRomejkoScheduleDelayMs,
+} from "./bots/romejkoIntervention.js";
+import {
+  LEPERS_BONUS_POINTS,
+  LEPERS_RESULT_DELAY_MS,
+  buildLepersResultIntervention,
+  buildLepersSolvedIntervention,
+  getLepersBonusForNick,
+  isLepersChallengeRound,
+  pickLepersTournamentRound,
+} from "./bots/lepersChallenge.js";
+import {
+  buildTournamentCelebrationPresenterLines,
+  createTournamentRecords,
+  recordTournamentWordAchievement,
+} from "./bots/tournamentCelebrationInterventions.js";
 import { createComputePool } from "./compute/computePool.js";
 import { computeOcidGobbleAwards } from "./compute/ocidGobblePolicy.js";
 import { computeSpecial3GobbleAwards } from "./compute/special3GobblePolicy.js";
@@ -87,6 +108,8 @@ import { registerPlayerProgressHandlers } from "./realtime/registerPlayerProgres
 import { registerTrainingHandlers } from "./realtime/registerTrainingHandlers.js";
 import { registerDisconnectHandler } from "./realtime/registerDisconnectHandler.js";
 import { registerSessionHandlers } from "./realtime/registerSessionHandlers.js";
+import { getSocketDeviceKind } from "./realtime/clientDeviceKind.js";
+import { registerChalkboardRoutes } from "./chalkboard/registerChalkboardRoutes.js";
 import {
   buildSessionPlayerCapabilities,
   deriveSessionSnapshotPhase,
@@ -1461,6 +1484,7 @@ app.get("/api/players", async (req, res) => {
       installId: p?.installId || null,
       team: getTeamForInstallCached(p?.installId),
       isBot: isBotToken(p?.token),
+      deviceKind: isBotToken(p?.token) ? null : p?.deviceKind || "desktop",
       connected: isPlayerConnected(p) || isBotToken(p?.token),
       afk: isPlayerAfk(p, now),
       readyForTournament: ensureTournamentLobby(room).readyKeys.has(getPlayerReadyKey(p)),
@@ -1521,6 +1545,13 @@ app.get("/health", (req, res) => {
       oldest: getActiveHttpRequestsSnapshot(8),
     },
   });
+});
+
+registerChalkboardRoutes({
+  app,
+  getRequestIdentity: getRequestPlayerIdentity,
+  requireRequestIdentity: requireRequestPlayerIdentity,
+  isModerator: isRequestChalkboardModerator,
 });
 
 // ===== SERVE FRONT VITE (dist) =====
@@ -1589,12 +1620,14 @@ const MAX_SYSTEM_CHAT_HISTORY = 100;
 const NICK_MAX_LEN = 25;
 const CHAT_REPLY_TEXT_MAX_LEN = 280;
 const CHAT_MESSAGE_TEXT_MAX_LEN = 300;
+const PRESENTER_INTERVENTION_TEXT_MAX_LEN = 700;
+const PRESENTER_CHAT_COPY_TEXT_MAX_LEN = 2400;
 const TARGET_CHAT_SPOILER_MIN_RUN = 4;
 const CHAT_REACTION_MAX_USERS_PER_EMOJI = 200;
 const AMBIENT_CHAT_BOTS_ENABLED =
   !/^(0|false|off|no)$/i.test(String(process.env.GOBBLE_AMBIENT_CHAT_BOTS_ENABLED || "1"));
 const AMBIENT_CHAT_BOT_ENABLED_KEYS = new Set(
-  String(process.env.GOBBLE_AMBIENT_CHAT_BOT_KEYS || "coach,linguist,trend")
+  String(process.env.GOBBLE_AMBIENT_CHAT_BOT_KEYS || "coach,linguist,detective,trend")
     .split(",")
     .map((key) => key.trim())
     .filter(Boolean)
@@ -1602,14 +1635,6 @@ const AMBIENT_CHAT_BOT_ENABLED_KEYS = new Set(
 const AMBIENT_CHAT_BOT_GLOBAL_COOLDOWN_MS = 18 * 1000;
 const AMBIENT_CHAT_BOT_PER_BOT_COOLDOWN_MS = 45 * 1000;
 const AMBIENT_CHAT_BOT_MAX_PER_ROUND = 5;
-const DETECTIVE_MAX_LENGTH_MIN_LEN = Math.max(
-  7,
-  Math.trunc(Number(process.env.GOBBLE_DETECTIVE_MAX_LENGTH_MIN_LEN) || 9)
-);
-const DETECTIVE_MAX_LENGTH_CHANCE = Math.min(
-  1,
-  Math.max(0, Number(process.env.GOBBLE_DETECTIVE_MAX_LENGTH_CHANCE) || 0.35)
-);
 const AMBIENT_TREND_BOT_ENABLED =
   !/^(0|false|off|no)$/i.test(String(process.env.GOBBLE_TREND_BOT_ENABLED || "1"));
 const AMBIENT_TREND_BOT_TIMEOUT_MS = 1400;
@@ -1630,16 +1655,12 @@ const WIKIMAMA_LIGHT_INSIGHT_MIN_WORDS = Math.max(
   8,
   Math.trunc(Number(process.env.GOBBLE_WIKIMAMA_LIGHT_INSIGHT_MIN_WORDS) || 18)
 );
+// Prototype conservé pour une reprise ultérieure, mais volontairement inactif.
+const WIKIMAMA_LIGHT_INSIGHT_ENABLED = false;
 const AMBIENT_ROUND_END_WORD_CURIOSITY_CHANCE = Math.min(
   1,
   Math.max(0, Number(process.env.GOBBLE_ROUND_END_WORD_CURIOSITY_CHANCE) || 0.06)
 );
-const GROSROBERT_TOURNAMENT_CHANCE = Math.min(
-  1,
-  Math.max(0, Number(process.env.GOBBLE_GROSROBERT_TOURNAMENT_CHANCE) || 0.45)
-);
-const GROSROBERT_FORCE_FINAL_ROUND =
-  !/^(0|false|off|no)$/i.test(String(process.env.GOBBLE_GROSROBERT_FORCE_FINAL_ROUND || "1"));
 const CULTURE_THEME_BONUS_ENABLED =
   /^(1|true|on|yes)$/i.test(String(process.env.GOBBLE_CULTURE_THEME_BONUS_ENABLED || "0"));
 const CHAT_REACTION_ALLOWED_EMOJIS = new Set([
@@ -2035,6 +2056,24 @@ function getSocketModerationAccount(socket) {
     userId,
     reason: allowed ? "" : "account_not_allowed",
   };
+}
+
+function isRequestChalkboardModerator(identity) {
+  const accessConfig = getDevAccessConfig();
+  const user = identity?.user || null;
+  if (!user) return false;
+  const userId = Number.isInteger(Number(user.id)) ? String(Number(user.id)) : "";
+  const usernameNormalized = normalizeUsername(
+    user.usernameDisplay || user.usernameNormalized || ""
+  );
+  return !!(
+    (userId &&
+      (accessConfig.devAccountIds.has(userId) ||
+        accessConfig.moderationAccountIds.has(userId))) ||
+    (usernameNormalized &&
+      (accessConfig.devAccountNames.has(usernameNormalized) ||
+        accessConfig.moderationAccountNames.has(usernameNormalized)))
+  );
 }
 
 function buildModerationPayload(socket = null) {
@@ -3439,15 +3478,12 @@ function createTournamentState(roomConfig) {
     id: `${Date.now()}-${Math.floor(Math.random() * 1e9)}`,
     currentRound: 0,
     totalRounds: TOURNAMENT_TOTAL_ROUNDS,
+    lepersChallengeRound: pickLepersTournamentRound(),
     specials: buildTournamentSpecials(roomConfig),
-    totals: new Map(), // nick -> { points, gobbles, roundScoreSum }
-    lastAwarded: new Map(), // nick -> { points, gobbles }
+    totals: new Map(), // nick -> { points, gobbles, lepersBonus, roundScoreSum }
+    lastAwarded: new Map(), // nick -> { points, gobbles, lepersBonus }
     prevPositions: new Map(), // nick -> position
-    records: {
-      mostWords: { count: 0, nick: null, round: null },
-      bestWord: { pts: 0, nick: null, word: null, round: null },
-      longestWord: { len: 0, nick: null, word: null, round: null },
-    },
+    records: createTournamentRecords(),
   };
 }
 
@@ -3478,7 +3514,7 @@ function pickDevForcedRoundType(room, tournamentRound) {
   return picked;
 }
 
-function getTournamentRoundPlan(room, tournamentRound) {
+function getTournamentRoundBasePlan(room, tournamentRound) {
   if (isDevControlsActive()) {
     const forcedRoundType = pickDevForcedRoundType(room, tournamentRound);
     switch (forcedRoundType) {
@@ -3536,6 +3572,15 @@ function getTournamentRoundPlan(room, tournamentRound) {
   return buildBaseTournamentPlan(tournamentRound, room.config);
 }
 
+function getTournamentRoundPlan(room, tournamentRound) {
+  const plan = getTournamentRoundBasePlan(room, tournamentRound);
+  return {
+    ...plan,
+    lepersChallengeEnabled:
+      Number(room?.tournament?.lepersChallengeRound) === Number(tournamentRound),
+  };
+}
+
 function getTrainingRoundPlan(room, rawType) {
   const type = String(rawType || "normal").trim();
   const roundNumber = 1;
@@ -3568,16 +3613,19 @@ function getTrainingRoundPlan(room, rawType) {
 
 function getEstimatedRoundDurationMs(room, plan) {
   const type = String(plan?.type || "normal");
+  const introDurationMs =
+    ROUND_INTRO_DURATION_MS +
+    (plan?.lepersChallengeEnabled ? LEPERS_ROUND_ANNOUNCEMENT_MS : 0);
   if (type === OCID_TYPE) {
-    return ROUND_INTRO_DURATION_MS + OCID_PROPOSAL_DURATION_MS + OCID_VOTE_DURATION_MS;
+    return introDurationMs + OCID_PROPOSAL_DURATION_MS + OCID_VOTE_DURATION_MS;
   }
   if (type === "target_long" || type === "target_score") {
-    return ROUND_INTRO_DURATION_MS + TARGET_SPECIAL_ROUND_DURATION_MS;
+    return introDurationMs + TARGET_SPECIAL_ROUND_DURATION_MS;
   }
   if (type === "speed" || type === "monstrous" || type === MASSIVE_BOGGLE_TYPE) {
-    return ROUND_INTRO_DURATION_MS + LIVE_SPECIAL_ROUND_DURATION_MS;
+    return introDurationMs + LIVE_SPECIAL_ROUND_DURATION_MS;
   }
-  return ROUND_INTRO_DURATION_MS + (room?.config?.durationMs || DEFAULT_ROUND_DURATION_MS);
+  return introDurationMs + (room?.config?.durationMs || DEFAULT_ROUND_DURATION_MS);
 }
 
 function getEstimatedPostRoundBreakMs(room, plan, { finalRound = false } = {}) {
@@ -4121,6 +4169,7 @@ function ensureStandaloneTrainingPresence(room, socket, identity, payload = {}) 
   player.nick = nick;
   player.userId = identity.userId;
   player.installId = installId;
+  player.deviceKind = getSocketDeviceKind(socket);
   player.connected = true;
   player.lastSeenAt = now;
   player.lastActivityAt = now;
@@ -4297,6 +4346,7 @@ function emitPlayers(room) {
         installId: p.installId || null,
         team: getTeamForInstallCached(p.installId),
         isBot: isBotToken(p?.token),
+        deviceKind: isBotToken(p?.token) ? null : p?.deviceKind || "desktop",
         connected: isPlayerConnected(p) || isBotToken(p?.token),
         afk: isPlayerAfk(p, now),
         readyForTournament: lobby.readyKeys.has(getPlayerReadyKey(p)),
@@ -4801,6 +4851,8 @@ function buildRoundStartedPayload(room) {
         ? buildPublicOcidVotePayload(room)
         : null,
     solutions: buildRoundSubmissionSolutions(round),
+    presenterInterventions: Object.values(round.presenterInterventions || {}),
+    lepersChallenge: serializeLepersChallenge(round.lepersChallenge),
     cultureThemeChallenge: serializeCultureThemeChallenge(round.cultureThemeChallenge),
     special: round.special?.isSpecial ? round.special : null,
     training: isTrainingRound,
@@ -5021,6 +5073,7 @@ function buildSessionSnapshot(room, player) {
     special3Words,
     targetFound,
     targetWord,
+    lepersChallengeFound: !!round?.lepersChallenge?.foundBy?.has?.(player.nick),
     ocid,
     capabilities: buildSessionPlayerCapabilities({
       hasSessionRound,
@@ -5626,15 +5679,15 @@ function broadcastSystemChatMessage(text, opts = {}) {
 
 const AMBIENT_CHAT_BOTS = Object.freeze({
   linguist: {
-    nick: "GrosRobert",
+    nick: "Bernard Pinot",
     category: "linguist",
   },
   statistician: {
-    nick: "Statatouille",
+    nick: "Laurent Rhum&Co",
     category: "statistician",
   },
   detective: {
-    nick: "Inspecteur Grille",
+    nick: "Romejko",
     category: "detective",
   },
   commentator: {
@@ -5642,7 +5695,7 @@ const AMBIENT_CHAT_BOTS = Object.freeze({
     category: "commentator",
   },
   culture: {
-    nick: "WikiMama",
+    nick: "Julien Lechéper",
     category: "culture",
   },
   narrator: {
@@ -5650,7 +5703,7 @@ const AMBIENT_CHAT_BOTS = Object.freeze({
     category: "narrator",
   },
   coach: {
-    nick: "CaSuffix",
+    nick: "Maître Gobbello",
     category: "coach",
   },
   recordHunter: {
@@ -5816,19 +5869,6 @@ const RECORD_HUNTER_RARE_GOBBLE_LINES = Object.freeze([
   },
 ]);
 
-const MAX_WORD_LENGTH_LINES = Object.freeze([
-  "Cette grille cache au moins un mot de {LEN} lettres. Grande échelle conseillée.",
-  "Longueur maximale repérée: {LEN} lettres. Les diagonales vont chauffer.",
-  "Il y a un mot de {LEN} lettres dans le secteur. Il ne viendra pas tout seul.",
-  "Alerte rallonge: la grille monte jusqu'à {LEN} lettres.",
-  "Plafond de la manche: {LEN} lettres. Beau morceau à déterrer.",
-  "Le plus long suspect fait {LEN} lettres. Il a laissé peu d'indices.",
-  "Dossier ouvert: un mot de {LEN} lettres se balade quelque part.",
-  "Maximum détecté: {LEN} lettres. Les petites routes ne suffiront peut-être pas.",
-  "Cette grille a du coffre, jusqu'à {LEN} lettres.",
-  "Un mot de {LEN} lettres est officiellement en cavale.",
-]);
-
 function isAmbientBotChatMessage(message) {
   return (
     message?.meta?.kind === "ambient_bot_chat" ||
@@ -5869,6 +5909,16 @@ function pushAmbientChatBotMessage(room, botKey, text, opts = {}) {
     }
   }
   if (!bot || !trimmed) return null;
+  const recipientSocketIds = Array.isArray(opts.recipientSocketIds)
+    ? Array.from(
+        new Set(
+          opts.recipientSocketIds
+            .map((socketId) => String(socketId || "").trim())
+            .filter(Boolean)
+        )
+      )
+    : null;
+  if (recipientSocketIds && !recipientSocketIds.length) return null;
   const state = getAmbientChatBotState(room);
   if (!state) return null;
   const now = Date.now();
@@ -5888,21 +5938,108 @@ function pushAmbientChatBotMessage(room, botKey, text, opts = {}) {
   state.lastGlobalAt = now;
   state.lastByBot.set(botKey, now);
 
+  const presenterIntervention =
+    bot.category === "coach" ||
+    bot.category === "detective" ||
+    bot.category === "linguist";
   const message = {
-    id: randomUUID(),
+    id:
+      typeof opts.id === "string" && opts.id.trim()
+        ? opts.id.trim()
+        : randomUUID(),
     t: now,
     roomId: room.id,
+    roundId: room.currentRound.id,
     nick: bot.nick,
     author: bot.nick,
     installId: `ambient-bot:${bot.category}`,
-    text: trimmed.slice(0, CHAT_MESSAGE_TEXT_MAX_LEN),
+    text: trimmed.slice(
+      0,
+      presenterIntervention
+        ? PRESENTER_INTERVENTION_TEXT_MAX_LEN
+        : CHAT_MESSAGE_TEXT_MAX_LEN
+    ),
     isBot: true,
     meta: {
       kind: "ambient_bot_chat",
       category: bot.category,
+      roundId: room.currentRound.id,
+      ...(Array.isArray(opts.highlights) && opts.highlights.length
+        ? { highlights: opts.highlights.map((value) => String(value || "").trim()).filter(Boolean) }
+        : null),
     },
   };
-  pushChatMessage(room, message);
+  if (recipientSocketIds) {
+    for (const socketId of recipientSocketIds) {
+      io.to(socketId).emit("chatMessage", message);
+    }
+  } else {
+    pushChatMessage(room, message);
+  }
+  return message;
+}
+
+function buildPresenterInterventionMessage(room, botKey, text, opts = {}) {
+  const bot = AMBIENT_CHAT_BOTS[botKey];
+  const trimmed = String(text || "").replace(/\s+/g, " ").trim();
+  const roundId = String(opts.roundId || room?.currentRound?.id || "").trim();
+  if (!room || !bot || !trimmed || !roundId) return null;
+  const id = randomUUID();
+  const highlights = Array.isArray(opts.highlights)
+    ? opts.highlights.map((value) => String(value || "").trim()).filter(Boolean)
+    : [];
+  const message = {
+    id,
+    t: Date.now(),
+    roomId: room.id,
+    roundId,
+    nick: bot.nick,
+    author: bot.nick,
+    installId: `ambient-bot:${bot.category}`,
+    text: trimmed.slice(0, PRESENTER_INTERVENTION_TEXT_MAX_LEN),
+    isBot: true,
+    meta: {
+      kind: "ambient_bot_chat",
+      category: bot.category,
+      roundId,
+      ...(highlights.length ? { highlights } : null),
+      ...(typeof opts.chatCopyText === "string" && opts.chatCopyText.trim()
+        ? {
+            chatCopyText: opts.chatCopyText
+              .replace(/\s+/g, " ")
+              .trim()
+              .slice(0, PRESENTER_CHAT_COPY_TEXT_MAX_LEN),
+          }
+        : null),
+    },
+  };
+  return message;
+}
+
+function rememberRoundPresenterIntervention(room, botKey, text, opts = {}) {
+  const round = room?.currentRound;
+  if (!round) return null;
+  const message = buildPresenterInterventionMessage(room, botKey, text, opts);
+  if (!message) return null;
+  round.presenterInterventions = {
+    ...(round.presenterInterventions || {}),
+    [message.meta.category]: message,
+  };
+  return message;
+}
+
+function emitRoundPresenterIntervention(room, botKey, text, opts = {}) {
+  if (
+    isTournamentCelebrationActive({
+      breakKind: room?.breakState?.breakKind,
+      celebrationAt: room?.breakState?.tournamentSummaryAt,
+    })
+  ) {
+    return null;
+  }
+  const message = rememberRoundPresenterIntervention(room, botKey, text, opts);
+  if (!message) return null;
+  io.to(room.id).emit("presenterIntervention", message);
   return message;
 }
 
@@ -6246,7 +6383,12 @@ function buildCoachSuffixLine(solutions, gridSize) {
 
 function buildCoachRoundLine(room, planUsed = null) {
   const round = room?.currentRound;
-  if (isAmbientTargetRound(room, planUsed) || isAmbientSpeedRound(room, planUsed)) return "";
+  if (
+    isAmbientTargetRound(room, planUsed) ||
+    isAmbientSpeedRound(room, planUsed)
+  ) {
+    return "";
+  }
   const solutions = getPreparedRoundSolutions(round);
   if (!solutions.length) return "";
   const gridSize = Number(room?.config?.gridSize) || 0;
@@ -6268,53 +6410,252 @@ function buildCoachRoundLine(room, planUsed = null) {
   return "";
 }
 
-function buildMaxWordLengthLine(room) {
-  const round = room?.currentRound;
-  const longest = getPreparedRoundSolutions(round).sort(
-    (a, b) => b.word.length - a.word.length || (Number(b.pts) || 0) - (Number(a.pts) || 0)
-  )[0];
-  const len = Number(longest?.word?.length) || 0;
-  if (len < DETECTIVE_MAX_LENGTH_MIN_LEN) return "";
-  const line = pickAmbientLine(
-    MAX_WORD_LENGTH_LINES,
-    hashAmbientString(`${round?.id || ""}:max:${len}`)
-  );
-  return line.replace("{LEN}", String(len));
+function hydrateLepersChallenge(rawChallenge, roundId) {
+  const word = normalizeWord(rawChallenge?.word || "");
+  const text = String(rawChallenge?.text || "").replace(/\s+/g, " ").trim();
+  if (!word || word.length < 5 || !text) return null;
+  return {
+    id: `${roundId}:lepers`,
+    word,
+    definition: String(rawChallenge?.definition || "").trim(),
+    text,
+    highlights: Array.isArray(rawChallenge?.highlights)
+      ? rawChallenge.highlights.map((value) => String(value || "").trim()).filter(Boolean)
+      : [],
+    rarityBucket: String(rawChallenge?.rarityBucket || ""),
+    rarityScore: Number(rawChallenge?.rarityScore) || 0,
+    source: String(rawChallenge?.source || ""),
+    sourceUrl: String(rawChallenge?.sourceUrl || ""),
+    foundBy: new Set(),
+  };
 }
 
-function scheduleAmbientDetectiveMidRound(room, planUsed = null, roundIntroMs = 0, roundDurationMs = 0) {
-  const round = room?.currentRound;
-  if (!round || isAmbientTargetRound(room, planUsed) || isAmbientSpeedRound(room, planUsed)) return;
-  const solutions = getPreparedRoundSolutions(round);
-  if (!solutions.length) return;
-  if ((hashAmbientString(`${round.id || ""}:detective:max-word-gate`) % 1000) >= DETECTIVE_MAX_LENGTH_CHANCE * 1000) {
+function serializeLepersChallenge(challenge) {
+  if (!challenge?.id || !challenge?.text) return null;
+  return {
+    id: challenge.id,
+    text: challenge.text,
+    highlights: Array.isArray(challenge.highlights) ? challenge.highlights : [],
+    bonusPoints: LEPERS_BONUS_POINTS,
+  };
+}
+
+function emitLepersIntervention(room, payload, recipient = null) {
+  if (!room?.currentRound || !payload?.text) return;
+  if (
+    isTournamentCelebrationActive({
+      breakKind: room.breakState?.breakKind,
+      celebrationAt: room.breakState?.tournamentSummaryAt,
+    })
+  ) {
     return;
   }
-  const delayMs = Math.max(
-    Number(roundIntroMs) + 20_000,
-    Number(roundIntroMs) + Math.round(Math.max(30_000, Number(roundDurationMs) || 0) * 0.32)
-  );
-  scheduleAmbientChatBotMessage(
-    room,
-    "detective",
-    () => buildMaxWordLengthLine(room),
-    { delayMs, flag: "detective:max-word-length" }
-  );
+  const event = {
+    roomId: room.id,
+    roundId: room.currentRound.id,
+    id: String(payload.id || `${room.currentRound.id}:lepers:${Date.now()}`),
+    kind: String(payload.kind || "challenge"),
+    text: String(payload.text),
+    highlights: Array.isArray(payload.highlights) ? payload.highlights : [],
+    ...(typeof payload.chatCopyText === "string" && payload.chatCopyText.trim()
+      ? { chatCopyText: payload.chatCopyText.trim() }
+      : null),
+  };
+  if (recipient?.installId) {
+    emitToInstallId(room, recipient.installId, "lepersIntervention", event);
+    return;
+  }
+  if (recipient?.socketId) {
+    io.to(recipient.socketId).emit("lepersIntervention", event);
+    return;
+  }
+  io.to(room.id).emit("lepersIntervention", event);
+}
+
+function scheduleLepersChallengeStart(room) {
+  const round = room?.currentRound;
+  const challenge = round?.lepersChallenge;
+  if (!round || !challenge) return;
+  const roundId = round.id;
+  const delayMs = Math.max(0, Number(round.startsAt) + 650 - Date.now());
+  const timer = setTimeout(() => {
+    if (!room.currentRound || room.currentRound.id !== roundId) return;
+    emitLepersIntervention(room, {
+      id: challenge.id,
+      kind: "challenge",
+      text: challenge.text,
+      highlights: challenge.highlights,
+    });
+  }, delayMs);
+  timer.unref?.();
+  round.timers?.push(timer);
+}
+
+function buildLepersRoundResult(round) {
+  const challenge = round?.lepersChallenge;
+  const result = buildLepersResultIntervention(challenge?.word);
+  if (!challenge || !result) return null;
+  const finders = Array.from(challenge.foundBy instanceof Set ? challenge.foundBy : [])
+    .map((nick) => String(nick || "").trim())
+    .filter(Boolean);
+  const finderNames = finders.length
+    ? new Intl.ListFormat("fr", { style: "long", type: "conjunction" }).format(
+        finders
+      )
+    : "";
+  const answer = String(result.highlights?.[0] || challenge.word || "")
+    .trim()
+    .toLocaleUpperCase("fr");
+  const congratulations =
+    finders.length === 1
+      ? ` Bravo à ${finderNames}, qui l’a trouvé !`
+      : finders.length > 1
+      ? ` Bravo à ${finderNames}, qui l’ont trouvé !`
+      : "";
+  return {
+    id: `${challenge.id}:answer`,
+    kind: "answer",
+    text: result.text,
+    chatCopyText: `La réponse était « ${answer} ».${congratulations}`,
+    highlights: result.highlights,
+  };
+}
+
+function scheduleLepersResultIntervention(room, result) {
+  if (!room?.currentRound || !result?.text) return;
+  const roundId = room.currentRound.id;
+  const timer = setTimeout(() => {
+    if (!room.currentRound || room.currentRound.id !== roundId) return;
+    emitLepersIntervention(room, result);
+  }, LEPERS_RESULT_DELAY_MS);
+  timer.unref?.();
+  room.currentRound.timers?.push(timer);
+}
+
+function maybeAwardLepersChallenge(room, { isBotPlayer, nick, player, socketId, word } = {}) {
+  const round = room?.currentRound;
+  const challenge = round?.lepersChallenge;
+  const playerNick = String(nick || "").trim();
+  if (
+    !round ||
+    !challenge ||
+    isBotPlayer ||
+    !playerNick ||
+    normalizeWord(word || "") !== challenge.word
+  ) {
+    return false;
+  }
+  if (!(challenge.foundBy instanceof Set)) challenge.foundBy = new Set();
+  if (challenge.foundBy.has(playerNick)) return false;
+  challenge.foundBy.add(playerNick);
+  const success = buildLepersSolvedIntervention(challenge.word);
+  if (success) {
+    emitLepersIntervention(
+      room,
+      {
+        id: `${challenge.id}:${playerNick}`,
+        kind: "solved",
+        text: success.text,
+        highlights: success.highlights,
+      },
+      {
+        installId: normalizeInstallId(player?.installId || ""),
+        socketId,
+      }
+    );
+  }
+  return true;
+}
+
+function scheduleRomejkoIntervention(
+  room,
+  planUsed = null,
+  roundIntroMs = 0,
+  roundDurationMs = 0
+) {
+  const round = room?.currentRound;
+  if (
+    !AMBIENT_CHAT_BOTS_ENABLED ||
+    !AMBIENT_CHAT_BOT_ENABLED_KEYS.has("detective") ||
+    !round ||
+    isAmbientTargetRound(room, planUsed)
+  ) {
+    return;
+  }
+
+  const summary = getRomejkoLongestWordSummary(getPreparedRoundSolutions(round));
+  const text = buildRomejkoInterventionText(summary);
+  if (!text) return;
+
+  const highlights = [
+    `${summary.count} ${summary.count === 1 ? "mot" : "mots"}`,
+    `${summary.length} ${summary.length === 1 ? "lettre" : "lettres"}`,
+  ];
+  const remembered =
+    round.presenterInterventions?.detective ||
+    rememberRoundPresenterIntervention(room, "detective", text, { highlights });
+
+  const delayMs = getRomejkoScheduleDelayMs(roundIntroMs);
+  const roundId = round.id;
+  const timer = setTimeout(() => {
+    if (!room.currentRound || room.currentRound.id !== roundId) return;
+    pushAmbientChatBotMessage(room, "detective", text, {
+      id: remembered?.id,
+      flag: "detective:max-word-length",
+      force: true,
+      highlights,
+    });
+  }, delayMs);
+  timer.unref?.();
+  round.timers?.push(timer);
 }
 
 function scheduleAmbientRoundStartBots(room, planUsed, roundIntroMs = 0, roundDurationMs = 0) {
   if (!AMBIENT_CHAT_BOTS_ENABLED || !room?.currentRound) return;
   const round = room.currentRound;
-  const delayMs = Math.max(1200, Number(roundIntroMs) + 2200);
+  const delayMs = getRomejkoScheduleDelayMs(roundIntroMs);
 
   if (isAmbientTargetRound(room, planUsed)) return;
 
   const coachLine = buildCoachRoundLine(room, planUsed);
   if (coachLine) {
+    const remembered =
+      round.presenterInterventions?.coach ||
+      rememberRoundPresenterIntervention(room, "coach", coachLine);
     scheduleAmbientChatBotMessage(room, "coach", coachLine, {
       delayMs,
       flag: "coach:round-start",
+      id: remembered?.id,
     });
+  }
+}
+
+function prepareRoundPresenterInterventions(room, planUsed = null) {
+  const round = room?.currentRound;
+  if (!round) return;
+  round.presenterInterventions = {};
+  round.pivotResultIntervention = null;
+  round.pivotResultInterventionPromise = null;
+  if (!AMBIENT_CHAT_BOTS_ENABLED) return;
+  preparePivotResultIntervention(room, planUsed);
+  if (isAmbientTargetRound(room, planUsed)) return;
+  if (AMBIENT_CHAT_BOT_ENABLED_KEYS.has("coach")) {
+    const coachLine = buildCoachRoundLine(room, planUsed);
+    if (coachLine) {
+      rememberRoundPresenterIntervention(room, "coach", coachLine);
+    }
+  }
+  if (AMBIENT_CHAT_BOT_ENABLED_KEYS.has("detective")) {
+    const summary = getRomejkoLongestWordSummary(getPreparedRoundSolutions(round));
+    const text = buildRomejkoInterventionText(summary);
+    if (text) {
+      rememberRoundPresenterIntervention(room, "detective", text, {
+        highlights: [
+          `${summary.count} ${summary.count === 1 ? "mot" : "mots"}`,
+          `${summary.length} ${summary.length === 1 ? "lettre" : "lettres"}`,
+        ],
+      });
+    }
   }
 }
 
@@ -6430,7 +6771,11 @@ function buildDetailedHiddenWordFactLine(details) {
   const prefix = details.isForm && base && base !== word
     ? `${word}, forme de ${base}`
     : word;
-  return `Définition: ${prefix}, ${details.definition}. Étymologie: ${details.etymology}.`;
+  const definition = String(details.definition || "").trim();
+  const etymology = String(details.etymology || "").trim();
+  const definitionEnd = /[.!?…]$/u.test(definition) ? "" : ".";
+  const etymologyEnd = /[.!?…]$/u.test(etymology) ? "" : ".";
+  return `On pouvait aussi trouver ${prefix}. ${definition}${definitionEnd} Étymologie : ${etymology}${etymologyEnd}`;
 }
 
 function buildRoundEndCuriosityCandidateWords(highlights) {
@@ -6489,6 +6834,21 @@ function buildGrosRobertCandidateWords(room, highlights) {
     .slice(0, 60);
 }
 
+const PIVOT_RECENT_WORD_LIMIT = 10;
+
+function rememberPivotWord(room, word) {
+  if (!room) return;
+  const normalized = normalizeWord(word);
+  if (!normalized) return;
+  const previous = Array.isArray(room.pivotRecentWords)
+    ? room.pivotRecentWords.filter((entry) => entry !== normalized)
+    : [];
+  room.pivotRecentWords = [normalized, ...previous].slice(
+    0,
+    PIVOT_RECENT_WORD_LIMIT
+  );
+}
+
 function shouldScheduleRoundEndWordCuriosity(room) {
   if (AMBIENT_ROUND_END_WORD_CURIOSITY_CHANCE <= 0) return false;
   const roundId = room?.currentRound?.id || "";
@@ -6519,56 +6879,128 @@ function buildDoubleDefinitionLine(details) {
   return `Double sens: ${word} joue sur plusieurs tableaux: 1) ${first} 2) ${second}.${suffix}`;
 }
 
-function getGrosRobertTournamentKey(room) {
-  return String(room?.currentRound?.tournamentId || room?.tournament?.id || "");
-}
-
-function hasGrosRobertSpokenThisTournament(room) {
-  const key = getGrosRobertTournamentKey(room);
-  return !!key && room?.grosRobertAmbientTournamentId === key && !!room?.grosRobertAmbientSpoken;
-}
-
-function markGrosRobertSpokenThisTournament(room) {
-  const key = getGrosRobertTournamentKey(room);
-  if (!room || !key) return;
-  room.grosRobertAmbientTournamentId = key;
-  room.grosRobertAmbientSpoken = true;
-}
-
 function shouldAttemptGrosRobertRoundEnd(room) {
   if (!AMBIENT_CHAT_BOT_ENABLED_KEYS.has("linguist")) return false;
-  if (hasGrosRobertSpokenThisTournament(room)) return false;
   const round = room?.currentRound;
-  if (!round || isAmbientTargetRound(room)) return false;
-  const tournamentRound = Number(round.tournamentRound) || 0;
-  const totalRounds = Number(room?.tournament?.totalRounds) || TOURNAMENT_TOTAL_ROUNDS;
-  if (GROSROBERT_FORCE_FINAL_ROUND && tournamentRound >= totalRounds) return true;
-  if (GROSROBERT_TOURNAMENT_CHANCE <= 0) return false;
-  const hash = hashAmbientString(`${room?.id || "room"}:${round.id || ""}:grosrobert-master`);
-  return hash / 0xffffffff <= GROSROBERT_TOURNAMENT_CHANCE;
+  return !!round && !isAmbientTargetRound(room);
 }
 
 async function pickGrosRobertRoundEndLine(room, highlights) {
-  if (!shouldAttemptGrosRobertRoundEnd(room)) return "";
+  if (!shouldAttemptGrosRobertRoundEnd(room)) return null;
   const words = buildGrosRobertCandidateWords(room, highlights);
-  if (!words.length) return "";
+  if (!words.length) return null;
   const roundId = room?.currentRound?.id || "";
-  const offset = hashAmbientString(`${room?.id || "room"}:${roundId}:grosrobert-offset`) % words.length;
-  const orderedWords = [...words.slice(offset), ...words.slice(0, offset)];
+  const recentWords = new Set(
+    Array.isArray(room?.pivotRecentWords) ? room.pivotRecentWords : []
+  );
+  const groups = [
+    words.filter((word) => !recentWords.has(word)),
+    words.filter((word) => recentWords.has(word)),
+  ].filter((group) => group.length);
 
-  for (const word of orderedWords) {
-    const inventorDetails = await getOfflineInventorFactDetails(word, { minLen: 5 });
-    const inventorLine = buildInventorFactLine(inventorDetails);
-    if (inventorLine) return inventorLine;
+  for (const [groupIndex, group] of groups.entries()) {
+    const offset =
+      hashAmbientString(
+        `${room?.id || "room"}:${roundId}:grosrobert-offset:${groupIndex}`
+      ) % group.length;
+    const orderedWords = [...group.slice(offset), ...group.slice(0, offset)];
+    // Keep the curated candidate window; batching only speeds up SQLite lookups.
+    const batchSize = 24;
+    for (let start = 0; start < orderedWords.length; start += batchSize) {
+      const candidates = await Promise.all(
+        orderedWords.slice(start, start + batchSize).map(async (word) => {
+          const details = await getOfflineWordFactDetails(word, { minLen: 6 });
+          const line = buildDetailedHiddenWordFactLine(details);
+          if (!line) return null;
+          const highlightedWord = String(details?.displayWord || word)
+            .trim()
+            .toUpperCase();
+          return {
+            highlights: highlightedWord ? [highlightedWord] : [],
+            line,
+            word,
+          };
+        })
+      );
+      const selected = candidates.find(Boolean);
+      if (selected) return selected;
+    }
   }
 
-  for (const word of orderedWords) {
-    const details = await getOfflineWordFactDetails(word, { minLen: 6 });
-    const line = buildDetailedHiddenWordFactLine(details);
-    if (line) return line;
-  }
+  return null;
+}
 
-  return "";
+async function pickTargetRoundEtymologyLine(room, targetSummary) {
+  if (!AMBIENT_CHAT_BOT_ENABLED_KEYS.has("linguist")) return null;
+  const word = normalizeWord(targetSummary?.word || room?.currentRound?.targetWord);
+  if (!word) return null;
+  const details = await getOfflineWordFactDetails(word, { minLen: 1 });
+  const etymology = String(details?.etymology || "").trim();
+  if (!etymology) return null;
+  const displayWord = String(details?.displayWord || word).trim().toUpperCase();
+  const end = /[.!?…]$/u.test(etymology) ? "" : ".";
+  const definitions = Array.from(
+    new Set(
+      (Array.isArray(details?.definitions) ? details.definitions : [])
+        .map((entry) =>
+          String(
+            typeof entry === "string" ? entry : entry?.definition || ""
+          ).trim()
+        )
+        .filter(Boolean)
+    )
+  );
+  if (!definitions.length && details?.definition) {
+    definitions.push(String(details.definition).trim());
+  }
+  const definitionText =
+    definitions.length > 1
+      ? definitions.map((definition, index) => `${index + 1}) ${definition}`).join(" ")
+      : definitions[0] || "";
+  const definitionEnd = /[.!?…]$/u.test(definitionText) ? "" : ".";
+  return {
+    highlights: displayWord ? [displayWord] : [],
+    line: `${displayWord} — Étymologie : ${etymology}${end}`,
+    chatCopyText: `${displayWord} — ${definitionText}${definitionEnd} Étymologie : ${etymology}${end}`,
+  };
+}
+
+function preparePivotResultIntervention(room, planUsed = null) {
+  const round = room?.currentRound;
+  if (!round || !AMBIENT_CHAT_BOT_ENABLED_KEYS.has("linguist")) return null;
+  const roundId = round.id;
+  const targetRound = isAmbientTargetRound(room, planUsed);
+  const pending = targetRound
+    ? pickTargetRoundEtymologyLine(room, { word: round.targetWord || "" })
+    : pickGrosRobertRoundEndLine(room, null);
+
+  round.pivotResultInterventionPromise = Promise.resolve(pending)
+    .then((intervention) => {
+      if (!room.currentRound || room.currentRound.id !== roundId) return null;
+      round.pivotResultIntervention = intervention?.line ? intervention : null;
+      return round.pivotResultIntervention;
+    })
+    .catch(() => {
+      if (room.currentRound?.id === roundId) {
+        round.pivotResultIntervention = null;
+      }
+      return null;
+    });
+  return round.pivotResultInterventionPromise;
+}
+
+function commitPreparedPivotResultIntervention(room) {
+  const round = room?.currentRound;
+  if (!round) return null;
+  const existing = round.presenterInterventions?.linguist;
+  if (existing) return existing;
+  const intervention = round.pivotResultIntervention;
+  if (!intervention?.line) return null;
+  if (intervention.word) rememberPivotWord(room, intervention.word);
+  return rememberRoundPresenterIntervention(room, "linguist", intervention.line, {
+    chatCopyText: intervention.chatCopyText,
+    highlights: intervention.highlights,
+  });
 }
 
 async function pickRoundEndWordCuriosity(room, highlights) {
@@ -6711,6 +7143,7 @@ function isCultureThemeBonusEligibleRound(room, planUsed = null) {
 }
 
 function isWikiMamaLightInsightEligibleRound(room, planUsed = null) {
+  if (!WIKIMAMA_LIGHT_INSIGHT_ENABLED) return false;
   if (!room?.currentRound) return false;
   const type = String(planUsed?.type || room.currentRound?.special?.type || "normal");
   if (type === "target_long" || type === "target_score" || type === OCID_TYPE) return false;
@@ -6979,13 +7412,39 @@ async function applyCultureThemeChallengeBonus(room, results) {
     nicks: winners,
     text:
       winners.length === 1
-        ? `${winners[0]} valide le bonus WikiMama ${challenge.theme} (+${bonus} pts)`
-        : `${winners.length} joueurs valident le bonus WikiMama ${challenge.theme} (+${bonus} pts)`,
+        ? `${winners[0]} valide le bonus Julien Lechéper ${challenge.theme} (+${bonus} pts)`
+        : `${winners.length} joueurs valident le bonus Julien Lechéper ${challenge.theme} (+${bonus} pts)`,
   });
 }
 
 function scheduleAmbientRoundEndBots(room, results, targetSummary = null) {
   if (!AMBIENT_CHAT_BOTS_ENABLED || !room?.currentRound) return;
+  const round = room.currentRound;
+  const roundId = room.currentRound.id;
+  const specialType = String(room.currentRound.special?.type || "");
+  if (
+    targetSummary &&
+    (specialType === "target_long" || specialType === "target_score")
+  ) {
+    if (round.presenterInterventions?.linguist) return;
+    const pending = round.pivotResultInterventionPromise
+      ? Promise.resolve(round.pivotResultInterventionPromise).then(
+          (intervention) => intervention || pickTargetRoundEtymologyLine(room, targetSummary)
+        )
+      : pickTargetRoundEtymologyLine(room, targetSummary);
+    pending
+      .then((intervention) => {
+        if (!room.currentRound || room.currentRound.id !== roundId) return;
+        if (room.currentRound.presenterInterventions?.linguist) return;
+        if (!intervention?.line) return;
+        emitRoundPresenterIntervention(room, "linguist", intervention.line, {
+          chatCopyText: intervention.chatCopyText,
+          highlights: intervention.highlights,
+        });
+      })
+      .catch(() => {});
+    return;
+  }
   if (isAmbientTargetRound(room) || targetSummary) return;
   const highlights = collectRoundWordHighlights(results);
   const trendWord =
@@ -6994,17 +7453,25 @@ function scheduleAmbientRoundEndBots(room, results, targetSummary = null) {
     maybeScheduleTrendBotForWord(room, trendWord);
   }
 
-  const roundId = room.currentRound.id;
-  pickGrosRobertRoundEndLine(room, highlights)
-    .then((line) => {
+  if (round.presenterInterventions?.linguist) return;
+  const pending = round.pivotResultInterventionPromise
+    ? Promise.resolve(round.pivotResultInterventionPromise).then(
+        (intervention) => intervention || pickGrosRobertRoundEndLine(room, highlights)
+      )
+    : pickGrosRobertRoundEndLine(room, highlights);
+  pending
+    .then((intervention) => {
       if (!room.currentRound || room.currentRound.id !== roundId) return;
-      if (!line) return;
-      markGrosRobertSpokenThisTournament(room);
-      scheduleAmbientChatBotMessage(
+      if (room.currentRound.presenterInterventions?.linguist) return;
+      if (!intervention?.line) return;
+      rememberPivotWord(room, intervention.word);
+      emitRoundPresenterIntervention(
         room,
         "linguist",
-        line,
-        { delayMs: 5600, flag: "linguist:grosrobert-master", force: true }
+        intervention.line,
+        {
+          highlights: intervention.highlights,
+        }
       );
     })
     .catch(() => {});
@@ -8302,6 +8769,13 @@ function submitWordForNick(
   const playerInstallId = normalizeInstallId(playerObj?.installId);
   const playerKey = getMedalKeyForPlayer(playerObj) || getMedalKeyForNick(resolvedNick);
   const isBotPlayer = isBotToken(playerObj?.token);
+  const lepersBonusAwarded = maybeAwardLepersChallenge(room, {
+    isBotPlayer,
+    nick: resolvedNick,
+    player: playerObj,
+    socketId: playerEntry?.socketId || null,
+    word: norm,
+  });
   if (persistentProgressAllowed && !isBotPlayer && playerKey && !isTargetRound) {
     const achievedAt = Date.now();
     if (isScoreRecordEligibleRound(room.currentRound)) {
@@ -8315,15 +8789,15 @@ function submitWordForNick(
   const t = room.tournament;
   const tRound = room.currentRound?.tournamentRound || null;
   if (t && tRound) {
-    const bestWord = t.records?.bestWord;
-    if (bestWord && typeof wordPts === "number" && wordPts > (bestWord.pts || 0)) {
-      t.records.bestWord = { pts: wordPts, nick: resolvedNick, word: norm, round: tRound };
-    }
-
-    const longestWord = t.records?.longestWord;
-    if (longestWord && typeof len === "number" && len > (longestWord.len || 0)) {
-      t.records.longestWord = { len, nick: resolvedNick, word: norm, round: tRound };
-    }
+    recordTournamentWordAchievement(t.records, {
+      isBot: isBotPlayer,
+      length: len,
+      nick: resolvedNick,
+      points: wordPts,
+      round: tRound,
+      totalRounds: t.totalRounds || TOURNAMENT_TOTAL_ROUNDS,
+      word: norm,
+    });
   }
 
   function awardGobble(kind) {
@@ -8474,6 +8948,7 @@ function submitWordForNick(
       wordScore: wordPts,
       ...scoredFakeTwinsMeta,
       ...scoredRareMeta,
+      lepersBonusAwarded,
       extraWords: extraAcceptedWords,
     });
   }
@@ -8627,6 +9102,7 @@ function submitWordForNick(
     ...scoredFakeTwinsMeta,
     ...scoredRareMeta,
     ...scoredCultureThemeMeta,
+    lepersBonusAwarded,
     extraWords: extraAcceptedWords,
   });
 }
@@ -9919,7 +10395,18 @@ async function runStartRoundForRoom(room, options = {}) {
         planUsed?.type === MASSIVE_BOGGLE_TYPE
       ? LIVE_SPECIAL_ROUND_DURATION_MS
       : room.config.durationMs;
-  const roundIntroMs = Math.max(0, ROUND_INTRO_DURATION_MS);
+  const lepersChallenge = isLepersChallengeRound({
+    enabled: planUsed?.lepersChallengeEnabled === true,
+    tournamentRound,
+    training: trainingRound,
+  })
+    ? hydrateLepersChallenge(prepared?.lepersChallenge, roundId)
+    : null;
+  const roundIntroMs = Math.max(
+    0,
+    ROUND_INTRO_DURATION_MS +
+      (lepersChallenge ? LEPERS_ROUND_ANNOUNCEMENT_MS : 0)
+  );
   const roundStartsAt = now + roundIntroMs;
   const roundEndsAt = roundStartsAt + roundDurationMs;
 
@@ -9945,6 +10432,7 @@ async function runStartRoundForRoom(room, options = {}) {
     targetLength: prepared?.targetLength || null,
     targetPath: prepared?.targetPath || null,
     solutions: sanitizePreparedSolutions(prepared?.solutions),
+    lepersChallenge,
     cultureThemeChallenge: hydrateCultureThemeChallenge(prepared?.cultureThemeChallenge),
     targetWordCellMap: null,
     targetRevealed: new Set(),
@@ -10052,6 +10540,7 @@ async function runStartRoundForRoom(room, options = {}) {
     roundId,
     planUsed?.label || ""
   );
+  prepareRoundPresenterInterventions(room, planUsed);
   const payloadBuildStartedAt = Date.now();
   const roundStartedPayload = buildRoundStartedPayload(room);
   const payloadBuildElapsed = Date.now() - payloadBuildStartedAt;
@@ -10065,7 +10554,9 @@ async function runStartRoundForRoom(room, options = {}) {
   }
 
   broadcastProvisionalRanking(room, { force: true });
+  scheduleLepersChallengeStart(room);
   scheduleAmbientRoundStartBots(room, planUsed, roundIntroMs, roundDurationMs);
+  scheduleRomejkoIntervention(room, planUsed, roundIntroMs, roundDurationMs);
 
   if (roundIntroMs > 0) {
     const roundActivationId = roundId;
@@ -10699,7 +11190,7 @@ async function endRoundForRoom(room) {
   const tournamentRound = room.currentRound.tournamentRound || 1;
   const tournamentId = room.currentRound.tournamentId || room.tournament?.id || null;
   const t = room.tournament;
-  const roundAwarded = new Map(); // nick -> { points, gobbles, total }
+  const roundAwarded = new Map(); // nick -> { points, gobbles, lepersBonus, total }
 
   if (!isTrainingRound && t && tournamentId && t.id === tournamentId) {
     const isFinalRound = tournamentRound === (t.totalRounds || TOURNAMENT_TOTAL_ROUNDS);
@@ -10710,12 +11201,14 @@ async function endRoundForRoom(room) {
       const prev = t.totals.get(entry.nick) || {
         points: 0,
         gobbles: 0,
+        lepersBonus: 0,
         roundScoreSum: 0,
       };
       const roundScore = Math.max(0, Number(entry?.score) || 0);
       t.totals.set(entry.nick, {
         points: prev.points || 0,
         gobbles: prev.gobbles || 0,
+        lepersBonus: prev.lepersBonus || 0,
         roundScoreSum: (prev.roundScoreSum || 0) + roundScore,
       });
     }
@@ -10736,13 +11229,20 @@ async function endRoundForRoom(room) {
         const nick = foundOrder[pos - 1];
         const basePts = getTargetTournamentPoints(pos - 1, pointsMultiplier);
         const gobbles = 0;
+        const lepersBonus = 0;
         const totalEarned = basePts;
-        roundAwarded.set(nick, { points: basePts, gobbles, total: totalEarned });
-        t.lastAwarded.set(nick, { points: basePts, gobbles });
-        const prev = t.totals.get(nick) || { points: 0, gobbles: 0, roundScoreSum: 0 };
+        roundAwarded.set(nick, { points: basePts, gobbles, lepersBonus, total: totalEarned });
+        t.lastAwarded.set(nick, { points: basePts, gobbles, lepersBonus });
+        const prev = t.totals.get(nick) || {
+          points: 0,
+          gobbles: 0,
+          lepersBonus: 0,
+          roundScoreSum: 0,
+        };
         t.totals.set(nick, {
           points: (prev.points || 0) + basePts,
           gobbles: prev.gobbles || 0,
+          lepersBonus: prev.lepersBonus || 0,
           roundScoreSum: prev.roundScoreSum || 0,
         });
       }
@@ -10766,15 +11266,30 @@ async function endRoundForRoom(room) {
         for (const entry of tieGroup) {
           await maybeYieldEndRound();
           const gobbles = roundGobbles.get(entry.nick) || 0;
-          const totalEarned = basePts + gobbles;
+          const lepersBonus = getLepersBonusForNick(
+            room.currentRound?.lepersChallenge,
+            entry.nick
+          );
+          const totalEarned = basePts + gobbles + lepersBonus;
 
-          roundAwarded.set(entry.nick, { points: basePts, gobbles, total: totalEarned });
-          t.lastAwarded.set(entry.nick, { points: basePts, gobbles });
+          roundAwarded.set(entry.nick, {
+            points: basePts,
+            gobbles,
+            lepersBonus,
+            total: totalEarned,
+          });
+          t.lastAwarded.set(entry.nick, { points: basePts, gobbles, lepersBonus });
 
-          const prev = t.totals.get(entry.nick) || { points: 0, gobbles: 0, roundScoreSum: 0 };
+          const prev = t.totals.get(entry.nick) || {
+            points: 0,
+            gobbles: 0,
+            lepersBonus: 0,
+            roundScoreSum: 0,
+          };
           t.totals.set(entry.nick, {
             points: (prev.points || 0) + basePts,
             gobbles: (prev.gobbles || 0) + gobbles,
+            lepersBonus: (prev.lepersBonus || 0) + lepersBonus,
             roundScoreSum: prev.roundScoreSum || 0,
           });
         }
@@ -10916,14 +11431,16 @@ async function endRoundForRoom(room) {
       .map(([nick, data]) => {
         const basePoints = data?.points || 0;
         const gobbles = data?.gobbles || 0;
+        const lepersBonus = data?.lepersBonus || 0;
         const roundScoreSum = data?.roundScoreSum || 0;
-        const points = basePoints + gobbles;
+        const points = basePoints + gobbles + lepersBonus;
         const installId = getInstallIdForNick(room, nick);
         return {
           nick,
           points,
           basePoints,
           gobbles,
+          lepersBonus,
           roundScoreSum,
           team: getTeamForInstallCached(installId),
           isBot: isBotNick(room, nick),
@@ -11007,11 +11524,25 @@ async function endRoundForRoom(room) {
       totalRanking[1]?.nick || null,
       totalRanking[2]?.nick || null,
     ].filter(Boolean);
+    const presenterScopeId = `tournament:${t.id}:celebration`;
+    const presenterInterventions = buildTournamentCelebrationPresenterLines({
+      records: t.records,
+      totals: t.totals,
+    })
+      .map((entry) =>
+        buildPresenterInterventionMessage(room, entry.botKey, entry.text, {
+          highlights: entry.highlights,
+          roundId: presenterScopeId,
+        })
+      )
+      .filter(Boolean);
     tournamentSummary = {
       id: t.id,
       winnerNick,
       ranking: totalRanking,
       records: t.records,
+      presenterScopeId,
+      presenterInterventions,
     };
 
     try {
@@ -11078,6 +11609,11 @@ async function endRoundForRoom(room) {
   const nextPlan =
     breakKind === "training_end" ? null : getTournamentRoundPlan(room, nextTournamentRoundForBreak);
   const nextSpecialForBreak = nextPlanForBreak?.isSpecial ? nextPlanForBreak : null;
+  if (room.currentRound.pivotResultInterventionPromise) {
+    await room.currentRound.pivotResultInterventionPromise;
+  }
+  commitPreparedPivotResultIntervention(room);
+  const lepersResult = buildLepersRoundResult(room.currentRound);
   const roundEndedPayload = {
     roomId: room.id,
     roundId: room.currentRound.id,
@@ -11096,6 +11632,7 @@ async function endRoundForRoom(room) {
               {
                 points: data?.points || 0,
                 gobbles: data?.gobbles || 0,
+                lepersBonus: data?.lepersBonus || 0,
                 roundScoreSum: data?.roundScoreSum || 0,
               },
             ])
@@ -11108,6 +11645,8 @@ async function endRoundForRoom(room) {
     tournamentSummary,
     tournamentSummaryAt,
     targetSummary,
+    lepersResult,
+    presenterInterventions: Object.values(room.currentRound.presenterInterventions || {}),
     teamDuel: Object.fromEntries(teamDuelUpdates.entries()),
   };
 
@@ -11162,6 +11701,7 @@ async function endRoundForRoom(room) {
     lastRoundResults: room.lastRoundResults || null,
   };
 
+  scheduleLepersResultIntervention(room, lepersResult);
   scheduleAmbientRoundEndBots(room, results, targetSummary);
 
   if (nextPlan && breakKind !== "tournament_end" && breakKind !== "training_end") {

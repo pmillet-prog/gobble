@@ -343,6 +343,7 @@ export default function useRoundSessionController() {
         startsAt: startsAtMs,
         introMs,
         status: roundStatus,
+        hasLepersChallenge: !!roundLifecycle?.lepersChallenge?.text,
       };
       const nowServerMs = getNowServerMs();
       const hasPendingIntro =
@@ -454,6 +455,7 @@ export default function useRoundSessionController() {
     } = configRef.current;
     if (!snapshot || typeof snapshot !== "object") return;
     if (standaloneTrainingSessionRef.current) return;
+    invalidateGameplaySession();
     if (snapshot.roomId) {
       setCurrentRoomId(snapshot.roomId);
       setRoomId(snapshot.roomId);
@@ -717,7 +719,7 @@ export default function useRoundSessionController() {
       refs.roundHandlersRef.current.onBreakStarted?.(breakState);
     }
     resetSubmissionQueue({ clearRecovery: true });
-  }, [refs]);
+  }, [invalidateGameplaySession, refs]);
 
   const hydrateLiveSnapshot = React.useCallback((snapshot, entryKind = "resume") => {
     const { currentRoomIdRef, liveRoundFeature } = configRef.current;

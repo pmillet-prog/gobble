@@ -27,7 +27,6 @@ export default function MobileStandardScene({ state, refs, actions, content, con
     chatInput,
     chatInputDisabled,
     chatInputPlaceholder,
-    chatViewportHeight,
     countdownLines,
     darkMode,
     displayList,
@@ -51,8 +50,6 @@ export default function MobileStandardScene({ state, refs, actions, content, con
     hintOutlineStyleMap,
     implodeActive,
     installId,
-    isChatClosing,
-    isChatOpenMobile,
     isDailyPlay,
     isFinaleBanner,
     isMobileLayout,
@@ -75,11 +72,13 @@ export default function MobileStandardScene({ state, refs, actions, content, con
     ocidStatusMessage,
     ocidVote,
     phase,
+    presenterHintsDisabledForRound,
     recordBadgesByNickForRound,
     resultsRankingMode,
     resultsReorderTick,
     resultsSlidePhase,
     roundPreparing,
+    roundId,
     roundStats,
     roundTilePointsVisible,
     selfNick,
@@ -115,7 +114,6 @@ export default function MobileStandardScene({ state, refs, actions, content, con
     rosterConfig,
   } = state;
   const {
-    chatBodyLockHeightRef,
     gridInputControllerRef,
     gridRef,
     listItemRefs,
@@ -145,7 +143,8 @@ export default function MobileStandardScene({ state, refs, actions, content, con
     handleTouchStart,
     normalizeLetterKey,
     openDefinition,
-    openPlayersOverlaySnapshot,
+    openPlayersOverlayAlpha,
+    openLiveStatsOverlay,
     openRoundPlayerModal,
     openSettingsPanel,
     openWordInfoModal,
@@ -155,6 +154,8 @@ export default function MobileStandardScene({ state, refs, actions, content, con
     renderNickSuffix,
     renderRankDelta,
     renderVocabPanel,
+    requestOpenChat,
+    returnToLobby,
     rotateGridClockwise,
     setAnalysis,
     setChatInput,
@@ -175,7 +176,6 @@ export default function MobileStandardScene({ state, refs, actions, content, con
   } = actions;
   const {
     chatOverlays,
-    globalChatLayer,
     ocidMobileResultOverlay,
     praiseOverlay,
     roundPreparationOverlay,
@@ -218,7 +218,7 @@ export default function MobileStandardScene({ state, refs, actions, content, con
       mobileLayoutSizing.liveFeedHeight || liveFeedFallback
     );
     const previewBlockHeight = Math.max(0, mobilePreviewHeight);
-    const liveFeedMinHeight = Math.max(0, mobileLiveFeedHeight);
+    const showMobileLiveFeed = mobileLayoutSizing.adaptiveRanking || mobileLiveFeedHeight >= 74;
     const previewWordLen = liveWord ? liveWord.length : 0;
     const previewGapPx = previewWordLen >= 10 ? 2 : 4;
     const previewContentWidth = Math.max(0, fallbackViewportWidth - 44); // px-3 + px-2.5
@@ -270,35 +270,19 @@ export default function MobileStandardScene({ state, refs, actions, content, con
           };
     const mobileBodyPaddingTop = undefined;
 
-    const useVisualViewport = !(isChatOpenMobile || isChatClosing);
-    const lockedChatHeight = chatBodyLockHeightRef.current || null;
-    const mobileViewportHeightCandidates =
+    const fallbackViewportHeights =
       typeof window !== "undefined"
-        ? (useVisualViewport
-            ? [
-                lockedGameViewportHeight,
-                mobileLayoutSizing.viewportHeight,
-                window.innerHeight,
-                typeof document !== "undefined"
-                  ? document.documentElement?.clientHeight
-                  : null,
-              ]
-            : lockedChatHeight
-            ? [lockedChatHeight]
-            : [
-                lockedGameViewportHeight,
-                window.innerHeight,
-                typeof document !== "undefined"
-                  ? document.documentElement?.clientHeight
-                  : null,
-              ]
-          ).filter((v) => Number.isFinite(v) && v > 0)
+        ? [
+            window.innerHeight,
+            typeof document !== "undefined"
+              ? document.documentElement?.clientHeight
+              : null,
+          ].filter((value) => Number.isFinite(value) && value > 0)
         : [];
-    const mobileViewportHeight = mobileViewportHeightCandidates.length
-      ? Math.min(...mobileViewportHeightCandidates)
-      : 0;
-    const chatViewportHeightEffective =
-      chatBodyLockHeightRef.current || chatViewportHeight || mobileViewportHeight;
+    const mobileViewportHeight =
+      lockedGameViewportHeight ||
+      mobileLayoutSizing.viewportHeight ||
+      (fallbackViewportHeights.length ? Math.min(...fallbackViewportHeights) : 0);
     // Keep the viewport container anchored to the safe area only.
     // Using the live header measurement here can make the header offset chase itself.
     const fullscreenTopPadding = "env(safe-area-inset-top)";
@@ -452,10 +436,10 @@ export default function MobileStandardScene({ state, refs, actions, content, con
         isTargetResults ? "flex-none" : "flex-1 min-h-0"
       } ${darkMode ? "bg-slate-900/90" : "bg-white/90"} box-border`;
       const resultsCardStyle = isTargetResults
-        ? { height: "46vh", minHeight: "38vh", maxHeight: "52vh" }
+        ? { height: "46vh", minHeight: 0, maxHeight: "52vh", flexShrink: 1 }
         : standaloneTrainingSession
         ? { minHeight: 0 }
-        : { minHeight: "320px" };
+        : { minHeight: 0 };
       const showResultsDots = resultsPages.length > 1;
       const summaryWrapperClass = isTargetResults
         ? showResultsDots
@@ -465,7 +449,7 @@ export default function MobileStandardScene({ state, refs, actions, content, con
         ? "mt-1"
         : "mt-2";
       const mobileResultsSummaryStyle = {
-        marginBottom: "calc(clamp(92px, 24vw, 142px) + env(safe-area-inset-bottom))",
+        marginBottom: 0,
       };
       const resultsDots = showResultsDots ? (
         <div className="flex items-center justify-center gap-1.5 py-1">
@@ -547,11 +531,15 @@ export default function MobileStandardScene({ state, refs, actions, content, con
               setHighlightPlayers([]);
             }}
             onGoToResultsPage={goToResultsPage}
+            onOpenChat={requestOpenChat}
             onOpenPlayerProfile={stableOpenPlayerProfile}
             onOpenRoundPlayerModal={openRoundPlayerModal}
             onOpenSettings={openSettingsPanel}
+            onOpenPlayers={openPlayersOverlayAlpha}
+            onOpenStats={openLiveStatsOverlay}
             onOpenWordInfoModal={openWordInfoModal}
             onSetShowHelp={setShowHelp}
+            onReturnLobby={returnToLobby}
             onToggleDarkMode={toggleDarkModeQuick}
             onToggleSound={toggleSoundQuick}
             praiseOverlay={praiseOverlay}
@@ -572,6 +560,7 @@ export default function MobileStandardScene({ state, refs, actions, content, con
             resultsRankingList={resultsRankingList}
             resultsRankingModeForMobile={resultsRankingModeForMobile}
             resultsReorderTick={resultsReorderTick}
+            roundId={roundId}
             resultsWordsTitle={resultsWordsTitle}
             selfNick={selfNick}
             getNickClassName={getLiveNickClassName}
@@ -592,7 +581,6 @@ export default function MobileStandardScene({ state, refs, actions, content, con
           </Suspense>
           {roundPreparationOverlay}
           {ocidMobileResultOverlay}
-          {globalChatLayer}
         </>
       );
     }
@@ -719,7 +707,6 @@ export default function MobileStandardScene({ state, refs, actions, content, con
         hintOutlineOverlayStyleMap={hintOutlineOverlayStyleMap}
         hintOutlineStyleMap={hintOutlineStyleMap}
         implodeActive={implodeActive}
-        isChatOpenMobile={isChatOpenMobile}
         isDailyPlay={isDailyPlay}
         isFinaleBanner={isFinaleBanner}
         isMobileLayout={isMobileLayout}
@@ -727,7 +714,7 @@ export default function MobileStandardScene({ state, refs, actions, content, con
         isStandaloneTraining={!!standaloneTrainingSession}
         isTargetRound={isTargetRound || targetWaitDevActive}
         lightGridSurfaceStyle={lightGridSurfaceStyle}
-        liveFeedMinHeight={liveFeedMinHeight}
+        showMobileLiveFeed={showMobileLiveFeed}
         liveWord={liveWord}
         liveWordTiles={liveWordTiles}
         mobileBodyHeightStyle={mobileBodyHeightStyle}
@@ -752,9 +739,10 @@ export default function MobileStandardScene({ state, refs, actions, content, con
         ocidSelectedOptionId={ocidSelectedOptionId}
         ocidStatusMessage={ocidStatusMessage}
         ocidVote={ocidVote}
+        onOpenChat={requestOpenChat}
         onOpenDefinition={openDefinition}
         onOpenPlayerProfile={stableOpenPlayerProfile}
-        onOpenPlayersOverlaySnapshot={openPlayersOverlaySnapshot}
+        onOpenPlayers={openPlayersOverlayAlpha}
         onOcidProposalChange={handleOcidProposalChange}
         onClearOcidProposal={handleClearOcidProposal}
         onSubmitOcidProposal={submitOcidProposal}
@@ -765,6 +753,7 @@ export default function MobileStandardScene({ state, refs, actions, content, con
         onToggleDarkMode={toggleDarkModeQuick}
         onToggleSound={toggleSoundQuick}
         phase={phase}
+        presentersDisabled={presenterHintsDisabledForRound}
         praiseOverlay={praiseOverlay}
         previewBlockHeight={previewBlockHeight}
         previewGapPx={previewGapPx}
@@ -773,6 +762,7 @@ export default function MobileStandardScene({ state, refs, actions, content, con
         canOpenPlayerProfile={stableCanOpenPlayerProfile}
         roundTypeLabel={standaloneTrainingSession?.label || ""}
         roundStats={roundStats}
+        roundId={roundId}
         roundTilePointsVisible={roundTilePointsVisible}
         selfNick={selfNick}
         shouldDefinitionBlink={shouldDefinitionBlink}
@@ -812,7 +802,6 @@ export default function MobileStandardScene({ state, refs, actions, content, con
         usedSet={usedSet}
       />
       {roundPreparationOverlay}
-      {globalChatLayer}
     </>
   );
   }

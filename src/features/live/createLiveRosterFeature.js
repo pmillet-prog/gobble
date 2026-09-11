@@ -18,6 +18,7 @@ const DEFAULT_QUEUE_TIMING = Object.freeze({
 const ROSTER_FIELDS = Object.freeze([
   "afk",
   "crowned",
+  "deviceKind",
   "inTraining",
   "installId",
   "isBot",

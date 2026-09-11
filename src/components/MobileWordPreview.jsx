@@ -34,6 +34,7 @@ function MobileWordPreview({
   const previewHeight = Number.isFinite(previewBlockHeight)
     ? previewBlockHeight
     : 52;
+  const isCompactPreview = previewHeight < 40;
   const baseFontPx = Math.min(
     16,
     Math.max(11, Math.round(previewHeight * 0.35))
@@ -76,7 +77,9 @@ function MobileWordPreview({
   const showStats = Boolean(previewStats?.show);
   return (
     <div
-      className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white/90 dark:bg-slate-900/90 px-2.5 py-1.5 shadow-sm flex-none box-border"
+      className={`rounded-xl border border-slate-200 dark:border-slate-700 bg-white/90 dark:bg-slate-900/90 px-2.5 shadow-sm flex-none box-border ${
+        isCompactPreview ? "py-0.5" : "py-1.5"
+      }`}
       style={{
         display: "flex",
         alignItems: "center",
@@ -85,7 +88,7 @@ function MobileWordPreview({
         height: `${previewBlockHeight}px`,
       }}
     >
-      <div className="w-8 shrink-0" />
+      <div className={isCompactPreview ? "w-7 shrink-0" : "w-8 shrink-0"} />
       <div
         className={`flex-1 min-w-0 overflow-visible text-center font-bold flex items-center justify-center ${
           inputShake ? "shake" : ""
@@ -163,7 +166,9 @@ function MobileWordPreview({
             e.stopPropagation();
             onRotateGrid();
           }}
-          className="w-8 h-8 shrink-0 rounded-lg border border-slate-200 bg-white/80 text-slate-700 shadow-sm transition hover:bg-white flex items-center justify-center dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-100 dark:hover:bg-slate-800/80"
+          className={`${
+            isCompactPreview ? "h-7 w-7" : "h-8 w-8"
+          } shrink-0 rounded-lg border border-slate-200 bg-white/80 text-slate-700 shadow-sm transition hover:bg-white flex items-center justify-center dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-100 dark:hover:bg-slate-800/80`}
           title="Rotation 90 deg"
         >
           <span
@@ -175,7 +180,7 @@ function MobileWordPreview({
           <span className="sr-only">Rotation 90 deg</span>
         </button>
       ) : (
-        <div className="w-8 shrink-0" />
+        <div className={isCompactPreview ? "w-7 shrink-0" : "w-8 shrink-0"} />
       )}
     </div>
   );

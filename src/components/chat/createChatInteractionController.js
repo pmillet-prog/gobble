@@ -104,18 +104,10 @@ function buildBottomChatToastOrigin() {
 
 export function createChatInteractionController(runtime) {
   const [
-    chatBaselineHeightRef,
-    chatBodyLockHeightRef,
-    setChatViewportHeight,
     chatCloseTimerRef,
     chatInputRef,
     isChatOpenMobileRef,
     isChatClosingRef,
-    suppressChatResizeRef,
-    lastKeyboardInsetRef,
-    chatDrawerSessionCalibrationRef,
-    chatDrawerCalibrationRef,
-    gameViewportFreezeHeightRef,
     setChatOpenedAtMs,
     setIsChatClosing,
     setIsChatOpenMobile,
@@ -153,18 +145,6 @@ export function createChatInteractionController(runtime) {
     lobbyChatSubscriptionRef,
   ] = runtime;
 
-function captureChatViewportBaseline() {
-  if (typeof window === "undefined") return;
-  const baseHeight = Math.round(
-    window.innerHeight || document.documentElement?.clientHeight || 0
-  );
-  if (baseHeight > 0) {
-    chatBaselineHeightRef.current = baseHeight;
-    chatBodyLockHeightRef.current = baseHeight;
-    setChatViewportHeight((prev) => (prev === baseHeight ? prev : baseHeight));
-  }
-}
-
 function resetMobileChatPanelImmediately({ preserveInputFocus = false } = {}) {
   if (chatCloseTimerRef.current) {
     clearTimeout(chatCloseTimerRef.current);
@@ -177,12 +157,6 @@ function resetMobileChatPanelImmediately({ preserveInputFocus = false } = {}) {
   }
   isChatOpenMobileRef.current = false;
   isChatClosingRef.current = false;
-  suppressChatResizeRef.current = false;
-  lastKeyboardInsetRef.current = 0;
-  chatBaselineHeightRef.current = 0;
-  chatDrawerSessionCalibrationRef.current = chatDrawerCalibrationRef.current;
-  chatBodyLockHeightRef.current = 0;
-  gameViewportFreezeHeightRef.current = 0;
   setChatOpenedAtMs(0);
   setIsChatClosing(false);
   setIsChatOpenMobile(false);
@@ -194,26 +168,12 @@ function openChatPanel() {
     clearTimeout(chatCloseTimerRef.current);
     chatCloseTimerRef.current = null;
   }
-  suppressChatResizeRef.current = false;
   isChatClosingRef.current = false;
   isChatOpenMobileRef.current = true;
   setIsChatClosing(false);
   setChatTab("messages");
   setMobileChatUnreadCount(0);
   setMobileChatBotUnreadCount(0);
-  chatDrawerSessionCalibrationRef.current = chatDrawerCalibrationRef.current;
-  captureChatViewportBaseline();
-
-  // Figer la hauteur du jeu (layout viewport) pour que le fond ne "réponde" pas au clavier.
-  if (typeof window !== "undefined") {
-    const candidates = [
-      window.innerHeight,
-      typeof document !== "undefined" ? document.documentElement?.clientHeight : null,
-    ].filter((v) => Number.isFinite(v) && v > 0);
-    const h = candidates.length ? Math.max(...candidates) : 0;
-    if (h > 0) gameViewportFreezeHeightRef.current = Math.round(h);
-  }
-
   setChatOpenedAtMs(Date.now());
   setIsChatOpenMobile(true);
 }
@@ -223,7 +183,7 @@ function closeChatPanel() {
   if (chatCloseTimerRef.current) {
     clearTimeout(chatCloseTimerRef.current);
   }
-  suppressChatResizeRef.current = true;
+  isChatClosingRef.current = true;
   setIsChatClosing(true);
   if (chatInputRef.current) {
     try {
@@ -232,15 +192,11 @@ function closeChatPanel() {
   }
   setChatTab("messages");
   setChatOpenedAtMs(0);
-  chatBaselineHeightRef.current = 0;
-  chatDrawerSessionCalibrationRef.current = chatDrawerCalibrationRef.current;
-  chatBodyLockHeightRef.current = 0;
-  gameViewportFreezeHeightRef.current = 0;
   chatCloseTimerRef.current = window.setTimeout(() => {
+    isChatOpenMobileRef.current = false;
+    isChatClosingRef.current = false;
     setIsChatOpenMobile(false);
     setIsChatClosing(false);
-    suppressChatResizeRef.current = false;
-    lastKeyboardInsetRef.current = 0;
     chatCloseTimerRef.current = null;
   }, CHAT_DRAWER_ANIM_MS);
 }
@@ -574,7 +530,6 @@ function submitReport() {
 
 
   return [
-    captureChatViewportBaseline,
     resetMobileChatPanelImmediately,
     openChatPanel,
     closeChatPanel,

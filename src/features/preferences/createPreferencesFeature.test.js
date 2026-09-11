@@ -26,6 +26,16 @@ test("preferences preserve legacy defaults and deliberate stored choices", () =>
   assert.equal(state.isAmbientMuted, false);
   assert.equal(state.tilePointsVisible, false);
   assert.equal(state.isVibrationEnabled, false);
+  assert.equal(state.visualPresenterAnimationsEnabled, true);
+
+  const presenterAnimationsDisabled = createInitialPreferencesState({
+    matchMedia: () => ({ matches: false }),
+    settings: { visualPresenterAnimationsEnabled: false },
+  });
+  assert.equal(
+    presenterAnimationsDisabled.visualPresenterAnimationsEnabled,
+    false
+  );
 });
 
 test("preferences feature owns persistence and derived mute state", () => {
@@ -59,5 +69,7 @@ test("preferences feature owns persistence and derived mute state", () => {
   assert.equal(feature.refs.visualConfettiEnabled.current, false);
   assert.equal(writes.at(-1)[0], SETTINGS_STORAGE_KEY);
   assert.equal(writes.at(-1)[1].sfxMuted, true);
+  feature.set("visualPresenterAnimationsEnabled", false);
+  assert.equal(writes.at(-1)[1].visualPresenterAnimationsEnabled, false);
   scope.dispose();
 });

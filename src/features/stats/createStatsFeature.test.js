@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { createResourceScope } from "../../app/core/createResourceScope.js";
+import { createApplicationKernel } from "../../app/core/createApplicationKernel.js";
 import {
   createInitialStatsState,
   createStatsFeature,
@@ -74,6 +75,46 @@ function createStatsSocket({ connected = false } = {}) {
     },
   };
 }
+
+test("opening and closing stats preserves the title, lobby and running game", async () => {
+  const socket = createStatsSocket({ connected: true });
+  const requests = [];
+  const kernel = createApplicationKernel({ ports: { realtime: socket } });
+  kernel.features.define("stats", (context) => createStatsFeature(context, {
+    fetchImpl: async (url) => {
+      requests.push(url);
+      return createJsonResponse({ topN: 50, boards: {} });
+    },
+  }));
+  const { feature, release } = kernel.features.acquire("stats");
+  feature.configureRealtime({ installIdRef: { current: "user:4" }, socket });
+  try {
+    for (const [view, phase] of [["home", "lobby"], ["live", "lobby"], ["live", "playing"]]) {
+      kernel.commands.navigation.go(view);
+      kernel.commands.game.setPhase(phase);
+      feature.patch({ activeIndex: 3, tab: "season" });
+      const underlyingState = kernel.getState();
+      feature.openOverlay({ reset: true });
+      assert.equal(feature.store.getState().open, true);
+      assert.equal(feature.store.getState().tab, "weekly");
+      assert.equal(feature.store.getState().activeIndex, 0);
+      await feature.fetchWeekly(true);
+      feature.set("activeIndex", 2);
+      feature.closeOverlay();
+      assert.equal(feature.store.getState().open, false);
+      assert.strictEqual(kernel.getState(), underlyingState);
+      feature.openOverlay();
+      assert.equal(feature.store.getState().activeIndex, 2);
+      feature.closeOverlay();
+      assert.strictEqual(kernel.getState(), underlyingState);
+    }
+    assert.ok(requests.length > 0);
+    assert.deepEqual(socket.emissions.map(({ eventName }) => eventName), ["getVocabCount", "getTrophyStatus"]);
+  } finally {
+    release();
+    kernel.dispose();
+  }
+});
 
 test("stats satellite owns vocab and trophy status requests", async () => {
   let clock = 5000;

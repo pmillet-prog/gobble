@@ -1,4 +1,7 @@
 import React from "react";
+import useStatsViewport from "./useStatsViewport.js";
+import "./statsOverlay.css";
+import { createPortal } from "react-dom";
 
 import {
   useFeatureFields,
@@ -101,19 +104,14 @@ export default function StatsApplication({
   blockers,
   identity,
   navigation,
-  overlays,
   presentation,
   requests,
   statsConfig,
 }) {
   const {
-    backgroundDesktop,
-    backgroundMobile,
     darkMode,
     isMobileLayout,
     menuDarkMode,
-    mode,
-    overlayStyle,
   } = appearance;
   const { keyboardBlocked } = blockers;
   const { installId, selfNick } = identity;
@@ -136,6 +134,7 @@ export default function StatsApplication({
     weeklyBoards,
   } = statsConfig;
   const statsFeature = useFeatureRuntime("stats");
+  const viewportRef = useStatsViewport();
   const statsState = useFeatureFields(statsFeature, [
     "activeIndex",
     "error",
@@ -424,13 +423,20 @@ export default function StatsApplication({
     Date.now() - (ref?.current || 0) < delayMs;
 
   React.useEffect(() => {
-    statsFeature.set("open", true);
-    return () => statsFeature.set("open", false);
-  }, [statsFeature]);
-
-  React.useEffect(() => {
     if (!weeklyStats && !weeklyStatsLoading) loadWeeklyStats(true);
   }, [loadWeeklyStats, weeklyStats, weeklyStatsLoading]);
+
+  React.useEffect(() => {
+    const previousFocus = document.activeElement;
+    const dialog = viewportRef.current;
+    dialog?.focus({ preventScroll: true });
+    return () => {
+      if (previousFocus?.isConnected &&
+          (document.activeElement === document.body || dialog?.contains(document.activeElement))) {
+        previousFocus.focus?.({ preventScroll: true });
+      }
+    };
+  }, [viewportRef]);
 
   React.useEffect(() => {
     const onKeyDown = (event) => {
@@ -444,6 +450,7 @@ export default function StatsApplication({
       ) {
         return;
       }
+      event.stopPropagation();
       if (event.key === "Escape") {
         event.preventDefault();
         closeStats();
@@ -468,8 +475,8 @@ export default function StatsApplication({
         else goToWeeklyBoard(weeklyBoards.length - 1);
       }
     };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => window.removeEventListener("keydown", onKeyDown, true);
   }, [
     goToSeasonPage,
     goToWeeklyBoard,
@@ -583,34 +590,22 @@ export default function StatsApplication({
     ? Math.max(0, vocabWeeklyCount)
     : null;
 
-  return (
-    <>
-      {overlays}
+  const application = (
       <div
-        className={
-          mode === "overlay"
-            ? "fixed inset-0 z-[12150] flex items-stretch justify-center overflow-hidden bg-black/70 px-2 py-2 sm:px-4 text-white"
-            : "relative w-full flex items-stretch justify-center overflow-hidden px-2 text-white sm:px-4"
-        }
-        style={overlayStyle}
+        ref={viewportRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Statistiques"
+        tabIndex={-1}
+        className="stats-overlay fixed left-0 top-0 z-[12150] flex w-full items-center justify-center overflow-hidden overscroll-contain bg-black/70 text-white outline-none"
+        style={{
+          height: "100dvh",
+          minHeight: 0,
+          padding: isMobileLayout
+            ? "max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left))"
+            : "clamp(8px, 2vmin, 24px)",
+        }}
       >
-        {mode !== "overlay" ? (
-          <>
-            <div
-              className="absolute inset-0 bg-cover bg-center"
-              style={{
-                backgroundImage: `url('${
-                  isMobileLayout ? backgroundMobile : backgroundDesktop
-                }')`,
-              }}
-              aria-hidden="true"
-            />
-            <div
-              className="absolute inset-0 bg-black/35 backdrop-blur-[1px]"
-              aria-hidden="true"
-            />
-          </>
-        ) : null}
         <WeeklyStatsScreen
           runtime={{
             activeWeeklyBoard,
@@ -626,6 +621,7 @@ export default function StatsApplication({
             handleStatsTouchStart,
             installId,
             isCrownedEntry,
+            isMobileLayout,
             menuDarkMode,
             openDefinition,
             openPlayerProfile,
@@ -657,6 +653,7 @@ export default function StatsApplication({
           }}
         />
       </div>
-    </>
   );
+
+  return typeof document === "undefined" ? null : createPortal(application, document.body);
 }

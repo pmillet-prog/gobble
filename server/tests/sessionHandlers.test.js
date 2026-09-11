@@ -119,6 +119,7 @@ test("login binds identity and returns one initial snapshot", async () => {
     playtimeLimit: { active: false, exhausted: false },
   });
   assert.deepEqual(harness.room.players.get(harness.socket.id), {
+    deviceKind: "desktop",
     nick: "Tigre",
     token: "client-1",
     userId: 7,

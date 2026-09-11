@@ -3,7 +3,6 @@ import { getDefaultRoomId } from "../../app/adapters/deviceCapabilities.js";
 import {
   CHAT_BOT_VISIBILITY_STORAGE_KEY,
   CHAT_SHOW_BOT_MESSAGES_STORAGE_KEY,
-  isChatBotMessage,
   normalizeChatBotVisibility,
   shouldDisplayChatMessageForBotSettings,
 } from "../../components/chat/chatBotVisibility.js";
@@ -11,6 +10,7 @@ import {
   CHAT_MESSAGES_STORAGE_KEY,
   capChatMessagesByType,
   findNewReactionFromOthers,
+  isChatBotMessage,
   isSystemChatMessage,
   normalizeChatReplyPreview,
   normalizeLegacyChatEmoticons,
@@ -23,6 +23,80 @@ import {
 
 const BLOCKED_INSTALL_IDS_STORAGE_KEY = "gobble_blocked_install_ids";
 const CHAT_MIN_DELAY = 600;
+const PRESENTER_CHAT_PROFILES = Object.freeze({
+  capello: Object.freeze({
+    avatarUrl: "/bots/presenters/capello/button.webp",
+    category: "coach",
+    nick: "Maître Gobbello",
+  }),
+  lepers: Object.freeze({
+    avatarUrl: "/bots/presenters/lepers/button.webp",
+    category: "culture",
+    nick: "Julien Lechéper",
+  }),
+  pivot: Object.freeze({
+    avatarUrl: "/bots/presenters/pivot/button.webp",
+    category: "linguist",
+    nick: "Bernard Pinot",
+  }),
+  romejko: Object.freeze({
+    avatarUrl: "/bots/presenters/romejko/button.webp",
+    category: "statistician",
+    nick: "Laurent Rhum&Co",
+  }),
+});
+
+export function isCapelloInterventionMessage(message) {
+  return (
+    message?.meta?.kind === "ambient_bot_chat" &&
+    message?.meta?.category === "coach"
+  );
+}
+
+export function isPivotInterventionMessage(message) {
+  return (
+    message?.meta?.kind === "ambient_bot_chat" &&
+    message?.meta?.category === "linguist"
+  );
+}
+
+export function isRomejkoInterventionMessage(message) {
+  return (
+    message?.meta?.kind === "ambient_bot_chat" &&
+    message?.meta?.category === "detective"
+  );
+}
+
+function withoutPresentedBotInterventions(messages) {
+  return (Array.isArray(messages) ? messages : []).filter(
+    (message) =>
+      !isCapelloInterventionMessage(message) &&
+      !isPivotInterventionMessage(message) &&
+      !isRomejkoInterventionMessage(message)
+  );
+}
+
+function normalizeIntervention(message) {
+  const highlights = Array.isArray(message?.meta?.highlights)
+    ? message.meta.highlights
+    : [];
+  const roundId = message.roundId || message?.meta?.roundId || null;
+  return Object.freeze({
+    id: message.id || null,
+    roomId: message.roomId || null,
+    ...(roundId ? { roundId } : null),
+    t: message.t ?? message.createdAt ?? Date.now(),
+    text: message.text,
+    ...(typeof message?.meta?.chatCopyText === "string" &&
+    message.meta.chatCopyText.trim()
+      ? { chatCopyText: message.meta.chatCopyText.trim() }
+      : null),
+    ...(typeof message?.kind === "string" && message.kind
+      ? { kind: message.kind }
+      : null),
+    ...(highlights.length ? { highlights } : null),
+  });
+}
 
 function readBoolean(storage, key, fallback) {
   try {
@@ -30,6 +104,14 @@ function readBoolean(storage, key, fallback) {
     return value == null ? fallback : value === "1";
   } catch (_) {
     return fallback;
+  }
+}
+
+function publishIntervention(listeners, intervention) {
+  for (const listener of listeners) {
+    try {
+      listener(intervention);
+    } catch (_) {}
   }
 }
 
@@ -75,7 +157,7 @@ export function createInitialChatState(storage = globalThis.localStorage) {
     homeChatOpen: false,
     homeUnreadCount: 0,
     input: "",
-    messages: readStoredChatMessages(),
+    messages: withoutPresentedBotInterventions(readStoredChatMessages()),
     mobileBotUnreadCount: 0,
     mobileChatClosing: false,
     mobileChatOpen: false,
@@ -94,7 +176,11 @@ export function createInitialChatState(storage = globalThis.localStorage) {
     rulesAccepted: false,
     rulesOpen: false,
     showBlockedList: false,
-    showBotMessages: readBoolean(storage, CHAT_SHOW_BOT_MESSAGES_STORAGE_KEY, true),
+    showBotMessages: readBoolean(
+      storage,
+      CHAT_SHOW_BOT_MESSAGES_STORAGE_KEY,
+      false
+    ),
     tab: "messages",
     userMenu: {
       installId: null,
@@ -105,8 +191,6 @@ export function createInitialChatState(storage = globalThis.localStorage) {
       top: 0,
       userId: null,
     },
-    viewportHeight: 0,
-    keyboardInsetPx: 0,
   };
 }
 
@@ -118,11 +202,139 @@ export function createChatFeature(context, options = {}) {
   let commandConfig = {};
   let inputFocusHandler = null;
   let lastSentAt = 0;
+  let lastPresenterCopyAt = 0;
   let persistTimer = null;
   let realtimeConfig = {};
   let realtimeSocket = null;
   let realtimeUnsubscribe = null;
+  const activatedPresenterRounds = new Set();
+  const capelloInterventionListeners = new Set();
+  const pivotInterventionListeners = new Set();
+  const romejkoInterventionListeners = new Set();
+  let latestCapelloIntervention = null;
+  let latestPivotIntervention = null;
+  let latestRomejkoIntervention = null;
   const reactionToastTimers = new Set();
+
+  function retainPresenterIntervention(key, message) {
+    const intervention = normalizeIntervention(message);
+    if (key === "capello") {
+      if (intervention.id && latestCapelloIntervention?.id === intervention.id) return;
+      latestCapelloIntervention = intervention;
+      publishIntervention(capelloInterventionListeners, intervention);
+      return;
+    }
+    if (key === "pivot") {
+      if (intervention.id && latestPivotIntervention?.id === intervention.id) return;
+      latestPivotIntervention = intervention;
+      publishIntervention(pivotInterventionListeners, intervention);
+      return;
+    }
+    if (intervention.id && latestRomejkoIntervention?.id === intervention.id) return;
+    latestRomejkoIntervention = intervention;
+    publishIntervention(romejkoInterventionListeners, intervention);
+  }
+
+  function getPresenterEventKey(key, event) {
+    const sourceId = String(event?.id || "").trim();
+    if (sourceId) return sourceId;
+    const roundId = String(event?.roundId || "").trim();
+    const text = String(event?.chatCopyText || event?.text || "").trim();
+    return `${key}:${roundId}:${text}`;
+  }
+
+  function appendPresenterChatCopy(key, event) {
+    const profile = PRESENTER_CHAT_PROFILES[key];
+    const text = String(event?.chatCopyText || event?.text || "")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (!profile || !text) return false;
+    const sourceInterventionId = getPresenterEventKey(key, event);
+    const roundId = event?.roundId == null ? null : String(event.roundId);
+    let appended = false;
+    feature.set("messages", (previous) => {
+      if (
+        previous.some(
+          (message) =>
+            message?.meta?.kind === "presenter_chat_copy" &&
+            message?.meta?.sourceInterventionId === sourceInterventionId
+        )
+      ) {
+        return previous;
+      }
+      appended = true;
+      const timestamp = Math.max(Date.now(), lastPresenterCopyAt + 1);
+      lastPresenterCopyAt = timestamp;
+      return capChatMessagesByType([
+        ...previous,
+        {
+          id: `presenter-copy:${sourceInterventionId}`,
+          t: timestamp,
+          roomId: event?.roomId || null,
+          roundId,
+          nick: profile.nick,
+          author: profile.nick,
+          installId: `presenter-copy:${profile.category}`,
+          text,
+          isBot: true,
+          meta: {
+            kind: "presenter_chat_copy",
+            category: profile.category,
+            avatarUrl: profile.avatarUrl,
+            presenterKey: key,
+            roundId,
+            sourceInterventionId,
+            silent: true,
+          },
+        },
+      ]);
+    });
+    return appended;
+  }
+
+  function recordPresenterActivation(key, event) {
+    const safeKey = String(key || "").trim();
+    if (!PRESENTER_CHAT_PROFILES[safeKey] || !event?.text) return false;
+    const roundId = String(event?.roundId || "").trim();
+    if (!roundId) return false;
+    const activationKey = `${safeKey}:${roundId}`;
+    const wasAlreadyActivated = activatedPresenterRounds.has(activationKey);
+    activatedPresenterRounds.add(activationKey);
+    return !wasAlreadyActivated;
+  }
+
+  function recordPresenterPresentationComplete(key, event) {
+    const safeKey = String(key || "").trim();
+    const roundId = String(event?.roundId || "").trim();
+    if (!PRESENTER_CHAT_PROFILES[safeKey] || !roundId || !event?.text) return false;
+    if (!activatedPresenterRounds.has(`${safeKey}:${roundId}`)) {
+      const wasActivatedBeforeReload = feature.store
+        .getState()
+        .messages.some(
+          (message) =>
+            message?.meta?.kind === "presenter_chat_copy" &&
+            message?.meta?.presenterKey === safeKey &&
+            String(message?.meta?.roundId || "") === roundId
+        );
+      if (!wasActivatedBeforeReload) return false;
+      activatedPresenterRounds.add(`${safeKey}:${roundId}`);
+    }
+    return appendPresenterChatCopy(safeKey, event);
+  }
+
+  function hydratePresenterInterventions(messages = []) {
+    for (const message of Array.isArray(messages) ? messages : []) {
+      const normalizedMessage = normalizeChatMessageShape(message);
+      if (!normalizedMessage) continue;
+      if (isCapelloInterventionMessage(normalizedMessage)) {
+        retainPresenterIntervention("capello", normalizedMessage);
+      } else if (isRomejkoInterventionMessage(normalizedMessage)) {
+        retainPresenterIntervention("romejko", normalizedMessage);
+      } else if (isPivotInterventionMessage(normalizedMessage)) {
+        retainPresenterIntervention("pivot", normalizedMessage);
+      }
+    }
+  }
 
   function deferDuringTrace(task, label) {
     try {
@@ -135,9 +347,32 @@ export function createChatFeature(context, options = {}) {
   function onChatHistory(history = []) {
     if (deferDuringTrace(() => onChatHistory(history), "chat-history")) return;
     if (!Array.isArray(history)) return;
-    const normalizedHistory = history
+    const normalizedEntries = history
       .map((entry) => normalizeChatMessageShape(entry))
       .filter(Boolean);
+    let historyCapelloIntervention = null;
+    let historyPivotIntervention = null;
+    let historyRomejkoIntervention = null;
+    for (const entry of normalizedEntries) {
+      if (isCapelloInterventionMessage(entry)) historyCapelloIntervention = entry;
+      if (isPivotInterventionMessage(entry)) historyPivotIntervention = entry;
+      if (isRomejkoInterventionMessage(entry)) historyRomejkoIntervention = entry;
+    }
+    if (historyCapelloIntervention) {
+      retainPresenterIntervention("capello", historyCapelloIntervention);
+    }
+    if (historyRomejkoIntervention) {
+      retainPresenterIntervention("romejko", historyRomejkoIntervention);
+    }
+    if (historyPivotIntervention) {
+      retainPresenterIntervention("pivot", historyPivotIntervention);
+    }
+    const normalizedHistory = normalizedEntries.filter(
+      (entry) =>
+        !isCapelloInterventionMessage(entry) &&
+        !isPivotInterventionMessage(entry) &&
+        !isRomejkoInterventionMessage(entry)
+    );
     if (!normalizedHistory.length) return;
     feature.set("messages", (previous) =>
       capChatMessagesByType([...previous, ...normalizedHistory])
@@ -148,6 +383,16 @@ export function createChatFeature(context, options = {}) {
     if (deferDuringTrace(() => onChatNew(message), "chat-message")) return;
     const normalizedMessage = normalizeChatMessageShape(message);
     if (!normalizedMessage) return;
+    if (isCapelloInterventionMessage(normalizedMessage)) {
+      retainPresenterIntervention("capello", normalizedMessage);
+      return;
+    } else if (isPivotInterventionMessage(normalizedMessage)) {
+      retainPresenterIntervention("pivot", normalizedMessage);
+      return;
+    } else if (isRomejkoInterventionMessage(normalizedMessage)) {
+      retainPresenterIntervention("romejko", normalizedMessage);
+      return;
+    }
     feature.set("messages", (previous) =>
       capChatMessagesByType([...previous, normalizedMessage])
     );
@@ -342,6 +587,27 @@ export function createChatFeature(context, options = {}) {
     return () => {
       if (inputFocusHandler === handler) inputFocusHandler = null;
     };
+  }
+
+  function subscribeCapelloInterventions(listener) {
+    if (typeof listener !== "function") return () => {};
+    capelloInterventionListeners.add(listener);
+    if (latestCapelloIntervention) listener(latestCapelloIntervention);
+    return () => capelloInterventionListeners.delete(listener);
+  }
+
+  function subscribePivotInterventions(listener) {
+    if (typeof listener !== "function") return () => {};
+    pivotInterventionListeners.add(listener);
+    if (latestPivotIntervention) listener(latestPivotIntervention);
+    return () => pivotInterventionListeners.delete(listener);
+  }
+
+  function subscribeRomejkoInterventions(listener) {
+    if (typeof listener !== "function") return () => {};
+    romejkoInterventionListeners.add(listener);
+    if (latestRomejkoIntervention) listener(latestRomejkoIntervention);
+    return () => romejkoInterventionListeners.delete(listener);
   }
 
   function appendEmoji(emoji) {
@@ -644,6 +910,12 @@ export function createChatFeature(context, options = {}) {
       const persist = () => {
         const state = store.getState();
         try {
+          if (state.blockedInstallIds !== previous.blockedInstallIds) {
+            storage?.setItem(
+              BLOCKED_INSTALL_IDS_STORAGE_KEY,
+              JSON.stringify(state.blockedInstallIds)
+            );
+          }
           if (state.showBotMessages !== previous.showBotMessages) {
             storage?.setItem(
               CHAT_SHOW_BOT_MESSAGES_STORAGE_KEY,
@@ -654,12 +926,6 @@ export function createChatFeature(context, options = {}) {
             storage?.setItem(
               CHAT_BOT_VISIBILITY_STORAGE_KEY,
               JSON.stringify(normalizeChatBotVisibility(state.botVisibility))
-            );
-          }
-          if (state.blockedInstallIds !== previous.blockedInstallIds) {
-            storage?.setItem(
-              BLOCKED_INSTALL_IDS_STORAGE_KEY,
-              JSON.stringify(state.blockedInstallIds)
             );
           }
         } catch (_) {}
@@ -692,7 +958,15 @@ export function createChatFeature(context, options = {}) {
         inputFocusHandler = null;
         chatHistory = [];
         chatHistoryIndex = -1;
+        capelloInterventionListeners.clear();
+        pivotInterventionListeners.clear();
+        romejkoInterventionListeners.clear();
+        latestCapelloIntervention = null;
+        latestPivotIntervention = null;
+        latestRomejkoIntervention = null;
+        activatedPresenterRounds.clear();
         lastSentAt = 0;
+        lastPresenterCopyAt = 0;
         store.set("mobileReactionToasts", []);
       });
     },
@@ -733,9 +1007,15 @@ export function createChatFeature(context, options = {}) {
     deleteOwnMessage,
     enqueueReactionToast,
     focusInput,
+    hydratePresenterInterventions,
+    recordPresenterActivation,
+    recordPresenterPresentationComplete,
     registerInputFocusHandler,
     sendReaction,
     setReplyTargetFromMessage,
+    subscribeCapelloInterventions,
+    subscribePivotInterventions,
+    subscribeRomejkoInterventions,
     submit,
   });
 }

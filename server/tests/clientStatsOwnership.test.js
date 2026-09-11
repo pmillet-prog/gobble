@@ -6,7 +6,7 @@ function read(relativePath) {
   return fs.readFileSync(new URL(relativePath, import.meta.url), "utf8");
 }
 
-test("stats application owns its route lifecycle and swipe presentation", () => {
+test("stats overlay is a global sibling and owns its viewport and navigation", () => {
   const applicationSource = read("../../src/GobbleApplication.jsx");
   const statsApplicationSource = read(
     "../../src/features/stats/StatsApplication.jsx"
@@ -15,7 +15,10 @@ test("stats application owns its route lifecycle and swipe presentation", () => 
     "../../src/components/desktop/DesktopGameScene.jsx"
   );
 
-  assert.match(applicationSource, /<StatsApplication/);
+  const shellSource = read("../../src/app/AppShell.jsx");
+  assert.match(shellSource, /<StatsOverlaySatellite\s*\/>/);
+  assert.doesNotMatch(applicationSource, /StatsApplication|StatsOverlaySatellite/);
+  assert.doesNotMatch(applicationSource, /setAppView\("stats"\)/);
   assert.doesNotMatch(applicationSource, /WeeklyStatsScreen/);
   assert.doesNotMatch(applicationSource, /useSwipeTrackController/);
   assert.doesNotMatch(applicationSource, /weeklyTouchRef/);
@@ -31,8 +34,11 @@ test("stats application owns its route lifecycle and swipe presentation", () => 
   assert.match(statsApplicationSource, /fetchWeeklyStats/);
   assert.match(statsApplicationSource, /requestTrophyStatus/);
   assert.match(statsApplicationSource, /<WeeklyStatsScreen/);
+  assert.match(statsApplicationSource, /useStatsViewport\(\)/);
+  assert.match(statsApplicationSource, /createPortal\(application, document.body\)/);
+  assert.doesNotMatch(statsApplicationSource, /backgroundDesktop|backgroundMobile|overlayStyle/);
 
-  assert.match(desktopSceneSource, /statsApplication/);
+  assert.doesNotMatch(desktopSceneSource, /statsApplication/);
   assert.doesNotMatch(desktopSceneSource, /weeklyStatsPage/);
   assert.doesNotMatch(desktopSceneSource, /weeklyOverlayStyle/);
 });

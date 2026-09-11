@@ -112,12 +112,6 @@ import {
   normalizeDesktopColumnOrder,
 } from "./app/adapters/desktopLayoutStorage.js";
 import {
-  CHAT_DRAWER_MAX_HEIGHT_PX,
-  CHAT_DRAWER_MIN_HEIGHT_PX,
-  CHAT_DRAWER_TOP_GAP_PX,
-  getChatDrawerOrientationKey,
-} from "./app/adapters/chatDrawerCalibration.js";
-import {
   buildUserScopedInstallId,
   getInstallIdCreatedAtTs,
   getOrCreateInstallId,
@@ -139,6 +133,8 @@ import { VOCAB_LEVELS, getVocabLevelMeta } from "./vocabRanks";
 import { createPortal, flushSync } from "react-dom";
 import { patchFirstMatchingFeedEntry } from "./game/liveFeedReconciliation.js";
 import useWordSubmissionController from "./features/submission/useWordSubmissionController.js";
+import InvalidWordGuardOverlay from "./features/submission/InvalidWordGuardOverlay.jsx";
+import useInvalidWordGuard from "./features/submission/useInvalidWordGuard.js";
 import {
   normalizeRotationTurns,
   rotateIndexByTurns,
@@ -153,13 +149,6 @@ import {
 import MobileChatLayer from "./components/chat/MobileChatLayer.jsx";
 import ChatReactionToastSatellite from "./features/chat/ChatReactionToastSatellite.jsx";
 import {
-  CHAT_BOT_VISIBILITY_OPTIONS,
-  CHAT_BOT_VISIBILITY_STORAGE_KEY,
-  CHAT_SHOW_BOT_MESSAGES_STORAGE_KEY,
-  isChatBotMessage,
-  shouldDisplayChatMessageForBotSettings,
-} from "./components/chat/chatBotVisibility.js";
-import {
   CHAT_REACTION_EMOJIS,
 } from "./components/chat/chatPresentationConfig.js";
 import MobileGrid from "./components/MobileGrid.jsx";
@@ -169,6 +158,7 @@ import FacebookGroupInviteModal from "./components/FacebookGroupInviteModal.jsx"
 import GameCelebrationOverlay from "./components/GameCelebrationOverlay.jsx";
 import ScoreFlightSatellite from "./features/live/ScoreFlightSatellite.jsx";
 import NotificationToastLayer from "./features/notifications/NotificationToastLayer.jsx";
+import useResultsPresenterGate from "./components/botInterventions/useResultsPresenterGate.js";
 import { useSettledGameProgress } from "./features/progress/useSettledGameProgress.js";
 import { useLiveEntryFeature } from "./features/session/useLiveEntryFeature.js";
 import { useLiveResumeFeature } from "./features/session/useLiveResumeFeature.js";
@@ -351,6 +341,16 @@ import {
 import {
   isWeeklyRecapPodiumReady,
 } from "./utils/weeklyRecap.js";
+import CapelloIntervention from "./components/capello/CapelloIntervention.jsx";
+import PivotIntervention from "./components/pivot/PivotIntervention.jsx";
+import RomejkoIntervention from "./components/romejko/RomejkoIntervention.jsx";
+import LepersIntervention from "./components/lepers/LepersIntervention.jsx";
+import { areGameplayPresenterHintsDisabled } from "./features/presenters/presenterRoundPolicy.js";
+import { isTournamentCelebrationActive } from "../shared/presenterCelebrationPolicy.js";
+import { loadQuestions3DOverlay } from "./features/presenters/qpug/loadQuestions3DOverlay.js";
+import VocabularyProgressPanel from "./features/stats/VocabularyProgressPanel.jsx";
+import { resolveVocabRoundProgress } from "./features/stats/vocabRoundProgress.js";
+import { STATS_SEASON_TARGET_LIMIT, WEEKLY_BOARDS } from "./features/stats/statsConfig.js";
 
 const OcidResultOverlay = React.lazy(() => import("./components/mobile/OcidResultOverlay.jsx"));
 const AboutModals = React.lazy(() => import("./components/about/AboutModals.jsx"));
@@ -384,9 +384,10 @@ const DailyApplication = React.lazy(() =>
   import("./features/daily/DailyApplication.jsx")
 );
 const DuelHubScreen = React.lazy(() => import("./components/duel/DuelHubScreen.jsx"));
-const StatsApplication = React.lazy(() =>
-  import("./features/stats/StatsApplication.jsx")
+const ChalkboardApplication = React.lazy(() =>
+  import("./features/chalkboard/ChalkboardApplication.jsx")
 );
+const LepersRoundAnnouncementOverlay = React.lazy(loadQuestions3DOverlay);
 const TournamentFinaleScreen = React.lazy(() =>
   import("./components/finale/TournamentFinaleScreen.jsx")
 );
@@ -432,7 +433,6 @@ const WORDS_SCROLL_MAX_HEIGHT = "clamp(320px, calc(100vh - 280px), 720px)";
 // minimale visuelle recréerait un scroll global aux forts niveaux de zoom.
 const DESKTOP_MAIN_GRID_MIN_HEIGHT = 1;
 const MAIN_GRID_HEIGHT = `max(${DESKTOP_MAIN_GRID_MIN_HEIGHT}px, calc(100vh - 180px))`;
-const CHAT_DRAWER_FIXED_HEIGHT_RATIO = 0.58;
 const COLUMN_HEIGHT_STYLE = {
   height: MAIN_GRID_HEIGHT,
   maxHeight: MAIN_GRID_HEIGHT,
@@ -488,8 +488,6 @@ const SAMSUNG_BIGWORD_MIN_INTERVAL_MS = 700;
 const SAMSUNG_BIGWORD_FLASH_MS = 650;
 const CACHE_PURGE_QUERY_PARAM = "purgeCache";
 const PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=fr.gobble.twa&hl=fr";
-const STATS_WEEKLY_DISPLAY_LIMIT = 50;
-const STATS_SEASON_TARGET_LIMIT = 200;
 const DUEL_TUTORIAL_STEPS = [
   "Chaque semaine, tu es dans l'équipe Rouge ou Bleue.",
   "Chaque jour, tu as 3 objectifs (facile, moyen, difficile). Valide-les dans le jeu principal pour aider ton equipe.",
@@ -553,19 +551,6 @@ const BONUS_CLASSES = {
   M3: "bg-[rgba(239,68,68,0.85)] border-[rgba(185,28,28,0.95)] text-white border-2", // rouge intense
 };
 
-const WEEKLY_BOARDS = [
-  { key: "weeklyVocab", label: "Vocabulaire hebdo", subtitle: "Course aux mots uniques" },
-  { key: "medals", label: "Medailles", subtitle: "Total hebdo" },
-  { key: "mostWordsInGame", label: "Mots par manche", subtitle: "Volume max" },
-  { key: "totalScore", label: "Score total", subtitle: "Somme hebdo (cibles = 1000 pts)" },
-  { key: "bestWord", label: "Meilleur mot", subtitle: "Score le plus élevé" },
-  { key: "longestWord", label: "Mot le plus long", subtitle: "Longest" },
-  { key: "bestRoundScore", label: "Score de manche", subtitle: "Total record" },
-  { key: "bestSpecial3Score", label: "3 mots", subtitle: "Live hebdo" },
-  { key: "bestTimeTargetLong", label: "Temps mot long", subtitle: "Round cible mot long" },
-  { key: "bestTimeTargetScore", label: "Temps meilleur mot", subtitle: "Round cible meilleur mot" },
-  { key: "mostGobbles", label: "Gobbles", subtitle: "Total hebdo" },
-];
 const FINALE_WEEKLY_BOARDS = WEEKLY_BOARDS;
 const WEEKLY_SWIPE_THRESHOLD = 42;
 const RESULTS_SWIPE_THRESHOLD = 52;
@@ -789,13 +774,11 @@ const LIVE_UI_ROOT_FIELDS = Object.freeze([
 const CHAT_ROOT_FIELDS = Object.freeze([
   "activeArea",
   "blockedInstallIds",
-  "botVisibility",
   "desktopEmojiPickerOpen",
   "desktopReactionDetails",
   "desktopReactionPicker",
   "editTarget",
   "homeChatOpen",
-  "keyboardInsetPx",
   "mobileChatClosing",
   "mobileChatOpen",
   "mobileChatOpenedAtMs",
@@ -804,10 +787,8 @@ const CHAT_ROOT_FIELDS = Object.freeze([
   "rulesAccepted",
   "rulesOpen",
   "showBlockedList",
-  "showBotMessages",
   "tab",
   "userMenu",
-  "viewportHeight",
 ]);
 
 const REALTIME_ROOT_FIELDS = Object.freeze([
@@ -854,6 +835,7 @@ export default function GobbleApplication() {
   const diagnosticsFeature = useFeatureRuntime("diagnostics");
   const gameplaySessionFeature = useFeatureRuntime("gameplaySession");
   const liveRoundFeature = useFeatureRuntime("liveRound");
+  const presentersFeature = useFeatureRuntime("presenters");
   const sessionPersistenceFeature = useFeatureRuntime("sessionPersistence");
   const {
     autoResumeEnabled: autoResumeEnabledRef,
@@ -1119,6 +1101,17 @@ export default function GobbleApplication() {
   const roundStartAtRef = useRef(0);
   const tileStepRef = useRef(0);         // <-- AJOUT
   const isTouchDeviceRef = useRef(false);
+  const invalidWordGuardEligible =
+    isLoggedIn &&
+    appView === "live" &&
+    phase === "playing" &&
+    specialRound?.type !== "target_long" &&
+    specialRound?.type !== "target_score" &&
+    specialRound?.type !== DAILY_SPECIAL_MODE;
+  const invalidWordGuard = useInvalidWordGuard({
+    enabled: invalidWordGuardEligible,
+    resetKey: `${roundId || ""}:${phase}`,
+  });
   const gridRef = useRef(null);
   const canVibrateRef = useRef(false);
   const preferencesFeature = useFeatureRuntime("preferences");
@@ -1157,6 +1150,7 @@ export default function GobbleApplication() {
     visualGoldNickFxEnabled,
     visualInvalidWordsEnabled,
     visualPraiseEnabled,
+    visualPresenterAnimationsEnabled,
     visualScoreFlightsEnabled,
     visualScreenShakeEnabled,
   } = preferencesState;
@@ -1196,6 +1190,7 @@ export default function GobbleApplication() {
     setVisualGoldNickFxEnabled,
     setVisualInvalidWordsEnabled,
     setVisualPraiseEnabled,
+    setVisualPresenterAnimationsEnabled,
     setVisualScoreFlightsEnabled,
     setVisualScreenShakeEnabled,
     setDarkMode,
@@ -1250,6 +1245,9 @@ export default function GobbleApplication() {
       setVisualGoldNickFxEnabled: setter("visualGoldNickFxEnabled"),
       setVisualInvalidWordsEnabled: setter("visualInvalidWordsEnabled"),
       setVisualPraiseEnabled: setter("visualPraiseEnabled"),
+      setVisualPresenterAnimationsEnabled: setter(
+        "visualPresenterAnimationsEnabled"
+      ),
       setVisualScoreFlightsEnabled: setter("visualScoreFlightsEnabled"),
       setVisualScreenShakeEnabled: setter("visualScreenShakeEnabled"),
       setDarkMode: visualSetter("darkMode"),
@@ -1330,14 +1328,11 @@ export default function GobbleApplication() {
     "definitionBlink",
     "error",
     "loading",
-    "open",
     "stats",
-    "tab",
     "trophyHistory",
     "trophyLoading",
     "trophyStatus",
     "vocabCount",
-    "vocabLoading",
     "vocabOverlayOpen",
     "vocabOverlayRequest",
     "vocabResultsReadyKey",
@@ -1389,13 +1384,10 @@ export default function GobbleApplication() {
       bindFeatureStateSetters(statsFeature, {
         setDefinitionBlink: "definitionBlink",
         setIsVocabOverlayOpen: "vocabOverlayOpen",
-        setIsWeeklyOpen: "open",
-        setStatsTab: "tab",
         setVocabOverlayRequest: "vocabOverlayRequest",
         setVocabResultsReadyKey: "vocabResultsReadyKey",
         setVocabRoundDelta: "vocabRoundDelta",
         setVocabWeeklyRoundDelta: "vocabWeeklyRoundDelta",
-        setWeeklyActiveIndex: "activeIndex",
       }),
     [statsFeature]
   );
@@ -1495,14 +1487,11 @@ export default function GobbleApplication() {
     definitionBlink,
     error: weeklyStatsError,
     loading: weeklyStatsLoading,
-    open: isWeeklyOpen,
     stats: weeklyStats,
-    tab: statsTab,
     trophyHistory,
     trophyLoading,
     trophyStatus,
     vocabCount,
-    vocabLoading,
     vocabOverlayOpen: isVocabOverlayOpen,
     vocabOverlayRequest,
     vocabResultsReadyKey,
@@ -1515,13 +1504,10 @@ export default function GobbleApplication() {
   const {
     setDefinitionBlink,
     setIsVocabOverlayOpen,
-    setIsWeeklyOpen,
-    setStatsTab,
     setVocabOverlayRequest,
     setVocabResultsReadyKey,
     setVocabRoundDelta,
     setVocabWeeklyRoundDelta,
-    setWeeklyActiveIndex,
   } = statsActions;
   const {
     devAccountAllowed,
@@ -1687,14 +1673,11 @@ export default function GobbleApplication() {
       bindFeatureStateSetters(chatFeature, {
         setActiveArea: "activeArea",
         setBlockedInstallIds: "blockedInstallIds",
-        setChatBotVisibility: "botVisibility",
         setChatInput: "input",
-        setChatKeyboardInsetPx: "keyboardInsetPx",
         setChatMessages: "messages",
         setChatOpenedAtMs: "mobileChatOpenedAtMs",
         setChatRulesAccepted: "rulesAccepted",
         setChatTab: "tab",
-        setChatViewportHeight: "viewportHeight",
         setDesktopChatReactionDetails: "desktopReactionDetails",
         setDesktopChatReactionPicker: "desktopReactionPicker",
         setHomeChatBotUnreadCount: "homeBotUnreadCount",
@@ -1708,7 +1691,6 @@ export default function GobbleApplication() {
         setMobileChatUnreadCount: "mobileUnreadCount",
         setReportDialog: "reportDialog",
         setShowBlockedList: "showBlockedList",
-        setShowBotMessages: "showBotMessages",
         setUserMenu: "userMenu",
       }),
     [chatFeature]
@@ -1809,13 +1791,11 @@ export default function GobbleApplication() {
   const {
     activeArea,
     blockedInstallIds,
-    botVisibility: chatBotVisibility,
     desktopEmojiPickerOpen: isDesktopEmojiPickerOpen,
     desktopReactionDetails: desktopChatReactionDetails,
     desktopReactionPicker: desktopChatReactionPicker,
     editTarget: chatEditTarget,
     homeChatOpen: isHomeChatOpen,
-    keyboardInsetPx: chatKeyboardInsetPx,
     mobileChatClosing: isChatClosing,
     mobileChatOpen: isChatOpenMobile,
     mobileChatOpenedAtMs: chatOpenedAtMs,
@@ -1824,22 +1804,17 @@ export default function GobbleApplication() {
     rulesAccepted: chatRulesAccepted,
     rulesOpen: isChatRulesOpen,
     showBlockedList,
-    showBotMessages,
     tab: chatTab,
     userMenu,
-    viewportHeight: chatViewportHeight,
   } = chatState;
   const {
     setActiveArea,
     setBlockedInstallIds,
-    setChatBotVisibility,
     setChatInput,
-    setChatKeyboardInsetPx,
     setChatMessages,
     setChatOpenedAtMs,
     setChatRulesAccepted,
     setChatTab,
-    setChatViewportHeight,
     setDesktopChatReactionDetails,
     setDesktopChatReactionPicker,
     setHomeChatBotUnreadCount,
@@ -1853,7 +1828,6 @@ export default function GobbleApplication() {
     setMobileChatUnreadCount,
     setReportDialog,
     setShowBlockedList,
-    setShowBotMessages,
     setUserMenu,
   } = chatActions;
   const {
@@ -1927,18 +1901,12 @@ export default function GobbleApplication() {
   const displayMode = useDisplayMode();
   const isFullscreen = displayMode.isFullscreen;
   const chatInteractionResources = useChatInteractionResources({
-    chatFeature,
     isChatClosing,
   });
   const {
-    chatBodyLockHeightRef,
     chatCloseTimerRef,
-    chatDrawerCalibrationRef,
-    chatDrawerSessionCalibrationRef,
     chatInputRef,
     chatRulesConfirmRef,
-    gameViewportFreezeHeightRef,
-    isChatClosingRef,
     isChatOpenMobileRef,
     lobbyChatSubscriptionRef,
   } = chatInteractionResources;
@@ -1968,6 +1936,16 @@ export default function GobbleApplication() {
     markers: accountSeenMarkers,
     markSeen: markAccountSeen,
   } = useAccountSeenMarkers({ authenticatedUserId, isAuthenticated: isAccountAuthenticated });
+  const resultsPresentersReady = useResultsPresenterGate({
+    accountSeenReady,
+    isAccountAuthenticated,
+    phase,
+    roundId,
+    targetSummary,
+    vocabOverlayOpen: isVocabOverlayOpen,
+    vocabOverlayRequest,
+    vocabResultsReadyKey,
+  });
   useEffect(() => {
     if (!isAccountAuthenticated) {
       setChatRulesAccepted(false);
@@ -2278,6 +2256,7 @@ export default function GobbleApplication() {
       startsAt: null,
       introMs: 0,
       status: "running",
+      hasLepersChallenge: false,
     };
     roundIntroStartedForRoundRef.current = null;
     clearResultsSlideTimers();
@@ -2688,6 +2667,7 @@ export default function GobbleApplication() {
         praise: !!visualPraiseEnabled,
         scoreFlights: !!visualScoreFlightsEnabled,
         invalidWords: !!visualInvalidWordsEnabled,
+        presenterAnimations: !!visualPresenterAnimationsEnabled,
         screenShake: !!visualScreenShakeEnabled,
         confetti: !!visualConfettiEnabled,
         goldNickFx: !!visualGoldNickFxEnabled,
@@ -2779,6 +2759,7 @@ export default function GobbleApplication() {
     visualPraiseEnabled,
     visualScoreFlightsEnabled,
     visualInvalidWordsEnabled,
+    visualPresenterAnimationsEnabled,
     visualScreenShakeEnabled,
     visualConfettiEnabled,
     visualGoldNickFxEnabled,
@@ -2943,15 +2924,18 @@ export default function GobbleApplication() {
     });
     markPendingCultureThemeWords(challenge.wordSet);
   }
+  const presenterHintsDisabledForRound =
+    areGameplayPresenterHintsDisabled(specialRound);
+  const showMobileLiveActionBar =
+    isMobileLayout &&
+    isLoggedIn &&
+    appView === "live" &&
+    phase === "playing" &&
+    !isUltraCompact &&
+    !isSpecial3WordsMode &&
+    !standaloneTrainingSession;
   const { mobileGameViewportLockRef, mobileHeaderRef } =
     useMobileLayoutController({
-      chat: {
-        gameViewportFreezeHeightRef,
-        isChatClosing,
-        isChatClosingRef,
-        isChatOpenMobile,
-        isChatOpenMobileRef,
-      },
       game: {
         gridSize,
         phase,
@@ -2962,6 +2946,9 @@ export default function GobbleApplication() {
         isMobileLayout,
         layoutFeature,
         maxGridWidth: MOBILE_GRID_MAX_WIDTH,
+        showLiveActionBar: showMobileLiveActionBar,
+        adaptiveRanking: showMobileLiveActionBar &&
+          !["target_long", "target_score", OCID_TYPE].includes(specialRound?.type),
         setMobileHeaderOffsetPx,
         setMobileLayoutSizing,
       },
@@ -2977,6 +2964,7 @@ export default function GobbleApplication() {
     startsAt: null,
     introMs: 0,
     status: "running",
+    hasLepersChallenge: false,
   });
   const roundIntroStartedForRoundRef = useRef(null);
   const clearTileIntroAnimationFnRef = useRef(() => {});
@@ -3482,8 +3470,8 @@ export default function GobbleApplication() {
   useEffect(() => {
     if (!definitionModal.open) return;
     if (appView !== "live") return;
-    if (phase === "lobby" && !isWeeklyOpen) closeDefinition();
-  }, [definitionModal.open, phase, roundId, isWeeklyOpen, appView]);
+    if (phase === "lobby" && !statsFeature.store.getState().open) closeDefinition();
+  }, [definitionModal.open, phase, roundId, appView]);
   useEffect(() => {
     if (!roundPlayerModal.open) return;
     if (phase !== "results") {
@@ -3950,74 +3938,29 @@ export default function GobbleApplication() {
     vocabOverlayRoundRef.current = overlayKey;
     markAccountSeen(accountMarker);
 
-    const selfKey = (nicknameRef.current || nickname || "").trim();
+    const selfKey = normalizeNickKey(nicknameRef.current || nickname);
     const selfResult =
       Array.isArray(finalResults) && selfKey
-        ? finalResults.find((entry) => entry.nick === selfKey)
+        ? finalResults.find((entry) => normalizeNickKey(entry?.nick) === selfKey)
         : null;
-    const hasNewVocabWords =
-      selfResult && Object.prototype.hasOwnProperty.call(selfResult, "newVocabWords");
-    const rawWordList = hasNewVocabWords
-      ? Array.isArray(selfResult?.newVocabWords)
-        ? selfResult.newVocabWords
-        : []
-      : Array.isArray(acceptedRef.current)
-      ? acceptedRef.current
-      : Array.isArray(accepted)
-      ? accepted
-      : [];
-    const sortedWords = Array.from(new Set(rawWordList))
-      .map((word) => String(word || "").trim())
-      .filter(Boolean)
-      .sort((a, b) => a.localeCompare(b, "fr", { sensitivity: "base" }));
-    const weeklyWordSource = Array.isArray(acceptedRef.current)
-      ? acceptedRef.current
-      : Array.isArray(accepted)
-      ? accepted
-      : rawWordList;
-    const sortedWeeklyWords = Array.from(new Set(weeklyWordSource))
-      .map((word) => String(word || "").trim())
-      .filter(Boolean)
-      .sort((a, b) => a.localeCompare(b, "fr", { sensitivity: "base" }));
-
-    let deltaCount = Number.isFinite(vocabRoundDelta)
-      ? Math.max(0, vocabRoundDelta)
-      : 0;
-    if (hasNewVocabWords) {
-      deltaCount = sortedWords.length;
-    } else if (!Number.isFinite(deltaCount) || deltaCount <= 0) {
-      const hasReliableBaseline =
-        Number.isFinite(vocabBaselineRef.current) &&
-        (!roundId || !vocabBaselineRoundRef.current || vocabBaselineRoundRef.current === roundId);
-      if (hasReliableBaseline) {
-        deltaCount = Math.max(0, vocabCount - vocabBaselineRef.current);
-      } else {
-        // En reprise tardive (resume) on evite un faux delta massif.
-        deltaCount = sortedWords.length;
-      }
-    }
-    let baseCount = Number.isFinite(vocabCount) ? Math.max(0, vocabCount - deltaCount) : 0;
-    if (!Number.isFinite(baseCount)) baseCount = 0;
-    const targetCount = baseCount + deltaCount;
-    const weeklyTargetCount = Number.isFinite(vocabWeeklyCount)
-      ? Math.max(0, vocabWeeklyCount)
-      : null;
-    let weeklyDeltaCount = Number.isFinite(vocabWeeklyRoundDelta)
-      ? Math.max(0, vocabWeeklyRoundDelta)
-      : 0;
-    if (!Number.isFinite(weeklyDeltaCount) || weeklyDeltaCount <= 0) {
-      const hasReliableWeeklyBaseline =
-        Number.isFinite(vocabWeeklyBaselineRef.current) &&
-        (!roundId ||
-          !vocabWeeklyBaselineRoundRef.current ||
-          vocabWeeklyBaselineRoundRef.current === roundId);
-      if (hasReliableWeeklyBaseline && Number.isFinite(weeklyTargetCount)) {
-        weeklyDeltaCount = Math.max(0, weeklyTargetCount - vocabWeeklyBaselineRef.current);
-      } else {
-        weeklyDeltaCount = Math.max(deltaCount, sortedWeeklyWords.length);
-      }
-    }
-    weeklyDeltaCount = Math.max(weeklyDeltaCount, deltaCount);
+    const hasReliableBaseline =
+      !roundId || !vocabBaselineRoundRef.current || vocabBaselineRoundRef.current === roundId;
+    const hasReliableWeeklyBaseline =
+      !roundId || !vocabWeeklyBaselineRoundRef.current || vocabWeeklyBaselineRoundRef.current === roundId;
+    const progress = resolveVocabRoundProgress({
+      result: selfResult,
+      count: vocabCount,
+      weeklyCount: vocabWeeklyCount,
+      baseline: hasReliableBaseline ? vocabBaselineRef.current : null,
+      weeklyBaseline: hasReliableWeeklyBaseline ? vocabWeeklyBaselineRef.current : null,
+      delta: vocabRoundDelta,
+      weeklyDelta: vocabWeeklyRoundDelta,
+    });
+    const deltaCount = progress.delta ?? 0;
+    const baseCount = Math.max(0, vocabCount - deltaCount);
+    const targetCount = vocabCount;
+    const weeklyDeltaCount = progress.weeklyDelta ?? 0;
+    const weeklyTargetCount = progress.weeklyCount;
     const weeklyBaseCount = Number.isFinite(weeklyTargetCount)
       ? Math.max(0, weeklyTargetCount - weeklyDeltaCount)
       : null;
@@ -4070,7 +4013,7 @@ export default function GobbleApplication() {
       rankStart,
       rankEnd,
       raceSnapshot,
-      words: sortedWeeklyWords.length ? sortedWeeklyWords : sortedWords,
+      words: progress.newWords,
     });
   }, [
     accepted,
@@ -4513,6 +4456,7 @@ export default function GobbleApplication() {
     liveSessionReadyRef,
     maybeAnnounceBestWord,
     nickname,
+    onValidWordSubmission: invalidWordGuard.registerValid,
     ocidLatestProposalRef,
     playAlreadyPlayedSound,
     playDoubleGobbleVoice,
@@ -4668,6 +4612,7 @@ export default function GobbleApplication() {
       isLoggedInRef,
       liveSessionReadyRef,
       onHydrateSnapshot: applyResumeSnapshot,
+      onPresenterInterventions: presentersFeature.hydrateInterventions,
       phaseLoopTestEnabledRef,
       socket,
       standaloneTrainingSessionRef,
@@ -5334,6 +5279,17 @@ export default function GobbleApplication() {
     setAppView("daily");
   }
 
+  function openChalkboard() {
+    appViewRef.current = "chalkboard";
+    setAppView("chalkboard");
+  }
+
+  function closeChalkboard() {
+    const nextView = isLoggedIn ? "live" : "home";
+    appViewRef.current = nextView;
+    setAppView(nextView);
+  }
+
   const {
     closeAuthDialog,
     connectSocketWithAuth,
@@ -5559,25 +5515,16 @@ export default function GobbleApplication() {
   }
 
   function openWeeklyStatsOverlay() {
-    setWeeklyActiveIndex(0);
-    setIsWeeklyOpen(true);
-    setAppView("stats");
-    setStatsTab("weekly");
-    fetchWeeklyStats(true);
-    void requestVocabCount();
-    void requestTrophyStatus();
+    statsFeature.openOverlay({ reset: true });
     fetchDuelStatus();
   }
+
+  const openLiveStatsOverlay = statsFeature.openOverlay;
 
   function openDuelPage() {
-    setIsWeeklyOpen(false);
+    statsFeature.closeOverlay();
     setAppView("duel");
     fetchDuelStatus();
-  }
-
-  function closeWeeklyStatsOverlay() {
-    setIsWeeklyOpen(false);
-    setAppView(isLoggedIn ? "live" : "home");
   }
 
   useEffect(() => {
@@ -6276,6 +6223,10 @@ export default function GobbleApplication() {
 
   const stableOpenPlayerProfile = useStableEvent(openPlayerProfile);
   const stableCanOpenPlayerProfile = useStableEvent(canOpenPlayerProfile);
+  const stableGetLiveNickClassName = useStableEvent(getLiveNickClassName);
+  const stableOpenPlayersOverlayAlpha = useStableEvent(openPlayersOverlayAlpha);
+  const stableOpenPlayersOverlaySnapshot = useStableEvent(openPlayersOverlaySnapshot);
+  const stableRenderMobileNickSuffix = useStableEvent(renderMobileNickSuffix);
 
   function updateBlockedInstallIds(updater) {
     setBlockedInstallIds((prev) => {
@@ -6341,10 +6292,8 @@ export default function GobbleApplication() {
     subscribeLobbyChat,
   } = useChatInteractionController({
     application: {
-      appView,
       isLoggedIn,
       isLoggedInRef,
-      phase,
     },
     auth: {
       accountSeenReady,
@@ -6354,11 +6303,9 @@ export default function GobbleApplication() {
     chat: {
       actions: {
         setActiveArea,
-        setChatKeyboardInsetPx,
         setChatOpenedAtMs,
         setChatRulesAccepted,
         setChatTab,
-        setChatViewportHeight,
         setDesktopChatReactionDetails,
         setDesktopChatReactionPicker,
         setHomeChatBotUnreadCount,
@@ -6388,11 +6335,8 @@ export default function GobbleApplication() {
       normalizeUserIdForProfile,
     },
     layout: {
-      feature: layoutFeature,
-      isFullscreen,
       isMobileLayout,
       isMobileLayoutRef,
-      mobileHeaderOffsetPx,
     },
     network: {
       connectSocketWithAuth,
@@ -6766,6 +6710,9 @@ export default function GobbleApplication() {
       triggerInvalidFlash(invalidFlashLabel);
     }
     if (isInvalidDico) {
+      if (lastInputModeRef.current === "touch") {
+        invalidWordGuard.registerInvalid();
+      }
       playInvalidWordSound();
     } else if (isTooShort) {
       // Pas de son pour un mot de moins de 2 lettres.
@@ -6783,7 +6730,7 @@ export default function GobbleApplication() {
    * Drag souris : démarrage
    */
   function handleMouseDown(index, mode = "mouse") {
-    if (phase !== "playing" || inputLocked) return;
+    if (phase !== "playing" || inputLocked || invalidWordGuard.blockedRef.current) return;
     resetDragMovePipeline();
     dragGridMetricsRef.current = gridHitboxRef.current || buildGridHitboxMetrics();
     setActiveArea("game");
@@ -6912,9 +6859,8 @@ export default function GobbleApplication() {
   }
 
 function handleTouchStart(e, index) {
-  if (phase !== "playing" || inputLocked) return;
+  if (phase !== "playing" || inputLocked || invalidWordGuard.blockedRef.current) return;
   if (!e.touches || e.touches.length === 0) return;
-  if (e?.cancelable) e.preventDefault();
 
   bumpSamsungDiagCounter("touchStart");
   resetDragMovePipeline();
@@ -6942,7 +6888,6 @@ function handleTouchStart(e, index) {
 function handleTouchMove(e) {
   if (!draggingRef.current) return;
   if (!e.touches || e.touches.length === 0) return;
-  if (e?.cancelable) e.preventDefault();
 
   bumpSamsungDiagCounter("touchMove");
   noteSamsungTouchMoveRate();
@@ -6974,9 +6919,8 @@ function handleMouseMove(e) {
   queueDragMove(e.clientX, e.clientY, false);
 }
 
-function handleTouchEnd(e) {
+function handleTouchEnd() {
   if (!draggingRef.current) return;
-  if (e?.cancelable) e.preventDefault();
   bumpSamsungDiagCounter("touchEnd");
   const hadPendingDragMove = flushPendingDragMove();
   const tracedTiles = highlightPathRef.current.length;
@@ -7071,6 +7015,12 @@ function handleTouchEnd(e) {
     analyzeWordActionRef.current = analyzeWord;
     clearResultsWordAnalysisRef.current = clearResultsWordAnalysis;
     openDefinitionActionRef.current = openDefinition;
+    statsFeature.configureActions({
+      openDefinition,
+      isCrownedEntry,
+      playCloseSound,
+      playSwipeSound,
+    });
   });
 
   const handleDesktopWordAnalyze = React.useCallback((word) => {
@@ -7690,150 +7640,12 @@ function handleTouchEnd(e) {
     : "?";
   const showPreviewStats =
     !liveWord && !isTargetHintRound && specialRound?.type !== OCID_TYPE;
-  const vocabDeltaValue = Number.isFinite(vocabRoundDelta) ? Math.max(0, vocabRoundDelta) : 0;
-  const vocabHasDelta = vocabDeltaValue > 0;
-  const vocabDeltaLabel = vocabHasDelta ? `+${formatNumber(vocabDeltaValue)}` : "inchangé";
-  const vocabTotalLabel = Number.isFinite(vocabCount)
-    ? `${formatNumber(vocabCount)} mots uniques`
-    : vocabLoading
-    ? "Calcul en cours..."
-    : "\u2014";
-  const vocabWeeklyLabel = Number.isFinite(vocabWeeklyCount)
-    ? `${formatNumber(vocabWeeklyCount)} cette semaine`
-    : vocabLoading
-    ? "Hebdo en cours..."
-    : "";
   const vocabTotalValue = Number.isFinite(vocabCount) ? vocabCount : 0;
   const vocabLevel = getVocabLevelMeta(vocabTotalValue);
-  const vocabPrevValue = vocabHasDelta
-    ? Math.max(0, vocabTotalValue - vocabDeltaValue)
-    : vocabTotalValue;
-  const vocabPrevLevel = getVocabLevelMeta(vocabPrevValue);
-  const vocabLevelUp =
-    vocabHasDelta && vocabPrevLevel?.key && vocabLevel?.key && vocabPrevLevel.key !== vocabLevel.key;
-  const vocabBaseValue = vocabPrevValue;
-  const vocabLevelMin = Number.isFinite(vocabLevel?.min) ? vocabLevel.min : 0;
-  const vocabLevelMax = Number.isFinite(vocabLevel?.max) ? vocabLevel.max : vocabTotalValue;
-  const vocabLevelRange = Math.max(1, vocabLevelMax - vocabLevelMin);
-  const vocabCurrentWithinLevel = clampValue(
-    vocabTotalValue - vocabLevelMin,
-    0,
-    vocabLevelRange
-  );
-  const vocabBaseWithinLevel = clampValue(
-    vocabBaseValue - vocabLevelMin,
-    0,
-    vocabLevelRange
-  );
-  const vocabLevelProgressPct = clampValue(
-    (vocabCurrentWithinLevel / vocabLevelRange) * 100,
-    0,
-    100
-  );
-  const vocabLevelBasePct = clampValue(
-    (vocabBaseWithinLevel / vocabLevelRange) * 100,
-    0,
-    100
-  );
-  const vocabLevelDeltaPct = Math.max(0, vocabLevelProgressPct - vocabLevelBasePct);
-  const vocabCursorStyle = {
-    left: `${vocabLevelProgressPct}%`,
-    borderTopColor: vocabLevel?.color || (darkMode ? "#f8fafc" : "#0f172a"),
-  };
-  const vocabImageSrc = vocabLevel?.imageKey ? getImageUrl(vocabLevel.imageKey) : "";
-  const renderVocabPanel = ({
-    panelClassName = "",
-    showDelta = true,
-    showHeading = true,
-  } = {}) => (
-    <div
-      className={`flex flex-col items-center ${showDelta ? "gap-3" : "gap-2"} ${panelClassName}`}
-    >
-      {showHeading ? (
-        <div className="text-[11px] uppercase tracking-[0.22em] opacity-70">
-          Vocabulaire
-        </div>
-      ) : null}
-      {showDelta ? (
-        <div className="text-4xl font-black tabular-nums">{vocabDeltaLabel}</div>
-      ) : null}
-      <div
-        className={
-          showDelta
-            ? "text-xs font-semibold opacity-75 -mt-1"
-            : "text-lg font-extrabold tabular-nums"
-        }
-      >
-        {vocabTotalLabel}
-      </div>
-      {vocabWeeklyLabel ? (
-        <div className="text-[11px] font-semibold opacity-65 -mt-1">
-          {vocabWeeklyLabel}
-        </div>
-      ) : null}
-      <div className="mt-2 w-full max-w-lg flex flex-col items-center gap-2">
-        {vocabImageSrc ? (
-          <div className="relative">
-            <img
-              src={vocabImageSrc}
-              alt={vocabLevel?.label || "Niveau vocabulaire"}
-              className="h-28 sm:h-32 w-auto select-none"
-              draggable={false}
-            />
-            {vocabLevelUp ? (
-              <div className="absolute -top-2 -right-3 rotate-6 rounded-full bg-red-500 text-white text-[9px] font-extrabold px-2 py-0.5 shadow-lg animate-pulse">
-                nouveau !!
-              </div>
-            ) : null}
-          </div>
-        ) : (
-          <div className="text-sm font-extrabold uppercase tracking-widest">
-            {vocabLevel?.label || "Niveau"}
-          </div>
-        )}
-        <div className="w-full">
-          <div className="relative w-full px-1">
-            <div
-              className={`h-3 rounded-full overflow-hidden ${
-                darkMode ? "bg-slate-800/80" : "bg-slate-200/80"
-              }`}
-            >
-              <div
-                className="absolute inset-y-0 left-0 rounded-l-full"
-                style={{
-                  width: `${showDelta ? vocabLevelBasePct : vocabLevelProgressPct}%`,
-                  background: darkMode
-                    ? "rgba(248, 250, 252, 0.85)"
-                    : "rgba(15, 23, 42, 0.85)",
-                }}
-              />
-              {showDelta && vocabDeltaValue && vocabDeltaValue > 0 ? (
-                <div
-                  className="absolute inset-y-0 vocab-delta-fill"
-                  style={{
-                    left: `${vocabLevelBasePct}%`,
-                    width: `${vocabLevelDeltaPct}%`,
-                  }}
-                />
-              ) : null}
-            </div>
-            <div
-              className="absolute -top-3"
-              style={{
-                ...vocabCursorStyle,
-                transform: "translateX(-50%)",
-              }}
-            >
-              <div
-                className="w-0 h-0 border-l-[6px] border-r-[6px] border-l-transparent border-r-transparent border-t-[8px]"
-                style={{ borderTopColor: vocabCursorStyle.borderTopColor }}
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+  const vocabPrevValue = Math.max(0, vocabTotalValue - Math.max(0, Number(vocabRoundDelta) || 0));
+  const vocabLevelUp = vocabPrevValue < vocabTotalValue &&
+    getVocabLevelMeta(vocabPrevValue).key !== vocabLevel.key;
+  const renderVocabPanel = (options = {}) => <VocabularyProgressPanel darkMode={darkMode} {...options} />;
   const isSpeedRound = specialRound?.type === "speed";
   const rareBonusEnabledForResults = isRareBonusEnabledForSpecial(specialRound);
   const roundTilePointsVisible = tilePointsVisible && !isSpeedRound;
@@ -8157,13 +7969,8 @@ function handleTouchEnd(e) {
     });
   }, [chatMessagesSnapshot, blockedInstallIdSet]);
   const chatMessagesOnly = React.useMemo(
-    () =>
-      filteredChatMessages.filter(
-        (msg) =>
-          !isSystemChatMessage(msg) &&
-          shouldDisplayChatMessageForBotSettings(msg, showBotMessages, chatBotVisibility)
-      ),
-    [filteredChatMessages, showBotMessages, chatBotVisibility]
+    () => filteredChatMessages.filter((msg) => !isSystemChatMessage(msg)),
+    [filteredChatMessages]
   );
   const chatSystemMessages = React.useMemo(
     () => filteredChatMessages.filter((msg) => isSystemChatMessage(msg)),
@@ -8278,16 +8085,28 @@ function handleTouchEnd(e) {
         })
       : allEntries;
   }, [dailyWidgetEntries, isDailyPlay, dailyPlayMode]);
-  const liveRosterConfig = {
-    authenticatedUserId,
-    dailyPlayMode,
-    dailyRankingSource,
-    duelStatus,
-    installId,
-    isDailyPlay,
-    normalizeUserIdForProfile,
-    selfNick,
-  };
+  const liveRosterConfig = React.useMemo(
+    () => ({
+      authenticatedUserId,
+      dailyPlayMode,
+      dailyRankingSource,
+      duelStatus,
+      installId,
+      isDailyPlay,
+      normalizeUserIdForProfile,
+      selfNick,
+    }),
+    [
+      authenticatedUserId,
+      dailyPlayMode,
+      dailyRankingSource,
+      duelStatus,
+      installId,
+      isDailyPlay,
+      normalizeUserIdForProfile,
+      selfNick,
+    ]
+  );
 
   useLayoutEffect(() => {
     if (phase !== "results") return;
@@ -8418,6 +8237,21 @@ function handleTouchEnd(e) {
     specialRound?.type === "target_score" ||
     (phase === "results" && !!targetSummary);
   const isOcidRound = specialRound?.type === OCID_TYPE;
+  const showDesktopLiveActionBar =
+    !isMobileLayout &&
+    isLoggedIn &&
+    appView === "live" &&
+    phase === "playing" &&
+    !isSpecial3WordsMode &&
+    !standaloneTrainingSession;
+  const showLivePresenterActionBar =
+    !presenterHintsDisabledForRound &&
+    (showMobileLiveActionBar || showDesktopLiveActionBar);
+  const showResultsPresenterActionBar =
+    isLoggedIn &&
+    appView === "live" &&
+    phase === "results" &&
+    !standaloneTrainingSession;
   const ocidDefinitionText = String(
     ocidVote?.definition ||
       specialRound?.ocidDefinition ||
@@ -9171,6 +9005,7 @@ function handleTouchEnd(e) {
           nick: entry.nick,
           points: typeof entry.score === "number" ? entry.score : entry.points || 0,
           gobbles: entry.gobbles ?? null,
+          lepersBonus: entry.lepersBonus ?? 0,
           rightLabel: renderTournamentTotalRightLabel(
             typeof entry.score === "number" ? entry.score : entry.points || 0,
             entry.gobbles ?? 0
@@ -9718,77 +9553,6 @@ function handleTouchEnd(e) {
       tournament?.totalRounds &&
       tournament.round === tournament.totalRounds);
   const chatTopInsetPx = isFullscreen ? mobileHeaderOffsetPx : 0;
-  const chatDrawerBaseHeightPx = Math.round(
-    chatBodyLockHeightRef.current ||
-      chatViewportHeight ||
-      window.innerHeight ||
-      document.documentElement?.clientHeight ||
-      0
-  );
-  const chatDrawerHeightCeilingPx =
-    chatDrawerBaseHeightPx > 0
-      ? Math.max(
-          220,
-          Math.round(chatDrawerBaseHeightPx - chatTopInsetPx - CHAT_DRAWER_TOP_GAP_PX)
-        )
-      : 0;
-  const chatKeyboardInsetForLayoutPx =
-    isChatOpenMobile || isChatClosing ? Math.max(0, Math.round(chatKeyboardInsetPx || 0)) : 0;
-  const chatDrawerVisibleHeightCeilingPx =
-    chatDrawerBaseHeightPx > 0
-      ? Math.max(
-          180,
-          Math.round(
-            chatDrawerBaseHeightPx -
-              chatKeyboardInsetForLayoutPx -
-              chatTopInsetPx -
-              CHAT_DRAWER_TOP_GAP_PX
-          )
-        )
-      : 0;
-  const chatDrawerEffectiveHeightCeilingPx =
-    chatKeyboardInsetForLayoutPx > 0 && chatDrawerVisibleHeightCeilingPx > 0
-      ? Math.min(chatDrawerHeightCeilingPx, chatDrawerVisibleHeightCeilingPx)
-      : chatDrawerHeightCeilingPx;
-  const chatDrawerCalibration =
-    isChatOpenMobile || isChatClosing
-      ? chatDrawerSessionCalibrationRef.current
-      : chatDrawerCalibrationRef.current;
-  const chatDrawerCalibrationMatchesOrientation =
-    !!chatDrawerCalibration &&
-    String(chatDrawerCalibration.orientation || "portrait") === getChatDrawerOrientationKey();
-  const calibratedChatSheetHeightPx =
-    chatDrawerEffectiveHeightCeilingPx > 0 && chatDrawerCalibrationMatchesOrientation
-      ? clampValue(
-          Number.isFinite(chatDrawerCalibration?.ratio)
-            ? Math.round(chatDrawerBaseHeightPx * chatDrawerCalibration.ratio)
-            : Number.isFinite(chatDrawerCalibration?.heightPx)
-            ? Math.round(chatDrawerCalibration.heightPx)
-            : 0,
-          Math.min(CHAT_DRAWER_MIN_HEIGHT_PX, chatDrawerEffectiveHeightCeilingPx),
-          Math.min(CHAT_DRAWER_MAX_HEIGHT_PX, chatDrawerEffectiveHeightCeilingPx)
-        )
-      : 0;
-  const globalChatSheetHeightPx =
-    chatDrawerEffectiveHeightCeilingPx > 0
-      ? calibratedChatSheetHeightPx ||
-        clampValue(
-          Math.round(chatDrawerBaseHeightPx * CHAT_DRAWER_FIXED_HEIGHT_RATIO),
-          Math.min(CHAT_DRAWER_MIN_HEIGHT_PX, chatDrawerEffectiveHeightCeilingPx),
-          Math.min(CHAT_DRAWER_MAX_HEIGHT_PX, chatDrawerEffectiveHeightCeilingPx)
-        )
-      : 0;
-  const chatViewportStyle = chatTopInsetPx
-    ? { paddingTop: `${Math.max(0, chatTopInsetPx)}px` }
-    : undefined;
-  const globalChatOverlayStyle = undefined;
-  const keyboardInsetReservePx = 0;
-  const globalChatSheetStyle = globalChatSheetHeightPx
-    ? {
-        height: `${globalChatSheetHeightPx}px`,
-        maxHeight: `${globalChatSheetHeightPx}px`,
-      }
-    : undefined;
   const desktopGridColumnHeight = Math.max(
     0,
     Number(playColumnHeight) || Number(desktopMainGridHeight) || 0
@@ -10240,6 +10004,12 @@ function handleTouchEnd(e) {
       titleFadeMs={MOBILE_ROUND_INTRO_TITLE_FADE_MS}
     />
   );
+  const lepersRoundAnnouncementOverlay =
+    mobileRoundIntroActive && mobileRoundIntroStage === "lepers_jingle" ? (
+      <Suspense fallback={null}>
+        <LepersRoundAnnouncementOverlay visible />
+      </Suspense>
+    ) : null;
 
   const tournamentFinaleGateAt = (() => {
     const times = [];
@@ -10258,6 +10028,14 @@ function handleTouchEnd(e) {
       )
     : "";
 
+  const tournamentPresenterCelebrationActive =
+    phase === "results" &&
+    isTournamentCelebrationActive({
+      breakKind,
+      celebrationAt: tournamentFinaleGateAt,
+      nowMs: getNowServerMs(),
+    });
+
   const showTournamentFinale =
     phase === "results" &&
     breakKind === "tournament_end" &&
@@ -10266,6 +10044,18 @@ function handleTouchEnd(e) {
     tournamentFinaleSummary &&
     Array.isArray(tournamentFinaleSummary.ranking) &&
     tournamentFinaleSummary.ranking.length > 0;
+  const tournamentCelebrationPresenterScopeId = showTournamentFinale
+    ? String(
+        tournamentFinaleSummary?.presenterScopeId ||
+          `tournament:${tournamentFinaleSummary?.id || "current"}:celebration`
+      )
+    : "";
+  const activePresenterRoundId = showTournamentFinale
+    ? tournamentCelebrationPresenterScopeId
+    : roundId;
+  const activePresenterPhaseKey = showTournamentFinale
+    ? "tournament_celebration"
+    : phase;
   const prevShowTournamentFinaleRef = useRef(showTournamentFinale);
   const trophyLeague =
     trophyStatus?.league || trophyStatus?.progress?.league || "Bronze";
@@ -10744,6 +10534,7 @@ function handleTouchEnd(e) {
     visualPraiseEnabled &&
     visualScoreFlightsEnabled &&
     visualInvalidWordsEnabled &&
+    visualPresenterAnimationsEnabled &&
     visualScreenShakeEnabled &&
     visualConfettiEnabled &&
     visualGoldNickFxEnabled;
@@ -10752,6 +10543,7 @@ function handleTouchEnd(e) {
     visualPraiseEnabled,
     visualScoreFlightsEnabled,
     visualInvalidWordsEnabled,
+    visualPresenterAnimationsEnabled,
     visualScreenShakeEnabled,
     visualConfettiEnabled,
     visualGoldNickFxEnabled,
@@ -10772,6 +10564,7 @@ function handleTouchEnd(e) {
     setVisualPraiseEnabled(next);
     setVisualScoreFlightsEnabled(next);
     setVisualInvalidWordsEnabled(next);
+    setVisualPresenterAnimationsEnabled(next);
     setVisualScreenShakeEnabled(next);
     setVisualConfettiEnabled(next);
     setVisualGoldNickFxEnabled(next);
@@ -11938,8 +11731,6 @@ function handleTouchEnd(e) {
       confirmThemePurchase={confirmThemePurchase}
       darkMode={darkMode}
       defaultTileBaseClass={defaultTileBaseClass}
-      chatBotVisibility={chatBotVisibility}
-      chatBotVisibilityOptions={CHAT_BOT_VISIBILITY_OPTIONS}
       devAccountAllowed={devAccountAllowed}
       devAccountLabel={devAccountLabel}
       devBots={devBots}
@@ -12024,7 +11815,6 @@ function handleTouchEnd(e) {
       returnToLiveLobbyDev={returnToLiveLobbyDev}
       sendDevGlobalAnnouncement={sendDevGlobalAnnouncement}
       setAllDevBotsActive={setAllDevBotsActive}
-      setChatBotVisibility={setChatBotVisibility}
       setAllSoundEnabled={setAllSoundEnabled}
       setAllVisualEnabled={setAllVisualEnabled}
       setDevBotActive={setDevBotActive}
@@ -12052,6 +11842,7 @@ function handleTouchEnd(e) {
       setVisualGoldNickFxEnabled={setVisualGoldNickFxEnabled}
       setVisualGobbleEnabled={setVisualGobbleEnabled}
       setVisualInvalidWordsEnabled={setVisualInvalidWordsEnabled}
+      setVisualPresenterAnimationsEnabled={setVisualPresenterAnimationsEnabled}
       setVisualPraiseEnabled={setVisualPraiseEnabled}
       setVisualScoreFlightsEnabled={setVisualScoreFlightsEnabled}
       setVisualScreenShakeEnabled={setVisualScreenShakeEnabled}
@@ -12104,6 +11895,7 @@ function handleTouchEnd(e) {
       visualGoldNickFxEnabled={visualGoldNickFxEnabled}
       visualGobbleEnabled={visualGobbleEnabled}
       visualInvalidWordsEnabled={visualInvalidWordsEnabled}
+      visualPresenterAnimationsEnabled={visualPresenterAnimationsEnabled}
       visualPraiseEnabled={visualPraiseEnabled}
       visualScoreFlightsEnabled={visualScoreFlightsEnabled}
       visualScreenShakeEnabled={visualScreenShakeEnabled}
@@ -12192,24 +11984,20 @@ function handleTouchEnd(e) {
     chatInputRef,
     chatInputType,
     chatOpenedAtMs,
-    chatKeyboardInsetPx,
     chatMessagesUnreadCount,
-    chatOverlayStyle: globalChatOverlayStyle,
     chatReplyTarget,
-    chatSheetStyle: globalChatSheetStyle,
     chatSystemCount,
     chatTab,
-    chatViewportStyle,
+    chatTopInsetPx,
     closeChatPanel,
     cycleChatHistory,
     darkMode: appView === "home" ? true : darkMode,
     installId,
-    isChatClosing: isLiveLobbyMobileView ? false : isChatClosing,
-    isChatOpenMobile: isLiveLobbyMobileView ? false : isChatOpenMobile,
+    isChatClosing,
+    isChatOpenMobile,
     isLoggedIn,
     isMobileLayout,
     isSpecial3WordsMode: phase === "playing" && isSpecial3WordsMode,
-    keyboardInsetReservePx,
     mobileChatUnreadIsBotOnly,
     mobileChatUnreadCount,
     getAuthorNickClassName: getLiveNickClassName,
@@ -12230,12 +12018,12 @@ function handleTouchEnd(e) {
     reactionEmojis: CHAT_REACTION_EMOJIS,
     selfNick,
     setChatInput,
-    showLauncherButton: !isLiveLobbyMobileView,
+    showLauncherButton:
+      !isLiveLobbyMobileView &&
+      !showMobileLiveActionBar &&
+      !(isMobileLayout && showResultsPresenterActionBar),
     showBlockedList,
-    showBotMessages,
     submitChat,
-    onToggleShowBotMessages: () => setShowBotMessages((prev) => !prev),
-    visibleMessages,
   };
   const homeChatVisibleMessages = React.useMemo(() => {
     const source = safeChatTab === "system" ? chatSystemMessages : chatMessagesOnly;
@@ -12278,8 +12066,6 @@ function handleTouchEnd(e) {
     onReactToMessage: sendChatReaction,
     reactionEmojis: CHAT_REACTION_EMOJIS,
     getAuthorNickClassName: getLiveNickClassName,
-    showBotMessages,
-    onToggleShowBotMessages: () => setShowBotMessages((prev) => !prev),
     selfNick,
     selfInstallId: installId,
   };
@@ -12332,10 +12118,10 @@ function handleTouchEnd(e) {
     </div>
   ) : null;
   const globalChatLayer = (
-    <>
-      <MobileChatLayer key="mobile-chat-layer" {...mobileChatProps} />
+    <React.Fragment key="global-chat-layer">
+      <MobileChatLayer {...mobileChatProps} />
       {mobileExitConfirmLayer}
-    </>
+    </React.Fragment>
   );
   const duelTeam = duelStatus?.team === "red" || duelStatus?.team === "blue" ? duelStatus.team : null;
   const homeBackgroundDesktop = getUiImageUrl(getHomeBackgroundKey(duelTeam, "wide"));
@@ -12435,8 +12221,83 @@ function handleTouchEnd(e) {
       onReturnLobby={standaloneTrainingController.returnToLobby}
     />
   ) : null;
+
   const chatOverlays = (
     <>
+      {lepersRoundAnnouncementOverlay}
+      {!presenterHintsDisabledForRound || showTournamentFinale ? (
+        <CapelloIntervention
+          animated={visualPresenterAnimationsEnabled}
+          chatFeature={chatFeature}
+          enabled={
+            showTournamentFinale ||
+            ((showLivePresenterActionBar || visualPresenterAnimationsEnabled) &&
+              isLoggedIn &&
+              appView === "live" &&
+              phase === "playing")
+          }
+          hostRef={gridRef}
+          manual={showTournamentFinale || showLivePresenterActionBar}
+          phaseKey={activePresenterPhaseKey}
+          roundId={activePresenterRoundId}
+        />
+      ) : null}
+      <PivotIntervention
+        animated={visualPresenterAnimationsEnabled}
+        chatFeature={chatFeature}
+        enabled={
+          !tournamentPresenterCelebrationActive &&
+          isLoggedIn &&
+          appView === "live" &&
+          phase === "results" &&
+          (showResultsPresenterActionBar ||
+            (visualPresenterAnimationsEnabled && resultsPresentersReady))
+        }
+        hostRef={gridRef}
+        manual={showResultsPresenterActionBar}
+        phaseKey={phase}
+        roundId={roundId}
+      />
+      {!presenterHintsDisabledForRound || showTournamentFinale ? (
+        <RomejkoIntervention
+          animated={visualPresenterAnimationsEnabled}
+          chatFeature={chatFeature}
+          enabled={
+            showTournamentFinale ||
+            ((showLivePresenterActionBar || visualPresenterAnimationsEnabled) &&
+              isLoggedIn &&
+              appView === "live" &&
+              phase === "playing")
+          }
+          hostRef={gridRef}
+          manual={showTournamentFinale || showLivePresenterActionBar}
+          phaseKey={activePresenterPhaseKey}
+          roundId={activePresenterRoundId}
+        />
+      ) : null}
+      <LepersIntervention
+        animated={visualPresenterAnimationsEnabled}
+        chatFeature={chatFeature}
+        enabled={
+          showTournamentFinale ||
+          (!tournamentPresenterCelebrationActive &&
+            !presenterHintsDisabledForRound &&
+            isLoggedIn &&
+            appView === "live" &&
+            (phase === "playing" || (phase === "results" && resultsPresentersReady)))
+        }
+        hostRef={gridRef}
+        liveRoundFeature={liveRoundFeature}
+        manual={showTournamentFinale || showLivePresenterActionBar}
+        phaseKey={activePresenterPhaseKey}
+        playBonusVoice={playBonusVoice}
+        roundId={activePresenterRoundId}
+        triggerPraiseFlash={triggerPraiseFlash}
+      />
+      <InvalidWordGuardOverlay
+        message={invalidWordGuard.message}
+        visible={invalidWordGuard.blocked}
+      />
       {duelPopupOverlay}
       {duelWeekRecapOverlay}
       {globalRedAnnouncementOverlay}
@@ -12630,69 +12491,16 @@ function handleTouchEnd(e) {
     );
   }
 
-  const statsApplicationView =
-    appView === "stats" ? (
+
+  if (appView === "chalkboard") {
+    return (
       <Suspense fallback={null}>
-        <StatsApplication
-          appearance={{
-            backgroundDesktop: homeBackgroundDesktop,
-            backgroundMobile: homeBackgroundMobile,
-            darkMode,
-            isMobileLayout,
-            menuDarkMode,
-            mode: isLoggedIn ? "overlay" : "page",
-            overlayStyle: weeklyOverlayStyle,
-          }}
-          blockers={{
-            keyboardBlocked: !!(
-              authModalMode ||
-              definitionModal.open ||
-              isChatRulesOpen ||
-              isSettingsOpen ||
-              roundPlayerModal.open ||
-              userMenu.open
-            ),
-          }}
-          identity={{ installId, selfNick }}
-          navigation={{ onClose: closeWeeklyStatsOverlay }}
-          overlays={
-            !isLoggedIn ? (
-              <>
-                {playersOverlay}
-                {playerProfileModalView}
-                {definitionOverlaysView}
-                {tutorialOverlay}
-                {authDialogView}
-                {settingsMenuView}
-                {aboutModalView}
-                {quickHelpOverlay}
-                {globalChatLayer}
-              </>
-            ) : null
-          }
-          presentation={{
-            getImageUrl,
-            getUserIdFromPlayerProfileTarget,
-            isCrownedEntry,
-            openDefinition,
-            openPlayerProfile,
-            playCloseSound,
-            playSwipeSound,
-            renderCrownIcon,
-            renderVocabPanel,
-          }}
-          requests={{ fetchWeeklyStats, requestTrophyStatus }}
-          statsConfig={{
-            seasonTargetLimit: STATS_SEASON_TARGET_LIMIT,
-            weeklyBoardDisplayLimit: STATS_WEEKLY_DISPLAY_LIMIT,
-            weeklyBoards: WEEKLY_BOARDS,
-          }}
+        <ChalkboardApplication
+          canPublish={isAccountAuthenticated}
+          onClose={closeChalkboard}
         />
       </Suspense>
-    ) : null;
-
-  if (!isLoggedIn && appView === "stats") {
-    return statsApplicationView;
+    );
   }
 
   if (!isLoggedIn && !isDailyPlay) {
@@ -12718,6 +12526,7 @@ function handleTouchEnd(e) {
         <NotificationToastLayer darkMode={menuDarkMode} />
         {globalChatLayer}
         <HomeApplication
+          key="home-application"
           account={{
             isAuthenticated: isAccountAuthenticated,
             legacyProfileUsername,
@@ -12733,6 +12542,7 @@ function handleTouchEnd(e) {
             onDismissResume: dismissResumePrompt,
             onOpenAccount: openHomeAccount,
             onOpenChat: openHomeChat,
+            onOpenChalkboard: openChalkboard,
             onOpenDaily: openDailyHome,
             onOpenDuel: openDuelPage,
             onOpenPlayers: openPlayersOverlayAlpha,
@@ -12885,6 +12695,8 @@ function handleTouchEnd(e) {
             lastMessageId,
             openDesktopChatReactionDetails,
             openDesktopChatReactionPicker,
+            openPlayersOverlayAlpha: stableOpenPlayersOverlayAlpha,
+            requestOpenChat,
             openUserMenu,
             renderBlockedListPanel,
             safeChatTab,
@@ -12927,6 +12739,7 @@ function handleTouchEnd(e) {
             tournamentDuelDeltaRef,
             tournamentFinaleMedals,
             tournamentFinaleSummary,
+            tournamentPresenterScopeId: tournamentCelebrationPresenterScopeId,
             tournamentRanking,
             tournamentRef,
           }}
@@ -12988,9 +12801,10 @@ function handleTouchEnd(e) {
   }
   if (isLoggedIn && appView === "live" && phase === "lobby") {
     return (
-      <Suspense fallback={null}>
-        <LiveLobbyScreen
-          runtime={{
+      <>
+        <Suspense fallback={null}>
+          <LiveLobbyScreen
+            runtime={{
             beginChatEditFromMessage,
             blockedCount,
             blockedEntries,
@@ -13033,9 +12847,11 @@ function handleTouchEnd(e) {
             submitChat,
             tournamentLobby,
             unblockInstallId,
-          }}
-        />
-      </Suspense>
+            }}
+          />
+        </Suspense>
+        {globalChatLayer}
+      </>
     );
   }
 
@@ -13047,14 +12863,14 @@ function handleTouchEnd(e) {
     !standaloneTrainingSession
   ) {
     return (
-      <Suspense fallback={null}>
-        <MobileUltraCompactScene
+      <>
+        <Suspense fallback={null}>
+          <MobileUltraCompactScene
           state={{
             board,
             bonusEffectMultiplier,
             bonusLetterKey,
             bonusLetterScore,
-            chatViewportHeight,
             countdownLines,
             darkMode,
             gridRotationTurns,
@@ -13062,8 +12878,6 @@ function handleTouchEnd(e) {
             hintCellSet,
             hintOutlineCellSet,
             implodeActive,
-            isChatClosing,
-            isChatOpenMobile,
             isMobileLayout,
             mobileLayoutSizing,
             mobileResultsPhaseFadeOverlay,
@@ -13081,8 +12895,6 @@ function handleTouchEnd(e) {
             usedSet,
           }}
           refs={{
-            chatBodyLockHeightRef,
-            gameViewportFreezeHeightRef,
             gridInputControllerRef,
             gridRef,
             mobileGameViewportLockRef,
@@ -13098,7 +12910,7 @@ function handleTouchEnd(e) {
             normalizeLetterKey,
             openSettingsPanel,
           }}
-          content={{ chatOverlays, globalChatLayer, praiseOverlay }}
+          content={{ chatOverlays, praiseOverlay }}
           config={{
             BONUS_CLASSES,
             MOBILE_GRID_MAX_WIDTH,
@@ -13106,15 +12918,18 @@ function handleTouchEnd(e) {
             lightGridSurfaceStyle,
             specialIndicatorPreset,
           }}
-        />
-      </Suspense>
+          />
+        </Suspense>
+        {globalChatLayer}
+      </>
     );
   }
 
   if (isMobileLayout && phase === "playing" && isSpecial3WordsMode) {
     return (
-      <Suspense fallback={null}>
-        <MobileSpecial3Scene
+      <>
+        <Suspense fallback={null}>
+          <MobileSpecial3Scene
           state={{
             allSoundOn,
             boardForRender,
@@ -13138,8 +12953,6 @@ function handleTouchEnd(e) {
             hintCellSet,
             hintOutlineCellSet,
             implodeActive,
-            isChatClosing,
-            isChatOpenMobile,
             isDailyPlay,
             isLoggedIn,
             isMobileLayout,
@@ -13168,7 +12981,6 @@ function handleTouchEnd(e) {
             visualScreenShakeEnabled,
           }}
           refs={{
-            chatBodyLockHeightRef,
             gridInputControllerRef,
             gridRef,
             mobileGameViewportLockRef,
@@ -13202,7 +13014,7 @@ function handleTouchEnd(e) {
             toggleDarkModeQuick,
             toggleSoundQuick,
           }}
-          content={{ chatOverlays, globalChatLayer, praiseOverlay, trainingSessionControls }}
+          content={{ chatOverlays, praiseOverlay, trainingSessionControls }}
           config={{
             BONUS_CLASSES,
             MOBILE_GRID_MAX_WIDTH,
@@ -13211,15 +13023,18 @@ function handleTouchEnd(e) {
             roundTilePointsVisible,
             specialIndicatorPreset,
           }}
-        />
-      </Suspense>
+          />
+        </Suspense>
+        {globalChatLayer}
+      </>
     );
   }
 
   if (isMobileLayout && (phase === "playing" || phase === "results")) {
     return (
-      <Suspense fallback={null}>
-        <MobileStandardScene
+      <>
+        <Suspense fallback={null}>
+          <MobileStandardScene
           state={{
             activeRoom,
             allSoundOn,
@@ -13232,7 +13047,6 @@ function handleTouchEnd(e) {
             bonusLetterScore,
             chatInputDisabled,
             chatInputPlaceholder,
-            chatViewportHeight,
             countdownLines,
             darkMode,
             displayList,
@@ -13256,7 +13070,6 @@ function handleTouchEnd(e) {
             hintOutlineStyleMap,
             implodeActive,
             installId,
-            isChatClosing,
             isChatOpenMobile,
             isDailyPlay,
             isFinaleBanner,
@@ -13280,12 +13093,14 @@ function handleTouchEnd(e) {
             ocidStatusMessage,
             ocidVote,
             phase,
+            presenterHintsDisabledForRound,
             rosterConfig: liveRosterConfig,
             recordBadgesByNickForRound,
             resultsRankingMode,
             resultsReorderTick,
             resultsSlidePhase,
             roundPreparing,
+            roundId,
             roundStats,
             roundTilePointsVisible,
             selfNick,
@@ -13320,7 +13135,6 @@ function handleTouchEnd(e) {
             vocabLevelUp,
           }}
           refs={{
-            chatBodyLockHeightRef,
             gridInputControllerRef,
             gridRef,
             listItemRefs,
@@ -13331,7 +13145,7 @@ function handleTouchEnd(e) {
           }}
           actions={{
             analyzeWord,
-            getLiveNickClassName,
+            getLiveNickClassName: stableGetLiveNickClassName,
             getLivePreviewLabelForCell,
             getNowServerMs,
             getRoundRecordsForPlayer,
@@ -13350,16 +13164,19 @@ function handleTouchEnd(e) {
             handleTouchStart,
             normalizeLetterKey,
             openDefinition,
-            openPlayersOverlaySnapshot,
+            openPlayersOverlayAlpha: stableOpenPlayersOverlayAlpha,
+            openLiveStatsOverlay,
             openRoundPlayerModal,
             openSettingsPanel,
             openWordInfoModal,
             renderDesktopResultsDockPanel,
             renderGobbleCandidate,
-            renderMobileNickSuffix,
+            renderMobileNickSuffix: stableRenderMobileNickSuffix,
             renderNickSuffix,
             renderRankDelta,
             renderVocabPanel,
+            requestOpenChat,
+            returnToLobby,
             rotateGridClockwise,
             setAnalysis,
             setChatInput,
@@ -13380,7 +13197,6 @@ function handleTouchEnd(e) {
           }}
           content={{
             chatOverlays,
-            globalChatLayer,
             ocidMobileResultOverlay,
             praiseOverlay,
             roundPreparationOverlay,
@@ -13396,8 +13212,10 @@ function handleTouchEnd(e) {
             lightGridSurfaceStyle,
             specialIndicatorPreset,
           }}
-        />
-      </Suspense>
+          />
+        </Suspense>
+        {globalChatLayer}
+      </>
     );
   }
 
@@ -13563,11 +13381,13 @@ function handleTouchEnd(e) {
             openDesktopChatReactionDetails,
             openDesktopChatReactionPicker,
             openDefinition,
+            openLiveStatsOverlay,
             openPlayerProfile,
             openRoundPlayerModal,
             openUserMenu,
             openWeeklyStatsOverlay,
             phase,
+            presenterHintsDisabledForRound,
             praiseOverlay,
             prepareWordListFlip,
             previewBarMinHeight,
@@ -13588,7 +13408,9 @@ function handleTouchEnd(e) {
             resultsRankingList,
             resultsRankingMode,
             resultsReorderTick,
+            returnToLobby,
             rotateGridClockwise,
+            roundId,
             roundPreparationOverlay,
             roundPreparing,
             roundStats,
@@ -13620,14 +13442,12 @@ function handleTouchEnd(e) {
             setIsSettingsOpen,
             setResultsRankingModeWithPulse,
             setShowAllWords,
-            setShowBotMessages,
             setTargetWaitDevGridHost,
             setTargetWaitDevSideHost,
             setTournamentReady,
             shouldDefinitionBlink,
             showAllWords,
             showBlockedList,
-            showBotMessages,
             showPreviewStats,
             showResultsWordPath,
             showSolvedTargetLoupe,
@@ -13675,7 +13495,6 @@ function handleTouchEnd(e) {
             visibleMessages,
             visiblePlayerList,
             visualScreenShakeEnabled,
-            statsApplication: statsApplicationView,
             WORDS_SCROLL_MAX_HEIGHT,
         }}
       />

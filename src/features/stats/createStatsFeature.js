@@ -40,6 +40,7 @@ export function createStatsFeature(
   let active = false;
   let feature = null;
   let realtimeConfig = {};
+  let actions = {};
   let realtimeSocket = null;
   let realtimeUnsubscribe = null;
   let lastVocabFetchAt = 0;
@@ -451,6 +452,18 @@ export function createStatsFeature(
     bindRealtime();
   }
 
+  function openOverlay({ reset = false } = {}) {
+    if (!active) return;
+    feature.patch({ open: true, ...(reset ? { activeIndex: 0, tab: "weekly" } : {}) });
+    void fetchWeekly(true);
+    void requestVocabCount();
+    void requestTrophyStatus();
+  }
+
+  function closeOverlay() {
+    feature.set("open", false);
+  }
+
   feature = createStateFeature(context, createInitialStatsState, {
     start: ({ scope, store }) => {
       active = true;
@@ -473,6 +486,7 @@ export function createStatsFeature(
         realtimeUnsubscribe = null;
         realtimeSocket = null;
         realtimeConfig = {};
+        actions = {};
         store.patch(createInitialStatsState());
       });
     },
@@ -481,10 +495,19 @@ export function createStatsFeature(
   return Object.freeze({
     ...feature,
     cancelWeeklyFetch,
+    closeOverlay,
+    configureActions(nextActions = {}) { actions = nextActions; },
     configureRealtime,
     fetchVocabStats,
     fetchWeekly,
     fetchWeeklySnapshot,
+    openOverlay,
+    openDefinition(...args) { return actions.openDefinition?.(...args); },
+    isCrownedEntry(nick, entry) {
+      return actions.isCrownedEntry?.(nick, entry) ?? !!(entry?.crowned || entry?.isDailyChampion || entry?.isWeeklyChampion);
+    },
+    playCloseSound() { actions.playCloseSound?.(); },
+    playSwipeSound() { actions.playSwipeSound?.(); },
     requestTrophyStatus,
     requestVocabCount,
   });

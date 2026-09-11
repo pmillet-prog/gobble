@@ -3,6 +3,7 @@
 ## Working Style
 
 - Act as a senior engineering collaborator, not just an executor.
+- Stay strictly within the requested scope: do not perform speculative audits, unrelated work, redundant checks, or extra verification unless it is necessary to complete the request safely and correctly.
 - When a requested approach is risky, brittle, or mixes responsibilities, say so plainly and suggest the cleaner option.
 - Keep the user's product goal in mind, but push back on shortcuts that would make live operation harder later.
 - Do not touch the VM or live deployment unless the user explicitly asks for it in the current conversation.

@@ -2,9 +2,10 @@ import React, { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useChatDraft } from "../../features/chat/useChatDraft.js";
 import { useChatPresentation } from "../../features/chat/useChatPresentation.js";
-import { isChatBotMessage } from "./chatBotVisibility.js";
+import { isChatBotMessage } from "../../utils/chatMessages.js";
 import useChatAutoScroll from "./useChatAutoScroll.js";
 import NotebookReactionEmoji from "./NotebookReactionEmoji.jsx";
+import PresenterChatAvatar from "./PresenterChatAvatar.jsx";
 
 const LONG_PRESS_MS = 420;
 const SWIPE_REPLY_TRIGGER_PX = 72;
@@ -12,6 +13,8 @@ const SWIPE_REPLY_MAX_PX = 96;
 const GESTURE_MOVE_CANCEL_PX = 10;
 const POST_GESTURE_CLICK_SUPPRESS_MS = 380;
 const FLOATING_MENU_CLOSE_GUARD_MS = 320;
+const CHAT_TEXTAREA_HEIGHT_PX = 44;
+const NOTEBOOK_CHAT_TEXTAREA_HEIGHT_PX = 38;
 
 function setCompositeRef(targetRef, value) {
   if (typeof targetRef === "function") {
@@ -35,7 +38,12 @@ function isSystemAuthor(rawAuthor) {
 
 function isAmbientBotMessage(message) {
   if (!message || typeof message !== "object") return false;
-  if (message?.meta?.kind === "ambient_bot_chat") return true;
+  if (
+    message?.meta?.kind === "ambient_bot_chat" ||
+    message?.meta?.kind === "presenter_chat_copy"
+  ) {
+    return true;
+  }
   const installId = typeof message.installId === "string" ? message.installId : "";
   return installId.startsWith("ambient-bot:");
 }
@@ -222,21 +230,20 @@ export default function ChatContent({
   reactionEmojis = [],
   getAuthorNickClassName = null,
   hideBotMessages = false,
-  showBotMessages = true,
-  onToggleShowBotMessages = null,
   onUserActivity = null,
   variant = "default",
 }) {
   const { chatInput, setChatInput } = useChatDraft();
+  const chatPresentation = useChatPresentation();
   const {
     messagesOnly: sharedMessagesOnly,
     systemMessages: sharedSystemMessages,
-  } = useChatPresentation();
+    showBotMessages,
+    toggleBotMessages,
+  } = chatPresentation;
   const sharedVisibleMessages =
     chatTab === "system" ? sharedSystemMessages : sharedMessagesOnly;
-  const sourceVisibleMessages = Array.isArray(visibleMessagesProp)
-    ? visibleMessagesProp
-    : sharedVisibleMessages;
+  const sourceVisibleMessages = sharedVisibleMessages;
   const visibleMessages = React.useMemo(
     () =>
       hideBotMessages
@@ -246,6 +253,9 @@ export default function ChatContent({
   );
   const isSystemTab = chatTab === "system";
   const isNotebookVariant = variant === "notebook";
+  const chatTextareaHeightPx = isNotebookVariant
+    ? NOTEBOOK_CHAT_TEXTAREA_HEIGHT_PX
+    : CHAT_TEXTAREA_HEIGHT_PX;
   const localTextareaRef = useRef(null);
   const longPressTimerRef = useRef(null);
   const pointerStateRef = useRef(null);
@@ -368,13 +378,6 @@ export default function ChatContent({
       resetPointerGesture();
     }
   }, [isOpen, resetPointerGesture]);
-
-  useEffect(() => {
-    const el = localTextareaRef.current;
-    if (!el || isSystemTab) return;
-    el.style.height = "auto";
-    el.style.height = `${Math.min(el.scrollHeight, 168)}px`;
-  }, [chatInput, chatTab, isOpen, isSystemTab]);
 
   useEffect(() => {
     if (!isOpen || isSystemTab || chatInputDisabled || typeof window === "undefined") {
@@ -739,14 +742,24 @@ export default function ChatContent({
           type="button"
           role="switch"
           aria-checked={showBotMessages ? "true" : "false"}
-          aria-label={showBotMessages ? "Masquer les messages bots" : "Afficher les messages bots"}
+          aria-label={
+            showBotMessages
+              ? "Masquer les messages des personnages"
+              : "Afficher les messages des personnages"
+          }
           className={`shrink-0 inline-flex items-center gap-2 rounded-full border px-2 py-1 text-[11px] font-bold transition ${panelSurfaceClass}`}
-          onClick={() => onToggleShowBotMessages?.()}
+          onClick={toggleBotMessages}
         >
-          <span className={darkMode ? "text-amber-50/85" : "text-slate-700"}>Bots</span>
+          <span className={darkMode ? "text-amber-50/85" : "text-slate-700"}>
+            Bots
+          </span>
           <span
             className={`relative h-5 w-9 rounded-full transition ${
-              showBotMessages ? "bg-emerald-500" : darkMode ? "bg-slate-700" : "bg-slate-300"
+              showBotMessages
+                ? "bg-emerald-500"
+                : darkMode
+                ? "bg-slate-700"
+                : "bg-slate-300"
             }`}
             aria-hidden="true"
           >
@@ -978,6 +991,12 @@ export default function ChatContent({
                         </div>
                       ) : null}
                       <div className="flex items-baseline gap-1.5 flex-wrap">
+                        {isAmbientBot ? (
+                          <PresenterChatAvatar
+                            message={msg}
+                            className="-my-1 mr-0.5 h-7 w-7 self-center"
+                          />
+                        ) : null}
                         {canOpenMenu ? (
                           <button
                             type="button"
@@ -1041,7 +1060,6 @@ export default function ChatContent({
                           <button
                             type="button"
                             className="chat-message-edit-trigger inline-flex h-6 w-6 shrink-0 items-center justify-center"
-                            onPointerDown={(event) => event.preventDefault()}
                             onClick={(event) => {
                               event.stopPropagation();
                               onEditOwnMessage?.(msg);
@@ -1215,7 +1233,13 @@ export default function ChatContent({
                   onUserActivity?.("chat_input");
                 }}
                 onKeyDown={handleKeyDown}
-                className={`chat-content-input flex-1 border rounded px-3 py-2 text-sm ios-input chat-input resize-none min-h-[44px] max-h-[168px] ${inputSurfaceClass}`}
+                className={`chat-content-input flex-1 overflow-y-auto border rounded px-3 py-2 text-sm ios-input chat-input resize-none ${inputSurfaceClass}`}
+                style={{
+                  boxSizing: "border-box",
+                  height: `${chatTextareaHeightPx}px`,
+                  minHeight: `${chatTextareaHeightPx}px`,
+                  maxHeight: `${chatTextareaHeightPx}px`,
+                }}
                 placeholder={chatInputPlaceholder}
               />
               <button
@@ -1282,7 +1306,6 @@ export default function ChatContent({
                     darkMode ? "hover:bg-slate-700" : "hover:bg-slate-100"
                   }`}
                   style={NON_SELECTABLE_TOUCH_STYLE}
-                  onPointerDown={(event) => event.preventDefault()}
                   onClick={() => {
                     onEditOwnMessage?.(ownMessageMenu.message);
                     setOwnMessageMenu(null);

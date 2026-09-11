@@ -36,8 +36,6 @@ export default function MobileSpecial3Scene({ state, refs, actions, content, con
     hintCellSet,
     hintOutlineCellSet,
     implodeActive,
-    isChatClosing,
-    isChatOpenMobile,
     isDailyPlay,
     isLoggedIn,
     isMobileLayout,
@@ -66,7 +64,6 @@ export default function MobileSpecial3Scene({ state, refs, actions, content, con
     visualScreenShakeEnabled,
   } = state;
   const {
-    chatBodyLockHeightRef,
     gridInputControllerRef,
     gridRef,
     mobileGameViewportLockRef,
@@ -102,7 +99,6 @@ export default function MobileSpecial3Scene({ state, refs, actions, content, con
   } = actions;
   const {
     chatOverlays,
-    globalChatLayer,
     praiseOverlay,
     trainingSessionControls,
   } = content;
@@ -317,33 +313,19 @@ export default function MobileSpecial3Scene({ state, refs, actions, content, con
         Math.round((mobileGridSide / Math.max(gridSize, 1)) * 0.35)
       )
     );
-    const useVisualViewport = !(isChatOpenMobile || isChatClosing);
-    const lockedChatHeight = chatBodyLockHeightRef.current || null;
-    const mobileViewportHeightCandidates =
+    const fallbackViewportHeights =
       typeof window !== "undefined"
-        ? (useVisualViewport
-            ? [
-                lockedGameViewportHeight,
-                mobileLayoutSizing.viewportHeight,
-                window.innerHeight,
-                typeof document !== "undefined"
-                  ? document.documentElement?.clientHeight
-                  : null,
-              ]
-            : lockedChatHeight
-            ? [lockedChatHeight]
-            : [
-                lockedGameViewportHeight,
-                window.innerHeight,
-                typeof document !== "undefined"
-                  ? document.documentElement?.clientHeight
-                  : null,
-              ]
-          ).filter((v) => Number.isFinite(v) && v > 0)
+        ? [
+            window.innerHeight,
+            typeof document !== "undefined"
+              ? document.documentElement?.clientHeight
+              : null,
+          ].filter((value) => Number.isFinite(value) && value > 0)
         : [];
-    const mobileViewportHeight = mobileViewportHeightCandidates.length
-      ? Math.min(...mobileViewportHeightCandidates)
-      : 0;
+    const mobileViewportHeight =
+      lockedGameViewportHeight ||
+      mobileLayoutSizing.viewportHeight ||
+      (fallbackViewportHeights.length ? Math.min(...fallbackViewportHeights) : 0);
     // Do not feed the measured header bottom back into the fullscreen container padding:
     // on some mobile browsers this creates a self-referential layout loop.
     const fullscreenTopPadding = "env(safe-area-inset-top)";
@@ -683,7 +665,6 @@ export default function MobileSpecial3Scene({ state, refs, actions, content, con
           toggleSoundQuick={toggleSoundQuick}
           visualScreenShakeEnabled={visualScreenShakeEnabled}
         />
-        {globalChatLayer}
       </>
     );
   }

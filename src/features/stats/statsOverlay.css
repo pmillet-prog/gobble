@@ -1,0 +1,26 @@
+.stats-overlay {
+  container: stats-viewport / size;
+}
+
+@container stats-viewport (max-height: 520px) {
+  .stats-panel .fantasy-panel-header {
+    padding: 8px 12px 6px;
+  }
+
+  .stats-panel .fantasy-panel-eyebrow,
+  .stats-panel .stats-swipe-hint {
+    display: none;
+  }
+
+  .stats-panel .fantasy-panel-header > div + div {
+    margin-top: 4px;
+  }
+
+  .stats-panel .stats-page-dots {
+    padding-block: 4px;
+  }
+
+  .stats-panel .stats-board-content {
+    padding-block: 8px;
+  }
+}

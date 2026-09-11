@@ -4,6 +4,8 @@ import AssetManager from "../assets/assetManager.js";
 import { SFX_KEYS } from "../assets/assetKeys.js";
 import { buildStandaloneTrainingTargetSummary } from "../training/standaloneTraining.js";
 import { shouldProcessLiveRoomEvent } from "../utils/liveEventScope.js";
+import { createRoundBreakHandler } from "../features/round/createRoundBreakHandler.js";
+import { resolveVocabRoundProgress } from "../features/stats/vocabRoundProgress.js";
 
 export default function useRoundLifecycle(runtime) {
   const {
@@ -61,12 +63,10 @@ export default function useRoundLifecycle(runtime) {
     roundStartAtRef,
     serverAllWordsRef,
     setAllWords,
-    setAnnouncements,
     setBreakKind,
     setCurrentRoomId,
     setFinalResults,
     setInputLocked,
-    setNextStartAt,
     setPhase,
     setProvisionalRanking,
     setResultsRankingMode,
@@ -81,13 +81,11 @@ export default function useRoundLifecycle(runtime) {
     setTargetSummary,
     setTournament,
     setTournamentFinaleHoldUntil,
-    setTournamentLobby,
     setTournamentRanking,
     setTournamentRoundPoints,
     setTournamentSummary,
     setTournamentSummaryAt,
     setTournamentTotals,
-    setUpcomingSpecial,
     setVocabResultsReadyKey,
     setVocabRoundDelta,
     setVocabWeeklyRoundDelta,
@@ -150,7 +148,6 @@ export default function useRoundLifecycle(runtime) {
       setServerStatus("break");
       clearQueuedRankingUpdate();
       setProvisionalRanking([]);
-      setAnnouncements([]);
       setRoundPreparing(null);
       setFinalResults(Array.isArray(results) ? results : []);
       setServerEndsAt(null);
@@ -195,7 +192,11 @@ export default function useRoundLifecycle(runtime) {
                 nick: e.nick,
                 score: e.points,
                 gobbles: e.gobbles ?? null,
-                rightLabel: renderTournamentTotalRightLabel(e.points, e.gobbles),
+                lepersBonus: e.lepersBonus ?? 0,
+                rightLabel: renderTournamentTotalRightLabel(
+                  e.points,
+                  e.gobbles
+                ),
                 roundScoreSum: Number(e.roundScoreSum) || 0,
                 tieBreakRoundScore: Number(e.tieBreakRoundScore) || Number(e.roundScoreSum) || 0,
                 tieBreakBy:
@@ -318,13 +319,6 @@ export default function useRoundLifecycle(runtime) {
           typeof selfResultForVocab.vocabWeeklyRank === "object"
             ? selfResultForVocab.vocabWeeklyRank
             : null;
-        const serverWeeklyRace =
-          selfResultForVocab?.vocabWeeklyRace &&
-          typeof selfResultForVocab.vocabWeeklyRace === "object"
-            ? selfResultForVocab.vocabWeeklyRace
-            : null;
-        const serverWeeklyBeforeCount = Number(serverWeeklyRace?.beforeCount);
-        const serverWeeklyAfterCount = Number(serverWeeklyRace?.afterCount);
         const serverRankBeforeValue =
           serverWeeklyRank?.before == null ? null : Number(serverWeeklyRank.before);
         const serverRankAfterValue =
@@ -334,30 +328,22 @@ export default function useRoundLifecycle(runtime) {
           if (effectSessionId && gameplaySessionIdRef?.current !== effectSessionId) return;
           if (vocabResultsPendingRef.current !== vocabResultsKey) return;
           const count = Number.isFinite(snapshot?.count) ? snapshot.count : null;
-          const weeklyCount = Number.isFinite(snapshot?.weeklyCount)
-            ? snapshot.weeklyCount
-            : Number.isFinite(serverWeeklyAfterCount)
-            ? Math.max(0, serverWeeklyAfterCount)
-            : null;
           if (!Number.isFinite(count)) {
             setVocabRoundDelta(null);
             setVocabWeeklyRoundDelta(null);
             return;
           }
-          const base = vocabBaselineRef.current;
-          if (Number.isFinite(base)) {
-            setVocabRoundDelta(Math.max(0, count - base));
-          } else {
-            setVocabRoundDelta(null);
-          }
-          const weeklyBase = Number.isFinite(serverWeeklyBeforeCount)
-            ? Math.max(0, serverWeeklyBeforeCount)
-            : vocabWeeklyBaselineRef.current;
-          if (Number.isFinite(weeklyCount) && Number.isFinite(weeklyBase)) {
-            setVocabWeeklyRoundDelta(Math.max(0, weeklyCount - weeklyBase));
-          } else {
-            setVocabWeeklyRoundDelta(null);
-          }
+          const progress = resolveVocabRoundProgress({
+            result: selfResultForVocab,
+            count,
+            weeklyCount: snapshot?.weeklyCount,
+            baseline: vocabBaselineRef.current,
+            weeklyBaseline: vocabWeeklyBaselineRef.current,
+          });
+          setVocabRoundDelta(progress.delta);
+          setVocabWeeklyRoundDelta(progress.weeklyDelta);
+          const weeklyCount = progress.weeklyCount;
+          const weeklyBase = progress.weeklyBaseline;
           const statsForRace = weeklyStatsSnapshotRef.current;
           const rankStart =
             Number.isFinite(serverRankBeforeValue)
@@ -766,59 +752,8 @@ export default function useRoundLifecycle(runtime) {
     playOutroThenResultsRef.current = playOutroThenResults;
   }, [playOutroThenResults]);
 
-  const processBreakStarted = React.useCallback(
-    ({
-      roomId: incomingRoomId,
-      nextStartAt: nextTs,
-      breakKind: bk = null,
-      tournament: tournamentPayload = null,
-      nextSpecial = null,
-      tournamentSummary: summary = null,
-      tournamentSummaryAt: summaryAt = null,
-      targetSummary: targetSummaryPayload = null,
-    }) => {
-      if (
-        !shouldProcessLiveRoomEvent({
-          appView: appViewRef.current,
-          isLoggedIn: isLoggedInRef.current,
-          activeRoomId: currentRoomIdRef.current,
-          incomingRoomId,
-        })
-      ) {
-        return;
-      }
-      setNextStartAt(nextTs || null);
-      setTournamentLobby(null);
-      setRoundPreparing(null);
-      setBreakKind(bk);
-      const isTournamentEndBreak = bk === "tournament_end";
-      if (tournamentPayload && !isTournamentEndBreak) {
-        ensureTournamentBaseline(tournamentPayload);
-      }
-      if (bk !== "tournament_end") {
-        setTournamentFinaleHoldUntil(null);
-      }
-      if (bk) {
-        phaseRef.current = "results";
-        setPhase("results");
-        gameplaySession?.transitionPhase?.("intermission", {
-          roomId: incomingRoomId,
-        });
-        setServerStatus("break");
-        setServerEndsAt(null);
-        setServerRoundDurationMs(null);
-        setRoundId(null);
-      }
-      // Pendant l'ecran final du mini-tournoi, on garde l'etat du tournoi termine.
-      // Le serveur a deja reset le tournoi suivant avant d'emettre breakStarted.
-      if (tournamentPayload && !isTournamentEndBreak) {
-        setTournament(tournamentPayload);
-      }
-      setUpcomingSpecial(nextSpecial && nextSpecial.isSpecial ? nextSpecial : null);
-      if (summary) setTournamentSummary(summary);
-      setTournamentSummaryAt(summaryAt || null);
-      setTargetSummary(targetSummaryPayload || null);
-    },
+  const processBreakStarted = React.useMemo(
+    () => createRoundBreakHandler(runtime),
     []
   );
 

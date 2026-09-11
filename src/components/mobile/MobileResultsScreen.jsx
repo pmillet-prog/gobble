@@ -5,6 +5,7 @@ import LiveFeedSatellite from "../../features/live/LiveFeedSatellite.jsx";
 import MobileHeader from "../MobileHeader.jsx";
 import RankingWidgetMobile from "../RankingWidgetMobile.jsx";
 import WordPointsLabel from "../WordPointsLabel.jsx";
+import { MobileResultsActionBar } from "../../features/presenters/MobilePresenterActionBar.jsx";
 
 function MobileResultsScreen(props) {
   const {
@@ -45,10 +46,14 @@ function MobileResultsScreen(props) {
     onAnalyzeWord = null,
     onClearAnalysis = null,
     onGoToResultsPage = null,
+    onOpenChat = null,
     onOpenPlayerProfile = null,
     onOpenRoundPlayerModal = null,
     onOpenSettings = null,
+    onOpenPlayers = null,
+    onOpenStats = null,
     onOpenWordInfoModal = null,
+    onReturnLobby = null,
     onSetShowHelp = null,
     onToggleDarkMode = null,
     onToggleSound = null,
@@ -72,6 +77,7 @@ function MobileResultsScreen(props) {
     resultsRankingList = [],
     resultsRankingModeForMobile = "round",
     resultsReorderTick = 0,
+    roundId = null,
     resultsWordsTitle = "",
     selfNick = "",
     showAllWords = false,
@@ -137,6 +143,7 @@ function MobileResultsScreen(props) {
                   maxHeight="100%"
                   bannerText={trainingFeedBannerText}
                   getNickClassName={trainingFeedNickClassName}
+                  showTitle={false}
                 />
               </div>
             ) : null}
@@ -498,6 +505,16 @@ function MobileResultsScreen(props) {
               {renderDesktopResultsDockPanel?.()}
             </div>
           )}
+          {!isStandaloneTraining ? (
+            <MobileResultsActionBar
+              darkMode={darkMode}
+              onOpenChat={onOpenChat}
+              onOpenPlayers={onOpenPlayers}
+              onOpenStats={onOpenStats}
+              onReturnLobby={onReturnLobby}
+              roundId={roundId}
+            />
+          ) : null}
         </div>
       </div>
       {mobileResultsPhaseFadeOverlay}

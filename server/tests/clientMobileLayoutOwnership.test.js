@@ -21,4 +21,7 @@ test("mobile layout controller owns viewport locking and measurement", () => {
   assert.match(controllerSource, /new ResizeObserver/);
   assert.match(controllerSource, /screen\.orientation/);
   assert.match(controllerSource, /document\.body\.style|bodyStyle\.overflow/);
+  assert.doesNotMatch(controllerSource, /isChatOpenMobile|isChatClosing/);
+  assert.doesNotMatch(controllerSource, /createMobileViewportPanGuard/);
+  assert.doesNotMatch(controllerSource, /bodyStyle\.transform/);
 });

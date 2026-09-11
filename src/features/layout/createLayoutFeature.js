@@ -15,7 +15,6 @@ import {
 export function createInitialLayoutState() {
   const viewport = getViewportSize();
   return {
-    chatKeyboardInsetPx: 0,
     desktopColumnDragId: null,
     desktopColumnFractions: null,
     desktopColumnHandleLayout: [],
@@ -39,6 +38,7 @@ export function createInitialLayoutState() {
       gridSide: 0,
       liveFeedHeight: 0,
       liveFeedMinHeight: 0,
+      liveActionBarHeight: 0,
       rankingHeight: 0,
       viewportHeight: 0,
       viewportWidth: 0,
@@ -72,9 +72,19 @@ export function createLayoutFeature(
   let foregroundGuardConfig = {};
   let foregroundGridRafId = null;
   let foregroundPageShowUnsubscribe = null;
+  let viewportModeWidth = getViewportSize().width;
   const refreshViewportMode = () => {
     if (typeof window === "undefined" || !feature) return;
     const viewport = getViewportSize();
+    if (
+      viewportModeWidth > 0 &&
+      Math.abs(viewport.width - viewportModeWidth) <= 64
+    ) {
+      // Keyboard and browser-chrome height changes must not switch the game
+      // between its standard and ultra-compact layouts.
+      return;
+    }
+    viewportModeWidth = viewport.width;
     feature.patch({
       isMobileLayout: computeIsMobileLayout(viewport.width),
       isUltraCompact: computeIsUltraCompact(viewport.width, viewport.height),

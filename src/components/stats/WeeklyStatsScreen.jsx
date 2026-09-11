@@ -24,6 +24,7 @@ export default function WeeklyStatsScreen({ runtime }) {
     handleStatsTouchStart,
     installId,
     isCrownedEntry,
+    isMobileLayout,
     menuDarkMode,
     openDefinition,
     openPlayerProfile,
@@ -217,7 +218,7 @@ export default function WeeklyStatsScreen({ runtime }) {
             ) : null}
           </div>
         </div>
-        <div className="text-right text-sm font-bold tabular-nums whitespace-nowrap">
+        <div className="shrink-0 text-right text-sm font-bold tabular-nums whitespace-nowrap">
           {valueParts.join(" ")}
         </div>
       </div>
@@ -226,7 +227,7 @@ export default function WeeklyStatsScreen({ runtime }) {
 
   const weeklyVocabRaceBanner = (
     <div
-      className={`mx-4 mt-2 rounded-xl border px-3 py-2 shadow-sm ${
+      className={`mb-3 rounded-xl border px-3 py-2 shadow-sm ${
         darkMode
           ? "border-amber-300/40 bg-gradient-to-r from-amber-300/18 via-slate-900/80 to-amber-500/12 text-amber-50"
           : "border-amber-300/70 bg-gradient-to-r from-amber-50 via-white to-yellow-50 text-slate-900"
@@ -262,7 +263,7 @@ export default function WeeklyStatsScreen({ runtime }) {
   );
   const showWeeklyDots = weeklyBoardsMeta.length > 1;
   const weeklyDots = showWeeklyDots ? (
-    <div className="flex items-center justify-center gap-2 py-2">
+    <div className="stats-page-dots flex items-center justify-center gap-2 py-2">
       <button
         type="button"
         className={`hidden md:inline-flex h-7 w-7 items-center justify-center rounded-full border text-xs font-bold transition ${
@@ -325,7 +326,7 @@ export default function WeeklyStatsScreen({ runtime }) {
     seasonActiveIndex >= 0 && seasonActiveIndex < seasonPages.length ? seasonActiveIndex : 0;
   const showSeasonDots = seasonPages.length > 1;
   const seasonDots = showSeasonDots ? (
-    <div className="flex items-center justify-center gap-2 py-2">
+    <div className="stats-page-dots flex items-center justify-center gap-2 py-2">
       <button
         type="button"
         className={`hidden md:inline-flex h-7 w-7 items-center justify-center rounded-full border text-xs font-bold transition ${
@@ -430,7 +431,9 @@ export default function WeeklyStatsScreen({ runtime }) {
 
   return (
       <FantasyPanelShell
-        className="relative z-10 w-full max-w-none h-full"
+        className={`stats-panel relative z-10 w-full h-full ${
+          isMobileLayout ? "max-w-none" : "max-w-3xl max-h-[52rem]"
+        }`}
         bodyClassName="flex flex-col min-h-0"
         eyebrow="Gobble stats"
         title={statsTab === "weekly" ? activeWeeklyBoard?.label : "Vocabulaire"}
@@ -449,13 +452,10 @@ export default function WeeklyStatsScreen({ runtime }) {
         onTouchEnd={handleStatsTouchEnd}
       >
         {statsTab === "weekly" ? (
-          <div className="px-4 pt-2 text-[11px] font-semibold opacity-75">
+          <div className="stats-swipe-hint px-4 pt-2 text-[11px] font-semibold opacity-75">
             Slide gauche/droite pour changer de categorie
           </div>
         ) : null}
-        {statsTab === "weekly" && activeWeeklyBoard?.key === "weeklyVocab"
-          ? weeklyVocabRaceBanner
-          : null}
         {statsTab === "weekly" ? weeklyDots : null}
         {statsTab === "season" ? seasonDots : null}
         {statsTab === "weekly" ? (
@@ -475,7 +475,7 @@ export default function WeeklyStatsScreen({ runtime }) {
                   const shouldRenderRows = Math.abs(idx - safeWeeklyIndex) <= 1;
                   return (
                     <div key={board.key} className="w-full shrink-0 px-0 flex flex-col min-h-0 h-full">
-                      <div className="p-4 space-y-3 flex flex-col min-h-0 h-full">
+                      <div className="stats-board-content p-4 space-y-3 flex flex-col min-h-0 h-full">
                         <div className="flex items-baseline justify-between gap-2">
                           <div className="text-sm font-semibold opacity-80">{board.subtitle || ""}</div>
                           {weeklyStatsLoading && idx === safeWeeklyIndex ? (
@@ -485,21 +485,24 @@ export default function WeeklyStatsScreen({ runtime }) {
                             <div className="text-xs text-red-400">Erreur ({weeklyStatsError})</div>
                           ) : null}
                         </div>
-                        {shouldRenderRows && entries.length > 0 ? (
+                        {shouldRenderRows ? (
                           <div
-                            className="flex-1 min-h-0 overflow-y-auto custom-scrollbar custom-scrollbar-gray pr-1"
+                            className="flex-1 min-h-0 overflow-y-auto overscroll-contain custom-scrollbar custom-scrollbar-gray pr-1"
                             data-stats-scroll="true"
                             style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-y" }}
                           >
-                            {entries.map((entry, entryIdx) => renderWeeklyRow(board.key, entry, entryIdx))}
-                          </div>
-                        ) : shouldRenderRows ? (
-                          <div className="text-sm opacity-70 py-8 text-center flex-1 min-h-0 flex items-center justify-center">
-                            {weeklyStatsLoading && idx === safeWeeklyIndex
-                              ? "Chargement..."
-                              : weeklyStatsError && idx === safeWeeklyIndex
-                              ? "Impossible de recuperer les stats"
-                              : "Pas encore de stats cette semaine."}
+                            {board.key === "weeklyVocab" ? weeklyVocabRaceBanner : null}
+                            {entries.length > 0 ? (
+                              entries.map((entry, entryIdx) => renderWeeklyRow(board.key, entry, entryIdx))
+                            ) : (
+                              <div className="text-sm opacity-70 py-8 text-center">
+                                {weeklyStatsLoading && idx === safeWeeklyIndex
+                                  ? "Chargement..."
+                                  : weeklyStatsError && idx === safeWeeklyIndex
+                                  ? "Impossible de recuperer les stats"
+                                  : "Pas encore de stats cette semaine."}
+                              </div>
+                            )}
                           </div>
                         ) : (
                           <div className="flex-1 min-h-0" />
@@ -526,7 +529,7 @@ export default function WeeklyStatsScreen({ runtime }) {
                 {seasonPages.map((page) => (
                   <div key={page} className="w-full shrink-0 px-0 flex flex-col min-h-0 h-full">
                     {page === "vocab_rank" ? (
-                      <div className="p-4 space-y-3 flex flex-col min-h-0 h-full">
+                      <div className="stats-board-content p-4 space-y-3 flex flex-col min-h-0 h-full">
                         <div className="flex items-baseline justify-between gap-2">
                           <div className="text-sm font-semibold opacity-80">Mots uniques</div>
                           {weeklyStatsLoading ? (
@@ -538,7 +541,7 @@ export default function WeeklyStatsScreen({ runtime }) {
                         </div>
                         {seasonVocabEntries.length > 0 ? (
                           <div
-                            className="flex-1 min-h-0 overflow-y-auto custom-scrollbar custom-scrollbar-gray pr-1"
+                            className="flex-1 min-h-0 overflow-y-auto overscroll-contain custom-scrollbar custom-scrollbar-gray pr-1"
                             data-stats-scroll="true"
                             style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-y" }}
                           >
@@ -561,7 +564,7 @@ export default function WeeklyStatsScreen({ runtime }) {
                       </div>
                     ) : (
                       <div
-                        className="p-4 flex-1 min-h-0 overflow-y-auto custom-scrollbar custom-scrollbar-gray pr-1"
+                        className="p-4 flex-1 min-h-0 overflow-y-auto overscroll-contain custom-scrollbar custom-scrollbar-gray pr-1"
                         data-stats-scroll="true"
                         style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-y" }}
                       >

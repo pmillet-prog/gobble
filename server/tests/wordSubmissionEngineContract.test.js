@@ -3,7 +3,17 @@ import test from "node:test";
 
 import { createWordSubmissionEngine } from "../../src/game/createWordSubmissionEngine.js";
 
-function createSubmissionHarness({ inputMode, mobile }) {
+function createSubmissionHarness({
+  currentTiles = ["A", "B"],
+  dictionaryWords = ["ab"],
+  inputMode,
+  mobile,
+  path = inputMode === "keyboard" ? [] : [0, 1],
+  roundId = null,
+  serverSolutionsReady = false,
+  solutionWords = [],
+  specialRound = null,
+}) {
   let accepted = [];
   let lastWords = [];
   let score = 0;
@@ -13,7 +23,7 @@ function createSubmissionHarness({ inputMode, mobile }) {
   const selections = [];
   const noop = () => {};
   const highlightPathRef = {
-    current: inputMode === "keyboard" ? [] : [0, 1],
+    current: path,
   };
   const runtime = {
     acceptedBestPtsRef: { current: new Map() },
@@ -39,12 +49,12 @@ function createSubmissionHarness({ inputMode, mobile }) {
       { bonus: null, letter: "Y" },
     ],
     clearSelection: () => selections.push("cleared"),
-    currentTilesRef: { current: ["A", "B"] },
+    currentTilesRef: { current: currentTiles },
     dailyAcceptedPathsRef: { current: new Map() },
     dailyActiveSlot: 0,
     dailySpecialPlacements: {},
     dailyWordSlots: [],
-    dictionary: new Set(["ab"]),
+    dictionary: new Set(dictionaryWords),
     draggingRef: { current: false },
     dragGridMetricsRef: { current: null },
     error: (message) => errors.push(message),
@@ -80,11 +90,11 @@ function createSubmissionHarness({ inputMode, mobile }) {
     pushWordHistory: noop,
     registerAcceptedWordRuntime: (word) => registered.push(word),
     resetDragMovePipeline: noop,
-    roundId: null,
-    roundIdRef: { current: null },
+    roundId,
+    roundIdRef: { current: roundId },
     roundStats: {},
     scheduleForegroundRetry: noop,
-    serverSolutionsReadyRef: { current: false },
+    serverSolutionsReadyRef: { current: serverSolutionsReady },
     setAccepted: (updater) => {
       accepted = updater(accepted);
     },
@@ -111,9 +121,13 @@ function createSubmissionHarness({ inputMode, mobile }) {
     setStatusMessageWithHold: (message) => statuses.push(message),
     showToast: noop,
     socket: { connected: false },
-    solutionsRef: { current: new Map() },
+    solutionsRef: {
+      current: new Map(
+        solutionWords.map((word) => [word, { path: [0, 1], pts: 2, word }])
+      ),
+    },
     SPECIAL_TUTORIAL_SPEED_SCORE_FALLBACK: 1,
-    specialRound: null,
+    specialRound,
     specialScoreConfig: null,
     standaloneTrainingSessionRef: { current: null },
     submissionStatusRef: { current: new Map() },
@@ -121,6 +135,8 @@ function createSubmissionHarness({ inputMode, mobile }) {
     triggerConfettiBurst: noop,
     triggerPraiseFlash: noop,
     triggerScoreFlight: noop,
+    clearTimeoutFn: noop,
+    setTimeoutFn: () => 1,
     WORD_BATCH_ACK_TIMEOUT_MS: 100,
     WORD_BATCH_FLUSH_MS: 100,
     WORD_BATCH_MAX: 10,
@@ -140,6 +156,54 @@ function createSubmissionHarness({ inputMode, mobile }) {
     }),
   };
 }
+
+test("target submissions clear their preview before the server response", () => {
+  const options = {
+    inputMode: "touch",
+    mobile: true,
+    roundId: "round-target",
+    serverSolutionsReady: true,
+    solutionWords: ["ab"],
+    specialRound: { type: "target_long" },
+  };
+  const harness = createSubmissionHarness(options);
+  const roundEndHarness = createSubmissionHarness(options);
+
+  harness.controller.submit();
+  const roundEndSubmitted = roundEndHarness.controller.tryAutoSubmitCurrentWordAtRoundEnd();
+
+  const state = harness.getState();
+  assert.deepEqual(state.errors, []);
+  assert.deepEqual(state.selections, ["cleared"]);
+  assert.equal(roundEndSubmitted, true);
+  assert.deepEqual(roundEndHarness.getState().selections, ["cleared"]);
+});
+
+test("target submissions distinguish an invalid word from a valid non-target word", () => {
+  const common = {
+    currentTiles: ["X", "Y"],
+    inputMode: "touch",
+    mobile: true,
+    path: [2, 3],
+    serverSolutionsReady: true,
+    solutionWords: ["ab"],
+    specialRound: { type: "target_score" },
+  };
+  const invalidHarness = createSubmissionHarness({
+    ...common,
+    dictionaryWords: ["ab"],
+  });
+  const nonTargetHarness = createSubmissionHarness({
+    ...common,
+    dictionaryWords: ["ab", "xy"],
+  });
+
+  invalidHarness.controller.submit();
+  nonTargetHarness.controller.submit();
+
+  assert.deepEqual(invalidHarness.getState().errors, ["Mot invalide"]);
+  assert.deepEqual(nonTargetHarness.getState().errors, ["Pas le mot cible"]);
+});
 
 test("word submission helpers are exposed through a named runtime contract", () => {
   const controller = createWordSubmissionEngine({

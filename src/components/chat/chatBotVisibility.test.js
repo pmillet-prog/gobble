@@ -9,10 +9,10 @@ import {
 
 test("chat bot visibility resolves explicit categories and known nicknames", () => {
   assert.equal(getChatBotVisibilityKey({ meta: { category: "coach" } }), "coach");
-  assert.equal(getChatBotVisibilityKey({ nick: "GrosRobert", isBot: true }), "linguist");
+  assert.equal(getChatBotVisibilityKey({ nick: "Bernard Pinot", isBot: true }), "linguist");
   const visibility = normalizeChatBotVisibility({ linguist: false });
   assert.equal(
-    shouldDisplayChatMessageForBotSettings({ nick: "GrosRobert", isBot: true }, true, visibility),
+    shouldDisplayChatMessageForBotSettings({ nick: "Bernard Pinot", isBot: true }, true, visibility),
     false
   );
   assert.equal(shouldDisplayChatMessageForBotSettings({ nick: "Tigre" }, false, visibility), true);

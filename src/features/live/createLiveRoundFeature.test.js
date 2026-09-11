@@ -57,6 +57,7 @@ function createHarness() {
     gameplaySession: gameplayLease.feature,
     handlersRef,
     onHydrateSnapshot: (snapshot, meta) => calls.push({ name: "hydrate", payload: snapshot, meta }),
+    onPresenterInterventions: (payload) => calls.push({ name: "presenters", payload }),
     socket,
   });
   kernel.commands.navigation.go("live");
@@ -137,6 +138,62 @@ test("target hints are monotonic inside a round", () => {
   harness.release();
 });
 
+test("Lepers interventions stay in the live feature and are scoped to the active round", () => {
+  const harness = createHarness();
+  const interventions = [];
+  const unsubscribe = harness.live.subscribeLepersInterventions((payload) => {
+    interventions.push(payload);
+  });
+  harness.socket.fire("roundStarted", {
+    roomId: "room-4x4",
+    roundId: "massive-3",
+    grid: [{ letter: "A" }],
+  });
+  harness.socket.fire("lepersIntervention", {
+    roomId: "room-4x4",
+    roundId: "old-round",
+    text: "ancienne énigme",
+  });
+  harness.socket.fire("lepersIntervention", {
+    roomId: "room-4x4",
+    roundId: "massive-3",
+    text: "TOP ! Je suis...",
+  });
+
+  assert.deepEqual(interventions.map((entry) => entry.text), ["TOP ! Je suis..."]);
+  unsubscribe();
+  harness.release();
+});
+
+test("a Lepers round exposes its challenge as soon as the intro starts", () => {
+  const harness = createHarness();
+  const interventions = [];
+  harness.live.subscribeLepersInterventions((payload) => interventions.push(payload));
+  harness.socket.fire("roundStarted", {
+    roomId: "room-4x4",
+    roundId: "lepers-intro",
+    grid: [{ letter: "A" }],
+    status: "intro",
+    lepersChallenge: {
+      id: "lepers-intro:lepers",
+      text: "TOP ! Je suis... une définition.",
+      highlights: ["TOP !"],
+    },
+  });
+
+  assert.deepEqual(interventions, [
+    {
+      roomId: "room-4x4",
+      roundId: "lepers-intro",
+      id: "lepers-intro:lepers",
+      kind: "challenge",
+      text: "TOP ! Je suis... une définition.",
+      highlights: ["TOP !"],
+    },
+  ]);
+  harness.release();
+});
+
 test("an authoritative resume snapshot owns the new generation", () => {
   const harness = createHarness();
   const snapshot = {
@@ -155,6 +212,258 @@ test("an authoritative resume snapshot owns the new generation", () => {
   assert.equal(harness.gameplay.store.getState().roundId, "r3");
   assert.deepEqual(harness.calls.map((entry) => entry.name), ["hydrate"]);
   assert.equal(harness.calls[0].meta.entryKind, "join");
+  harness.release();
+});
+
+test("an authoritative snapshot restores the current presenter hints", () => {
+  const harness = createHarness();
+  const presenterInterventions = [
+    {
+      id: "r4:coach",
+      roundId: "r4",
+      text: "Cherchez cette terminaison.",
+      meta: { category: "coach", kind: "ambient_bot_chat" },
+    },
+  ];
+  const snapshot = {
+    roomId: "room-4x4",
+    phase: "playing",
+    currentRound: {
+      roundId: "r4",
+      grid: [{ letter: "A" }],
+      presenterInterventions,
+      status: "running",
+    },
+  };
+
+  assert.equal(harness.live.hydrateSnapshot(snapshot), true);
+  assert.deepEqual(harness.calls.map((entry) => entry.name), ["hydrate", "presenters"]);
+  assert.equal(harness.calls[1].payload, presenterInterventions);
+  harness.release();
+});
+
+test("a results snapshot restores Pivot from lastRoundResults", () => {
+  const harness = createHarness();
+  const presenterInterventions = [
+    {
+      id: "r4-results:pivot",
+      roundId: "r4-results",
+      text: "Une définition et son étymologie.",
+      meta: { category: "linguist", kind: "ambient_bot_chat" },
+    },
+  ];
+  const snapshot = {
+    roomId: "room-4x4",
+    phase: "results",
+    currentRound: null,
+    lastRoundResults: {
+      round: { id: "r4-results" },
+      payload: {
+        roomId: "room-4x4",
+        roundId: "r4-results",
+        presenterInterventions,
+        results: [],
+      },
+    },
+  };
+
+  assert.equal(harness.live.hydrateSnapshot(snapshot), true);
+  assert.deepEqual(harness.calls.map((entry) => entry.name), [
+    "hydrate",
+    "presenters",
+  ]);
+  assert.equal(harness.calls[1].payload, presenterInterventions);
+  harness.release();
+});
+
+test("round results expose a prepared Pivot intervention without a reconnect", () => {
+  const harness = createHarness();
+  const presenterInterventions = [
+    {
+      id: "r5:pivot",
+      roundId: "r5",
+      text: "On pouvait aussi trouver ÉBAHI. Une définition. Étymologie : une origine.",
+      meta: { category: "linguist", kind: "ambient_bot_chat" },
+    },
+  ];
+  harness.socket.fire("roundStarted", {
+    roomId: "room-4x4",
+    roundId: "r5",
+    grid: [{ letter: "A" }],
+  });
+  harness.socket.fire("roundEnded", {
+    roomId: "room-4x4",
+    roundId: "r5",
+    presenterInterventions,
+  });
+
+  assert.deepEqual(harness.calls.map((entry) => entry.name), [
+    "onRoundStarted",
+    "presenters",
+    "onRoundEnded",
+  ]);
+  assert.equal(harness.calls[1].payload, presenterInterventions);
+  harness.release();
+});
+
+test("resume replays an unsolved Lepers challenge without exposing its answer", () => {
+  const harness = createHarness();
+  const interventions = [];
+  const snapshot = {
+    roomId: "room-4x4",
+    phase: "playing",
+    player: { lepersChallengeFound: false },
+    currentRound: {
+      roundId: "massive-resume",
+      grid: [{ letter: "A" }],
+      status: "running",
+      lepersChallenge: {
+        id: "massive-resume:lepers",
+        text: "TOP ! Je suis... une définition.",
+        highlights: ["TOP !"],
+      },
+    },
+  };
+
+  assert.equal(harness.live.hydrateSnapshot(snapshot), true);
+  harness.live.subscribeLepersInterventions((payload) => interventions.push(payload));
+  assert.equal(interventions.length, 1);
+  assert.equal(interventions[0].text, snapshot.currentRound.lepersChallenge.text);
+  assert.equal("word" in interventions[0], false);
+  harness.release();
+});
+
+test("resume during results replays the Lepers answer instead of the opening clue", () => {
+  const harness = createHarness();
+  const interventions = [];
+  harness.live.subscribeLepersInterventions((payload) => interventions.push(payload));
+  const snapshot = {
+    roomId: "room-4x4",
+    phase: "break",
+    player: { lepersChallengeFound: false },
+    currentRound: {
+      roundId: "massive-results",
+      grid: [{ letter: "A" }],
+      status: "finished",
+      lepersChallenge: {
+        id: "massive-results:lepers",
+        text: "TOP ! Je suis... une définition.",
+      },
+    },
+    lastRoundResults: {
+      round: { id: "massive-results" },
+      payload: {
+        roundId: "massive-results",
+        lepersResult: {
+          id: "massive-results:lepers:answer",
+          text: "« ALLOCUTAIRE », bien sûr !",
+          highlights: ["ALLOCUTAIRE"],
+        },
+      },
+    },
+  };
+
+  assert.equal(harness.live.hydrateSnapshot(snapshot), true);
+  assert.deepEqual(interventions.map((entry) => entry.kind), ["answer"]);
+  assert.equal(interventions[0].text, "« ALLOCUTAIRE », bien sûr !");
+  harness.release();
+});
+
+test("resume during the tournament celebration restores only its dedicated presenter scope", () => {
+  const harness = createHarness();
+  const lepersInterventions = [];
+  harness.live.subscribeLepersInterventions((payload) =>
+    lepersInterventions.push(payload)
+  );
+  const snapshot = {
+    capturedAt: 60_000,
+    roomId: "room-4x4",
+    phase: "break",
+    currentRound: null,
+    breakState: {
+      breakKind: "tournament_end",
+      tournamentSummaryAt: 50_000,
+      tournamentSummary: {
+        presenterScopeId: "tournament:finished:celebration",
+        presenterInterventions: [
+          {
+            id: "celebration:romejko",
+            roundId: "tournament:finished:celebration",
+            text: "Le plus long mot du tournoi.",
+            meta: { category: "statistician" },
+          },
+        ],
+      },
+    },
+    lastRoundResults: {
+      round: { id: "final-round" },
+      payload: {
+        roundId: "final-round",
+        tournament: { breakKind: "tournament_end" },
+        tournamentSummaryAt: 50_000,
+        presenterInterventions: [
+          {
+            id: "final-round:pivot",
+            roundId: "final-round",
+            text: "Une dernière définition.",
+            meta: { category: "linguist" },
+          },
+        ],
+        lepersResult: {
+          id: "final-round:lepers:answer",
+          text: "« ALLOCUTAIRE », bien sûr !",
+          highlights: ["ALLOCUTAIRE"],
+        },
+      },
+    },
+  };
+
+  assert.equal(harness.live.hydrateSnapshot(snapshot), true);
+  assert.deepEqual(harness.calls.map((entry) => entry.name), ["hydrate", "presenters"]);
+  assert.equal(
+    harness.calls[1].payload[0].roundId,
+    "tournament:finished:celebration"
+  );
+  assert.deepEqual(lepersInterventions, []);
+  harness.release();
+});
+
+test("rehydrating the same results does not replay Lepers' answer", () => {
+  const harness = createHarness();
+  const interventions = [];
+  harness.live.subscribeLepersInterventions((payload) => interventions.push(payload));
+  harness.socket.fire("roundStarted", {
+    roomId: "room-4x4",
+    roundId: "final-round",
+    grid: [{ letter: "A" }],
+  });
+  const answer = {
+    roomId: "room-4x4",
+    roundId: "final-round",
+    id: "final-round:lepers:answer",
+    kind: "answer",
+    text: "« ALLOCUTAIRE », bien sûr !",
+  };
+  harness.socket.fire("lepersIntervention", answer);
+
+  assert.equal(
+    harness.live.hydrateSnapshot({
+      roomId: "room-4x4",
+      phase: "break",
+      currentRound: {
+        roundId: "final-round",
+        grid: [{ letter: "A" }],
+        status: "finished",
+      },
+      lastRoundResults: {
+        round: { id: "final-round" },
+        payload: { roundId: "final-round", lepersResult: answer },
+      },
+    }),
+    true
+  );
+
+  assert.deepEqual(interventions.map((entry) => entry.id), [answer.id]);
   harness.release();
 });
 
@@ -249,8 +558,8 @@ test("menu navigation rejects late events and a snapshot restores live ownership
     grid: [{ letter: "A" }],
   });
 
-  harness.refs.appViewRef.current = "stats";
-  harness.kernel.commands.navigation.go("stats");
+  harness.refs.appViewRef.current = "duel";
+  harness.kernel.commands.navigation.go("duel");
   harness.socket.fire("roundEnded", { roomId: "room-4x4", roundId: "r1" });
   harness.socket.fire("breakStarted", { roomId: "room-4x4", breakKind: "round" });
 

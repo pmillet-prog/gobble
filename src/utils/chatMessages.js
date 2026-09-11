@@ -36,6 +36,22 @@ export function isSystemChatMessage(message) {
   return isSystemAuthor(message.author || message.nick || "");
 }
 
+export function isChatBotMessage(message) {
+  if (!message || typeof message !== "object") return false;
+  if (message.isBot) return true;
+  const installId = typeof message.installId === "string" ? message.installId : "";
+  if (installId.startsWith("ambient-bot:") || installId.startsWith("dev-bot:")) {
+    return true;
+  }
+  const kind = typeof message.meta?.kind === "string" ? message.meta.kind : "";
+  return (
+    kind === "ambient_bot_chat" ||
+    kind === "presenter_chat_copy" ||
+    kind === "dev_bot_chat" ||
+    kind === "dev_chat_fill"
+  );
+}
+
 export function formatChatUnreadSuffix(unreadCount) {
   const value = Number(unreadCount) || 0;
   if (value <= 0) return "";

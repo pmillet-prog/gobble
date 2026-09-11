@@ -11,15 +11,12 @@ export default function MobileUltraCompactScene({ state, refs, actions, content,
     bonusEffectMultiplier,
     bonusLetterKey,
     bonusLetterScore,
-    chatViewportHeight,
     darkMode,
     gridRotationTurns,
     gridSize,
     hintCellSet,
     hintOutlineCellSet,
     implodeActive,
-    isChatClosing,
-    isChatOpenMobile,
     isMobileLayout,
     mobileLayoutSizing,
     mobileResultsPhaseFadeOverlay,
@@ -37,8 +34,6 @@ export default function MobileUltraCompactScene({ state, refs, actions, content,
     rosterConfig,
   } = state;
   const {
-    chatBodyLockHeightRef,
-    gameViewportFreezeHeightRef,
     gridInputControllerRef,
     gridRef,
     mobileGameViewportLockRef,
@@ -54,7 +49,7 @@ export default function MobileUltraCompactScene({ state, refs, actions, content,
     normalizeLetterKey,
     openSettingsPanel,
   } = actions;
-  const { chatOverlays, globalChatLayer, praiseOverlay } = content;
+  const { chatOverlays, praiseOverlay } = content;
   const {
     BONUS_CLASSES,
     MOBILE_GRID_MAX_WIDTH,
@@ -84,41 +79,19 @@ export default function MobileUltraCompactScene({ state, refs, actions, content,
         Math.round((mobileGridSide / Math.max(gridSize, 1)) * 0.35)
       )
     );
-    const useVisualViewport = !(isChatOpenMobile || isChatClosing);
-    const lockedChatHeight = chatBodyLockHeightRef.current || null;
-    const mobileViewportHeightCandidates =
+    const fallbackViewportHeights =
       typeof window !== "undefined"
-        ? (useVisualViewport
-            ? [
-                lockedGameViewportHeight,
-                mobileLayoutSizing.viewportHeight,
-                ((isChatOpenMobile || isChatClosing) &&
-                gameViewportFreezeHeightRef.current > 0
-                  ? gameViewportFreezeHeightRef.current
-                  : window.innerHeight),
-                typeof document !== "undefined"
-                  ? document.documentElement?.clientHeight
-                  : null,
-              ]
-            : lockedChatHeight
-            ? [lockedChatHeight]
-            : [
-                lockedGameViewportHeight,
-                ((isChatOpenMobile || isChatClosing) &&
-                gameViewportFreezeHeightRef.current > 0
-                  ? gameViewportFreezeHeightRef.current
-                  : window.innerHeight),
-                typeof document !== "undefined"
-                  ? document.documentElement?.clientHeight
-                  : null,
-              ]
-          ).filter((v) => Number.isFinite(v) && v > 0)
+        ? [
+            window.innerHeight,
+            typeof document !== "undefined"
+              ? document.documentElement?.clientHeight
+              : null,
+          ].filter((value) => Number.isFinite(value) && value > 0)
         : [];
-    const mobileViewportHeight = mobileViewportHeightCandidates.length
-      ? Math.min(...mobileViewportHeightCandidates)
-      : 0;
-    const chatViewportHeightEffective =
-      chatBodyLockHeightRef.current || chatViewportHeight || mobileViewportHeight;
+    const mobileViewportHeight =
+      lockedGameViewportHeight ||
+      mobileLayoutSizing.viewportHeight ||
+      (fallbackViewportHeights.length ? Math.min(...fallbackViewportHeights) : 0);
     const mobileViewportContainerStyle =
       mobileViewportHeight > 0
         ? {
@@ -209,7 +182,6 @@ export default function MobileUltraCompactScene({ state, refs, actions, content,
           mobileViewportContainerStyle={mobileViewportContainerStyle}
           onOpenSettings={openSettingsPanel}
           praiseOverlay={praiseOverlay}        />
-        {globalChatLayer}
       </>
     );
   }

@@ -2,6 +2,7 @@ import React from "react";
 import { useChatDraft } from "../features/chat/useChatDraft.js";
 import { useChatPresentation } from "../features/chat/useChatPresentation.js";
 import useDesktopChatPresentationController from "../features/chat/useDesktopChatPresentationController.js";
+import PresenterChatAvatar from "./chat/PresenterChatAvatar.jsx";
 import {
   formatChatMessageTime,
   formatChatUnreadSuffix,
@@ -13,7 +14,12 @@ import {
 
 function isAmbientBotMessage(message) {
   if (!message || typeof message !== "object") return false;
-  if (message?.meta?.kind === "ambient_bot_chat") return true;
+  if (
+    message?.meta?.kind === "ambient_bot_chat" ||
+    message?.meta?.kind === "presenter_chat_copy"
+  ) {
+    return true;
+  }
   const installId = typeof message.installId === "string" ? message.installId : "";
   return installId.startsWith("ambient-bot:");
 }
@@ -54,14 +60,12 @@ function DesktopChatPanel({
   quickReplies = [],
   selfNick = "",
   showBlockedList = false,
-  showBotMessages = true,
   visibleMessages: visibleMessagesProp = [],
   chatInputRef,
   chatScaleMax = 1.5,
   chatScaleMin = 0.85,
   chatScaleStep = 0.05,
   getAuthorNickClassName = null,
-  onToggleShowBotMessages = null,
   scheduleCloseDesktopChatReactionDetails = null,
   setChatDesktopFontScale = null,
 }) {
@@ -71,6 +75,7 @@ function DesktopChatPanel({
   const blockedEntries = chatPresentation.blockedEntries ?? blockedEntriesProp;
   const lastMessageId = chatPresentation.lastMessageId ?? lastMessageIdProp;
   const visibleMessages = chatPresentation.visibleMessages ?? visibleMessagesProp;
+  const showBotMessages = chatPresentation.showBotMessages;
   const desktopPresentation = useDesktopChatPresentationController({
     chatDesktopFontScale,
     chatInputRef,
@@ -103,6 +108,7 @@ function DesktopChatPanel({
     submitChat: chatFeature.submit,
     toggleBlockedList: () =>
       chatFeature.set("showBlockedList", (previous) => !previous),
+    toggleBotMessages: chatPresentation.toggleBotMessages,
     toggleDesktopEmojiPicker: () =>
       chatFeature.set("desktopEmojiPickerOpen", (previous) => !previous),
     unblockInstallId: (targetInstallId) => {
@@ -221,29 +227,34 @@ function DesktopChatPanel({
           type="button"
           role="switch"
           aria-checked={showBotMessages ? "true" : "false"}
-          aria-label={showBotMessages ? "Masquer les messages bots" : "Afficher les messages bots"}
+          aria-label={
+            showBotMessages
+              ? "Masquer les messages des personnages"
+              : "Afficher les messages des personnages"
+          }
           className={`desktop-chat-bot-button inline-flex items-center rounded-full border font-bold transition ${
             darkMode
               ? "border-white/10 bg-slate-800/70 text-slate-100"
               : "border-slate-200 bg-slate-100 text-slate-700"
           }`}
-          onClick={() => onToggleShowBotMessages?.()}
+          onClick={() => actionsRef?.current?.toggleBotMessages?.()}
         >
           <span>Bots</span>
           <span
             data-enabled={showBotMessages ? "true" : "false"}
             className={`desktop-chat-switch-track relative rounded-full transition ${
-              showBotMessages ? "bg-emerald-500" : darkMode ? "bg-slate-700" : "bg-slate-300"
+              showBotMessages
+                ? "bg-emerald-500"
+                : darkMode
+                ? "bg-slate-700"
+                : "bg-slate-300"
             }`}
             aria-hidden="true"
           >
-            <span
-              className="desktop-chat-switch-knob absolute rounded-full bg-white shadow transition"
-            />
+            <span className="desktop-chat-switch-knob absolute rounded-full bg-white shadow transition" />
           </span>
         </button>
       </div>
-
       {showBlockedList ? (
         <div
           className={`mt-2 rounded-lg border px-2 py-2 text-[11px] ${
@@ -415,6 +426,12 @@ function DesktopChatPanel({
                       </div>
                     ) : null}
                     <div className="flex items-baseline gap-1.5 flex-wrap">
+                      {isAmbientBot ? (
+                        <PresenterChatAvatar
+                          message={msg}
+                          className="-my-1 mr-0.5 h-7 w-7 self-center"
+                        />
+                      ) : null}
                       {canOpenMenu ? (
                         <button
                           type="button"

@@ -10,15 +10,20 @@ const ACTIONS = [
 
 const styles = `
 .live-salon-utility-bar {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-rows: repeat(4, minmax(0, 1fr));
   align-items: center;
+  justify-items: center;
   gap: clamp(4px, 0.7vh, 9px);
   width: 100%;
+  height: 100%;
 }
 .live-salon-utility-button {
   position: relative;
-  width: 100%;
+  width: auto;
+  max-width: 100%;
+  height: 100%;
+  max-height: 100%;
   aspect-ratio: 1;
   border: 0;
   padding: 0;
@@ -63,12 +68,15 @@ const styles = `
 }
 @media (max-aspect-ratio: 1/1) {
   .live-salon-utility-bar {
+    display: flex;
     flex-direction: row;
     justify-content: center;
     gap: 3%;
+    height: auto;
   }
   .live-salon-utility-button {
     width: 22%;
+    height: auto;
   }
   .live-salon-utility-count {
     min-width: clamp(25px, 7vw, 31px);

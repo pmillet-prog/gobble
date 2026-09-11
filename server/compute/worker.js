@@ -32,7 +32,13 @@ import {
 import {
   getOcidTargetCandidates,
   getRareBonusWordMetaMap,
+  getRareWordMetaMapForWords,
 } from "../stats/wordRarityService.js";
+import {
+  isLepersChallengeRound,
+  pickLepersChallenge,
+} from "../bots/lepersChallenge.js";
+import { getLocalDefinitionEntry } from "../definitions/localDefinitionStore.js";
 import {
   buildWordInsightSummary,
   pickWordThemeChallenge,
@@ -1143,6 +1149,23 @@ if (parentPort) {
           };
         }
         const result = await prepareNextGridJob(nextPayload);
+        if (
+          result?.solutions?.length &&
+          isLepersChallengeRound({
+            enabled: nextPayload?.roundPlan?.lepersChallengeEnabled === true,
+            tournamentRound: nextPayload?.roundPlan?.roundNumber,
+            training: false,
+          })
+        ) {
+          const rarityMetaMap = await getRareWordMetaMapForWords(
+            result.solutions.map((entry) => entry?.word).filter(Boolean)
+          );
+          result.lepersChallenge = await pickLepersChallenge(result.solutions, {
+            loadDefinitionEntry: getLocalDefinitionEntry,
+            rarityMetaMap,
+            seed: `${nextPayload.roundPlan.roundNumber}:${nextPayload?.roundNumber || ""}`,
+          });
+        }
         respond({ id, ok: true, result });
         return;
       }

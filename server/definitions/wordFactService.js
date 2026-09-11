@@ -3,6 +3,8 @@ import { getLocalDefinitionEntry } from "./localDefinitionStore.js";
 
 const CACHE_MAX = Number(process.env.GOBBLE_WORD_FACT_CACHE_MAX || 3000);
 const factCache = new Map();
+const GRAMMATICAL_ETYMOLOGY_REFERENCE = /^(?:participe(?: passe| present)?|forme(?: conjuguee| flechie| verbale)?|flexion|conjugaison|feminin|masculin|pluriel|singulier)(?: (?:masculin|feminin|singulier|pluriel))*\s*(?:(?:du|de la|de l'|de|d')\s*(?:(?:verbe|nom|adjectif|adverbe|mot)\s+)?[«“"']?\s*([a-z][a-z'-]*[a-z])\s*[»”"']?)?[.!]?$/;
+const MAX_ETYMOLOGY_REFERENCE_DEPTH = 6;
 const ETYMOLOGY_DISPLAY_LANGUAGE_CODES = new Map([
   ["tr", "turc"],
   ["ru", "russe"],
@@ -120,6 +122,33 @@ function isTautologicalScientificNameEtymology(etymology, rawWord, entry) {
   return candidates.has(sourceName);
 }
 
+export async function resolveWordFactEtymology(rawWord, entry, {
+  lookupEntry = getLocalDefinitionEntry,
+  maxLen = 300,
+} = {}) {
+  const seen = new Set();
+  const resolve = async (word, current, depth) => {
+    const key = normalizeWord(current?.title || word);
+    if (!key || seen.has(key) || depth >= MAX_ETYMOLOGY_REFERENCE_DEPTH) return "";
+    seen.add(key);
+    const raw = String(current?.etymology || "").replace(/\s+/g, " ").trim();
+    const reference = normalizeForMatching(raw).match(GRAMMATICAL_ETYMOLOGY_REFERENCE);
+    if (reference) {
+      const base = normalizeWord(reference[1] || "");
+      if (!base || seen.has(base)) return "";
+      const baseEntry = await lookupEntry(base);
+      if (!baseEntry) return "";
+      const origin = await resolve(base, baseEntry, depth + 1);
+      if (!origin) return "";
+      return `De ${String(baseEntry.title || base).trim()} : ${origin}`;
+    }
+    const etymology = cleanEtymologyFact(raw, maxLen);
+    return isTautologicalScientificNameEtymology(etymology, word, current) ? "" : etymology;
+  };
+  const etymology = await resolve(rawWord, entry, 0);
+  return etymology ? clipBotFactText(etymology, maxLen) : "";
+}
+
 function isBoringOrUnsafeDefinition(text) {
   const normalized = normalizeForMatching(text);
   if (!normalized || normalized.length < 28) return true;
@@ -200,10 +229,40 @@ function pickDefinitionForFact(entry) {
     .sort((a, b) => b.score - a.score)[0]?.text || "";
 }
 
-function formatEtymologyFact(rawWord, entry) {
-  const etymology = cleanEtymologyFact(entry?.etymology || "");
+function pickMostCompleteDefinitionForFact(entry) {
+  const definitions = Array.isArray(entry?.definitions)
+    ? entry.definitions.map((item) => String(item || "").trim()).filter(Boolean)
+    : [];
+  const unique = [];
+  const seen = new Set();
+  for (const raw of [entry?.definition, ...definitions]) {
+    const text = String(raw || "").trim();
+    const key = normalizeForMatching(text);
+    if (!text || seen.has(key) || isBoringOrUnsafeDefinition(text)) continue;
+    seen.add(key);
+    const clean = cleanFactDefinition(text, 260);
+    if (clean) {
+      unique.push({
+        text: clean,
+        sourceLength: normalizeForMatching(text).length,
+        qualityScore: scoreFactDefinition(text),
+      });
+    }
+  }
+  if (!unique.length) return "";
+  return unique
+    .sort(
+      (left, right) =>
+        right.sourceLength - left.sourceLength ||
+        right.qualityScore - left.qualityScore ||
+        right.text.length - left.text.length
+    )[0]
+    ?.text || "";
+}
+
+async function formatEtymologyFact(rawWord, entry) {
+  const etymology = await resolveWordFactEtymology(rawWord, entry, { maxLen: 260 });
   if (!etymology) return null;
-  if (isTautologicalScientificNameEtymology(etymology, rawWord, entry)) return null;
   const word = String(entry?.title || rawWord || "").trim();
   const display = (word || rawWord || "").toUpperCase();
   if (!display) return null;
@@ -228,15 +287,14 @@ function formatOfflineWordFact(rawWord, entry, definition, formHint = null) {
   return `Définition: ${formLabel}, c'est ${clean}.`;
 }
 
-function buildOfflineWordFactDetails(rawWord, entry, definition, formHint = null) {
+async function buildOfflineWordFactDetails(rawWord, entry, definition, formHint = null) {
   const lookupWord = normalizeWord(rawWord);
   const title = String(entry?.title || formHint?.base || rawWord || "").trim();
   const displayWord = String(rawWord || title || "").trim().toUpperCase();
   const baseWord = String(formHint?.base || title || "").trim().toUpperCase();
-  const cleanDefinition = cleanFactDefinition(definition, 135);
-  const etymology = cleanEtymologyFact(entry?.etymology || "", 220);
+  const cleanDefinition = cleanFactDefinition(definition, 260);
+  const etymology = await resolveWordFactEtymology(rawWord, entry);
   if (!lookupWord || !displayWord || !cleanDefinition || !etymology) return null;
-  if (isTautologicalScientificNameEtymology(etymology, rawWord, entry)) return null;
   return {
     lookupWord,
     displayWord,
@@ -252,7 +310,7 @@ async function resolveOfflineWordFactDetails(norm, minLen, seen = new Set()) {
   if (seen.has(norm)) return null;
   seen.add(norm);
 
-  const cacheKey = `${norm}|details:v1`;
+  const cacheKey = `${norm}|details:v3`;
   if (factCache.has(cacheKey)) {
     const value = factCache.get(cacheKey);
     factCache.delete(cacheKey);
@@ -271,9 +329,9 @@ async function resolveOfflineWordFactDetails(norm, minLen, seen = new Set()) {
     if (lemma && lemma !== norm) {
       const lemmaEntry = await getLocalDefinitionEntry(lemma);
       if (lemmaEntry) {
-        const definition = pickDefinitionForFact(lemmaEntry);
+        const definition = pickMostCompleteDefinitionForFact(lemmaEntry);
         const details = definition
-          ? buildOfflineWordFactDetails(norm, lemmaEntry, definition, { base: lemma })
+          ? await buildOfflineWordFactDetails(norm, lemmaEntry, definition, { base: lemma })
           : null;
         remember(cacheKey, details);
         return details;
@@ -283,8 +341,8 @@ async function resolveOfflineWordFactDetails(norm, minLen, seen = new Set()) {
     return null;
   }
 
-  const definition = pickDefinitionForFact(entry);
-  const details = definition ? buildOfflineWordFactDetails(norm, entry, definition) : null;
+  const definition = pickMostCompleteDefinitionForFact(entry);
+  const details = definition ? await buildOfflineWordFactDetails(norm, entry, definition) : null;
   remember(cacheKey, details);
   return details;
 }
@@ -432,7 +490,7 @@ async function resolveOfflineWordFact(norm, minLen, seen = new Set(), options = 
     if (lemma && lemma !== norm) {
       const lemmaEntry = await getLocalDefinitionEntry(lemma);
       if (lemmaEntry) {
-        const etymologyFact = formatEtymologyFact(norm, lemmaEntry);
+        const etymologyFact = await formatEtymologyFact(norm, lemmaEntry);
         if (etymologyFact) {
           remember(cacheKey, etymologyFact);
           return etymologyFact;
@@ -451,7 +509,7 @@ async function resolveOfflineWordFact(norm, minLen, seen = new Set(), options = 
     return null;
   }
 
-  const etymologyFact = formatEtymologyFact(norm, entry);
+  const etymologyFact = await formatEtymologyFact(norm, entry);
   if (etymologyFact) {
     remember(cacheKey, etymologyFact);
     return etymologyFact;

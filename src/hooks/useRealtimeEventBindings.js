@@ -152,6 +152,7 @@ useEffect(() => {
       targetLength = null,
       targetHintScheduleMs = [],
       solutions = null,
+      lepersChallenge = null,
       cultureThemeChallenge = null,
       ocidVote: ocidVotePayload = null,
       training = false,
@@ -273,6 +274,7 @@ useEffect(() => {
           introMs,
           status: roundStatus,
           solutions,
+          lepersChallenge,
           cultureThemeChallenge,
         }
       );

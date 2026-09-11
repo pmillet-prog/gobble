@@ -2,6 +2,8 @@ import React, { useEffect, useImperativeHandle, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { getVocabLevelMeta } from "../../vocabRanks";
+import { getVocabProgressWord } from "../../features/stats/vocabRoundProgress.js";
+import useVocabOverlayFit from "./useVocabOverlayFit.js";
 
 const VOCAB_OVERLAY_FADE_MS = 1000;
 const VOCAB_OVERLAY_ZERO_DELAY_MS = 2000;
@@ -36,6 +38,7 @@ const VocabProgressOverlay = React.memo(
     controllerRef
   ) {
   const [isVocabOverlayOpen, setIsVocabOverlayOpen] = useState(false);
+  const { viewportRef, panelRef, scaleRef } = useVocabOverlayFit(isVocabOverlayOpen);
   const [vocabOverlayPhase, setVocabOverlayPhase] = useState("idle");
   const [vocabOverlayAnimatedTotal, setVocabOverlayAnimatedTotal] = useState(0);
   const [vocabOverlayAnimatedDelta, setVocabOverlayAnimatedDelta] = useState(0);
@@ -219,13 +222,8 @@ const VocabProgressOverlay = React.memo(
           while (vocabOverlayLastTickRef.current < currentWeeklyDelta) {
             vocabOverlayLastTickRef.current += 1;
             playVocabOverlayTickSound(vocabOverlayLastTickRef.current);
-            const wordList = vocabOverlayWordsRef.current;
-            if (wordList && wordList.length) {
-              const idx = Math.min(vocabOverlayLastTickRef.current - 1, wordList.length - 1);
-              const nextWord = wordList[idx] || "";
-              setVocabOverlayCurrentWord(nextWord);
-            }
           }
+          setVocabOverlayCurrentWord(getVocabProgressWord(vocabOverlayWordsRef.current, currentDelta));
 
           if (t < 1) {
             vocabOverlayRafRef.current = requestAnimationFrame(step);
@@ -256,8 +254,8 @@ const VocabProgressOverlay = React.memo(
                     cursorRect.height / 2 -
                     (deltaRect.top + deltaRect.height / 2);
                   setVocabOverlayAbsorbVec({
-                    x: Math.round(dx),
-                    y: Math.round(dy),
+                    x: Math.round(dx / scaleRef.current),
+                    y: Math.round(dy / scaleRef.current),
                   });
                 }
                 setVocabOverlayWordFading(true);
@@ -471,8 +469,8 @@ const VocabProgressOverlay = React.memo(
         cursorRect.height / 2 -
         (deltaRect.top + deltaRect.height / 2);
       setVocabOverlayAbsorbVec({
-        x: Math.round(dx),
-        y: Math.round(dy),
+        x: Math.round(dx / scaleRef.current),
+        y: Math.round(dy / scaleRef.current),
       });
     });
     return () => cancelAnimationFrame(rafId);
@@ -771,7 +769,8 @@ const VocabProgressOverlay = React.memo(
     isVocabOverlayOpen && typeof document !== "undefined"
       ? createPortal(
           <div
-            className={`fixed inset-0 z-[12040] flex items-center justify-center px-4 py-6 ${vocabOverlayClass}`}
+            ref={viewportRef}
+            className={`fixed left-0 top-0 w-full h-dvh z-[12040] flex items-center justify-center overflow-hidden p-4 ${vocabOverlayClass}`}
             role="dialog"
             aria-modal="true"
             onClick={skipVocabOverlayAnimation}
@@ -782,7 +781,8 @@ const VocabProgressOverlay = React.memo(
               }`}
             />
             <div
-              className={`relative w-full ${
+              ref={panelRef}
+              className={`relative w-full shrink-0 origin-center ${
                 isMobileLayout ? "max-w-lg p-4" : "max-w-4xl p-5"
               } rounded-2xl border shadow-2xl ${
                 darkMode

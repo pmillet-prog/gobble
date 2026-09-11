@@ -214,6 +214,50 @@ export async function getRareBonusWordMetaMap() {
   }
 }
 
+export async function getRareWordMetaMapForWords(words) {
+  const normalizedWords = Array.from(
+    new Set(
+      (Array.isArray(words) ? words : [])
+        .map((word) => normalizeWord(String(word || "")))
+        .filter(Boolean)
+    )
+  );
+  if (!normalizedWords.length) return new Map();
+  const ready = await ensureDb();
+  if (!ready) return new Map();
+
+  const out = new Map();
+  const chunkSize = 500;
+  try {
+    for (let offset = 0; offset < normalizedWords.length; offset += chunkSize) {
+      const chunk = normalizedWords.slice(offset, offset + chunkSize);
+      const placeholders = chunk.map(() => "?").join(", ");
+      const rows = await ready.all(
+        `SELECT word, rarity_bucket, rarity_score, players_found, has_definition, is_form_of
+           FROM word_rarity
+          WHERE key IN (${placeholders})
+            AND rarity_bucket IN ('rare', 'very_rare', 'extreme', 'never_found')
+            AND has_definition = 1`,
+        chunk.map((word) => word.toUpperCase())
+      );
+      rows.forEach((row) => {
+        const word = normalizeWord(String(row?.word || ""));
+        if (!word) return;
+        out.set(word, {
+          rarityBucket: String(row?.rarity_bucket || ""),
+          rarityScore: Number(row?.rarity_score) || 0,
+          playersFound: Math.max(0, Number(row?.players_found) || 0),
+          isFormOf: Number(row?.is_form_of) === 1,
+        });
+      });
+    }
+    return out;
+  } catch (err) {
+    console.warn(`rare word metadata lookup failed: ${err?.message || err}`);
+    return new Map();
+  }
+}
+
 export async function getOcidTargetCandidates({
   dictionary = null,
   limit = OCID_TARGET_CANDIDATE_LIMIT,

@@ -1,4 +1,5 @@
 import { isSessionRoundDisplayable } from "./sessionSnapshotState.js";
+import { getSocketDeviceKind } from "./clientDeviceKind.js";
 
 export function registerSessionHandlers(
   socket,
@@ -94,6 +95,7 @@ export function registerSessionHandlers(
       }
       player = {
         ...player,
+        deviceKind: getSocketDeviceKind(socket),
         userId: identity.userId,
         installId,
         connected: true,
@@ -204,6 +206,7 @@ export function registerSessionHandlers(
     const isResumeLogin = !!resumeSocketId;
 
     room.players.set(socket.id, {
+      deviceKind: getSocketDeviceKind(socket),
       nick: trimmed,
       token: token || null,
       userId: identity.userId,
