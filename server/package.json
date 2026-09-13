@@ -4,12 +4,15 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js",
+    "start": "node scripts/start-server.mjs",
+    "start:local": "node scripts/start-server.mjs",
     "test:bots": "node ./tests/botManager.test.js",
     "auth:force-reset": "node ./scripts/auth-force-reset.js",
     "profile:repair-word-records": "node ./scripts/repair-profile-word-records-from-weekly.mjs"
   },
   "dependencies": {
+    "@napi-rs/canvas": "^1.0.9",
+    "nodemailer": "^10.0.8",
     "@libsql/client": "^0.17.0",
     "cors": "^2.8.5",
     "express": "^4.19.0",

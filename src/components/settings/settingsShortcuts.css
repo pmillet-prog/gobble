@@ -1,0 +1,110 @@
+.settings-shortcuts {
+  --shortcut-face: linear-gradient(155deg, #fffaf0, #e7edf6);
+  --shortcut-rim: #b98a41;
+  --shortcut-ink: #284a72;
+  --shortcut-shadow: #26395520;
+  --shortcut-tip-bg: #14243d;
+  --shortcut-tip-ink: #fff4d7;
+}
+.settings-shortcuts.is-dark {
+  --shortcut-face: linear-gradient(155deg, #284d7e, #112844);
+  --shortcut-rim: #b99051;
+  --shortcut-ink: #ffe1a1;
+  --shortcut-shadow: #0005;
+}
+.settings-shortcuts-main {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 13px;
+  padding: 5px 0 4px;
+}
+.settings-shortcut {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-height: 92px;
+  min-width: 44px;
+  min-height: 44px;
+  aspect-ratio: 1;
+  padding: 10px;
+  border: 1px solid var(--shortcut-rim);
+  border-radius: 20px;
+  background: var(--shortcut-face);
+  color: var(--shortcut-ink);
+  box-shadow: inset 0 1px 1px #fff5, 0 3px 0 var(--shortcut-shadow), 0 6px 12px var(--shortcut-shadow);
+  cursor: pointer;
+  transition: transform 140ms ease, filter 140ms ease;
+}
+.settings-shortcut > .material-symbols-outlined { font-size: 33px; line-height: 1; }
+.settings-shortcut.is-sound { color: #edfff7; background: linear-gradient(150deg, #278b6b, #135541); border-color: #8fd9b7; }
+.settings-shortcut.is-visual { color: #fff0ff; background: linear-gradient(150deg, #9761bf, #58357c); border-color: #d4a7ec; }
+.settings-shortcut.is-keyboard { color: #edfdff; background: linear-gradient(150deg, #268caa, #175068); border-color: #93d6e5; }
+.settings-shortcut.is-general { color: #fff7e8; background: linear-gradient(150deg, #bf7932, #85501e); border-color: #e8bd83; }
+.settings-shortcut.is-help { color: #f0f7ff; background: linear-gradient(150deg, #4d87c6, #284d89); border-color: #a7cdf1; }
+.settings-shortcut.is-tutorial { color: #513310; background: linear-gradient(150deg, #ffe9ad, #deb05b); border-color: #f9d58c; }
+.settings-shortcut.is-about { color: #fff0f6; background: linear-gradient(150deg, #b8668d, #773454); border-color: #e5a5c3; }
+.settings-shortcut.is-facebook { color: white; background: linear-gradient(155deg, #398aff, #1261c9); border-color: #91bdff; }
+.settings-facebook-icon { width: 34px; height: 34px; }
+.settings-shortcut.is-home { color: #fff5f1; background: linear-gradient(155deg, #db5555, #972c35); border-color: #f3a3a3; }
+.settings-shortcut.is-dev { color: #eef3ff; background: linear-gradient(150deg, #637087, #343e53); border-color: #a6b1c6; }
+.settings-shortcut.is-moderation { color: #fff5df; background: linear-gradient(150deg, #a58343, #654b20); border-color: #dac087; }
+.settings-shortcut:disabled { opacity: .45; cursor: wait; }
+.settings-shortcut:focus-visible { outline: 3px solid #68bfff; outline-offset: 3px; z-index: 2; }
+.settings-shortcut:active:not(:disabled) { transform: translateY(2px); }
+.settings-shortcut-status { position: absolute; top: 9px; right: 9px; width: 7px; height: 7px; border-radius: 50%; background: #6ee7a1; box-shadow: 0 0 0 2px #102c48; }
+.settings-shortcut-tooltip {
+  position: absolute;
+  top: calc(100% + 7px);
+  left: 50%;
+  z-index: 5;
+  width: max-content;
+  max-width: 160px;
+  padding: 6px 9px;
+  border-radius: 8px;
+  background: var(--shortcut-tip-bg);
+  color: var(--shortcut-tip-ink);
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.3;
+  text-align: center;
+  box-shadow: 0 4px 12px #0004;
+  transform: translateX(-50%);
+  visibility: hidden;
+  pointer-events: none;
+}
+.settings-shortcuts-main > :nth-child(2n + 1) .settings-shortcut-tooltip { left: 0; transform: none; }
+.settings-shortcuts-main > :nth-child(2n) .settings-shortcut-tooltip { left: auto; right: 0; transform: none; }
+.settings-shortcut:focus-visible .settings-shortcut-tooltip { visibility: visible; }
+.settings-shortcuts-admin { display: flex; gap: 12px; margin-top: 15px; padding-top: 15px; border-top: 1px solid #b9905145; }
+.settings-shortcuts-admin .settings-shortcut { width: 54px; border-radius: 16px; }
+.settings-shortcuts-admin .material-symbols-outlined { font-size: 26px; }
+.settings-shortcuts-home { display: flex; justify-content: center; margin-top: 22px; padding-top: 18px; border-top: 1px solid #b9905160; }
+.settings-shortcuts-home .settings-shortcut { width: 58px; height: 58px; border-radius: 17px; }
+.settings-shortcuts-home .settings-shortcut-tooltip { top: auto; bottom: calc(100% + 7px); }
+.settings-choices { display: grid; gap: 10px; }
+.settings-choice { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 64px; padding: 10px; border: 1px solid #b9905160; border-radius: 14px; background: #ffffffb0; color: #1e3554; text-align: left; }
+.settings-choices.is-dark .settings-choice { background: #0b1a36c9; color: #fff0cb; }
+.settings-choice:hover { border-color: #d4a444; }
+.settings-choice:focus-visible { outline: 3px solid #68bfff; outline-offset: 2px; }
+.settings-choice:disabled { opacity: .45; cursor: wait; }
+.settings-choice-icon { display: grid; place-items: center; flex: 0 0 38px; height: 38px; border-radius: 11px; color: white; }
+.settings-choice-icon.is-sound { background: #237a5e; }
+.settings-choice-icon.is-visual { background: #79509e; }
+.settings-choice-icon.is-keyboard { background: #23778e; }
+.settings-choice-icon.is-help { background: #376cad; }
+.settings-choice-icon.is-tutorial { background: #e6bc6d; color: #513310; }
+.settings-choice-copy { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 3px; }
+.settings-choice-copy strong { font-size: 13px; }
+.settings-choice-copy small { font-size: 11px; line-height: 1.35; opacity: .8; }
+@media (hover: hover) {
+  .settings-shortcut:hover:not(:disabled) { filter: brightness(1.12); transform: translateY(-2px); z-index: 3; }
+  .settings-shortcut:hover .settings-shortcut-tooltip { visibility: visible; }
+}
+@media (max-height: 500px) {
+  .settings-shortcuts-main { gap: 9px; }
+  .settings-shortcut { aspect-ratio: auto; height: 52px; border-radius: 15px; }
+  .settings-shortcuts-admin { margin-top: 10px; padding-top: 10px; }
+}
+@media (prefers-reduced-motion: reduce) { .settings-shortcut { transition: none; } }

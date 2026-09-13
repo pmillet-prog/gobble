@@ -1,8 +1,8 @@
-import React, { useEffect, useImperativeHandle, useRef, useState } from "react";
+import React, { useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { getVocabLevelMeta } from "../../vocabRanks";
-import { getVocabProgressWord } from "../../features/stats/vocabRoundProgress.js";
+import { createVocabWordSequence } from "./vocabWordSequence.js";
 import useVocabOverlayFit from "./useVocabOverlayFit.js";
 
 const VOCAB_OVERLAY_FADE_MS = 1000;
@@ -58,8 +58,9 @@ const VocabProgressOverlay = React.memo(
   const [vocabOverlayHasLevelUp, setVocabOverlayHasLevelUp] = useState(false);
   const [vocabOverlayStartLevelKey, setVocabOverlayStartLevelKey] = useState(null);
   const [vocabOverlayAbsorbVec, setVocabOverlayAbsorbVec] = useState({ x: 0, y: 0 });
-  const [vocabOverlayWords, setVocabOverlayWords] = useState([]);
   const [vocabOverlayCurrentWord, setVocabOverlayCurrentWord] = useState("");
+  const [vocabOverlayWordIsSeasonNew, setVocabOverlayWordIsSeasonNew] = useState(false);
+  const [vocabOverlayWordIndex, setVocabOverlayWordIndex] = useState(0);
   const [vocabOverlayShowRanking, setVocabOverlayShowRanking] = useState(false);
   const [vocabOverlayRace, setVocabOverlayRace] = useState(null);
   const [vocabOverlayWordFading, setVocabOverlayWordFading] = useState(false);
@@ -68,7 +69,6 @@ const VocabProgressOverlay = React.memo(
   const vocabOverlayLastTickRef = useRef(0);
   const vocabOverlayDeltaRef = useRef(null);
   const vocabOverlayCursorRef = useRef(null);
-  const vocabOverlayWordsRef = useRef([]);
   const lastRequestIdRef = useRef(null);
 
   function queueVocabOverlayTimer(timerId) {
@@ -121,6 +121,7 @@ const VocabProgressOverlay = React.memo(
     rankEnd,
     raceSnapshot,
     words,
+    seasonWords,
   }) {
     clearVocabOverlayTimers();
     setIsVocabOverlayOpen(true);
@@ -156,10 +157,11 @@ const VocabProgressOverlay = React.memo(
     setVocabOverlayAbsorbVec({ x: 0, y: 0 });
     setVocabOverlayShowRanking(false);
     setVocabOverlayWordFading(false);
-    const safeWords = Array.isArray(words) ? words : [];
-    vocabOverlayWordsRef.current = safeWords;
-    setVocabOverlayWords(safeWords);
-    setVocabOverlayCurrentWord(safeWords[0] || "");
+    const wordSequence = createVocabWordSequence(words, seasonWords);
+    vocabOverlayLastTickRef.current = 0;
+    setVocabOverlayWordIndex(0);
+    setVocabOverlayCurrentWord("");
+    setVocabOverlayWordIsSeasonNew(false);
 
     queueVocabOverlayTimer(
       setTimeout(() => {
@@ -201,8 +203,6 @@ const VocabProgressOverlay = React.memo(
         );
         const accelPower = 1 + accelStrength * 3.2;
         const startAt = performance.now();
-        vocabOverlayLastTickRef.current = 0;
-
         const step = (now) => {
           const elapsed = now - startAt;
           const t = Math.min(1, Math.max(0, elapsed / durationMs));
@@ -210,8 +210,11 @@ const VocabProgressOverlay = React.memo(
             accelStrength > 0.01
               ? (Math.exp(accelPower * t) - 1) / (Math.exp(accelPower) - 1)
               : t;
-          const currentDelta = Math.round(deltaCount * eased);
-          const currentWeeklyDelta = Math.round(safeWeeklyDeltaCount * eased);
+          const wordFrame = wordSequence.advance(eased, now);
+          const currentDelta = wordSequence.seasonLength === deltaCount
+            ? wordFrame.seasonDisplayed : Math.round(deltaCount * eased);
+          const currentWeeklyDelta = wordSequence.length === safeWeeklyDeltaCount
+            ? wordFrame.displayed : Math.round(safeWeeklyDeltaCount * eased);
           const currentTotal = baseCount + currentDelta;
           const currentWeeklyTotal = safeWeeklyBaseCount + currentWeeklyDelta;
           setVocabOverlayAnimatedDelta(currentDelta);
@@ -219,13 +222,13 @@ const VocabProgressOverlay = React.memo(
           setVocabOverlayWeeklyAnimatedDelta(currentWeeklyDelta);
           setVocabOverlayWeeklyAnimatedTotal(currentWeeklyTotal);
 
-          while (vocabOverlayLastTickRef.current < currentWeeklyDelta) {
-            vocabOverlayLastTickRef.current += 1;
-            playVocabOverlayTickSound(vocabOverlayLastTickRef.current);
+          if (wordFrame.changed) {
+            setVocabOverlayCurrentWord(wordFrame.word);
+            setVocabOverlayWordIsSeasonNew(wordFrame.isSeasonNew);
+            setVocabOverlayWordIndex(wordFrame.displayed);
           }
-          setVocabOverlayCurrentWord(getVocabProgressWord(vocabOverlayWordsRef.current, currentDelta));
 
-          if (t < 1) {
+          if (t < 1 || !wordFrame.complete) {
             vocabOverlayRafRef.current = requestAnimationFrame(step);
           } else {
             setVocabOverlayAnimatedDelta(deltaCount);
@@ -297,6 +300,15 @@ const VocabProgressOverlay = React.memo(
     start: startVocabOverlayAnimation,
     stop: stopVocabOverlayAnimation,
   }));
+
+  // Play only after React has committed the matching word to the screen.
+  // One weekly discovery = one committed word = one beep, higher for a season discovery.
+  useLayoutEffect(() => {
+    if (!isVocabOverlayOpen || !vocabOverlayCurrentWord ||
+        vocabOverlayWordIndex <= vocabOverlayLastTickRef.current) return;
+    vocabOverlayLastTickRef.current = vocabOverlayWordIndex;
+    playVocabOverlayTickSound(vocabOverlayWordIndex, { isSeasonNew: vocabOverlayWordIsSeasonNew });
+  }, [isVocabOverlayOpen, vocabOverlayCurrentWord, vocabOverlayWordIndex, vocabOverlayWordIsSeasonNew, playVocabOverlayTickSound]);
 
   useEffect(() => {
     const requestId = request?.id;
@@ -685,7 +697,8 @@ const VocabProgressOverlay = React.memo(
       </div>
       <div className="text-[11px] uppercase tracking-[0.18em] min-h-[14px]">
         <div
-          className={`truncate text-center ${vocabOverlayWordFading ? "vocab-word-fade-out" : ""}`}
+          className={`truncate text-center ${vocabOverlayWordFading ? "vocab-word-fade-out" : ""} ${vocabOverlayWordIsSeasonNew ? `font-black ${darkMode ? "text-amber-300" : "text-amber-700"}` : ""}`}
+          title={vocabOverlayCurrentWord ? (vocabOverlayWordIsSeasonNew ? "Nouveau cette semaine et cette saison" : "Nouveau cette semaine") : undefined}
         >
           {vocabOverlayCurrentWord || ""}
         </div>

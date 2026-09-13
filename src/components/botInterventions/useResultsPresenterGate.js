@@ -1,4 +1,5 @@
 import React from "react";
+import { useFeatureRuntime, useFeatureSelector } from "../../app/react/useFeatureRuntime.js";
 
 export const RESULTS_PRESENTER_VOCAB_FALLBACK_MS = 6500;
 const VOCAB_DECISION_SETTLE_MS = 120;
@@ -13,6 +14,8 @@ export default function useResultsPresenterGate({
   vocabOverlayRequest,
   vocabResultsReadyKey,
 }) {
+  const liveUi = useFeatureRuntime("liveUi");
+  const roundReviewOpen = useFeatureSelector(liveUi, state => !!state.threeWordsRecapOpen);
   const resultsKey = String(roundId || "results-without-round-id");
   const [readyResultsKey, setReadyResultsKey] = React.useState(null);
   const sawOverlayRef = React.useRef(false);
@@ -30,7 +33,7 @@ export default function useResultsPresenterGate({
       setReadyResultsKey(resultsKey);
       return undefined;
     }
-    if (vocabOverlayOpen) {
+    if (vocabOverlayOpen || roundReviewOpen) {
       sawOverlayRef.current = true;
       setReadyResultsKey(null);
       return undefined;
@@ -58,9 +61,10 @@ export default function useResultsPresenterGate({
     resultsKey,
     targetSummary,
     vocabOverlayOpen,
+    roundReviewOpen,
     vocabOverlayRequest,
     vocabResultsReadyKey,
   ]);
 
-  return phase !== "results" || readyResultsKey === resultsKey;
+  return !roundReviewOpen && (phase !== "results" || readyResultsKey === resultsKey);
 }

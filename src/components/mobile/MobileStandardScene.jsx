@@ -218,7 +218,8 @@ export default function MobileStandardScene({ state, refs, actions, content, con
       mobileLayoutSizing.liveFeedHeight || liveFeedFallback
     );
     const previewBlockHeight = Math.max(0, mobilePreviewHeight);
-    const showMobileLiveFeed = mobileLayoutSizing.adaptiveRanking || mobileLiveFeedHeight >= 74;
+    const showMobileLiveFeed = mobileLayoutSizing.adaptiveRanking ||
+      mobileLayoutSizing.targetHintHeight > 0 || mobileLiveFeedHeight >= 74;
     const previewWordLen = liveWord ? liveWord.length : 0;
     const previewGapPx = previewWordLen >= 10 ? 2 : 4;
     const previewContentWidth = Math.max(0, fallbackViewportWidth - 44); // px-3 + px-2.5
@@ -243,16 +244,6 @@ export default function MobileStandardScene({ state, refs, actions, content, con
       height: `${previewTileHeight}px`,
       fontSize: `${previewTileFontPx}px`,
     };
-    const specialBlockHeight = Math.round(mobileLayoutSizing.rankingHeight || 0);
-    const specialBaseHeight = 120;
-    const specialScale =
-      specialBlockHeight > 0
-        ? Math.min(1, specialBlockHeight / specialBaseHeight)
-        : 1;
-    const specialTitleFont = Math.max(9, Math.round(11 * specialScale));
-    const specialWordFont = Math.max(16, Math.round(24 * specialScale));
-    const specialMetaFont = Math.max(9, Math.round(11 * specialScale));
-    const specialPadY = Math.max(6, Math.round(8 * specialScale));
     const mobileGapPx = "clamp(6px, 2.4vw, 14px)";
     const mobileTileFontPx = Math.max(
       18,
@@ -770,17 +761,11 @@ export default function MobileStandardScene({ state, refs, actions, content, con
         showPreviewStats={showPreviewStats}
         showSolvedTargetLoupe={showSolvedTargetLoupe}        solvedTargetWord={solvedTargetWord}
         special3LockedStartTileSet={special3LockedStartTileSet}
-        specialBlockHeight={specialBlockHeight}
         specialHint={specialHint}
         specialHintDisplay={specialHintDisplay}
         specialIndicatorPreset={specialIndicatorPreset}
-        specialMetaFont={specialMetaFont}
-        specialPadY={specialPadY}
         specialRound={specialRound}
-        specialScale={specialScale}
         specialSolvedOverlay={specialSolvedOverlay}
-        specialTitleFont={specialTitleFont}
-        specialWordFont={specialWordFont}
         targetScoreMax={targetScoreMax}
         targetWaitDevActive={targetWaitDevActive}
         onTargetWaitDevGridHostChange={setTargetWaitDevGridHost}

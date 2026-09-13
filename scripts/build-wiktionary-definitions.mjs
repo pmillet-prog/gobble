@@ -6,6 +6,9 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { buildGameSemanticThemes } from "../server/definitions/gameSemanticThemes.js";
 import { buildWordLinguisticFacts } from "../server/definitions/wordLinguisticFacts.js";
+import { formatEtymon, parseTemplateParameters } from "./lib/wiktionaryTemplateParams.mjs";
+import { clipEtymologyText } from "./lib/etymologyText.mjs";
+import { decodeWiktionaryTextEntities, renderWiktionaryInlineText } from "./lib/wiktionaryInlineText.mjs";
 
 const DEFAULT_DICTIONARY = "public/dico.txt";
 const DEFAULT_OUTPUT = "data/definitions-fr.jsonl";
@@ -330,7 +333,7 @@ function extractTag(xml, tagName) {
   return match ? decodeXml(match[1]) : "";
 }
 
-function extractPage(pageXml) {
+export function extractPage(pageXml) {
   return {
     title: extractTag(pageXml, "title").trim(),
     text: extractTag(pageXml, "text"),
@@ -350,21 +353,12 @@ function getDumpStream(dumpPath) {
   return createReadStream(dumpPath, { encoding: "utf8" });
 }
 
-export function replaceInlineTemplate(templateBody) {
-  const parts = String(templateBody || "")
-    .split("|")
-    .map((part) => part.trim())
-    .filter(Boolean);
-  if (!parts.length) return "";
-
-  const name = normalizeForText(parts[0]);
-  const params = parts.slice(1);
-  const positionalParams = params.filter((param) => !param.includes("="));
-  const namedParam = (key) => {
-    const prefix = `${key}=`;
-    const found = params.find((param) => normalizeForText(param).startsWith(prefix));
-    return found ? found.slice(found.indexOf("=") + 1).trim() : "";
-  };
+export function replaceInlineTemplate(templateBody, { onUnsupportedTemplate } = {}) {
+  const parsed = parseTemplateParameters(String(templateBody || ""));
+  const name = normalizeForText(parsed.name);
+  const { params, positionalParams, namedParam } = parsed;
+  const inlineText = renderWiktionaryInlineText(name, parsed);
+  if (inlineText !== null) return inlineText;
   const firstLexeme = () => {
     for (const param of params) {
       if (param.includes("=")) continue;
@@ -390,25 +384,31 @@ export function replaceInlineTemplate(templateBody) {
     return namedParam("texte") || namedParam("titre") || namedParam("label") || "";
   }
 
-  if (name === "date") {
-    return positionalParams.join(" ");
+  if (name === "etyl") {
+    const code = normalizeForText(positionalParams[0] || "");
+    const label = ETYMOLOGY_LANGUAGE_CODES.get(code) || code;
+    const source = formatEtymon(
+      namedParam("dif") || namedParam("mot") || positionalParams[2],
+      namedParam("tr") || positionalParams[3],
+      namedParam("sens") || positionalParams[4]
+    );
+    return source ? `${label} ${source}` : label;
   }
-
-  if (name === "siecle") {
-    const value = positionalParams.join(" ").trim();
-    if (!value) return "";
-    if (/siecle/i.test(normalizeForText(value))) return value;
-    if (/^[ivxlcdm]+$/i.test(value)) return `${value}e siècle`;
-    return `${value} siècle`;
+  if (["lien", "l", "polytonique"].includes(name)) {
+    return formatEtymon(
+      namedParam("dif") || namedParam("mot") || positionalParams[0],
+      namedParam("tr") || (name === "polytonique" ? positionalParams[1] : ""),
+      namedParam("sens") || (name === "polytonique" ? positionalParams[2] : "")
+    );
   }
-
+  if (name === "recons") {
+    const word = namedParam("dif") || namedParam("mot") || positionalParams[0];
+    return word ? `${word} (forme reconstruite)` : "";
+  }
   if (
-    name === "lien" ||
-    name === "l" ||
     name === "m" ||
     name === "f" ||
     name === "mf" ||
-    name === "etyl" ||
     name === "etym" ||
     name === "etymon" ||
     name === "emprunt" ||
@@ -419,34 +419,33 @@ export function replaceInlineTemplate(templateBody) {
     name.includes("graphie") ||
     name.includes("variante")
   ) {
-    if (name === "etyl") {
-      const code = normalizeForText(params[0] || "");
-      const label = ETYMOLOGY_LANGUAGE_CODES.get(code) || code;
-      const sourceWord = namedParam("mot") || namedParam("dif");
-      return sourceWord ? `${label} ${sourceWord}` : label;
-    }
     return firstLexeme();
+  }
+  if (!/^(?:r|ref|ebauche-etym|lae|lien-ancre-etym|pron|ecouter|audio|cf)$/.test(name) && !/^(?:r:|citation\/)/.test(name)) {
+    onUnsupportedTemplate?.({ name, body: templateBody });
   }
   return "";
 }
 
-export function cleanDefinitionText(rawText) {
+export function cleanDefinitionText(rawText, diagnostics = {}) {
   let text = String(rawText || "");
   text = text.replace(/<!--[\s\S]*?-->/g, " ");
   text = text.replace(/<ref\b[^>]*>[\s\S]*?<\/ref>/gi, " ");
   text = text.replace(/<ref\b[^/]*\/>/gi, " ");
 
   for (let i = 0; i < 8 && /\{\{[^{}]*\}\}/.test(text); i += 1) {
-    text = text.replace(/\{\{([^{}]*)\}\}/g, (_, body) => replaceInlineTemplate(body));
+    text = text.replace(/\{\{([^{}]*)\}\}/g, (_, body) => replaceInlineTemplate(body, diagnostics));
   }
 
   text = text.replace(/\[\[([^|\]]+)\|([^\]]+)\]\]/g, "$2");
-  text = text.replace(/\[\[([^\]]+)\]\]/g, "$1");
+  text = text.replace(/\[\[([^\]#]+)(?:#[^\]]*)?\]\]/g, "$1");
   text = text.replace(/\[https?:\/\/[^\s\]]+\s+([^\]]+)\]/g, "$1");
   text = text.replace(/\[https?:\/\/[^\]]+\]/g, " ");
   text = text.replace(/'''+/g, "");
   text = text.replace(/''/g, "");
+  text = text.replace(/<\/?(?:sup|sub)\b[^>]*>/gi, "");
   text = text.replace(/<[^>]*>/g, " ");
+  text = decodeWiktionaryTextEntities(text);
   text = text.replace(/\{\{|\}\}/g, " ");
   text = text.replace(/\s+/g, " ").trim();
   text = text.replace(/\s+([,.;:!?])/g, "$1");
@@ -463,8 +462,8 @@ function pickPrimaryEtymologyRawText(rawText) {
   return String(rawText || "");
 }
 
-export function cleanEtymologyText(rawText, maxLen = DEFAULT_MAX_ETYMOLOGY_LEN) {
-  let text = cleanDefinitionText(pickPrimaryEtymologyRawText(rawText))
+export function cleanEtymologyText(rawText, maxLen = DEFAULT_MAX_ETYMOLOGY_LEN, diagnostics = {}) {
+  let text = cleanDefinitionText(pickPrimaryEtymologyRawText(rawText), diagnostics)
     .replace(/:{1,2}\s*\*/g, ": ")
     .replace(/,\s*:\s*\*/g, ", ")
     .replace(/\s*\*\s*/g, " ")
@@ -478,20 +477,9 @@ export function cleanEtymologyText(rawText, maxLen = DEFAULT_MAX_ETYMOLOGY_LEN) 
   text = text.replace(/\s+([,.;:!?])/g, "$1").replace(/([,;:])\s*([,;:])/g, "$1");
   text = text.replace(/^(?:etymologie\s*:?\s*)/i, "").trim();
   if (!text || text.length < 18) return "";
+  if (/^(?:\((?:Date|Siècle) à préciser\)[\s.;:]*)+$/i.test(text)) return "";
   if (/^(?:voir|variante de|forme de)\s+/i.test(text)) return "";
-  if (text.length <= maxLen) return text;
-  const slice = text.slice(0, maxLen);
-  const boundary = Math.max(
-    slice.lastIndexOf(". "),
-    slice.lastIndexOf("; "),
-    slice.lastIndexOf(", "),
-    slice.lastIndexOf(" et "),
-    slice.lastIndexOf(" ou ")
-  );
-  const cut = boundary >= Math.min(80, Math.floor(maxLen * 0.55))
-    ? slice.slice(0, boundary)
-    : slice.replace(/\s+\S*$/, "");
-  return `${cut.replace(/[«“(,;:\s]+$/g, "").trim()}...`;
+  return clipEtymologyText(text, maxLen);
 }
 
 function parseHeading(line) {
@@ -673,7 +661,7 @@ function extractFrenchCategories(wikitext) {
   return categories;
 }
 
-function extractRawFrenchEtymologyBlock(wikitext) {
+export function extractRawFrenchEtymologyBlock(wikitext) {
   const lines = String(wikitext || "").split(/\r?\n/);
   let inFrench = false;
   let inEtymology = false;

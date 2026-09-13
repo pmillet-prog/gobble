@@ -406,6 +406,7 @@ async function submitDailyScore() {
     setDailyResult({
       dateId: data?.dateId || dateId,
       mode: dailyPlayMode,
+      wordReview: Array.isArray(data?.wordReview) ? data.wordReview : null,
       score: Number.isFinite(data?.score) ? data.score : currentScore,
       gobbles: Number.isFinite(data?.gobbles) ? data.gobbles : 0,
       rank: Number.isFinite(data?.rank) ? data.rank : null,
@@ -438,6 +439,7 @@ async function submitDailyScore() {
       }));
     }
     const submittedResult = {
+      wordReview: Array.isArray(data?.wordReview) ? data.wordReview : null,
       score: Number.isFinite(data?.score) ? data.score : currentScore,
       gobbles: Number.isFinite(data?.gobbles) ? data.gobbles : 0,
       rank: Number.isFinite(data?.rank) ? data.rank : null,

@@ -157,6 +157,7 @@ function MobileResultsScreen(props) {
           }}
         >
           <div
+            data-tutorial-focus="results"
             className={resultsCardClassName}
             style={resultsCardStyle}
             onTouchStart={handleResultsTouchStart}
@@ -170,7 +171,7 @@ function MobileResultsScreen(props) {
             <div className="relative flex-1 min-h-0 overflow-hidden z-10">
               <div className={`flex flex-col gap-2 h-full results-fade-layer ${resultsFadeClass}`}>
                 <div className="flex items-center justify-between gap-2 text-xs">
-                  <div className="font-semibold">
+                  <div className="font-semibold" data-results-heading={!showResultsWords ? resultsPageKey : undefined}>
                     {resultsHeaderLabel}
                     {!showResultsWords && resultsHeaderSuffix && SwapFadeText ? (
                       <SwapFadeText value={resultsHeaderSuffix} className="ml-1" />
@@ -188,10 +189,12 @@ function MobileResultsScreen(props) {
                     </span>
                   )}
                   {showResultsWords && SwapFadeText ? (
-                    <SwapFadeText
-                      value={resultsWordsTitle}
-                      className="text-slate-500 dark:text-slate-300 whitespace-nowrap"
-                    />
+                    <span data-results-heading={resultsPageKey}>
+                      <SwapFadeText
+                        value={resultsWordsTitle}
+                        className="text-slate-500 dark:text-slate-300 whitespace-nowrap"
+                      />
+                    </span>
                   ) : null}
                 </div>
 
@@ -302,6 +305,7 @@ function MobileResultsScreen(props) {
                             return (
                               <li
                                 key={entry.word}
+                                data-result-word={entry.word}
                                 onMouseEnter={() => onAnalyzeWord?.(entry.word)}
                                 onMouseLeave={() => onClearAnalysis?.()}
                                 onClick={(e) => {

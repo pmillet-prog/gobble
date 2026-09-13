@@ -63,6 +63,8 @@ export default function useLiveRanking(
             : Number.isFinite(entry?.gobbles)
             ? Number(entry.gobbles)
             : 0,
+        lepersBonus:
+          entry?.inTraining || identity.inTraining ? 0 : Number(entry?.lepersBonus) || 0,
         rank:
           entry?.inTraining || identity.inTraining
             ? null
@@ -113,6 +115,8 @@ export default function useLiveRanking(
             : Number.isFinite(player?.gobbles)
             ? Number(player.gobbles)
             : 0,
+        lepersBonus:
+          player?.inTraining || identity.inTraining ? 0 : Number(player?.lepersBonus) || 0,
         rank: null,
         team: player?.team || identity.team || null,
         isBot: !!player?.isBot || !!identity.isBot,
@@ -154,6 +158,7 @@ export default function useLiveRanking(
           playerKey: selfUserId ? `install:${selfUserId}` : "",
           score: currentScore,
           gobbles: 0,
+          lepersBonus: 0,
           rank: null,
           team: duelStatus?.team || null,
           isBot: false,
@@ -173,6 +178,7 @@ export default function useLiveRanking(
         playerKey: fallbackUserId ? `install:${fallbackUserId}` : "",
         score: currentScore ?? 0,
         gobbles: 0,
+        lepersBonus: 0,
         rank: null,
         isWeeklyVocabChampion: false,
       });

@@ -9,7 +9,7 @@ import { createSamsungDiagnostics } from "../../perf/createSamsungDiagnostics.js
 const DEV_MODE = typeof import.meta !== "undefined" && !!import.meta.env?.DEV;
 const SAMSUNG_SAFE_MODE_STORAGE_KEY = "samsungSafeMode";
 const SAMSUNG_DIAG_QUERY_PARAM = "samsungDiag";
-const SAMSUNG_DIAG_STORAGE_KEY = "gobbleSamsungDiagEnabled";
+const LEGACY_SAMSUNG_DIAG_STORAGE_KEY = "gobbleSamsungDiagEnabled";
 const SAMSUNG_BROWSER_WARNING_SESSION_KEY = "gobbleSamsungBrowserWarningShown";
 const SAMSUNG_DIAG_FLUSH_INTERVAL_MS = 4000;
 const EMPTY_LIST = Object.freeze([]);
@@ -213,7 +213,7 @@ export function createPerformanceDiagnosticsFeature(
   }
 
   function installDevelopmentLongTaskObserver() {
-    if (!devMode) return;
+    if (!devMode || !isActive()) return;
     observeLongTasks((list) => {
       list.getEntries().forEach((entry) => {
         if (entry.duration < 50) return;
@@ -228,7 +228,7 @@ export function createPerformanceDiagnosticsFeature(
 
   function installSamsungPerformanceMonitor() {
     if (!windowTarget || !performanceTarget?.now) return;
-    if (!refs.isSamsungBrowser.current && !isActive()) return;
+    if (!isActive()) return;
     const maybeLogPerf = (event, payload = {}) => {
       const now = dateNow();
       if (now - perfLogLastAt < 1500) return;
@@ -384,6 +384,8 @@ export function createPerformanceDiagnosticsFeature(
     let diagSource = "auto-off";
     try {
       localStorageTarget?.removeItem(SAMSUNG_SAFE_MODE_STORAGE_KEY);
+      // Diagnostic sessions must be explicitly requested in the current URL.
+      localStorageTarget?.removeItem(LEGACY_SAMSUNG_DIAG_STORAGE_KEY);
     } catch (_) {}
     try {
       const rawDiag = new URLSearchParams(windowTarget?.location?.search || "").get(
@@ -397,26 +399,6 @@ export function createPerformanceDiagnosticsFeature(
         diagSource = "query";
       }
     } catch (_) {}
-    if (forcedDiag === null) {
-      try {
-        const savedDiag = localStorageTarget?.getItem(SAMSUNG_DIAG_STORAGE_KEY);
-        if (/^(1|true|on)$/i.test(String(savedDiag || ""))) {
-          forcedDiag = true;
-          diagSource = "storage";
-        } else if (/^(0|false|off)$/i.test(String(savedDiag || ""))) {
-          forcedDiag = false;
-          diagSource = "storage";
-        }
-      } catch (_) {}
-      if (forcedDiag === null && (devMode || localHost)) {
-        forcedDiag = true;
-        diagSource = "dev-local";
-      }
-    } else {
-      try {
-        localStorageTarget?.setItem(SAMSUNG_DIAG_STORAGE_KEY, forcedDiag ? "1" : "0");
-      } catch (_) {}
-    }
     refs.safeMode.current = false;
     refs.safeModeSource.current = "disabled";
     refs.enabled.current = forcedDiag === null ? false : !!forcedDiag;
@@ -438,6 +420,7 @@ export function createPerformanceDiagnosticsFeature(
     if (!active || !configured || initialized) return;
     initialized = true;
     detectSamsungRuntime();
+    if (!isActive()) return;
     installDiagnosticHooks();
     installDevelopmentLongTaskObserver();
     installSamsungPerformanceMonitor();

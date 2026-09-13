@@ -15,6 +15,7 @@ export function areMobileLayoutSizingsEqual(left, right) {
     left.liveFeedMinHeight === right.liveFeedMinHeight &&
     left.liveActionBarHeight === right.liveActionBarHeight &&
     left.adaptiveRanking === right.adaptiveRanking &&
+    left.targetHintHeight === right.targetHintHeight &&
     left.bodyHeight === right.bodyHeight
   );
 }
@@ -42,6 +43,7 @@ export function computeMobileGameLayoutSizing({
   bodyHeight,
   maxGridWidth,
   adaptiveRanking = false,
+  roundType = null,
   showLiveActionBar = false,
   viewportHeight,
   viewportWidth,
@@ -75,17 +77,21 @@ export function computeMobileGameLayoutSizing({
     liveFeedGapPx +
     liveFeedRowPx * 3 +
     liveFeedGapPx * 2;
-  if (adaptiveRanking) {
+  const reserveTargetFeed = showLiveActionBar &&
+    (roundType === "target_long" || roundType === "target_score");
+  if (adaptiveRanking || reserveTargetFeed) {
     // Compact the surrounding UI first, then shrink the board only if needed.
-    const minRanking = 90; // Keep all five ranking rows readable.
+    const minTopBlock = reserveTargetFeed ? 80 : 90;
+    const maxTopBlock = reserveTargetFeed ? 100 : 128;
     const minPreview = 30;
-    const minFeed = 40;
+    // Target announcements include both the player and their completion time.
+    const minFeed = reserveTargetFeed ? 60 : 40;
     const availableBelowGrid = Math.max(
       0, safeBodyHeight - verticalPadding - layoutGaps - availableWidth,
     );
     if (liveActionBarHeight > 0) {
       liveActionBarHeight = clampValue(
-        availableBelowGrid - minRanking - minPreview - minFeed,
+        availableBelowGrid - minTopBlock - minPreview - minFeed,
         52, // 44px touch targets + 8px of vertical breathing room.
         liveActionBarHeight,
       );
@@ -95,23 +101,24 @@ export function computeMobileGameLayoutSizing({
     );
     const gridSide = Math.min(
       availableWidth,
-      Math.max(0, contentHeight - minRanking - minPreview - minFeed),
+      Math.max(0, contentHeight - minTopBlock - minPreview - minFeed),
     );
     const remaining = Math.max(0, contentHeight - gridSide);
     const previewTarget = clampValue(Math.round(safeBodyHeight * 0.08), 30, 51);
     const wordPreviewHeight = clampValue(
-      remaining - minRanking - liveFeedMinHeight, minPreview, previewTarget,
+      remaining - minTopBlock - liveFeedMinHeight, minPreview, previewTarget,
     );
-    const rankingHeight = clampValue(
-      remaining - wordPreviewHeight - liveFeedMinHeight, minRanking, 128,
+    const topBlockHeight = clampValue(
+      remaining - wordPreviewHeight - liveFeedMinHeight, minTopBlock, maxTopBlock,
     );
-    const liveFeedHeight = Math.max(minFeed, remaining - rankingHeight - wordPreviewHeight);
+    const liveFeedHeight = Math.max(minFeed, remaining - topBlockHeight - wordPreviewHeight);
     return {
-      adaptiveRanking: true,
+      adaptiveRanking: !reserveTargetFeed,
+      ...(reserveTargetFeed ? { targetHintHeight: topBlockHeight } : {}),
       viewportWidth: safeViewportWidth,
       viewportHeight: safeViewportHeight,
       gridSide,
-      rankingHeight,
+      rankingHeight: reserveTargetFeed ? 0 : topBlockHeight,
       wordPreviewHeight,
       liveFeedHeight,
       liveFeedMinHeight: minFeed,
@@ -222,7 +229,7 @@ export default function useMobileLayoutController({
   game,
   layout,
 }) {
-  const { gridSize, phase, showHelp } = game;
+  const { gridSize, phase, roundType, showHelp } = game;
   const {
     isFullscreen,
     isMobileLayout,
@@ -412,6 +419,7 @@ export default function useMobileLayoutController({
           bodyHeight,
           maxGridWidth,
           adaptiveRanking,
+          roundType,
           showLiveActionBar,
           viewportHeight,
           viewportWidth,
@@ -459,6 +467,7 @@ export default function useMobileLayoutController({
     maxGridWidth,
     adaptiveRanking,
     phase,
+    roundType,
     setMobileHeaderOffsetPx,
     setMobileLayoutSizing,
     showLiveActionBar,

@@ -1,4 +1,11 @@
 import React from "react";
+import { DAILY_SPECIAL_MODE } from "../../components/daily/dailyModes.js";
+
+export function isInvalidWordGuardEnabled({ isLoggedIn, appView, phase, roundType }) {
+  return !!isLoggedIn && appView === "live" && phase === "playing" &&
+    roundType !== "speed" && roundType !== "target_long" &&
+    roundType !== "target_score" && roundType !== DAILY_SPECIAL_MODE;
+}
 
 export const INVALID_WORD_GUARD_THRESHOLD = 3;
 export const INVALID_WORD_GUARD_DURATION_MS = 1500;

@@ -37,6 +37,82 @@ function createStorage() {
   };
 }
 
+test("diagnostic monitoring stays idle without explicit URL opt-in", async (t) => {
+  const cases = [
+    { name: "development", devMode: true },
+    { name: "localhost", hostname: "localhost" },
+    { name: "local IP", hostname: "127.0.0.1" },
+    { name: "Samsung Internet", samsung: true },
+    { name: "saved opt-in", saved: "1" },
+    { name: "Samsung with saved opt-in", samsung: true, saved: "true" },
+    { name: "explicit off in development", devMode: true, search: "?samsungDiag=0" },
+    { name: "explicit off on Samsung", samsung: true, search: "?samsungDiag=off" },
+    { name: "invalid opt-in", devMode: true, search: "?samsungDiag=invalid" },
+  ];
+
+  for (const scenario of cases) {
+    await t.test(scenario.name, (t) => {
+      const scope = createResourceScope("idle-performance-diagnostics");
+      t.after(() => scope.dispose());
+      const scheduled = { observers: 0, intervals: 0, frames: 0 };
+      const localStorageTarget = createStorage();
+      const sessionStorageTarget = createStorage();
+      sessionStorageTarget.setItem("gobbleSamsungBrowserWarningShown", "1");
+      if (scenario.saved) {
+        localStorageTarget.setItem("gobbleSamsungDiagEnabled", scenario.saved);
+      }
+      const documentTarget = createEventTarget({ visibilityState: "visible" });
+      const windowTarget = createEventTarget({
+        location: {
+          hostname: scenario.hostname || "gobble.test",
+          search: scenario.search || "",
+        },
+      });
+      const warn = t.mock.method(console, "warn", () => {});
+      const feature = createPerformanceDiagnosticsFeature({ scope }, {
+        devMode: scenario.devMode || false,
+        documentTarget,
+        localStorageTarget,
+        navigatorTarget: {
+          userAgent: scenario.samsung ? "Mozilla/5.0 SamsungBrowser/28.0" : "Mozilla/5.0 Chrome/140.0",
+        },
+        performanceObserverCtor: class {
+          constructor() { scheduled.observers += 1; }
+          observe() {}
+          disconnect() {}
+        },
+        performanceTarget: { now: () => 0 },
+        requestAnimationFrameFn: () => { scheduled.frames += 1; return scheduled.frames; },
+        cancelAnimationFrameFn() {},
+        setIntervalFn: () => { scheduled.intervals += 1; return scheduled.intervals; },
+        clearIntervalFn() {},
+        sessionStorageTarget,
+        windowTarget,
+      });
+
+      feature.start();
+      feature.configure({ phaseRef: { current: "lobby" }, tickRef: { current: 0 } });
+      feature.configure({ phaseRef: { current: "playing" }, tickRef: { current: 8 } });
+      feature.bumpCounter("longTask");
+      feature.pushEvent("perf-longtask", { maxMs: 118 }, { consoleLevel: "warn", flush: true });
+
+      assert.equal(feature.isActive(), false);
+      assert.deepEqual(scheduled, { observers: 0, intervals: 0, frames: 0 });
+      assert.equal(documentTarget.listenerCount("visibilitychange"), 0);
+      for (const eventName of ["error", "unhandledrejection", "pagehide", "beforeunload"]) {
+        assert.equal(windowTarget.listenerCount(eventName), 0);
+      }
+      assert.equal(windowTarget.__gobbleSamsungDiagDump, undefined);
+      assert.equal(windowTarget.__gobbleSamsungDiagRead, undefined);
+      assert.equal(feature.flushSnapshot(), null);
+      assert.equal(feature.refs.state.current.counters.longTask, 0);
+      assert.equal(feature.refs.state.current.events.length, 0);
+      assert.equal(warn.mock.callCount(), 0);
+      assert.equal(localStorageTarget.getItem("gobbleSamsungDiagEnabled"), null);
+    });
+  }
+});
+
 test("performance diagnostics owns Samsung observers, loops, listeners and cleanup", (t) => {
   const previousWarn = console.warn;
   console.warn = () => {};
@@ -48,6 +124,7 @@ test("performance diagnostics owns Samsung observers, loops, listeners and clean
   const animationFrames = new Map();
   const observers = [];
   const scope = createResourceScope("performance-diagnostics-test");
+  const localStorageTarget = createStorage();
   const documentTarget = createEventTarget({ visibilityState: "visible" });
   const windowTarget = createEventTarget({
     alert() {},
@@ -85,7 +162,7 @@ test("performance diagnostics owns Samsung observers, loops, listeners and clean
       dateNow: () => 2000,
       devMode: false,
       documentTarget,
-      localStorageTarget: createStorage(),
+      localStorageTarget,
       navigatorTarget: { userAgent: "Mozilla/5.0 SamsungBrowser/28.0" },
       performanceObserverCtor: FakePerformanceObserver,
       performanceTarget: { now: () => performanceNow },
@@ -125,6 +202,8 @@ test("performance diagnostics owns Samsung observers, loops, listeners and clean
 
   assert.equal(feature.refs.isSamsungBrowser.current, true);
   assert.equal(feature.isActive(), true);
+  assert.equal(feature.refs.source.current, "query");
+  assert.equal(localStorageTarget.getItem("gobbleSamsungDiagEnabled"), null);
   assert.deepEqual(
     [...intervals.values()].map((timer) => timer.delayMs).sort((a, b) => a - b),
     [1000, 4000, 5000]

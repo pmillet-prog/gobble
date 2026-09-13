@@ -76,7 +76,7 @@ export function createStandaloneTrainingFeature(
   function restorePresence() {
     const session = refs.session.current;
     const socket = config.socket;
-    if (!session || !socket) return;
+    if (!session || session.localOnly || !socket) return;
     socket.emit("training:standalone:presence", {
       ...getIdentityPayload(),
       sessionId: session.sessionId,
@@ -103,7 +103,7 @@ export function createStandaloneTrainingFeature(
       configuredSocket = nextSocket;
       socketListenerAttached = false;
     }
-    const shouldListen = active && !!refs.session.current && !!configuredSocket;
+    const shouldListen = active && !!refs.session.current && !refs.session.current.localOnly && !!configuredSocket;
     if (!shouldListen && socketListenerAttached) {
       configuredSocket.off?.("connect", onSocketConnect);
       socketListenerAttached = false;
@@ -216,7 +216,7 @@ export function createStandaloneTrainingFeature(
 
   async function requestJoinLive() {
     const session = refs.session.current;
-    if (!session || store.getState().busy) return false;
+    if (!session || session.localOnly || store.getState().busy) return false;
     store.set("busy", true);
     const connected = await connectIfNeeded();
     if (!active) return false;
@@ -246,7 +246,7 @@ export function createStandaloneTrainingFeature(
   }
 
   async function confirmJoinLive() {
-    if (!refs.session.current || store.getState().busy) return false;
+    if (!refs.session.current || refs.session.current.localOnly || store.getState().busy) return false;
     store.set("busy", true);
     const connected = await connectIfNeeded();
     if (!active) return false;
@@ -280,7 +280,7 @@ export function createStandaloneTrainingFeature(
       store.set("joinDialog", null);
       config.onReturnLobby?.();
     };
-    if (!config.socket?.connected || !refs.session.current) {
+    if (!config.socket?.connected || !refs.session.current || refs.session.current.localOnly) {
       finish();
       return true;
     }
@@ -299,6 +299,17 @@ export function createStandaloneTrainingFeature(
 
   function clearSession() {
     commitSession(null);
+  }
+
+  // Enter the existing launch/scoring/results pipeline without requesting a
+  // board or publishing presence. The caller supplies a complete local pack.
+  function startPreparedSession(prepared) {
+    if (!active || store.getState().busy || !Array.isArray(prepared?.grid) || !Array.isArray(prepared?.solutions)) return false;
+    const session = { ...prepared, localOnly: true, startedAt: now() };
+    commitSession(session);
+    store.set("joinDialog", null);
+    config.onLaunch?.(session, null);
+    return true;
   }
 
   function cancelJoinDialog() {
@@ -336,6 +347,7 @@ export function createStandaloneTrainingFeature(
     returnToLobby,
     start,
     startTraining,
+    startPreparedSession,
     store,
   });
 }

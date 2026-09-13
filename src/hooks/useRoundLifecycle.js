@@ -327,19 +327,18 @@ export default function useRoundLifecycle(runtime) {
         void requestVocabCount().then((snapshot) => {
           if (effectSessionId && gameplaySessionIdRef?.current !== effectSessionId) return;
           if (vocabResultsPendingRef.current !== vocabResultsKey) return;
-          const count = Number.isFinite(snapshot?.count) ? snapshot.count : null;
-          if (!Number.isFinite(count)) {
-            setVocabRoundDelta(null);
-            setVocabWeeklyRoundDelta(null);
-            return;
-          }
           const progress = resolveVocabRoundProgress({
             result: selfResultForVocab,
-            count,
+            count: snapshot?.count,
             weeklyCount: snapshot?.weeklyCount,
             baseline: vocabBaselineRef.current,
             weeklyBaseline: vocabWeeklyBaselineRef.current,
           });
+          if (!progress.available || !Number.isFinite(progress.count)) {
+            setVocabRoundDelta(null);
+            setVocabWeeklyRoundDelta(null);
+            return;
+          }
           setVocabRoundDelta(progress.delta);
           setVocabWeeklyRoundDelta(progress.weeklyDelta);
           const weeklyCount = progress.weeklyCount;

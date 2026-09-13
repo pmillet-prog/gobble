@@ -1,8 +1,8 @@
 import React from "react";
 import SettingsMenuFrame from "./SettingsMenuFrame.jsx";
 import SettingsPanelHost from "./SettingsPanelHost.jsx";
-import { FacebookLogo } from "../FacebookGroupInviteModal.jsx";
-import { openFacebookGroup } from "../../utils/facebookGroup.js";
+import SettingsShortcutMenu from "./SettingsShortcutMenu.jsx";
+import { SettingsHelpChoices, SettingsPreferenceChoices } from "./SettingsNavigationChoices.jsx";
 import AnimatedTimeWheel, {
   TIME_WHEEL_MULTI_ROLL_DURATION_MS as PLAYTIME_MULTI_ROLL_DURATION_MS,
   TIME_WHEEL_ROLL_DURATION_MS as PLAYTIME_ROLL_DURATION_MS,
@@ -238,6 +238,7 @@ function SettingsMenu(props) {
     ? "bg-rose-950/55 border-rose-300/40 text-rose-50 hover:bg-rose-950/70"
     : "bg-rose-50/85 border-rose-300/60 text-rose-800 hover:bg-rose-100";
   const [isGeneralMenuOpen, setIsGeneralMenuOpen] = React.useState(false);
+  const [isHelpMenuOpen, setIsHelpMenuOpen] = React.useState(false);
   const [playtimeHours, setPlaytimeHours] = React.useState(1);
   const [playtimeMinutes, setPlaytimeMinutes] = React.useState(0);
   const [playtimeConfirmOpen, setPlaytimeConfirmOpen] = React.useState(false);
@@ -416,15 +417,19 @@ function SettingsMenu(props) {
       onClose={() => closeSettingsMenu({ animatePanels: true })}
     >
       <div
-        className={`relative w-full max-w-xs rounded-2xl border-2 p-4 shadow-2xl ${settingsShellClass}`}
+        className={`relative w-full max-w-xs max-h-full overflow-y-auto rounded-3xl border p-5 shadow-2xl ${settingsShellClass}`}
       >
         <div className="flex items-center justify-between mb-3">
+          {isHelpMenuOpen ? <button type="button" onClick={() => setIsHelpMenuOpen(false)}
+            className={`h-8 w-8 rounded-lg border ${settingsGoldButtonClass}`} aria-label="Retour au menu">
+            <span className="material-symbols-outlined align-middle" aria-hidden="true">arrow_back</span>
+          </button> : null}
           <button
             type="button"
             className="text-sm font-extrabold text-left"
             onClick={handleSettingsTitleDevTap}
           >
-            Parametres
+            {isHelpMenuOpen ? "Aide" : "Menu"}
           </button>
           <button
             type="button"
@@ -439,229 +444,26 @@ function SettingsMenu(props) {
             <span className="text-base leading-none">×</span>
           </button>
         </div>
-        <div className="flex flex-col gap-2 text-sm">
-          <button
-            type="button"
-            onClick={openSoundMenu}
-            className={`w-full flex items-center justify-between gap-3 rounded-xl border px-3 py-2 ${
-              allSoundOn ? settingsPositiveButtonClass : settingsPanelButtonClass
-            }`}
-          >
-            <span className="inline-flex items-center gap-2">
-              <span className="material-symbols-outlined text-[18px] leading-none">
-                volume_up
-              </span>
-              <span className="inline-flex flex-col items-start leading-tight">
-                <span className="font-semibold">Son</span>
-                <span className="text-[10px] opacity-70">
-                  {enabledSoundCount}/6 activés
-                </span>
-              </span>
-            </span>
-            <span className="text-[10px] font-semibold opacity-70">
-              {allSoundOn ? "Tout On" : "Configurer"}
-            </span>
-          </button>
-          <button
-            type="button"
-            onClick={openVisualMenu}
-            className={`w-full flex items-center justify-between gap-3 rounded-xl border px-3 py-2 ${
-              allVisualOn ? settingsPositiveButtonClass : settingsPanelButtonClass
-            }`}
-          >
-            <span className="inline-flex items-center gap-2">
-              <span className="material-symbols-outlined text-[18px] leading-none">
-                visibility
-              </span>
-              <span className="inline-flex flex-col items-start leading-tight">
-                <span className="font-semibold">Apparence</span>
-                <span className="text-[10px] opacity-70">
-                  {enabledVisualCount}/8 effets actifs
-                </span>
-              </span>
-            </span>
-            <span className="text-[10px] font-semibold opacity-70">
-              {allVisualOn ? "Tout On" : "Configurer"}
-            </span>
-          </button>
-          {!isMobileLayout ? (
-            <button
-              type="button"
-              onClick={openKeyboardMenu}
-              className={`w-full flex items-center justify-between gap-3 rounded-xl border px-3 py-2 ${
-                keyboardRecallSubmittedWord ? settingsPositiveButtonClass : settingsPanelButtonClass
-              }`}
-            >
-              <span className="inline-flex items-center gap-2">
-                <span className="material-symbols-outlined text-[18px] leading-none">
-                  keyboard
-                </span>
-                <span className="inline-flex flex-col items-start leading-tight">
-                  <span className="font-semibold">Clavier</span>
-                  <span className="text-[10px] opacity-70">
-                    Rappel avec flèche haut
-                  </span>
-                </span>
-              </span>
-              <span className="text-[10px] font-semibold opacity-70">
-                {keyboardRecallSubmittedWord ? "Envoyé" : "Valide"}
-              </span>
-            </button>
-          ) : null}
-          {devMenuUnlocked ? (
-            <button
-              type="button"
-              onClick={openDevMenu}
-              className={`w-full flex items-center justify-between gap-3 rounded-xl border px-3 py-2 ${
-                devControls?.enabled ? settingsPositiveButtonClass : settingsMutedButtonClass
-              }`}
-            >
-              <span className="inline-flex items-center gap-2">
-                <span className="material-symbols-outlined text-[18px] leading-none">
-                  code
-                </span>
-                <span className="inline-flex flex-col items-start leading-tight">
-                  <span className="font-semibold">Dev</span>
-                  <span className="text-[10px] opacity-70">
-                    Tests locaux et bots
-                  </span>
-                </span>
-              </span>
-              <span className="text-[10px] font-semibold opacity-70">
-                {devControls?.enabled ? "On" : "Off"}
-              </span>
-            </button>
-          ) : null}
-          {moderationAvailable ? (
-            <button
-              type="button"
-              onClick={openModerationMenu}
-              className={`w-full flex items-center justify-between gap-3 rounded-xl border px-3 py-2 ${settingsMutedButtonClass}`}
-            >
-              <span className="inline-flex items-center gap-2">
-                <span className="material-symbols-outlined text-[18px] leading-none">
-                  shield
-                </span>
-                <span className="inline-flex flex-col items-start leading-tight">
-                  <span className="font-semibold">Moderation</span>
-                  <span className="text-[10px] opacity-70">
-                    Kick et bans temporaires
-                  </span>
-                </span>
-              </span>
-              <span className="text-[10px] font-semibold opacity-70">
-                {moderationPlayers.length}
-              </span>
-            </button>
-          ) : null}
-          <button
-            type="button"
-            onClick={() => setIsGeneralMenuOpen(true)}
-            className={`w-full flex items-center justify-between gap-3 rounded-xl border px-3 py-2 ${settingsPanelButtonClass}`}
-          >
-            <span className="inline-flex items-center gap-2">
-              <span className="material-symbols-outlined text-[18px] leading-none">
-                tune
-              </span>
-              <span className="inline-flex flex-col items-start leading-tight">
-                <span className="font-semibold">Général</span>
-                <span className="text-[10px] opacity-70">
-                  Vibrations et contrôle de temps
-                </span>
-              </span>
-            </span>
-            <span className="text-[10px] font-semibold opacity-70">
-              {playtimeLimitActive ? formatPlaytimeMs(playtimeRemainingMs) : "Configurer"}
-            </span>
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setIsSettingsOpen(false);
-              setShowHelp(true);
-            }}
-            className={`w-full flex items-center justify-between gap-3 rounded-xl border px-3 py-2 ${settingsMutedButtonClass}`}
-          >
-            <span className="inline-flex items-center gap-2">
-              <span className="text-[10px] font-semibold uppercase tracking-widest opacity-70">
-                Aide
-              </span>
-            </span>
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              closeSettingsMenu({ animatePanels: true });
-              openTutorialFromHome();
-            }}
-            disabled={isConnecting}
-            className={`w-full flex items-center justify-between gap-3 rounded-xl border px-3 py-2 disabled:opacity-60 ${settingsMutedButtonClass}`}
-          >
-            <span className="inline-flex items-center gap-2">
-              <span className="material-symbols-outlined text-[18px] leading-none">
-                school
-              </span>
-              <span className="text-[10px] font-semibold uppercase tracking-widest opacity-70">
-                Relire le didacticiel
-              </span>
-            </span>
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setIsSettingsOpen(false);
-              setIsAboutOpen(true);
-            }}
-            className={`w-full flex items-center justify-between gap-3 rounded-xl border px-3 py-2 ${settingsMutedButtonClass}`}
-          >
-            <span className="inline-flex items-center gap-2">
-              <span className="text-[10px] font-semibold uppercase tracking-widest opacity-70">
-                À propos
-              </span>
-            </span>
-          </button>
-          <button
-            type="button"
-            onClick={openFacebookGroup}
-            className="w-full flex items-center justify-between gap-3 rounded-xl border border-blue-300/45 bg-[#1877f2] px-3 py-2 text-white shadow transition hover:bg-[#0f6de0] active:scale-[0.99]"
-          >
-            <span className="inline-flex items-center gap-2">
-              <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-white text-[#1877f2]">
-                <FacebookLogo className="h-6 w-6" />
-              </span>
-              <span className="text-[11px] font-extrabold uppercase tracking-wide">
-                Rejoignez-nous sur Facebook
-              </span>
-            </span>
-            <span className="material-symbols-outlined text-[18px]" aria-hidden="true">
-              open_in_new
-            </span>
-          </button>
-          <button
-            type="button"
-            onClick={returnToLobby}
-            className={`w-full flex items-center justify-between gap-3 rounded-xl border px-3 py-2 ${settingsGoldButtonClass}`}
-          >
-            <span className="inline-flex items-center gap-2">
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M15 18l-6-6 6-6" />
-              </svg>
-              <span>Retour lobby</span>
-            </span>
-          </button>
-        </div>
+        {isHelpMenuOpen ? <SettingsHelpChoices
+          darkMode={menuDarkMode} isConnecting={isConnecting}
+          onQuickHelp={() => { setIsSettingsOpen(false); setShowHelp(true); }}
+          onTutorial={() => { closeSettingsMenu({ animatePanels: true }); openTutorialFromHome(); }}
+        /> : <SettingsShortcutMenu
+          darkMode={menuDarkMode}
+          devMenuUnlocked={devMenuUnlocked}
+          devControlsEnabled={devControls?.enabled}
+          moderationAvailable={moderationAvailable}
+          playtimeLimitActive={playtimeLimitActive}
+          onGeneral={() => setIsGeneralMenuOpen(true)}
+          onHelp={() => setIsHelpMenuOpen(true)}
+          onAbout={() => { setIsSettingsOpen(false); setIsAboutOpen(true); }}
+          onHome={returnToLobby}
+          onDev={openDevMenu}
+          onModeration={openModerationMenu}
+        />}
       </div>
       <div
-        className={`absolute inset-y-0 right-0 w-full max-w-md border-l-2 border-amber-300/70 shadow-2xl transition-transform duration-300 bg-[linear-gradient(180deg,rgba(18,47,103,0.97),rgba(7,22,55,0.99))] text-amber-50 ${isGeneralMenuOpen ? "translate-x-0" : "translate-x-full pointer-events-none"}`}
+        className={`absolute inset-y-0 right-0 w-full max-w-md border-l-2 shadow-2xl transition-transform duration-300 ${settingsShellClass} ${isGeneralMenuOpen ? "translate-x-0" : "translate-x-full invisible pointer-events-none"}`}
       >
         <div className="h-full flex flex-col">
           <div className="shrink-0 px-4 py-3 border-b border-amber-200/25 bg-amber-300/10">
@@ -675,11 +477,13 @@ function SettingsMenu(props) {
               >
                 Retour
               </button>
-              <div className="text-sm font-extrabold tracking-wide">Général</div>
-              <span className="text-[10px] font-bold opacity-75">live</span>
+              <div className="text-sm font-extrabold tracking-wide">Réglages</div>
+              <span className="w-10" aria-hidden="true" />
             </div>
           </div>
           <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 text-sm">
+            <SettingsPreferenceChoices darkMode={menuDarkMode} isMobileLayout={isMobileLayout}
+              onSound={openSoundMenu} onVisual={openVisualMenu} onKeyboard={openKeyboardMenu} />
             <button
               type="button"
               onClick={() => {

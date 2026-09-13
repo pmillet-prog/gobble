@@ -170,3 +170,50 @@ test("mobile layout sizing caps the grid and compares committed measurements", (
     false,
   );
 });
+
+test("both target rounds reserve readable announcements independently of the ranking widget", () => {
+  for (const roundType of ["target_long", "target_score"]) {
+    for (const viewportWidth of [280, 320, 360, 390, 430]) {
+      for (const baseFontSize of [16, 20]) {
+        for (let bodyHeight = 320; bodyHeight <= 850; bodyHeight += 5) {
+          const sizing = computeMobileGameLayoutSizing({
+            bodyHeight, viewportHeight: bodyHeight + 64, viewportWidth,
+            roundType, baseFontSize, showLiveActionBar: true,
+          });
+          assert.ok(sizing.targetHintHeight >= 80 && sizing.targetHintHeight <= 100);
+          assert.equal(sizing.rankingHeight, 0);
+          assert.ok(sizing.liveFeedHeight >= 60);
+          assert.ok(sizing.gridSide > 0 && sizing.gridSide <= viewportWidth - 24);
+          assert.equal(sizing.gridSide + sizing.targetHintHeight + sizing.wordPreviewHeight +
+            sizing.liveFeedHeight + sizing.liveActionBarHeight + 28, bodyHeight);
+        }
+      }
+    }
+  }
+});
+
+test("switching from ordinary to target rounds commits their dedicated panel height", () => {
+  const settings = {
+    bodyHeight: 504, viewportWidth: 320, viewportHeight: 568,
+    adaptiveRanking: true, showLiveActionBar: true,
+  };
+  const ordinary = computeMobileGameLayoutSizing(settings);
+  const target = computeMobileGameLayoutSizing({ ...settings, roundType: "target_score" });
+  assert.equal(areMobileLayoutSizingsEqual(ordinary, target), false);
+  assert.equal(areMobileLayoutSizingsEqual(target, { ...target }), true);
+  assert.equal(areMobileLayoutSizingsEqual(target, { ...target, targetHintHeight: 100 }), false);
+  assert.equal(target.liveFeedMinHeight, 60);
+  assert.equal(target.targetHintHeight, 80);
+});
+
+test("target feed reservation does not change OCID or standalone training layouts", () => {
+  const settings = { bodyHeight: 504, viewportWidth: 320, viewportHeight: 568 };
+  assert.deepEqual(
+    computeMobileGameLayoutSizing({ ...settings, roundType: "ocid", showLiveActionBar: true }),
+    computeMobileGameLayoutSizing({ ...settings, showLiveActionBar: true }),
+  );
+  assert.deepEqual(
+    computeMobileGameLayoutSizing({ ...settings, roundType: "target_long" }),
+    computeMobileGameLayoutSizing(settings),
+  );
+});

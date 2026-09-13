@@ -39,7 +39,9 @@ export default function useElementSize(enabled = true) {
       frameId = window.requestAnimationFrame(commit);
     };
 
-    schedule();
+    // The first measurement must be committed before paint; consumers such as
+    // the desktop grid must not display their fallback width for one frame.
+    commit();
     const observer =
       typeof ResizeObserver !== "undefined" ? new ResizeObserver(schedule) : null;
     observer?.observe(node);

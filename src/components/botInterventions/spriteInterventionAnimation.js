@@ -14,7 +14,7 @@ export function resolveInterventionAppearanceSfxKey(
 export function isInterventionForActiveRound(eventRoundId, activeRoundId) {
   const eventId = eventRoundId == null ? "" : String(eventRoundId);
   const activeId = activeRoundId == null ? "" : String(activeRoundId);
-  return !eventId || !activeId || eventId === activeId;
+  return !!activeId && (!eventId || eventId === activeId);
 }
 
 export function splitInterventionText(text) {
@@ -127,6 +127,19 @@ export function getNextPresenterHitReaction(hitCount) {
   return Math.max(0, Math.trunc(Number(hitCount) || 0)) % 2 === 0
     ? "hit1"
     : "hit2";
+}
+
+export const PRESENTER_HIT_IDLE_MS = 1000;
+export const PRESENTER_STARS_HOLD_MS = 1000;
+
+export function schedulePresenterHitExit({ schedule, showStars, startExit, complete, exitMs }) {
+  schedule(() => {
+    showStars();
+    schedule(() => {
+      startExit();
+      schedule(complete, exitMs);
+    }, PRESENTER_STARS_HOLD_MS);
+  }, PRESENTER_HIT_IDLE_MS);
 }
 
 export function computeInterventionPlacement(hostRect, viewport = {}, config) {

@@ -116,7 +116,7 @@ function installBrowserGlobals() {
   };
 }
 
-test("GobbleApplication renders both home and authenticated live gameplay", async () => {
+test("GobbleApplication renders home, quick help in the salon, and authenticated live gameplay", async () => {
   let kernel = null;
   let vite = null;
   let restoreBrowserGlobals = () => {};
@@ -127,6 +127,9 @@ test("GobbleApplication renders both home and authenticated live gameplay", asyn
       {
         enforce: "pre",
         load(id) {
+          // Server rendering cannot mount DOM portals. Keep the real help content
+          // and render its portal inline to exercise the application's salon branch.
+          if (id === "\0gobble-help-portal-stub") return "export const createPortal = children => children;";
           if (id !== "\0gobble-client-socket-stub") return null;
           return `
             const socket = {
@@ -139,7 +142,14 @@ test("GobbleApplication renders both home and authenticated live gameplay", asyn
           `;
         },
         name: "gobble-client-socket-stub",
+        transform(source, id) {
+          if (!id.replaceAll("\\", "/").endsWith("/components/HelpOverlay.jsx")) return null;
+          return { code: source.replace('from "react-dom";', 'from "virtual:gobble-help-portal";'), map: null };
+        },
         resolveId(source) {
+          if (source === "virtual:gobble-help-portal") {
+            return "\0gobble-help-portal-stub";
+          }
           return source === "./socket.js" ||
             source === "../socket.js" ||
             source.endsWith("/socket.js")
@@ -158,6 +168,8 @@ test("GobbleApplication renders both home and authenticated live gameplay", asyn
       { ApplicationRuntimeProvider },
       { TraceRuntimeProvider },
       { CelebrationRuntimeProvider },
+      { default: AboutModals },
+      { PATCH_NOTES_VERSION },
     ] = await Promise.all([
       vite.ssrLoadModule("/src/GobbleApplication.jsx"),
       vite.ssrLoadModule("/src/app/core/createApplicationKernel.js"),
@@ -165,6 +177,8 @@ test("GobbleApplication renders both home and authenticated live gameplay", asyn
       vite.ssrLoadModule("/src/app/react/ApplicationRuntimeProvider.jsx"),
       vite.ssrLoadModule("/src/features/trace/TraceRuntime.jsx"),
       vite.ssrLoadModule("/src/features/celebration/CelebrationRuntime.jsx"),
+      vite.ssrLoadModule("/src/components/about/AboutModals.jsx"),
+      vite.ssrLoadModule("/src/features/overlays/useLobbyPopupCoordinator.js"),
     ]);
     restoreBrowserGlobals = installBrowserGlobals();
     kernel = registerClientFeatures(
@@ -197,7 +211,16 @@ test("GobbleApplication renders both home and authenticated live gameplay", asyn
       originalConsoleError(...args);
     };
     try {
-      assert.doesNotThrow(() => renderToString(createTree()));
+      const homeHtml = renderToString(createTree());
+      assert.match(homeHtml, /aria-label="Le grand tableau"/, "Visitors can open the public chalkboard from home");
+
+      const patchNotesHtml = renderToString(React.createElement(AboutModals, { isPatchNotesOpen: true }));
+      const newReleasePosition = patchNotesHtml.indexOf(`dateTime="${PATCH_NOTES_VERSION}"`);
+      assert.ok(newReleasePosition >= 0, "The announced release is included in the Patchnotes dialog");
+      assert.ok(
+        newReleasePosition < patchNotesHtml.indexOf("mise à jour mineure du 11/09/2026"),
+        "The major release appears before the previous patch notes",
+      );
 
       kernel.commands.session.setAuthState({
         legacyProfile: null,
@@ -208,6 +231,18 @@ test("GobbleApplication renders both home and authenticated live gameplay", asyn
       kernel.commands.session.setIsLoggedIn(true);
       kernel.commands.session.setNickname("Test");
       kernel.commands.navigation.go("live");
+      kernel.commands.game.setPhase("lobby");
+      const overlays = kernel.features.prepare("overlays");
+      overlays.set("helpOpen", true);
+      renderToString(createTree());
+      await vite.ssrLoadModule("/src/components/HelpOverlay.jsx");
+      await new Promise(resolve => setImmediate(resolve));
+      const salonHelpHtml = renderToString(createTree());
+      assert.match(salonHelpHtml, /aria-label="Aide de jeu"/, "Quick help is mounted in the salon");
+      assert.equal((salonHelpHtml.match(/aria-label="Aide de jeu"/g) || []).length, 1);
+      assert.match(salonHelpHtml, /Règles et scoring/);
+      overlays.set("helpOpen", false);
+      assert.doesNotMatch(renderToString(createTree()), /aria-label="Aide de jeu"/);
       kernel.commands.game.setPhase("playing");
 
       assert.doesNotThrow(() => renderToString(createTree()));

@@ -1,8 +1,11 @@
 import React, { useEffect, useLayoutEffect } from "react";
 import {
-  clampDesktopColumnResizeDelta,
   computeDesktopViewportHeight,
 } from "../utils/desktopResponsiveLayout.js";
+import {
+  computeDesktopResizeMinimums,
+  resizeDesktopColumns,
+} from "../utils/desktopColumnResize.js";
 import {
   areDesktopFractionsEqual,
   normalizeDesktopColumnFractions,
@@ -86,17 +89,14 @@ export default function useDesktopLayoutController(
         hostWidth - gapPx * Math.max(0, baseFractions.length - 1)
       );
       const baseWidths = baseFractions.map((fraction) => fraction * contentWidth);
-      const baseMinWidths = baseFractions.map((_, idx) =>
-        Math.max(120, Number(desktopColumnMinWidthsPx[idx]) || 120)
-      );
-      const minSum = baseMinWidths.reduce((acc, value) => acc + value, 0);
-      const minScale = minSum > contentWidth ? contentWidth / minSum : 1;
-      const minWidths = baseMinWidths.map((value) => value * minScale);
+      const minWidths = computeDesktopResizeMinimums({
+        widths: baseWidths,
+        minimumWidths: desktopColumnMinWidthsPx,
+        hostWidth,
+        columnHeight: rect.height,
+        isDailyPlay: appView === "daily_play",
+      });
       const startX = Number(event.clientX) || 0;
-      const leftStart = baseWidths[separatorIndex] || 0;
-      const rightStart = baseWidths[separatorIndex + 1] || 0;
-      const leftMin = minWidths[separatorIndex] || 120;
-      const rightMin = minWidths[separatorIndex + 1] || 120;
       const currentOrder = normalizeDesktopColumnOrder(
         desktopColumnOrderRef.current,
         desktopColumnBaseDefs
@@ -106,14 +106,11 @@ export default function useDesktopLayoutController(
         baseWidths[gridColumnIndex] || 0,
         Number(desktopGridResizeMaxTrackWidthRef.current) || 0
       );
-      const leftMax =
-        separatorIndex === gridColumnIndex
+      const maxWidths = baseWidths.map((_, index) =>
+        index === gridColumnIndex
           ? gridMaxTrackWidth
-          : Number.POSITIVE_INFINITY;
-      const rightMax =
-        separatorIndex + 1 === gridColumnIndex
-          ? gridMaxTrackWidth
-          : Number.POSITIVE_INFINITY;
+          : Number.POSITIVE_INFINITY
+      );
 
       const resizeState = desktopColumnResizeRef.current;
       resizeState.active = true;
@@ -129,21 +126,13 @@ export default function useDesktopLayoutController(
         if (!desktopColumnResizeRef.current.active) return;
         const clientX = Number(moveEvent.clientX);
         if (!Number.isFinite(clientX)) return;
-        const delta = clientX - startX;
-        const clampedDelta = clampDesktopColumnResizeDelta({
-          delta,
-          leftMax,
-          leftMin,
-          leftStart,
-          rightMax,
-          rightMin,
-          rightStart,
+        const nextWidths = resizeDesktopColumns({
+          widths: baseWidths,
+          minimumWidths: minWidths,
+          maximumWidths: maxWidths,
+          separatorIndex,
+          delta: clientX - startX,
         });
-        const leftNext = leftStart + clampedDelta;
-        const rightNext = rightStart - clampedDelta;
-        const nextWidths = [...baseWidths];
-        nextWidths[separatorIndex] = leftNext;
-        nextWidths[separatorIndex + 1] = rightNext;
         const nextFractions = normalizeDesktopColumnFractions(
           nextWidths.map((width) => width / contentWidth),
           desktopColumnDefaultFractions
@@ -161,6 +150,7 @@ export default function useDesktopLayoutController(
       window.addEventListener("pointercancel", resizeState.upHandler);
     },
     [
+      appView,
       desktopColumnBaseDefs,
       desktopColumnDefaultFractions,
       desktopColumnMinWidthsPx,
@@ -259,7 +249,7 @@ export default function useDesktopLayoutController(
       });
     };
 
-    scheduleUpdate();
+    updateLayout();
     window.addEventListener("resize", scheduleUpdate);
     const observedHost = mainGridDesktopRef.current;
     if (typeof ResizeObserver !== "undefined" && observedHost) {

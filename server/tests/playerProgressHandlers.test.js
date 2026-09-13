@@ -27,13 +27,9 @@ function createHarness() {
   const dependencies = {
     ensureUserIdentityMigration: async (user) => calls.push(["migration", user]),
     getTrophyStatus: async (installId) => ({ installId, trophies: 4 }),
-    getVocabularyCountForInstallIds: async (installIds) => {
+    getVocabularyProgressForInstallIds: async (installIds) => {
       calls.push(["vocab", installIds]);
-      return 123;
-    },
-    getWeeklyVocabularyCountForInstallIds: async (installIds) => {
-      calls.push(["weekly-vocab", installIds]);
-      return 17;
+      return { count: 123, weeklyCount: 17 };
     },
     listIdentityInstallIds: async (query) => {
       calls.push(["identities", query]);
@@ -72,8 +68,17 @@ test("vocabulary count aggregates every install linked to the authenticated acco
       },
     ],
     ["vocab", ["install-current", "install-primary"]],
-    ["weekly-vocab", ["install-current", "install-primary"]],
   ]);
+});
+
+test("a SQL failure never resets the client's vocabulary count to zero", async () => {
+  const harness = createHarness();
+  harness.dependencies.getVocabularyProgressForInstallIds = async () => { throw new Error("SQL unavailable"); };
+  registerPlayerProgressHandlers(harness.socket, harness.dependencies);
+  let response;
+  await harness.socket.trigger("getVocabCount", (value) => { response = value; });
+  assert.deepEqual(response, { ok: false, error: "vocabulary_unavailable" });
+  assert.equal("count" in response, false);
 });
 
 test("daily submission keeps the authenticated install id and the full scoring payload", async () => {

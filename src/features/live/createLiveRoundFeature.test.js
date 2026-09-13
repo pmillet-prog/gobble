@@ -242,6 +242,72 @@ test("an authoritative snapshot restores the current presenter hints", () => {
   harness.release();
 });
 
+function openingHints(roundId) {
+  return ["coach", "detective"].map((category) => ({
+    id: `${roundId}:${category}`, roundId, text: `Indice ${category}`,
+    meta: { category, kind: "ambient_bot_chat" },
+  }));
+}
+
+for (const type of ["target_long", "target_score", "ocid", "self_specials_3_words"]) {
+  test(`${type}: starting and joining a round never restores its opening presenters`, () => {
+    for (const entryKind of ["start", "join", "resume"]) {
+      const harness = createHarness();
+      try {
+        const currentRound = {
+          roomId: "room-4x4", roundId: "blocked", grid: [{ letter: "A" }],
+          special: { type, isSpecial: true }, status: "running",
+          presenterInterventions: openingHints("blocked"),
+          lepersChallenge: { id: "blocked:lepers", text: "Une ancienne enigme." },
+        };
+        const lepers = [];
+        harness.live.subscribeLepersInterventions((event) => lepers.push(event));
+        if (entryKind === "start") harness.socket.fire("roundStarted", currentRound);
+        else harness.live.hydrateSnapshot({
+          roomId: "room-4x4", phase: "playing", currentRound,
+          lastRoundResults: { round: { id: "previous" }, payload: { roundId: "previous", presenterInterventions: openingHints("previous") } },
+        }, { entryKind });
+        assert.deepEqual(harness.calls.filter((call) => call.name === "presenters"), []);
+        assert.deepEqual(lepers, []);
+      } finally { harness.release(); }
+    }
+  });
+}
+
+test("joining an ordinary round cannot overwrite its hints with previous results or a previous finale", () => {
+  const harness = createHarness();
+  try {
+    const currentHints = openingHints("current");
+    harness.live.hydrateSnapshot({
+      roomId: "room-4x4", phase: "playing",
+      currentRound: { roundId: "current", grid: [{ letter: "A" }], presenterInterventions: currentHints },
+      lastRoundResults: {
+        round: { id: "previous", special: { type: "target_score" } },
+        payload: {
+          roundId: "previous", presenterInterventions: openingHints("previous"),
+          tournamentSummary: { presenterScopeId: "tournament:old:celebration", presenterInterventions: openingHints("tournament:old:celebration") },
+        },
+      },
+    });
+    assert.deepEqual(harness.calls.filter((call) => call.name === "presenters").map((call) => call.payload), [currentHints]);
+  } finally { harness.release(); }
+});
+
+test("three-word results retain Pivot without reviving the disabled opening hints", () => {
+  const harness = createHarness();
+  try {
+    const pivot = { id: "three:pivot", roundId: "three", text: "Une etymologie.", meta: { category: "linguist" } };
+    harness.live.hydrateSnapshot({
+      roomId: "room-4x4", phase: "results", currentRound: null,
+      lastRoundResults: {
+        round: { id: "three", special: { type: "self_specials_3_words" } },
+        payload: { roundId: "three", presenterInterventions: [...openingHints("three"), pivot], results: [] },
+      },
+    });
+    assert.deepEqual(harness.calls.filter((call) => call.name === "presenters").map((call) => call.payload), [[pivot]]);
+  } finally { harness.release(); }
+});
+
 test("a results snapshot restores Pivot from lastRoundResults", () => {
   const harness = createHarness();
   const presenterInterventions = [

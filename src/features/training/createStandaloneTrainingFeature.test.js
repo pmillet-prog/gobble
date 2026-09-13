@@ -5,6 +5,32 @@ import { createResourceScope } from "../../app/core/createResourceScope.js";
 import { buildTrainingTargetHintSchedule } from "../../training/standaloneTraining.js";
 import { createStandaloneTrainingFeature } from "./createStandaloneTrainingFeature.js";
 
+test("prepared tutorial rounds use the native launch without network presence or live commands", async () => {
+  const socket = createSocket();
+  socket.connected = true;
+  const scope = createResourceScope("prepared-tutorial-test");
+  const launches = [];
+  let connectionAttempts = 0;
+  const feature = createStandaloneTrainingFeature({ scope }, { now: () => 2000 });
+  feature.configure({ socket, phase: "lobby", onLaunch: (session) => launches.push(session), ensureConnection: () => { connectionAttempts++; return true; } });
+  feature.start();
+  const prepared = { tutorial: true, sessionId: "tutorial:1", grid: [{ letter: "A" }], solutions: [] };
+  assert.equal(feature.startPreparedSession(prepared), true);
+  assert.equal(launches[0].localOnly, true);
+  assert.equal(launches[0].startedAt, 2000);
+  assert.equal(launches[0].grid, prepared.grid);
+  assert.equal(socket.listenerCount("connect"), 0);
+  socket.fire("connect");
+  assert.equal(await feature.requestJoinLive(), false);
+  assert.equal(await feature.confirmJoinLive(), false);
+  assert.equal(feature.returnToLobby(), true);
+  assert.equal(feature.refs.session.current, null);
+  assert.equal(connectionAttempts, 0);
+  assert.deepEqual(socket.emitted, []);
+  scope.dispose();
+  assert.equal(feature.startPreparedSession(prepared), false);
+});
+
 function createSocket(responses = {}) {
   const listeners = new Map();
   const emitted = [];

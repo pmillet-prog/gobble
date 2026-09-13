@@ -44,8 +44,6 @@ export function createInitialLayoutState() {
       viewportWidth: 0,
       wordPreviewHeight: 0,
     },
-    mobileSpecial3Step1GhostStyle: null,
-    mobileSpecial3Step2OverlayStyle: null,
     playColumnHeight: null,
   };
 }

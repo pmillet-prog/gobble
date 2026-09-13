@@ -1,0 +1,12 @@
+# Configuration non secrete, a installer seulement apres preparation du secret
+# et deploiement du support SMTP_PASSWORD_FILE. Ne redemarre aucun service.
+[Service]
+LoadCredentialEncrypted=gobble-smtp-password:/etc/credstore.encrypted/gobble-smtp-password.cred
+Environment=GOBBLE_MAIL_TRANSPORT=smtp
+Environment=SMTP_HOST=smtp.mail.ovh.net
+Environment=SMTP_PORT=465
+Environment=SMTP_USER=support@gobble.fr
+Environment=SMTP_PASSWORD_FILE=%d/gobble-smtp-password
+Environment=GOBBLE_CHALKBOARD_MAIL_FROM=support@gobble.fr
+Environment=GOBBLE_CHALKBOARD_MAIL_TO=pmillet@gmail.com
+UnsetEnvironment=SMTP_PASSWORD SMTP_PASS

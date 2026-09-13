@@ -93,7 +93,7 @@ function BootLoader({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[14000] flex min-h-dvh items-center justify-center overflow-hidden bg-white text-black"
+      className="gobble-boot-overlay fixed inset-0 z-[14000] flex min-h-dvh items-center justify-center overflow-hidden text-black"
       style={{
         position: "fixed",
         inset: 0,
@@ -104,6 +104,8 @@ function BootLoader({
         alignItems: "center",
         justifyContent: "center",
         overflow: "hidden",
+        // Keep the GIF and its backdrop together when the game mounts and
+        // applies the dark theme (whose generic .bg-white rule is !important).
         backgroundColor: "#ffffff",
         opacity: fadingOut ? 0 : 1,
         transition: `opacity ${transitionMs}ms cubic-bezier(0.4, 0, 0.2, 1)`,

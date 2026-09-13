@@ -295,3 +295,16 @@ export function getLepersBonusForNick(challenge, nick) {
   if (!playerNick || !(challenge?.foundBy instanceof Set)) return 0;
   return challenge.foundBy.has(playerNick) ? LEPERS_BONUS_POINTS : 0;
 }
+
+export function buildLepersBonusAnnouncement(challenge, nick) {
+  const playerNick = String(nick || "").trim();
+  const bonus = getLepersBonusForNick(challenge, playerNick);
+  if (!bonus) return null;
+  return {
+    id: `${challenge.id}:${playerNick}:bonus`,
+    type: "lepers_bonus_awarded",
+    nick: playerNick,
+    bonus,
+    text: `${playerNick} remporte la carte de Julien Lechéper (+${bonus} points au général) !`,
+  };
+}

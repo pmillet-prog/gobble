@@ -1,4 +1,5 @@
 import React from "react";
+import { getVocabTickFrequency } from "./vocabTickSound.js";
 
 import AssetManager from "../assets/assetManager";
 import { SFX_KEYS } from "../assets/assetKeys";
@@ -382,20 +383,9 @@ export default function useGameSounds({
     });
   }
 
-  function playVocabOverlayTickSound(wordIndex) {
-    if (!Number.isFinite(wordIndex) || wordIndex <= 0) return;
-    const idx = Math.floor(wordIndex);
-    const low = 220;
-    const mid = 440;
-    const high = 660;
-    let freq = high;
-    if (idx <= 10) {
-      const t = (idx - 1) / 9;
-      freq = low + (mid - low) * t;
-    } else if (idx <= 20) {
-      const t = (idx - 11) / 9;
-      freq = mid + (high - mid) * t;
-    }
+  function playVocabOverlayTickSound(wordIndex, options) {
+    const freq = getVocabTickFrequency(wordIndex, options);
+    if (!freq) return;
     playVocabOverlayTone(freq, 95, 0.1, "vocabTick");
   }
 
@@ -444,13 +434,17 @@ export default function useGameSounds({
 
   function maybePlayAnnouncementSound(item) {
     if (!item) return;
-    if (item.type !== "best_possible_score" && item.type !== "longest_possible") {
-      return;
-    }
     const selfRaw = (nicknameRef?.current || nickname || "").trim();
     const authorRaw = (item.nick || "").trim();
     const self = selfRaw ? selfRaw.toLowerCase() : "";
     const author = authorRaw ? authorRaw.toLowerCase() : "";
+    if (item.type === "lepers_bonus_awarded") {
+      if (self && author && self !== author) playSpecialFoundSound();
+      return;
+    }
+    if (item.type !== "best_possible_score" && item.type !== "longest_possible") {
+      return;
+    }
     if (!self || !author || self !== author) return;
     playGobbleVoice();
   }

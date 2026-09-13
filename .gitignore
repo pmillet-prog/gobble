@@ -8,6 +8,8 @@ server/logs/
 data/install-aliases.json
 data/dev-access.json
 data/dev-controls.json
+data/chalkboard.sqlite*
+data/chalkboard-exports/
 data/frwiktionary-*.xml
 data/frwiktionary-*.bz2
 data/definitions-fr*.jsonl

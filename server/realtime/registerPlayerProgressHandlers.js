@@ -3,8 +3,7 @@ export function registerPlayerProgressHandlers(
   {
     ensureUserIdentityMigration,
     getTrophyStatus,
-    getVocabularyCountForInstallIds,
-    getWeeklyVocabularyCountForInstallIds,
+    getVocabularyProgressForInstallIds,
     listIdentityInstallIds,
     requireSocketPlayerIdentity,
     runDailyStartFlow,
@@ -32,16 +31,13 @@ export function registerPlayerProgressHandlers(
         currentInstallId: installId,
         primaryInstallId: identity.user?.primaryInstallId,
       });
-      const count = await getVocabularyCountForInstallIds(
+      const snapshot = await getVocabularyProgressForInstallIds(
         installIds.length ? installIds : [installId]
       );
-      const weeklyCount = await getWeeklyVocabularyCountForInstallIds(
-        installIds.length ? installIds : [installId]
-      );
-      cb?.({ count, weeklyCount });
+      cb?.(snapshot);
     } catch (err) {
       console.warn("getVocabCount failed", err);
-      cb?.({ count: 0 });
+      cb?.({ ok: false, error: "vocabulary_unavailable" });
     }
   });
 

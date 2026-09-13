@@ -29,6 +29,7 @@ function areRankingListsEquivalent(left, right) {
     if (!!a.isWeeklyVocabChampion !== !!b.isWeeklyVocabChampion) return false;
     if ((a.team || "") !== (b.team || "")) return false;
     if ((a.gobbles || 0) !== (b.gobbles || 0)) return false;
+    if ((a.lepersBonus || 0) !== (b.lepersBonus || 0)) return false;
     if ((a.roundGobbles || 0) !== (b.roundGobbles || 0)) return false;
     if ((a.roundLepersBonus || 0) !== (b.roundLepersBonus || 0)) return false;
     if ((a.roundPoints || 0) !== (b.roundPoints || 0)) return false;
@@ -894,6 +895,10 @@ function RankingWidgetMobile({
           roundGobbles > 0
             ? renderGobbleCountBadge(roundGobbles, `flat-round-gobble-${entry.nick}`, "ml-1")
             : null;
+        const liveLepersBadge =
+          !showRoundAward && !entry?.rightLabel && !entry?.inTraining && entry?.lepersBonus > 0 ? (
+            <LepersBonusBadge bonus={entry?.lepersBonus} showPoints={false} className="ml-1" />
+          ) : null;
         const fakeTwinsBonusBadge = renderFakeTwinsBonusBadge(
           entry,
           `flat-fake-twins-bonus-${entry.nick}`,
@@ -960,7 +965,7 @@ function RankingWidgetMobile({
           : null;
         const hasSecondaryNickLine =
           shouldStackNickDecorations &&
-          (trainingBadge || nickDecorations || gobblesBadge || roundGobblesBadge || fakeTwinsBonusBadge || gobbleWordBadges);
+          (trainingBadge || nickDecorations || gobblesBadge || roundGobblesBadge || liveLepersBadge || fakeTwinsBonusBadge || gobbleWordBadges);
         const anchorNick = String(entry?.nick || "");
         const handleOpenPlayerDetails = (event, sourceElement = null) => {
           if (!nickClickable) return;
@@ -1035,6 +1040,7 @@ function RankingWidgetMobile({
                           {nickDecorations ? <span className="min-w-0 max-w-full overflow-hidden">{nickDecorations}</span> : null}
                           {trainingBadge}
                           {gobblesBadge}
+                          {liveLepersBadge}
                           {roundGobblesBadge}
                           {fakeTwinsBonusBadge}
                           {gobbleWordBadges ? <span className="min-w-0 max-w-full overflow-hidden">{gobbleWordBadges}</span> : null}
@@ -1055,6 +1061,7 @@ function RankingWidgetMobile({
                       {trainingBadge}
                       {nickDecorations ? <span className="flex-none">{nickDecorations}</span> : null}
                       {gobblesBadge}
+                      {liveLepersBadge}
                       {roundGobblesBadge}
                       {fakeTwinsBonusBadge}
                       {gobbleWordBadges}
@@ -1511,6 +1518,9 @@ function RankingWidgetMobile({
                     getGobbleAwardCountForNick(displayNick)
                   )
                 : 0;
+              const liveLepersBonus = !showRoundAward && !labelEntry?.inTraining
+                ? Number(labelEntry?.lepersBonus) || 0
+                : 0;
 
               const palierText = darkMode ? "text-amber-200" : "text-amber-700";
               const palierBg = darkMode ? "bg-amber-900/30" : "bg-amber-50";
@@ -1682,6 +1692,9 @@ function RankingWidgetMobile({
                             "ml-1"
                           )
                         : null}
+                      {liveLepersBonus > 0 ? (
+                        <LepersBonusBadge bonus={liveLepersBonus} showPoints={false} className="ml-1" />
+                      ) : null}
                       {fakeTwinsBonusBadge}
                       {showGobbleWordAwards &&
                       row.type !== "empty" &&

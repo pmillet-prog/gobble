@@ -49,7 +49,8 @@ export function buildMixedFeed({ announcements = [], lastWords = [] }) {
   const filteredAnn = [];
   filteredAnnRaw.forEach((a) => {
     const tsBucket = Math.floor((a.ts || 0) / 1000);
-    const key = `${a.nick || "_"}|${tsBucket}`;
+    // La carte de Julien est un gain distinct, même si le mot est aussi un gobble.
+    const key = `${a.nick || "_"}|${tsBucket}${a.type === "lepers_bonus_awarded" ? "|lepers" : ""}`;
     const p = PRIORITY[a.type] ?? 0;
     const isSuper = SUPER_TYPES.has(a.type);
     const existing = bucket.get(key);
@@ -223,6 +224,7 @@ function LiveFeed({
 
   return (
     <div
+      data-tutorial-focus="feed"
       className={`flex flex-col ${compact ? "gap-0.5" : "gap-2"} ${color}`}
       style={{ maxHeight, minHeight: maxHeight, height: maxHeight, overflow: "hidden" }}
     >
@@ -233,6 +235,7 @@ function LiveFeed({
       ) : null}
       {bannerText ? (
         <div
+          data-tutorial-focus="objective"
           className={`shrink-0 rounded-lg border px-2.5 ${compact ? "py-0" : "py-1"} text-[11px] font-semibold leading-tight ${
             darkMode
               ? "border-emerald-400/20 bg-emerald-500/10 text-emerald-100"

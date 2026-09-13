@@ -2,7 +2,7 @@ export function buildRankingSignature(list) {
   if (!Array.isArray(list) || list.length === 0) return "";
   const size = list.length;
   let signature = `n:${size}|`;
-  for (let index = 0; index < Math.min(size, 20); index += 1) {
+  for (let index = 0; index < size; index += 1) {
     const entry = list[index] || {};
     const nick = String(entry.nick || "").trim();
     const userId = Number.isInteger(Number(entry.userId)) ? Number(entry.userId) : "";
@@ -13,12 +13,13 @@ export function buildRankingSignature(list) {
       : 0;
     const rank = Number.isFinite(entry.rank) ? entry.rank : index + 1;
     const gobbles = Number.isFinite(entry.gobbles) ? entry.gobbles : 0;
+    const lepersBonus = Number(entry.lepersBonus) || 0;
     const afk = entry.afk ? "1" : "0";
     const dailyChampion =
       entry.isDailyChampion || entry.crowned || entry.isWeeklyChampion ? "1" : "0";
     const weeklyVocabPodiumRank =
       Number(entry.weeklyVocabPodiumRank) || (entry.isWeeklyVocabChampion ? 1 : 0);
-    signature += `${nick}:${userId}:${rank}:${score}:${gobbles}:${afk}:${dailyChampion}:${weeklyVocabPodiumRank}|`;
+    signature += `${nick}:${userId}:${rank}:${score}:${gobbles}:${lepersBonus}:${afk}:${dailyChampion}:${weeklyVocabPodiumRank}|`;
   }
   return signature;
 }

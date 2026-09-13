@@ -14,7 +14,7 @@
 - During the current client rewrite, `src/LegacyApp.jsx` is reference material only. The new runtime must not import, render, wrap, or delegate application ownership to it.
 - Move ownership, not merely code: domain state, effects, timers, subscriptions, workers, cleanup, and commands belong in explicit core services or feature satellites. UI components consume narrow selectors/view-models and emit intents.
 - Preserve existing gameplay behavior and deliberate timings unless Paul explicitly asks to change them. In particular, do not reinterpret animation-synchronization delays as performance bugs.
-- Runtime performance is the goal: reduce unnecessary mounted state/effects, broad rerenders, duplicate data, lingering listeners/timers/workers, memory growth, and main-thread stalls. Bundle size and `App.jsx` line count are not success metrics.
+- Runtime performance is the goal: reduce unnecessary mounted state/effects, broad rerenders, duplicate data, lingering listeners/timers/workers, memory growth, and main-thread stalls. Bundle size and `GobbleApplication.jsx` line count are not success metrics.
 - Do not claim the rewrite is complete without functional parity checks and client runtime measurements. If a blocker prevents the promised architecture or parity, stop and report it plainly instead of substituting cosmetic work.
 
 ## Access And Safety

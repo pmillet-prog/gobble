@@ -1,0 +1,19 @@
+.home-chalkboard-new {
+  position: absolute;
+  z-index: 1;
+  top: 4%;
+  left: 50%;
+  transform: translate(-50%, -20%);
+  padding: 3px 5px;
+  border: 1px solid #ffd37a;
+  border-radius: 999px;
+  background: #dc2626;
+  color: #fff;
+  font-size: clamp(9px, 0.7vw, 12px);
+  font-weight: 900;
+  line-height: 1;
+  white-space: nowrap;
+  text-shadow: 0 1px 1px rgb(0 0 0 / 25%);
+  box-shadow: 0 2px 4px rgb(0 0 0 / 35%);
+  pointer-events: none;
+}

@@ -126,6 +126,34 @@ async function mediaCacheFirst(request, url) {
   }
 }
 
+async function chalkboardTextureCache(request, url) {
+  const key = makeCacheKey(url, true);
+  const valid = response => response?.ok && /^image\//i.test(response.headers.get("content-type") || "");
+  let cached;
+  for (const name of [UI_CACHE, MEDIA_CACHE]) {
+    const cache = await caches.open(name);
+    const candidate = await cache.match(key);
+    if (valid(candidate)) cached = candidate;
+    // A SPA fallback can return HTML with status 200 for a missing asset.
+    // Previously that response could remain cached forever as the texture.
+    else if (candidate) await cache.delete(key);
+  }
+  if (cached && request.cache !== "reload") return cached;
+  try {
+    const network = await fetch(request, { cache: "reload" });
+    if (!valid(network)) {
+      if (cached) return cached;
+      return new Response("Texture unavailable", { status: 503 });
+    }
+    await putInCache(MEDIA_CACHE, key, network);
+    await trimCache(MEDIA_CACHE);
+    return network;
+  } catch (error) {
+    if (cached) return cached;
+    throw error;
+  }
+}
+
 async function navigationNetworkFirst(request) {
   const cache = await caches.open(SHELL_CACHE);
   try {
@@ -176,6 +204,11 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
   if (!isSameOrigin(url)) return;
   if (isApiRequest(url.pathname)) return;
+
+  if (url.pathname === "/chalkboard/surface/patinee-v2.webp") {
+    event.respondWith(chalkboardTextureCache(request, url));
+    return;
+  }
 
   if (request.mode === "navigate") {
     event.respondWith(navigationNetworkFirst(request));

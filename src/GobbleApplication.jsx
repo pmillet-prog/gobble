@@ -134,7 +134,7 @@ import { createPortal, flushSync } from "react-dom";
 import { patchFirstMatchingFeedEntry } from "./game/liveFeedReconciliation.js";
 import useWordSubmissionController from "./features/submission/useWordSubmissionController.js";
 import InvalidWordGuardOverlay from "./features/submission/InvalidWordGuardOverlay.jsx";
-import useInvalidWordGuard from "./features/submission/useInvalidWordGuard.js";
+import useInvalidWordGuard, { isInvalidWordGuardEnabled } from "./features/submission/useInvalidWordGuard.js";
 import {
   normalizeRotationTurns,
   rotateIndexByTurns,
@@ -204,6 +204,7 @@ import {
   getWeeklyMetricValue,
 } from "./components/stats/weeklyStatsModel.js";
 import useTutorialPresentation from "./components/tutorial/useTutorialPresentation.jsx";
+import useTutorialGameBridge from "./features/tutorial/useTutorialGameBridge.js";
 import {
   OCID_INVALID_BLUFF_MESSAGES,
   OCID_NO_VOTER_MESSAGES,
@@ -411,6 +412,7 @@ const TargetWaitDevPlayground = React.lazy(() =>
 const loadVocabProgressOverlay = () =>
   import("./components/vocab/VocabProgressOverlay.jsx");
 const VocabProgressOverlay = React.lazy(loadVocabProgressOverlay);
+const LiveThreeWordsRecap = React.lazy(() => import("./features/live/LiveThreeWordsRecap.jsx"));
 
 
 const ROOM_OPTIONS = {
@@ -594,20 +596,6 @@ const GUIDED_RESULTS_STEPS = {
   SWIPE_ALL: "swipe_all",
   TAP_WORD: "tap_word",
   TAP_DEFINITION: "tap_definition",
-};
-const GUIDED_RESULTS_STEP_ORDER = [
-  GUIDED_RESULTS_STEPS.TAP_PSEUDO,
-  GUIDED_RESULTS_STEPS.SWIPE_TOTAL,
-  GUIDED_RESULTS_STEPS.SWIPE_FOUND,
-  GUIDED_RESULTS_STEPS.SWIPE_ALL,
-  GUIDED_RESULTS_STEPS.TAP_WORD,
-  GUIDED_RESULTS_STEPS.TAP_DEFINITION,
-];
-const GUIDED_RESULTS_PAGE_TO_STEP = {
-  round: GUIDED_RESULTS_STEPS.SWIPE_TOTAL,
-  total: GUIDED_RESULTS_STEPS.SWIPE_FOUND,
-  found: GUIDED_RESULTS_STEPS.SWIPE_ALL,
-  all: GUIDED_RESULTS_STEPS.TAP_WORD,
 };
 const SPECIAL_TUTORIAL_SPEED_SCORE_FALLBACK = 11;
 const LEAGUE_META = {
@@ -1101,13 +1089,9 @@ export default function GobbleApplication() {
   const roundStartAtRef = useRef(0);
   const tileStepRef = useRef(0);         // <-- AJOUT
   const isTouchDeviceRef = useRef(false);
-  const invalidWordGuardEligible =
-    isLoggedIn &&
-    appView === "live" &&
-    phase === "playing" &&
-    specialRound?.type !== "target_long" &&
-    specialRound?.type !== "target_score" &&
-    specialRound?.type !== DAILY_SPECIAL_MODE;
+  const invalidWordGuardEligible = isInvalidWordGuardEnabled({
+    isLoggedIn, appView, phase, roundType: specialRound?.type,
+  });
   const invalidWordGuard = useInvalidWordGuard({
     enabled: invalidWordGuardEligible,
     resetKey: `${roundId || ""}:${phase}`,
@@ -1662,8 +1646,6 @@ export default function GobbleApplication() {
         setDesktopResultsDrawerLayout: "desktopResultsDrawerLayout",
         setDesktopViewportResizeInProgress: "desktopViewportResizeInProgress",
         setGridWidth: "gridWidth",
-        setMobileSpecial3Step1GhostStyle: "mobileSpecial3Step1GhostStyle",
-        setMobileSpecial3Step2OverlayStyle: "mobileSpecial3Step2OverlayStyle",
         setPlayColumnHeight: "playColumnHeight",
       }),
     [layoutFeature]
@@ -1762,8 +1744,6 @@ export default function GobbleApplication() {
     isUltraCompact,
     mobileHeaderOffsetPx,
     mobileLayoutSizing,
-    mobileSpecial3Step1GhostStyle,
-    mobileSpecial3Step2OverlayStyle,
     playColumnHeight,
   } = layoutState;
   const {
@@ -1784,8 +1764,6 @@ export default function GobbleApplication() {
     setIsIosStandalone,
     setMobileHeaderOffsetPx,
     setMobileLayoutSizing,
-    setMobileSpecial3Step1GhostStyle,
-    setMobileSpecial3Step2OverlayStyle,
     setPlayColumnHeight,
   } = layoutActions;
   const {
@@ -2024,7 +2002,6 @@ export default function GobbleApplication() {
         setIsSpecialTutorialOpen: "specialOpen",
         setIsTutorialOpen: "open",
         setSpecialTutorialPlan: "specialPlan",
-        setSpecialTutorialStepIndex: "specialStepIndex",
         setTutorialPendingLogin: "pendingLogin",
       }),
     [tutorialFeature]
@@ -2100,19 +2077,18 @@ export default function GobbleApplication() {
     setResultsTeamDelta,
   } = duelActions;
   const {
-    guidedResultsStep,
     open: isTutorialOpen,
     pendingLogin: tutorialPendingLogin,
     specialOpen: isSpecialTutorialOpen,
     specialPlan: specialTutorialPlan,
-    specialStepIndex: specialTutorialStepIndex,
   } = tutorialState;
+  // Results guidance now belongs exclusively to the optional interactive tutorial.
+  const guidedResultsStep = null;
   const {
     setGuidedResultsStep,
     setIsSpecialTutorialOpen,
     setIsTutorialOpen,
     setSpecialTutorialPlan,
-    setSpecialTutorialStepIndex,
     setTutorialPendingLogin,
   } = tutorialActions;
   const {
@@ -2163,11 +2139,6 @@ export default function GobbleApplication() {
     dailyPlayMode === DAILY_SPECIAL_MODE &&
     isSpecialTutorialOpen &&
     specialTutorialPlan?.type === DAILY_SPECIAL_MODE;
-  const isSpecial3TutorialInteractiveActive =
-    phase === "playing" &&
-    isSpecialTutorialOpen &&
-    specialTutorialPlan?.type === DAILY_SPECIAL_MODE &&
-    (isSpecial3WordsMode || specialRound?.type === DAILY_SPECIAL_MODE);
   const completeGuidedResultsTutorial = React.useCallback(() => {
     markAccountSeen(ACCOUNT_SEEN_MARKERS.guidedResultsTutorial);
     setGuidedResultsStep(null);
@@ -2213,13 +2184,19 @@ export default function GobbleApplication() {
   }
 
   function returnToLobby() {
+    if (standaloneTrainingSessionRef.current?.tutorial && isTutorialOpen) {
+      tutorialGame.disposeSession();
+      tutorialGame.returnToMenu();
+      completeTutorial();
+      return;
+    }
     liveEntryFeature.cancelLoginAttempt();
     liveResumeFeature.cancelAll();
     if (!gameplaySessionFeature.cancel("return_to_lobby")) {
       disposeGameplayRuntimeResources();
     }
     if (standaloneTrainingSessionRef.current) {
-      if (socket.connected) {
+      if (socket.connected && !standaloneTrainingSessionRef.current.localOnly) {
         socket.emit("training:standalone:stop", {
           roomId: roomIdRef.current,
           joinLive: false,
@@ -2331,6 +2308,9 @@ export default function GobbleApplication() {
     (state) => state
   );
   const standaloneTrainingSession = standaloneTrainingState.session;
+  const isGuidedTutorial = !!standaloneTrainingSession?.tutorial;
+  const trainingPresentationSession = isGuidedTutorial ? null : standaloneTrainingSession;
+  const gamePresentationView = isGuidedTutorial ? "live" : appView;
   const standaloneTrainingSessionRef = standaloneTrainingFeature.refs.session;
   const standaloneTrainingController = {
     busy: standaloneTrainingState.busy,
@@ -2929,16 +2909,17 @@ export default function GobbleApplication() {
   const showMobileLiveActionBar =
     isMobileLayout &&
     isLoggedIn &&
-    appView === "live" &&
+    gamePresentationView === "live" &&
     phase === "playing" &&
     !isUltraCompact &&
     !isSpecial3WordsMode &&
-    !standaloneTrainingSession;
+    !trainingPresentationSession;
   const { mobileGameViewportLockRef, mobileHeaderRef } =
     useMobileLayoutController({
       game: {
         gridSize,
         phase,
+        roundType: specialRound?.type,
         showHelp,
       },
       layout: {
@@ -3899,6 +3880,9 @@ export default function GobbleApplication() {
     [weeklyStats]
   );
 
+  const liveThreeWordsResults = appView === "live" && !standaloneTrainingSession &&
+    specialRound?.type === DAILY_SPECIAL_MODE;
+
   function stopVocabOverlayAnimation() {
     setVocabOverlayRequest(null);
     vocabOverlayControllerRef.current?.stop();
@@ -3921,12 +3905,11 @@ export default function GobbleApplication() {
       stopVocabOverlayAnimation();
       return;
     }
-    if (targetSummary) {
+    if (targetSummary || liveThreeWordsResults) {
       stopVocabOverlayAnimation();
       return;
     }
     if (!isAccountAuthenticated || !accountSeenReady) return;
-    if (!Number.isFinite(vocabCount)) return;
     if (!vocabResultsReadyKey) return;
     const overlayKey = vocabResultsReadyKey;
     if (vocabOverlayRoundRef.current === overlayKey) return;
@@ -3935,9 +3918,6 @@ export default function GobbleApplication() {
       vocabOverlayRoundRef.current = overlayKey;
       return;
     }
-    vocabOverlayRoundRef.current = overlayKey;
-    markAccountSeen(accountMarker);
-
     const selfKey = normalizeNickKey(nicknameRef.current || nickname);
     const selfResult =
       Array.isArray(finalResults) && selfKey
@@ -3956,9 +3936,12 @@ export default function GobbleApplication() {
       delta: vocabRoundDelta,
       weeklyDelta: vocabWeeklyRoundDelta,
     });
+    if (!progress.available || !Number.isFinite(progress.count)) return;
+    vocabOverlayRoundRef.current = overlayKey;
+    markAccountSeen(accountMarker);
     const deltaCount = progress.delta ?? 0;
-    const baseCount = Math.max(0, vocabCount - deltaCount);
-    const targetCount = vocabCount;
+    const baseCount = Math.max(0, progress.count - deltaCount);
+    const targetCount = progress.count;
     const weeklyDeltaCount = progress.weeklyDelta ?? 0;
     const weeklyTargetCount = progress.weeklyCount;
     const weeklyBaseCount = Number.isFinite(weeklyTargetCount)
@@ -4013,7 +3996,8 @@ export default function GobbleApplication() {
       rankStart,
       rankEnd,
       raceSnapshot,
-      words: progress.newWords,
+      words: progress.newWeeklyWords,
+      seasonWords: progress.newWords,
     });
   }, [
     accepted,
@@ -4033,6 +4017,7 @@ export default function GobbleApplication() {
     vocabResultsReadyKey,
     weeklyStats,
     targetSummary,
+    liveThreeWordsResults,
   ]);
 
   useEffect(() => {
@@ -4754,7 +4739,7 @@ export default function GobbleApplication() {
   useRoundClockController({
     countdownSeconds: COUNTDOWN,
     deadlineServerMs: serverEndsAt,
-    disabled: isDailySpecial3TutorialActive,
+    disabled: isDailySpecial3TutorialActive || isTutorialOpen,
     getServerNowMs: getNowServerMs,
     maxSeconds: roundClockMaxSeconds,
     onCountdownElapsed: handleRoundClockCountdownElapsed,
@@ -6500,7 +6485,11 @@ export default function GobbleApplication() {
         params.set("full", "1");
         params.set("nocache", "1");
       }
-      fetch(`/api/define?${params.toString()}`)
+      const preparedDefinition = standaloneTrainingSessionRef.current?.tutorialDefinitions?.[normalizeWord(word)];
+      const response = preparedDefinition
+        ? Promise.resolve({ ok: true, json: () => Promise.resolve(preparedDefinition) })
+        : fetch(`/api/define?${params.toString()}`);
+      response
         .then((res) => (res.ok ? res.json() : null))
         .then((data) => {
           if (requestId !== definitionRequestIdRef.current) return;
@@ -8175,7 +8164,7 @@ function handleTouchEnd() {
     shiftResultsPage,
   } = useResultsNavigation({
     isOcidResult: specialRound?.type === OCID_TYPE || !!targetSummary?.ocid,
-    isStandaloneTraining: !!standaloneTrainingSession,
+    isStandaloneTraining: !!trainingPresentationSession,
     isTargetRound:
       specialRound?.type === "target_long" ||
       specialRound?.type === "target_score" ||
@@ -8240,18 +8229,18 @@ function handleTouchEnd() {
   const showDesktopLiveActionBar =
     !isMobileLayout &&
     isLoggedIn &&
-    appView === "live" &&
+    gamePresentationView === "live" &&
     phase === "playing" &&
     !isSpecial3WordsMode &&
-    !standaloneTrainingSession;
+    !trainingPresentationSession;
   const showLivePresenterActionBar =
     !presenterHintsDisabledForRound &&
     (showMobileLiveActionBar || showDesktopLiveActionBar);
   const showResultsPresenterActionBar =
     isLoggedIn &&
-    appView === "live" &&
+    gamePresentationView === "live" &&
     phase === "results" &&
-    !standaloneTrainingSession;
+    !trainingPresentationSession;
   const ocidDefinitionText = String(
     ocidVote?.definition ||
       specialRound?.ocidDefinition ||
@@ -8465,23 +8454,8 @@ function handleTouchEnd() {
       : false;
   const showOfflineResultsLabel =
     phase === "results" && !standaloneTrainingSession && !selfHasResultsThisRound;
-  const guidedResultsEligible =
-    !isDailyView &&
-    isMobileLayout &&
-    phase === "results" &&
-    !isTargetRound &&
-    !isOcidRound &&
-    !showOfflineResultsLabel;
-  const guidedResultsPages = guidedResultsEligible ? mobileResultPages : [];
-  const guidedResultsPageKey = guidedResultsPages.length
-    ? guidedResultsPages[clampValue(mobileResultsPage, 0, guidedResultsPages.length - 1)]
-    : null;
-  const guidedWordTarget =
-    guidedResultsStep === GUIDED_RESULTS_STEPS.TAP_WORD &&
-    guidedResultsPageKey === "all" &&
-    displayList.length > 0
-      ? displayList[1]?.word || displayList[0]?.word
-      : null;
+  const guidedResultsEligible = false;
+  const guidedWordTarget = null;
   useEffect(() => {
     if (!isMobileLayout || phase !== "results") return;
     const pages = mobileResultPages;
@@ -8514,6 +8488,7 @@ function handleTouchEnd() {
   ]);
   useEffect(() => {
     if (phase !== "playing" || !specialRound?.isSpecial) return;
+    if (isTutorialOpen) return;
     if (inputLocked) return;
     if (isMobileLayout && mobileRoundIntroStage !== "idle") return;
     if (!isAccountAuthenticated) return;
@@ -8521,7 +8496,6 @@ function handleTouchEnd() {
     if (accountSeenMarkers.has(buildSpecialTutorialSeenMarker(specialRound.type))) return;
     if (isSpecialTutorialOpen) return;
     setSpecialTutorialPlan(specialRound);
-    setSpecialTutorialStepIndex(0);
     setIsSpecialTutorialOpen(true);
   }, [
     phase,
@@ -8529,6 +8503,7 @@ function handleTouchEnd() {
     specialRound,
     isAccountAuthenticated,
     isSpecialTutorialOpen,
+    isTutorialOpen,
     inputLocked,
     isMobileLayout,
     mobileRoundIntroStage,
@@ -8547,6 +8522,7 @@ function handleTouchEnd() {
     }
   }, [phase, specialRound, isSpecialTutorialOpen, specialTutorialPlan, isDailyPlay, dailyPlayMode]);
   useEffect(() => {
+    if (phase !== "playing" || isTutorialOpen) return;
     if (!isDailyPlay || dailyPlayMode !== DAILY_SPECIAL_MODE) return;
     if (!isAccountAuthenticated) return;
     if (!accountSeenReady) return;
@@ -8558,9 +8534,10 @@ function handleTouchEnd() {
       label: "3 mots",
       tutorialContext: "daily",
     });
-    setSpecialTutorialStepIndex(0);
     setIsSpecialTutorialOpen(true);
   }, [
+    phase,
+    isTutorialOpen,
     isDailyPlay,
     dailyPlayMode,
     isAccountAuthenticated,
@@ -8589,138 +8566,6 @@ function handleTouchEnd() {
       };
     }
   }, [isDailySpecial3TutorialActive]);
-  useEffect(() => {
-    if (!isSpecial3TutorialInteractiveActive) return;
-    if (specialTutorialStepIndex !== 0) return;
-    const hasPlacedBonus = DAILY_SPECIAL_BONUSES.some((bonusKey) =>
-      Number.isInteger(dailySpecialPlacements?.[bonusKey])
-    );
-    if (hasPlacedBonus) {
-      setSpecialTutorialStepIndex(1);
-    }
-  }, [isSpecial3TutorialInteractiveActive, specialTutorialStepIndex, dailySpecialPlacements]);
-  useEffect(() => {
-    if (!isSpecial3TutorialInteractiveActive) return;
-    if (specialTutorialStepIndex !== 1) return;
-    const hasValidatedWord = special3Slots.some((slot) => String(slot?.word || "").trim());
-    if (hasValidatedWord) {
-      setSpecialTutorialStepIndex(2);
-    }
-  }, [isSpecial3TutorialInteractiveActive, specialTutorialStepIndex, special3Slots]);
-  useEffect(() => {
-    if (!(isMobileLayout && isSpecial3TutorialInteractiveActive && specialTutorialStepIndex === 1)) {
-      setMobileSpecial3Step2OverlayStyle(null);
-      return;
-    }
-    let rafId = null;
-    const measure = () => {
-      const hostRect = mobileSpecial3TutorialHostRef.current?.getBoundingClientRect?.();
-      const secondSlotRect = mobileSpecial3SecondSlotRef.current?.getBoundingClientRect?.();
-      const gridRect = mobileSpecial3GridWrapRef.current?.getBoundingClientRect?.();
-      if (!hostRect || !secondSlotRect || !gridRect) return;
-      const top = Math.max(0, Math.round(secondSlotRect.top - hostRect.top));
-      const bottom = Math.max(0, Math.round(hostRect.bottom - gridRect.top + 4));
-      if (top >= hostRect.height - bottom) return;
-      setMobileSpecial3Step2OverlayStyle((prev) => {
-        const next = { top: `${top}px`, bottom: `${bottom}px` };
-        return prev?.top === next.top && prev?.bottom === next.bottom ? prev : next;
-      });
-    };
-    const scheduleMeasure = () => {
-      if (rafId) cancelAnimationFrame(rafId);
-      rafId = requestAnimationFrame(measure);
-    };
-    scheduleMeasure();
-    const unsubscribeViewport = layoutFeature.subscribeViewport(scheduleMeasure, [
-      VIEWPORT_EVENTS.WINDOW_RESIZE,
-    ]);
-    return () => {
-      if (rafId) cancelAnimationFrame(rafId);
-      unsubscribeViewport();
-    };
-  }, [
-    isMobileLayout,
-    isSpecial3TutorialInteractiveActive,
-    specialTutorialStepIndex,
-    liveWord,
-    dailyWordSlotsScored,
-    layoutFeature,
-  ]);
-  useEffect(() => {
-    if (!(isMobileLayout && isSpecial3TutorialInteractiveActive && specialTutorialStepIndex === 0)) {
-      setMobileSpecial3Step1GhostStyle(null);
-      return;
-    }
-    let rafId = null;
-    const measure = () => {
-      const hostRect = mobileSpecial3TutorialHostRef.current?.getBoundingClientRect?.();
-      const gridRect = mobileSpecial3GridWrapRef.current?.getBoundingClientRect?.();
-      const bonusRect = mobileSpecial3BonusTrayRef.current?.getBoundingClientRect?.();
-      if (!hostRect || !gridRect || !bonusRect) return;
-      const startX = bonusRect.left + bonusRect.width * 0.2 - hostRect.left;
-      const startY = bonusRect.top + bonusRect.height * 0.5 - hostRect.top;
-      const endX = gridRect.left + gridRect.width * 0.52 - hostRect.left;
-      const endY = gridRect.top + gridRect.height * 0.46 - hostRect.top;
-      setMobileSpecial3Step1GhostStyle((prev) => {
-        const next = {
-          left: `${Math.round(startX)}px`,
-          top: `${Math.round(startY)}px`,
-          "--special3-ghost-dx": `${Math.round(endX - startX)}px`,
-          "--special3-ghost-dy": `${Math.round(endY - startY)}px`,
-        };
-        return prev &&
-          prev.left === next.left &&
-          prev.top === next.top &&
-          prev["--special3-ghost-dx"] === next["--special3-ghost-dx"] &&
-          prev["--special3-ghost-dy"] === next["--special3-ghost-dy"]
-          ? prev
-          : next;
-      });
-    };
-    const scheduleMeasure = () => {
-      if (rafId) cancelAnimationFrame(rafId);
-      rafId = requestAnimationFrame(measure);
-    };
-    scheduleMeasure();
-    const unsubscribeViewport = layoutFeature.subscribeViewport(scheduleMeasure, [
-      VIEWPORT_EVENTS.WINDOW_RESIZE,
-    ]);
-    return () => {
-      if (rafId) cancelAnimationFrame(rafId);
-      unsubscribeViewport();
-    };
-  }, [
-    isMobileLayout,
-    isSpecial3TutorialInteractiveActive,
-    specialTutorialStepIndex,
-    layoutFeature,
-  ]);
-  useEffect(() => {
-    if (!guidedResultsEligible || !isAccountAuthenticated) return;
-    if (!accountSeenReady) return;
-    if (accountSeenMarkers.has(ACCOUNT_SEEN_MARKERS.guidedResultsTutorial)) return;
-    setGuidedResultsStep((prev) => prev || GUIDED_RESULTS_STEPS.TAP_PSEUDO);
-  }, [
-    guidedResultsEligible,
-    isAccountAuthenticated,
-    accountSeenReady,
-    accountSeenMarkers,
-  ]);
-  useEffect(() => {
-    if (!guidedResultsEligible || !guidedResultsPageKey) return;
-    const targetStep = GUIDED_RESULTS_PAGE_TO_STEP[guidedResultsPageKey];
-    if (!targetStep) return;
-    const targetIndex = GUIDED_RESULTS_STEP_ORDER.indexOf(targetStep);
-    const maxAutoIndex = GUIDED_RESULTS_STEP_ORDER.indexOf(GUIDED_RESULTS_STEPS.TAP_WORD);
-    if (targetIndex === -1) return;
-    setGuidedResultsStep((prev) => {
-      if (!prev || prev === GUIDED_RESULTS_STEPS.TAP_PSEUDO) return prev;
-      const currentIndex = GUIDED_RESULTS_STEP_ORDER.indexOf(prev);
-      if (currentIndex === -1 || currentIndex > maxAutoIndex) return prev;
-      if (targetIndex <= currentIndex || prev === targetStep) return prev;
-      return targetStep;
-    });
-  }, [guidedResultsEligible, guidedResultsPageKey]);
   function renderTournamentTotalRightLabel(points, gobbles) {
     const safePoints = Math.max(0, Number(points) || 0);
     const safeGobbles = Math.max(0, Number(gobbles) || 0);
@@ -8780,7 +8625,7 @@ function handleTouchEnd() {
     shouldDefinitionBlink,
     specialRound,
     specialScoreConfig,
-    standaloneTrainingSession,
+    standaloneTrainingSession: trainingPresentationSession,
     targetDefinition,
     targetSummary,
     tournament,
@@ -9889,7 +9734,7 @@ function handleTouchEnd() {
         </div>
       </div>
     ) : null;
-  const roundStartDelayed = isRoundStartPreparationDelayed({
+  const roundStartDelayed = !isGuidedTutorial && isRoundStartPreparationDelayed({
     breakKind,
     nextStartAt,
     nowMs: getNowServerMs(),
@@ -9904,7 +9749,7 @@ function handleTouchEnd() {
         roundPreparing={roundPreparing}
         roundStartDelayed={roundStartDelayed}
         serverStatus={serverStatus}
-        standaloneTrainingSession={standaloneTrainingSession}
+        standaloneTrainingSession={trainingPresentationSession}
       />,
     ],
     [
@@ -9913,7 +9758,7 @@ function handleTouchEnd() {
       roundPreparing,
       roundStartDelayed,
       serverStatus,
-      standaloneTrainingSession,
+      trainingPresentationSession,
     ]
   );
   const mobileRoundIntroActive = mobileRoundIntroStage !== "idle";
@@ -10052,7 +9897,7 @@ function handleTouchEnd() {
     : "";
   const activePresenterRoundId = showTournamentFinale
     ? tournamentCelebrationPresenterScopeId
-    : roundId;
+    : isGuidedTutorial ? standaloneTrainingSession.sessionId : roundId;
   const activePresenterPhaseKey = showTournamentFinale
     ? "tournament_celebration"
     : phase;
@@ -10465,6 +10310,17 @@ function handleTouchEnd() {
       />
     </Suspense>
   );
+  const tutorialGame = useTutorialGameBridge({
+    open: isTutorialOpen, progressFeature, standaloneTrainingFeature, rosterFeature, presentersFeature,
+    clockFeature, getNowServerMs, nicknameRef, setNickname, phase, isMobileLayout, darkMode,
+    resultsRankingMode, mobileResultPages, mobileResultsPage, showAllWords, analysis, gridRotationTurns,
+    wordInfoModal, definitionModal, isVocabOverlayOpen, dailyAcceptedPathsRef, acceptedWordMetaRef, acceptedScoresRef,
+    dailyWordSlots, dailySpecialPlacements, acceptedRef, acceptedWordSetRef,
+    inputLockedRef, setInputLocked, clearSelection, gridRef, tileRefs, mobileHeaderRef, mobileRankingRef,
+    setFinalResults, setTournament, setTournamentRoundPoints, setTournamentRanking,
+    finishStandaloneTraining, returnToLobby, startVocabOverlayAnimation, stopVocabOverlayAnimation,
+    closeDefinition, closeWordInfoModal, playUiClickSound: playSwipeSound,
+  });
   const {
     isInGameSpecial3Tutorial,
     special3DesktopStep2TutorialOverlay,
@@ -10476,21 +10332,16 @@ function handleTouchEnd() {
     tutorialOverlay,
   } = useTutorialPresentation({
     completeTutorial,
+    tutorialGame,
+    tutorialIdentity: authenticatedUserId || installId,
+    tutorialPendingLogin,
     darkMode,
-    isMobileLayout,
-    isSpecial3TutorialInteractiveActive,
     isSpecialTutorialOpen,
     isTutorialOpen,
     markSpecialTutorialSeen,
-    mobileSpecial3Step1GhostStyle,
-    mobileSpecial3Step2OverlayStyle,
-    renderSpecial3BonusChipButton,
     setIsSpecialTutorialOpen,
     setSpecialTutorialPlan,
-    setSpecialTutorialStepIndex,
-    SPECIAL_TUTORIAL_SPEED_SCORE_FALLBACK,
     specialTutorialPlan,
-    specialTutorialStepIndex,
   });
 
   const authDialogView = (
@@ -12211,7 +12062,7 @@ function handleTouchEnd() {
       />
     </Suspense>
   ) : null;
-  const trainingSessionControls = standaloneTrainingSession ? (
+  const trainingSessionControls = trainingPresentationSession ? (
     <TrainingSessionControls
       compact={isMobileLayout}
       phase={phase}
@@ -12233,7 +12084,7 @@ function handleTouchEnd() {
             showTournamentFinale ||
             ((showLivePresenterActionBar || visualPresenterAnimationsEnabled) &&
               isLoggedIn &&
-              appView === "live" &&
+              gamePresentationView === "live" &&
               phase === "playing")
           }
           hostRef={gridRef}
@@ -12248,7 +12099,7 @@ function handleTouchEnd() {
         enabled={
           !tournamentPresenterCelebrationActive &&
           isLoggedIn &&
-          appView === "live" &&
+          gamePresentationView === "live" &&
           phase === "results" &&
           (showResultsPresenterActionBar ||
             (visualPresenterAnimationsEnabled && resultsPresentersReady))
@@ -12256,7 +12107,7 @@ function handleTouchEnd() {
         hostRef={gridRef}
         manual={showResultsPresenterActionBar}
         phaseKey={phase}
-        roundId={roundId}
+        roundId={activePresenterRoundId}
       />
       {!presenterHintsDisabledForRound || showTournamentFinale ? (
         <RomejkoIntervention
@@ -12266,7 +12117,7 @@ function handleTouchEnd() {
             showTournamentFinale ||
             ((showLivePresenterActionBar || visualPresenterAnimationsEnabled) &&
               isLoggedIn &&
-              appView === "live" &&
+              gamePresentationView === "live" &&
               phase === "playing")
           }
           hostRef={gridRef}
@@ -12283,12 +12134,12 @@ function handleTouchEnd() {
           (!tournamentPresenterCelebrationActive &&
             !presenterHintsDisabledForRound &&
             isLoggedIn &&
-            appView === "live" &&
+            gamePresentationView === "live" &&
             (phase === "playing" || (phase === "results" && resultsPresentersReady)))
         }
         hostRef={gridRef}
         liveRoundFeature={liveRoundFeature}
-        manual={showTournamentFinale || showLivePresenterActionBar}
+        manual={isGuidedTutorial || showTournamentFinale || showLivePresenterActionBar}
         phaseKey={activePresenterPhaseKey}
         playBonusVoice={playBonusVoice}
         roundId={activePresenterRoundId}
@@ -12318,6 +12169,12 @@ function handleTouchEnd() {
       {roundPlayerModalView}
       {recordModalView}
       {vocabOverlayView}
+      {liveThreeWordsResults && phase === "results" ? (
+        <Suspense fallback={null}>
+          <LiveThreeWordsRecap roundId={roundId} results={finalResults}
+            userId={authenticatedUserId} nickname={nickname} />
+        </Suspense>
+      ) : null}
       {tutorialOverlay}
       {authDialogView}
       {specialTutorialOverlay}
@@ -12497,6 +12354,7 @@ function handleTouchEnd() {
       <Suspense fallback={null}>
         <ChalkboardApplication
           canPublish={isAccountAuthenticated}
+          connection={socket}
           onClose={closeChalkboard}
         />
       </Suspense>
@@ -12529,6 +12387,7 @@ function handleTouchEnd() {
           key="home-application"
           account={{
             isAuthenticated: isAccountAuthenticated,
+            userId: authenticatedUserId,
             legacyProfileUsername,
             loginError,
             nickname,
@@ -12547,6 +12406,7 @@ function handleTouchEnd() {
             onOpenDuel: openDuelPage,
             onOpenPlayers: openPlayersOverlayAlpha,
             onOpenSettings: openSettingsPanel,
+            onOpenTutorial: openTutorialFromHome,
             onOpenStats: openWeeklyStatsOverlay,
             onOpenVault: openWordVaultPage,
             onOpenWeeklyRecap: showPublicDuelWeekRecap,
@@ -12850,6 +12710,7 @@ function handleTouchEnd() {
             }}
           />
         </Suspense>
+        {quickHelpOverlay}
         {globalChatLayer}
       </>
     );
@@ -12973,7 +12834,7 @@ function handleTouchEnd() {
             special3MobileStep2TutorialOverlay,
             special3TutorialStep,
             specialSolvedOverlay,
-            standaloneTrainingSession,
+            standaloneTrainingSession: trainingPresentationSession,
             suppressLiveChatMotion,
             tileColorPreset,
             tileMaterialClass,
@@ -13100,7 +12961,7 @@ function handleTouchEnd() {
             resultsReorderTick,
             resultsSlidePhase,
             roundPreparing,
-            roundId,
+            roundId: activePresenterRoundId,
             roundStats,
             roundTilePointsVisible,
             selfNick,
@@ -13116,7 +12977,7 @@ function handleTouchEnd() {
             specialHintDisplay,
             specialRound,
             specialSolvedOverlay,
-            standaloneTrainingSession,
+            standaloneTrainingSession: trainingPresentationSession,
             suppressLiveChatMotion,
             suppressWordListScores,
             targetScoreMax,
@@ -13227,7 +13088,7 @@ function handleTouchEnd() {
             allSoundOn,
             allWords,
             analysis,
-            appView,
+            appView: gamePresentationView,
             assetVersion,
             blockedCount,
             blockedEntries,
@@ -13410,7 +13271,7 @@ function handleTouchEnd() {
             resultsReorderTick,
             returnToLobby,
             rotateGridClockwise,
-            roundId,
+            roundId: activePresenterRoundId,
             roundPreparationOverlay,
             roundPreparing,
             roundStats,
@@ -13466,7 +13327,7 @@ function handleTouchEnd() {
             specialSolvedOverlay,
             stableCanOpenPlayerProfile,
             stableOpenPlayerProfile,
-            standaloneTrainingSession,
+            standaloneTrainingSession: trainingPresentationSession,
             submitChat,
             submitDailyScore,
             submitOcidProposal,

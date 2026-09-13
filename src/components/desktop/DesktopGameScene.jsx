@@ -44,6 +44,7 @@ import LiveSalonScene from "../live/LiveSalonScene.jsx";
 import MiniTournamentStartOverlay from "../live/MiniTournamentStartOverlay.jsx";
 import TraceAwareDesktopPreviewContent from "../live/TraceAwareDesktopPreviewContent.jsx";
 import OcidVoteOptionsGrid from "../ocid/OcidVoteOptionsGrid.jsx";
+import DesktopOcidPanel from "../ocid/DesktopOcidPanel.jsx";
 import TrainingPlayerBadge from "../training/TrainingPlayerBadge.jsx";
 import useDesktopSceneLayout from "./useDesktopSceneLayout.js";
 
@@ -1264,75 +1265,24 @@ export default function DesktopGameScene({ runtime }) {
           <div
             className={`desktop-score-block bg-white dark:bg-slate-950/80 border dark:border-slate-700 rounded-xl p-3 w-full relative overflow-hidden ${
               phase === "playing" && isOcidRound
-                ? "flex flex-col flex-1 min-h-0 mb-0"
+                ? "desktop-ocid-score-block flex flex-col flex-1 min-h-0 mb-0"
                 : "space-y-2 mb-4 shrink-0"
             }`}
           >
             {phase === "playing" && isOcidRound ? (
-              <div className="flex h-full min-h-0 flex-col gap-3">
-                <div className="text-[11px] font-extrabold tracking-widest text-center text-amber-500">
-                  MANCHE OCID
-                </div>
-                <div
-                  className={`min-h-[2.6rem] text-center text-lg font-black leading-snug ${
-                    ocidDefinitionText
-                      ? "text-slate-900 dark:text-slate-100"
-                      : "text-slate-500 dark:text-slate-400"
-                  }`}
-                >
-                  {ocidDefinitionText || "Définition indisponible"}
-                </div>
-                {ocidVote ? (
-                  <OcidVoteOptionsGrid
-                    darkMode={darkMode}
-                    onSelect={submitOcidVote}
-                    options={ocidVote.options || []}
-                    selectedOptionId={ocidSelectedOptionId}
-                  />
-                ) : (
-                  <form
-                    className="flex gap-2"
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      submitOcidProposal();
-                    }}
-                  >
-                    <div className="relative min-w-0 flex-1">
-                      <input
-                        value={ocidProposal}
-                        onChange={(e) => handleOcidProposalChange(e.target.value)}
-                        maxLength={32}
-                        className="w-full rounded-lg border border-slate-300 px-2 py-1.5 pr-8 text-sm text-slate-900"
-                        placeholder="Trace ou tape ton mot"
-                      />
-                      {ocidProposal ? (
-                        <button
-                          type="button"
-                          onClick={handleClearOcidProposal}
-                          className="absolute right-1 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100"
-                          aria-label="Changer de proposition"
-                        >
-                          <span className="material-icons-outlined text-[16px] leading-none">close</span>
-                        </button>
-                      ) : null}
-                    </div>
-                    <button
-                      type="submit"
-                      className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-bold text-white"
-                    >
-                      Envoyer
-                    </button>
-                  </form>
-                )}
-                <div className="text-center text-[11px] font-semibold text-slate-600 dark:text-slate-300">
-                  {ocidStatusMessage ||
-                    (ocidVote
-                      ? "Vote pour le vrai mot cible."
-                      : ocidProposalSubmitted
-                      ? `Retenu : ${ocidProposalSubmitted}`
-                      : "Trace ou tape un mot plausible. Il sera retenu automatiquement.")}
-                </div>
-              </div>
+              <DesktopOcidPanel
+                darkMode={darkMode}
+                definition={ocidDefinitionText}
+                onClearProposal={handleClearOcidProposal}
+                onProposalChange={handleOcidProposalChange}
+                onSubmitProposal={submitOcidProposal}
+                onVote={submitOcidVote}
+                proposal={ocidProposal}
+                selectedOptionId={ocidSelectedOptionId}
+                statusMessage={ocidStatusMessage}
+                submittedProposal={ocidProposalSubmitted}
+                vote={ocidVote}
+              />
             ) : (
               <>
                 <AutoScaleInline minScale={0.55} measurePaddingPx={2}>
@@ -1363,6 +1313,8 @@ export default function DesktopGameScene({ runtime }) {
                           ? `les ${specialRound.bonusLetter || "?"} valent ${specialRound.bonusLetterScore ?? 20} pts`
                           : specialRound?.type === MASSIVE_BOGGLE_TYPE
                           ? "mots de 3 lettres min"
+                          : specialRound?.type === "finale"
+                          ? "effets des tuiles et points de classement ×2"
                         : "objectif : 1 seul mot"}
                       </div>
                     )}
@@ -1386,7 +1338,8 @@ export default function DesktopGameScene({ runtime }) {
             )}
           </div>
 
-          <div ref={presenterInterventionHostRef} className="flex flex-col flex-1 min-h-0 min-w-0">
+          {/* OCID fills this column; keep the presenter anchor without reserving an empty second panel. */}
+          <div ref={presenterInterventionHostRef} className={phase === "playing" && isOcidRound ? "absolute inset-4 pointer-events-none" : "flex flex-col flex-1 min-h-0 min-w-0"}>
           {phase === "playing" && isSpecial3WordsMode ? (
             <DesktopSpecial3WordsPanel
               activeSlotIndex={special3ActiveSlotIndex}

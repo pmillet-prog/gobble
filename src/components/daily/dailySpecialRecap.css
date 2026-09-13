@@ -1,0 +1,39 @@
+.daily-special-recap {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  width: min(560px, calc(100vw - 24px));
+  max-height: calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  overflow-y: auto;
+  padding: clamp(16px, 4vw, 28px);
+  border: 1px solid #b9944c;
+  border-radius: 24px;
+  color: #fff8e6;
+  background: linear-gradient(145deg, #202b39, #101823);
+  box-shadow: 0 24px 80px #0008;
+}
+.daily-special-recap::backdrop { background: #020617b8; backdrop-filter: blur(4px); }
+.daily-special-recap-heading, .daily-special-recap-word-heading, .daily-special-recap-total { display: flex; align-items: center; gap: 12px; }
+.daily-special-recap-heading { justify-content: space-between; }
+.daily-special-recap-heading p { color: #eacb89; font-size: 12px; }
+.daily-special-recap h2 { font-size: clamp(22px, 6vw, 28px); font-weight: 900; }
+.daily-special-recap-close { flex: none; width: 44px; height: 44px; border-radius: 12px; background: #ffffff12; font-size: 28px; }
+.daily-special-recap-intro { margin: 12px 0 18px; font-size: 14px; color: #cbd5e1; }
+.daily-special-recap-words { display: grid; gap: 10px; list-style: none; padding: 0; }
+.daily-special-recap-word { padding: 14px; border: 1px solid #64748b77; border-radius: 16px; background: #ffffff08; transition: background-color .25s, border-color .25s; }
+.daily-special-recap-word.is-valid { border-color: #4ade8090; background: #14532d66; }
+.daily-special-recap-word.is-invalid { border-color: #fb718580; background: #88133744; }
+.daily-special-recap-word-heading strong { flex: 1; min-width: 0; overflow-wrap: anywhere; font-size: 17px; text-transform: uppercase; }
+.daily-special-recap-number { color: #cbd5e1; font-size: 12px; }
+.daily-special-recap-points { flex: none; font-weight: 800; font-variant-numeric: tabular-nums; }
+.daily-special-recap-verdict { margin-top: 8px; min-height: 22px; color: #cbd5e1; font-size: 13px; }
+.daily-special-recap-verdict > span { margin-right: 7px; }
+.daily-special-recap-verdict p { margin-top: 4px; }
+.is-valid .daily-special-recap-verdict { color: #bbf7d0; }
+.is-invalid .daily-special-recap-verdict { color: #fecdd3; }
+.daily-special-recap-total { margin-top: 18px; padding-top: 14px; border-top: 1px solid #64748b77; justify-content: space-between; }
+.daily-special-recap-total strong { font-size: 24px; color: #fde68a; }
+.daily-special-recap-note { margin-top: 12px; font-size: 12px; color: #cbd5e1; }
+.daily-special-recap-done { width: 100%; min-height: 44px; margin-top: 18px; border-radius: 12px; padding: 10px; background: linear-gradient(#fde68a, #d6a538); color: #172033; font-weight: 800; }
+.daily-special-recap button:focus-visible { outline: 3px solid #fef3c7; outline-offset: 3px; }
+@media (prefers-reduced-motion: reduce) { .daily-special-recap-word { transition: none; } }

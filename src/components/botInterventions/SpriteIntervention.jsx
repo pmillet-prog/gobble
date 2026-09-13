@@ -11,6 +11,7 @@ import {
   isInterventionForActiveRound,
   randomIntegerBetween,
   resolveInterventionAppearanceSfxKey,
+  schedulePresenterHitExit,
   splitInterventionText,
 } from "./spriteInterventionAnimation.js";
 import { observeInterventionPlacement, updateInterventionPlacement } from "./spriteInterventionPlacement.js";
@@ -24,7 +25,7 @@ const PRESENTER_PUNCH_KEYS = Object.freeze([
   SFX_KEYS.presenterPunch4,
   SFX_KEYS.presenterPunch5,
 ]);
-export const PRESENTER_HIT_IDLE_MS = 1000;
+export { PRESENTER_HIT_IDLE_MS } from "./spriteInterventionAnimation.js";
 export const PRESENTER_HANDOFF_EXIT_MS = 180;
 
 function getReactionAssets(config) {
@@ -235,7 +236,14 @@ function SpriteIntervention({
   const presentIntervention = React.useCallback(
     (event, { manualActivation = false } = {}) => {
       const text = typeof event?.text === "string" ? event.text : "";
-      if (!text || stunnedRef.current) return;
+      if (
+        !text ||
+        stunnedRef.current ||
+        !enabledRef.current ||
+        !isInterventionForActiveRound(event?.roundId, roundIdRef.current)
+      ) {
+        return;
+      }
       completePresentation();
       const sequence = pendingSequenceRef.current + 1;
       pendingSequenceRef.current = sequence;
@@ -251,7 +259,13 @@ function SpriteIntervention({
         ...Object.values(reactionAssets),
       ].filter(Boolean);
       void Promise.all(assetUrls.map(preloadInterventionSprite)).then(() => {
-        if (pendingSequenceRef.current !== sequence || !enabledRef.current) return;
+        if (
+          pendingSequenceRef.current !== sequence ||
+          !enabledRef.current ||
+          !isInterventionForActiveRound(event?.roundId, roundIdRef.current)
+        ) {
+          return;
+        }
         const appearanceSfxKey = resolveInterventionAppearanceSfxKey(config, {
           manualActivation,
           fallbackKey: SFX_KEYS.presenterAppearance,
@@ -320,6 +334,7 @@ function SpriteIntervention({
     manualMode,
     presentIntervention,
     queueWhileDisabled,
+    roundId,
     subscribeInterventions,
   ]);
 
@@ -333,7 +348,7 @@ function SpriteIntervention({
       const latestRoundId = latest?.roundId == null ? "" : String(latest.roundId);
       const activeRoundId =
         roundIdRef.current == null ? "" : String(roundIdRef.current);
-      if (latestRoundId && activeRoundId && latestRoundId !== activeRoundId) return;
+      if (!isInterventionForActiveRound(latestRoundId, activeRoundId)) return;
       if (latest?.text) {
         onManualActivation?.(latest);
         presentIntervention(
@@ -604,16 +619,22 @@ function SpriteIntervention({
         cooldownMs: 55,
         eqKey: "presenterPunch",
       });
-      schedule(() => {
-        setPhase("exiting");
-        schedule(() => {
+      schedulePresenterHitExit({
+        schedule,
+        showStars: () => {
+          setReaction("stars");
+          setPhase("stars");
+        },
+        startExit: () => setPhase("exiting"),
+        complete: () => {
           completePresentation(intervention.sourceEvent);
           setIntervention((current) =>
             current?.sequence === intervention.sequence ? null : current
           );
           setReaction(null);
-        }, config.exitMs);
-      }, PRESENTER_HIT_IDLE_MS);
+        },
+        exitMs: config.exitMs,
+      });
     }, [
       clearTimers,
       completePresentation,

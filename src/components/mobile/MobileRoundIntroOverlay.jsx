@@ -28,16 +28,20 @@ function MobileRoundIntroOverlay({
   const countdown = countdownOverride ?? runtimeCountdown;
   const active = stage !== "idle";
   const [squareStyle, setSquareStyle] = React.useState(null);
+  const [gridHost, setGridHost] = React.useState(null);
 
   React.useLayoutEffect(() => {
     if (!active) {
       setSquareStyle(null);
+      setGridHost(null);
       return undefined;
     }
 
     let rafId = null;
     const updateRect = () => {
-      const rect = gridRef?.current?.getBoundingClientRect?.() || null;
+      const host = gridRef?.current || null;
+      setGridHost(host);
+      const rect = host?.getBoundingClientRect?.() || null;
       if (
         !rect ||
         !Number.isFinite(rect.left) ||
@@ -53,13 +57,17 @@ function MobileRoundIntroOverlay({
         setSquareStyle(null);
         return;
       }
-      setSquareStyle({
+      const nextStyle = {
         left: `${Math.round(rect.left + (rect.width - side) / 2)}px`,
         top: `${Math.round(rect.top + (rect.height - side) / 2)}px`,
         width: `${side}px`,
         height: `${side}px`,
         __sidePx: side,
-      });
+      };
+      setSquareStyle(previous =>
+        previous?.left === nextStyle.left && previous?.top === nextStyle.top && previous?.__sidePx === side
+          ? previous : nextStyle
+      );
     };
     const schedule = () => {
       if (rafId !== null) return;
@@ -70,11 +78,14 @@ function MobileRoundIntroOverlay({
     };
 
     updateRect();
+    const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(updateRect) : null;
+    if (gridRef?.current) observer?.observe(gridRef.current);
     window.addEventListener("resize", schedule);
     window.addEventListener("orientationchange", schedule);
     window.visualViewport?.addEventListener("resize", schedule);
 
     return () => {
+      observer?.disconnect();
       window.removeEventListener("resize", schedule);
       window.removeEventListener("orientationchange", schedule);
       window.visualViewport?.removeEventListener("resize", schedule);
@@ -82,7 +93,7 @@ function MobileRoundIntroOverlay({
     };
   }, [active, gridRef, stage, countdown, isMobileLayout]);
 
-  if (!active || typeof document === "undefined") return null;
+  if (!active || typeof document === "undefined" || (!isMobileLayout && !gridHost)) return null;
 
   const sidePx = Number(squareStyle?.__sidePx) || 0;
   const countdownFontPx = sidePx ? clampValue(Math.round(sidePx * 0.45), 104, 260) : 180;
@@ -111,7 +122,12 @@ function MobileRoundIntroOverlay({
     normalizedRoundTypeLabel.startsWith("MANCHE SPECIALE") ||
     normalizedRoundTypeLabel.startsWith("FINALE");
 
-  const styleForRender = squareStyle
+  // On desktop the title's gold border belongs to the grid itself. A portal
+  // into the grid follows its layout immediately, without stale screen rects
+  // while the first round restores column widths and measures the viewport.
+  const styleForRender = !isMobileLayout
+    ? { position: "absolute", inset: 0, width: "100%", height: "100%" }
+    : squareStyle
     ? {
         left: squareStyle.left,
         top: squareStyle.top,
@@ -123,7 +139,7 @@ function MobileRoundIntroOverlay({
 
   return createPortal(
     <div
-      className="fixed inset-0 pointer-events-none select-none"
+      className={`${isMobileLayout ? "fixed" : "absolute"} inset-0 pointer-events-none select-none`}
       style={{ zIndex: overlayZIndex }}
     >
       {showsBackdrop ? <div className={`absolute inset-0 bg-black ${backdropClass}`} /> : null}
@@ -181,7 +197,7 @@ function MobileRoundIntroOverlay({
         </div>
       ) : null}
     </div>,
-    document.body
+    isMobileLayout ? document.body : gridHost
   );
 }
 

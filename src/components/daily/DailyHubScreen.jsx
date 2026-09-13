@@ -8,7 +8,10 @@ import {
   DAILY_FAKE_TWINS_MODE,
   DAILY_FUTURE_SECTION,
   DAILY_OVERVIEW_SECTION,
+  DAILY_SPECIAL_MODE,
 } from "./dailyModes.js";
+import useDailySpecialRecap from "./useDailySpecialRecap.js";
+import { isOwnDailyEntry } from "./dailySpecialRecapModel.js";
 import {
   DAILY_PLAYABLE_MODES,
   getDailyModeDefinition,
@@ -16,6 +19,8 @@ import {
   getDailySectionDefinition,
   isDailyMode,
 } from "../../features/daily/dailyModePolicy.js";
+
+const DailySpecialRecapDialog = React.lazy(() => import("./DailySpecialRecapDialog.jsx"));
 
 export default function DailyHubScreen({
   view,
@@ -71,6 +76,12 @@ export default function DailyHubScreen({
     setDailySection,
   } = actions;
   const { renderCrownIcon, renderGobbleBadge, renderHumanDot } = renderers;
+  const specialRecap = useDailySpecialRecap({ appView, dailyResult, dailyStatus });
+  const specialRecapOverlay = specialRecap.opened ? (
+    <React.Suspense fallback={null}>
+      <DailySpecialRecapDialog {...specialRecap.opened} onClose={specialRecap.close} />
+    </React.Suspense>
+  ) : null;
 
   const resolveDailyModeResult = (mode) =>
     getDailyModeResult(mode, { dailyResult, dailyStatus });
@@ -285,10 +296,9 @@ export default function DailyHubScreen({
             ? entry.rightLabel
             : formatDailyEntryLabel(entry, { includeWords: true, includeGobbles: false });
           const gobbleBadge = !isPalier ? renderGobbleBadge(entry?.gobbles) : null;
-          const isSelfDaily =
-            !isPalier &&
-            ((entry?.installId && installId && entry.installId === installId) ||
-              (entry?.nick && selfNick && entry.nick === selfNick));
+          const isSelfDaily = isOwnDailyEntry(entry, { installId, selfNick }, normalizeInstallId);
+          const canReviewWords = isSelfDaily && entry?.mode === DAILY_SPECIAL_MODE &&
+            dailySection === DAILY_SPECIAL_MODE && specialRecap.canOpen;
           return (
             <div
               key={entry?.playerKey || entry?.installId || `${entry?.nick}-${idx}`}
@@ -304,11 +314,20 @@ export default function DailyHubScreen({
                 <span className="text-[11px] font-black tabular-nums w-6 text-right opacity-70">
                   {idx + 1}
                 </span>
-                <span className="truncate font-semibold flex items-center gap-1">
-                  {entry?.nick || "Joueur"}
-                  {renderHumanDot(entry?.nick, entry)}
-                  {gobbleBadge}
-                </span>
+                {canReviewWords ? (
+                  <button type="button" className="min-w-0 truncate font-semibold flex items-center gap-1 underline decoration-dotted underline-offset-4"
+                    onClick={specialRecap.open} aria-label={`Voir le récapitulatif de mes 3 mots (${entry.nick || "Joueur"})`} title="Revoir mes 3 mots">
+                    {entry.nick || "Joueur"}
+                    {renderHumanDot(entry.nick, entry)}
+                    {gobbleBadge}
+                  </button>
+                ) : (
+                  <span className="truncate font-semibold flex items-center gap-1">
+                    {entry?.nick || "Joueur"}
+                    {renderHumanDot(entry?.nick, entry)}
+                    {gobbleBadge}
+                  </span>
+                )}
               </div>
               <span className="text-[11px] font-semibold opacity-80 shrink-0">{label}</span>
             </div>
@@ -918,6 +937,7 @@ export default function DailyHubScreen({
         {aboutModalView}
         {quickHelpOverlay}
         {dailyLaunchDialogView}
+        {specialRecapOverlay}
         <div
           className={`relative overflow-hidden text-amber-50 ${
             isMobileLayout
@@ -1163,6 +1183,7 @@ export default function DailyHubScreen({
   if (appView === "daily_results") {
     return (
       <>
+        {specialRecapOverlay}
         {tutorialOverlay}
         {authDialogView}
         {settingsMenuView}

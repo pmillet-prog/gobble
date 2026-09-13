@@ -6,6 +6,7 @@ import {
 } from "./ocidVoteLayout.js";
 
 function OcidVoteOptionsGrid({
+  adaptive = false,
   className = "",
   compact = false,
   darkMode = false,
@@ -25,8 +26,15 @@ function OcidVoteOptionsGrid({
 
   return (
     <div
-      className={`grid min-h-0 w-full flex-1 overflow-hidden ${className}`}
-      style={{
+      className={`grid min-h-0 min-w-0 w-full flex-1 ${adaptive ? "overflow-y-auto overscroll-contain" : "overflow-hidden"} ${className}`}
+      style={adaptive ? {
+        gap: "10px",
+        padding: "2px",
+        gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 144px), 1fr))",
+        gridAutoRows: "max-content",
+        alignContent: "start",
+        scrollbarGutter: "stable",
+      } : {
         gap: `${gapPx}px`,
         gridTemplateColumns: `repeat(${layout.columns}, minmax(0, 1fr))`,
         gridTemplateRows: `repeat(${layout.rows}, minmax(0, 1fr))`,
@@ -44,7 +52,8 @@ function OcidVoteOptionsGrid({
             key={option.id}
             type="button"
             onClick={() => onSelect?.(option.id)}
-            className={`flex h-full min-h-0 min-w-0 items-center justify-center gap-1 overflow-hidden rounded-lg border px-1 py-0.5 font-bold leading-tight transition ${
+            aria-pressed={selected}
+            className={`flex min-w-0 items-center justify-center rounded-lg border font-bold transition ${adaptive ? "flex-wrap gap-2 px-3 py-3" : "h-full min-h-0 gap-1 overflow-hidden px-1 py-0.5 leading-tight"} ${
               selected
                 ? darkMode
                   ? "border-emerald-300/60 bg-emerald-900/70 text-emerald-50"
@@ -53,9 +62,9 @@ function OcidVoteOptionsGrid({
                 ? "border-slate-700 bg-slate-800/80 text-slate-100"
                 : "border-slate-200 bg-slate-50 text-slate-800"
             }`}
-            style={{ fontSize: `${layout.fontSizePx}px` }}
+            style={adaptive ? { minHeight: "56px", fontSize: "14px", lineHeight: 1.45 } : { fontSize: `${layout.fontSizePx}px` }}
           >
-            <span className="min-w-0 break-all text-center">{option.display}</span>
+            <span className={`min-w-0 text-center ${adaptive ? "flex-[1_1_100px] [overflow-wrap:anywhere]" : "break-all"}`}>{option.display}</span>
             {Number(option?.voteCount) > 0 ? (
               <span className="inline-flex h-4 min-w-4 shrink-0 items-center justify-center rounded-full bg-red-600 px-1 text-[9px] font-black leading-none text-white shadow-sm">
                 {Number(option.voteCount)}

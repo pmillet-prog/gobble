@@ -1,5 +1,6 @@
 import { shouldProcessLiveRoomEvent } from "../../utils/liveEventScope.js";
 import { isTournamentCelebrationActive } from "../../../shared/presenterCelebrationPolicy.js";
+import { areGameplayPresenterHintsDisabled } from "../../../shared/presenterRoundPolicy.js";
 
 function safeInvoke(callback, ...args) {
   try {
@@ -32,6 +33,7 @@ export function createLiveRoundFeature({ scope }) {
   let hintProgress = 0;
   let solvedKeys = new Set();
   let latestLepersIntervention = null;
+  let activeSpecialRound = null;
   const lepersInterventionListeners = new Set();
 
   function getHandlers() {
@@ -62,18 +64,37 @@ export function createLiveRoundFeature({ scope }) {
     latestLepersIntervention = null;
   }
 
-  function restorePresenterInterventions(roundPayload) {
+  function restorePresenterInterventions(roundPayload, { celebration = false } = {}) {
     const interventions = Array.isArray(roundPayload?.presenterInterventions)
       ? roundPayload.presenterInterventions
       : [];
-    if (interventions.length) {
-      safeInvoke(config.onPresenterInterventions, interventions);
+    const activeRoundId = normalizeId(
+      celebration
+        ? roundPayload?.presenterScopeId
+        : config.gameplaySession?.store?.getState?.().roundId
+    );
+    if (!activeRoundId) return;
+    const hintsDisabled =
+      !celebration &&
+      areGameplayPresenterHintsDisabled(activeSpecialRound, roundPayload?.special);
+    const allowed = interventions.filter((event) => {
+      const eventRoundId = normalizeId(event?.roundId || event?.meta?.roundId);
+      return (
+        (!eventRoundId || eventRoundId === activeRoundId) &&
+        (!hintsDisabled || event?.meta?.category === "linguist")
+      );
+    });
+    if (allowed.length) {
+      safeInvoke(
+        config.onPresenterInterventions,
+        allowed.length === interventions.length ? interventions : allowed
+      );
     }
   }
 
   function restoreTournamentCelebrationInterventions(payload) {
     const summary = payload?.tournamentSummary || payload?.breakState?.tournamentSummary;
-    restorePresenterInterventions(summary);
+    restorePresenterInterventions(summary, { celebration: true });
   }
 
   function onRoundPreparing(payload = {}) {
@@ -106,6 +127,7 @@ export function createLiveRoundFeature({ scope }) {
     });
     if (!result?.accepted) return;
     resetRoundGuards();
+    activeSpecialRound = payload.special || null;
     safeInvoke(getHandlers().onRoundStarted, payload);
     restorePresenterInterventions(payload);
     const lepersChallenge = payload?.lepersChallenge;
@@ -199,6 +221,7 @@ export function createLiveRoundFeature({ scope }) {
   }
 
   function publishLepersIntervention(payload) {
+    if (areGameplayPresenterHintsDisabled(activeSpecialRound)) return;
     const nextId = normalizeId(payload?.id);
     const previousId = normalizeId(latestLepersIntervention?.id);
     if (nextId && previousId === nextId) return;
@@ -273,8 +296,13 @@ export function createLiveRoundFeature({ scope }) {
     const result = config.gameplaySession?.hydrateSnapshot?.(snapshot, { entryKind });
     if (!result?.accepted) return false;
     const snapshotPhase = String(snapshot?.phase || "").trim().toLowerCase();
-    const tournamentCelebrationActive =
-      snapshotPhase === "break" || snapshotPhase === "results"
+    const showingResults = snapshotPhase === "break" || snapshotPhase === "results";
+    activeSpecialRound = snapshot.currentRound
+      ? snapshot.currentRound.special || null
+      : showingResults
+        ? snapshot.lastRoundResults?.round?.special || null
+        : null;
+    const tournamentCelebrationActive = showingResults
         ? isTournamentCelebrationActive({
             breakKind:
               snapshot?.breakState?.breakKind ||
@@ -297,6 +325,7 @@ export function createLiveRoundFeature({ scope }) {
     );
     if (
       retainedLepersIntervention &&
+      !areGameplayPresenterHintsDisabled(activeSpecialRound) &&
       normalizeId(retainedLepersIntervention.roundId) === snapshotRoundId
     ) {
       latestLepersIntervention = retainedLepersIntervention;
@@ -308,17 +337,22 @@ export function createLiveRoundFeature({ scope }) {
     });
     if (!tournamentCelebrationActive) {
       restorePresenterInterventions(snapshot.currentRound);
-      restorePresenterInterventions(snapshot.lastRoundResults?.payload);
+      // During play, lastRoundResults still belongs to the previous round.
+      if (showingResults) {
+        restorePresenterInterventions(snapshot.lastRoundResults?.payload);
+      }
     }
-    restoreTournamentCelebrationInterventions(
-      snapshot?.breakState?.tournamentSummary
-        ? snapshot.breakState
-        : snapshot.lastRoundResults?.payload
-    );
+    if (showingResults) {
+      restoreTournamentCelebrationInterventions(
+        snapshot?.breakState?.tournamentSummary
+          ? snapshot.breakState
+          : snapshot.lastRoundResults?.payload
+      );
+    }
     const lepersResult = snapshot?.lastRoundResults?.payload?.lepersResult;
     if (
       !tournamentCelebrationActive &&
-      (snapshotPhase === "break" || snapshotPhase === "results") &&
+      showingResults &&
       lepersResult?.text
     ) {
       publishLepersIntervention({
@@ -361,6 +395,7 @@ export function createLiveRoundFeature({ scope }) {
       realtimeUnsubscribe = null;
       configuredSocket = null;
       config = {};
+      activeSpecialRound = null;
       resetRoundGuards();
       lepersInterventionListeners.clear();
     });

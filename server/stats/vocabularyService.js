@@ -6,6 +6,7 @@ import sqlite3 from "sqlite3";
 import { open } from "sqlite";
 import { normalizeWord } from "../../shared/gameLogic.js";
 import { getWeekStartTs } from "./weeklyStatsService.js";
+import { readKnownVocabularyHashes, readVocabularyTotals, writeVocabularyBatch } from "./vocabularyRepository.js";
 import {
   runSerializedSqliteWrite,
   runSqliteBusyRetry,
@@ -145,7 +146,7 @@ async function backfillVocabularyProfilesFromWeeklyStats() {
 }
 
 async function ensureDb() {
-  if (db) return db;
+  if (db && !initPromise) return db;
   if (!initPromise) {
     initPromise = (async () => {
       await fs.mkdir(DATA_DIR, { recursive: true });
@@ -188,6 +189,7 @@ async function ensureDb() {
   }
   try {
     await initPromise;
+    initPromise = null;
   } catch (err) {
     console.warn("Vocabulary service init failed", err);
     db = null;
@@ -209,44 +211,10 @@ function normalizeInstallIdList(installIds = []) {
 
 async function getKnownWordHashesForInstallIds(installIds = [], hashes = []) {
   const safeInstallIds = normalizeInstallIdList(installIds);
-  if (!safeInstallIds.length || !Array.isArray(hashes) || !hashes.length) {
-    return new Set();
-  }
+  if (!safeInstallIds.length || !Array.isArray(hashes) || !hashes.length) return new Set();
   const ready = await ensureDb();
-  if (!ready) return new Set();
-  const knownHashes = new Set();
-  const installChunkSize = 100;
-  const hashChunkSize = 900;
-
-  try {
-    for (let installOffset = 0; installOffset < safeInstallIds.length; installOffset += installChunkSize) {
-      const installChunk = safeInstallIds.slice(installOffset, installOffset + installChunkSize);
-      const installPlaceholders = installChunk.map(() => "?").join(", ");
-      for (let hashOffset = 0; hashOffset < hashes.length; hashOffset += hashChunkSize) {
-        const hashChunk = hashes.slice(hashOffset, hashOffset + hashChunkSize);
-        const hashPlaceholders = hashChunk.map(() => "?").join(", ");
-        const rows = await runWithBusyRetry(() =>
-          db.all(
-            `SELECT DISTINCT wordHash
-             FROM vocab_words
-             WHERE installId IN (${installPlaceholders})
-               AND wordHash IN (${hashPlaceholders})`,
-            [...installChunk, ...hashChunk]
-          )
-        );
-        if (Array.isArray(rows)) {
-          rows.forEach((row) => {
-            if (row?.wordHash) knownHashes.add(row.wordHash);
-          });
-        }
-      }
-    }
-  } catch (err) {
-    console.warn("Vocabulary lookup failed", err);
-    return new Set();
-  }
-
-  return knownHashes;
+  if (!ready) throw new Error("Vocabulary database unavailable");
+  return runSerializedWrite(() => readKnownVocabularyHashes(ready, safeInstallIds, hashes));
 }
 
 export async function getKnownVocabWords(installId, words = []) {
@@ -285,166 +253,41 @@ export async function initVocabularyService() {
 
 export async function recordVocabularyBatch(entries = []) {
   const ready = await ensureDb();
-  if (!ready) return {};
+  if (!ready) throw new Error("Vocabulary database unavailable");
   const safeEntries = Array.isArray(entries) ? entries : [];
   const now = Date.now();
-  const addedByInstall = new Map();
-  const weeklyAddedByInstall = new Map();
-  const seenInstallIds = new Set();
+  return runSerializedWrite(() =>
+    runInImmediateTransaction(() => writeVocabularyBatch(ready, safeEntries, now))
+  );
+}
 
-  try {
-    await runSerializedWrite(async () =>
-      runInImmediateTransaction(async () => {
-        for (const entry of safeEntries) {
-          const installId = entry?.installId;
-          if (!installId) continue;
-          seenInstallIds.add(installId);
-          const ts = Number.isFinite(entry?.ts) ? entry.ts : now;
-          const nick = typeof entry?.nick === "string" ? entry.nick.trim().slice(0, 25) : "";
-          if (nick) {
-            await db.run(
-              `INSERT INTO vocab_profiles (installId, nick, updatedAt)
-               VALUES (?, ?, ?)
-               ON CONFLICT(installId)
-               DO UPDATE SET nick = excluded.nick, updatedAt = excluded.updatedAt`,
-              installId,
-              nick,
-              ts
-            );
-          }
-          const words = Array.isArray(entry?.words) ? entry.words : [];
-          const uniqueWords = new Set();
-          for (const raw of words) {
-            const normalized = normalizeWord(raw);
-            if (!normalized) continue;
-            uniqueWords.add(normalized);
-          }
-          for (const normalized of uniqueWords) {
-            const hash = hashWord(normalized);
-            const result = await db.run(
-              "INSERT OR IGNORE INTO vocab_words (installId, wordHash, firstSeenTs) VALUES (?, ?, ?)",
-              installId,
-              hash,
-              ts
-            );
-            if (result?.changes > 0) {
-              addedByInstall.set(installId, (addedByInstall.get(installId) || 0) + 1);
-            }
-          }
-          const rawWeeklyWords = Array.isArray(entry?.weeklyWords)
-            ? entry.weeklyWords
-            : words;
-          const weeklyWords = Array.from(
-            new Set(
-              rawWeeklyWords
-                .map((word) => normalizeWord(word))
-                .filter((word) => typeof word === "string" && word)
-            )
-          );
-          const weekStartTs = getWeekStartTs(ts);
-          for (const normalized of weeklyWords) {
-            const hash = hashWord(normalized);
-            const result = await db.run(
-              `INSERT OR IGNORE INTO vocab_weekly_words
-                 (installId, weekStartTs, wordHash, firstSeenTs)
-               VALUES (?, ?, ?, ?)`,
-              installId,
-              weekStartTs,
-              hash,
-              ts
-            );
-            if (result?.changes > 0) {
-              weeklyAddedByInstall.set(
-                installId,
-                (weeklyAddedByInstall.get(installId) || 0) + 1
-              );
-            }
-          }
-        }
-
-        for (const [installId, added] of addedByInstall.entries()) {
-          if (added <= 0) continue;
-          await db.run(
-            `INSERT INTO vocab_counts (installId, count, updatedAt)
-             VALUES (?, ?, ?)
-             ON CONFLICT(installId)
-             DO UPDATE SET count = count + excluded.count, updatedAt = excluded.updatedAt`,
-            installId,
-            added,
-            now
-          );
-        }
-      })
-    );
-  } catch (err) {
-    console.warn("Vocabulary batch failed", err);
-    return {};
-  }
-
-  const result = {};
-  for (const installId of seenInstallIds) {
-    result[installId] = {
-      added: addedByInstall.get(installId) || 0,
-      weeklyAdded: weeklyAddedByInstall.get(installId) || 0,
-      total: await getVocabularyCount(installId),
-      weeklyTotal: await getWeeklyVocabularyCount(installId),
-    };
-  }
-  return result;
+export async function getVocabularyProgressForInstallIds(installIds = [], atTs = Date.now()) {
+  const ids = normalizeInstallIdList(installIds);
+  if (!ids.length) return { count: 0, weeklyCount: 0 };
+  const ready = await ensureDb();
+  if (!ready) throw new Error("Vocabulary database unavailable");
+  const weekStartTs = getWeekStartTs(Number.isFinite(atTs) ? atTs : Date.now());
+  // Sharing the write queue prevents reading this connection's uncommitted inserts.
+  return runSerializedWrite(async () => {
+    const { total, weeklyTotal } = await readVocabularyTotals(ready, ids, weekStartTs);
+    return { count: total, weeklyCount: weeklyTotal };
+  });
 }
 
 export async function getVocabularyCount(installId) {
-  return await getVocabularyCountForInstallIds([installId]);
+  return getVocabularyCountForInstallIds([installId]);
 }
 
 export async function getVocabularyCountForInstallIds(installIds = []) {
-  const safeInstallIds = normalizeInstallIdList(installIds);
-  if (!safeInstallIds.length) return 0;
-  const ready = await ensureDb();
-  if (!ready) return 0;
-  try {
-    const placeholders = safeInstallIds.map(() => "?").join(", ");
-    const row = await runWithBusyRetry(() =>
-      db.get(
-        `SELECT COUNT(DISTINCT wordHash) AS count
-         FROM vocab_words
-         WHERE installId IN (${placeholders})`,
-        safeInstallIds
-      )
-    );
-    return Number(row?.count) || 0;
-  } catch (err) {
-    console.warn("Vocabulary count failed", err);
-    return 0;
-  }
+  return (await getVocabularyProgressForInstallIds(installIds)).count;
 }
 
 export async function getWeeklyVocabularyCount(installId, atTs = Date.now()) {
-  return await getWeeklyVocabularyCountForInstallIds([installId], atTs);
+  return getWeeklyVocabularyCountForInstallIds([installId], atTs);
 }
 
 export async function getWeeklyVocabularyCountForInstallIds(installIds = [], atTs = Date.now()) {
-  const safeInstallIds = normalizeInstallIdList(installIds);
-  if (!safeInstallIds.length) return 0;
-  const ready = await ensureDb();
-  if (!ready) return 0;
-  const weekStartTs = getWeekStartTs(Number.isFinite(atTs) ? atTs : Date.now());
-  try {
-    const placeholders = safeInstallIds.map(() => "?").join(", ");
-    const row = await runWithBusyRetry(() =>
-      db.get(
-        `SELECT COUNT(DISTINCT wordHash) AS count
-         FROM vocab_weekly_words
-         WHERE weekStartTs = ?
-           AND installId IN (${placeholders})`,
-        [weekStartTs, ...safeInstallIds]
-      )
-    );
-    return Number(row?.count) || 0;
-  } catch (err) {
-    console.warn("Weekly vocabulary count failed", err);
-    return 0;
-  }
+  return (await getVocabularyProgressForInstallIds(installIds, atTs)).weeklyCount;
 }
 
 export async function getVocabularySnapshot(installId) {

@@ -1,3 +1,7 @@
+import { getChalkboardTextHeight as getTextHeight } from "../../../shared/chalkboardText.js";
+import { getErasureBounds } from "../../../shared/chalkboardErasure.js";
+export { getTextHeight };
+
 export const CHALKBOARD_WORLD = Object.freeze({ width: 24000, height: 1000 });
 export const CHALKBOARD_TILE_SIZE = 512;
 
@@ -26,14 +30,10 @@ export function createRandomSeed() {
 
 export function cloneElements(elements) {
   return (Array.isArray(elements) ? elements : []).map((element) =>
-    element.type === "stroke"
+    element.type === "stroke" || element.type === "erase"
       ? { ...element, points: element.points.map((point) => ({ ...point })) }
       : { ...element }
   );
-}
-
-export function getTextHeight(element) {
-  return Number(element?.fontSize || 64) * 1.32;
 }
 
 function rotatePoint(x, y, angle) {
@@ -78,6 +78,7 @@ export function distance(a, b) {
 }
 
 export function getElementBounds(element) {
+  if (element?.type === "erase") return getErasureBounds(element);
   if (element?.type === "stroke") {
     const points = Array.isArray(element.points) ? element.points : [];
     const radius = Number(element.size || 10) * 1.7;

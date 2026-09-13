@@ -1,7 +1,10 @@
 .git/
+.tmp/
 node_modules/
 client/node_modules/
 client/src/
 client/public/
 *.log
 .env
+data/chalkboard.sqlite*
+data/chalkboard-exports/

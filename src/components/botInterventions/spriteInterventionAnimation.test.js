@@ -6,6 +6,9 @@ import {
   getNextPresenterHitReaction,
   isInterventionForActiveRound,
   resolveInterventionAppearanceSfxKey,
+  schedulePresenterHitExit,
+  PRESENTER_HIT_IDLE_MS,
+  PRESENTER_STARS_HOLD_MS,
 } from "./spriteInterventionAnimation.js";
 
 function highlightedText(text, explicitHighlights = []) {
@@ -42,6 +45,51 @@ test("presenter hits alternate forever between the two reaction poses", () => {
   );
 });
 
+test("stars appear at the presenter after the last hit timeout, before its exit", () => {
+  let now = 0;
+  let nextId = 0;
+  const timers = new Map();
+  const events = [];
+  const schedule = (callback, delay) => timers.set(++nextId, { callback, at: now + delay });
+  function advanceTo(target) {
+    while (true) {
+      const next = [...timers].sort((a, b) => a[1].at - b[1].at).find(([, timer]) => timer.at <= target);
+      if (!next) break;
+      timers.delete(next[0]);
+      now = next[1].at;
+      next[1].callback();
+    }
+    now = target;
+  }
+  const hit = () => {
+    // SpriteIntervention cancels the owned timers on each new hit and on unmount.
+    timers.clear();
+    schedulePresenterHitExit({
+      schedule, showStars: () => events.push(["stars", now]),
+      startExit: () => events.push(["exit", now]), complete: () => events.push(["complete", now]), exitMs: 240,
+    });
+  };
+  hit();
+  advanceTo(PRESENTER_HIT_IDLE_MS - 100);
+  hit();
+  const starsAt = now + PRESENTER_HIT_IDLE_MS;
+  advanceTo(starsAt - 1);
+  assert.deepEqual(events, []);
+  advanceTo(starsAt);
+  assert.deepEqual(events, [["stars", starsAt]]);
+  advanceTo(starsAt + PRESENTER_STARS_HOLD_MS - 1);
+  assert.equal(events.length, 1);
+  advanceTo(starsAt + PRESENTER_STARS_HOLD_MS + 240);
+  assert.deepEqual(events, [
+    ["stars", starsAt], ["exit", starsAt + PRESENTER_STARS_HOLD_MS],
+    ["complete", starsAt + PRESENTER_STARS_HOLD_MS + 240],
+  ]);
+  hit();
+  timers.clear();
+  advanceTo(now + 10000);
+  assert.equal(events.length, 3);
+});
+
 test("a presenter can reserve a distinct appearance sound for manual activation", () => {
   const config = { manualAppearanceSfxKey: "buzzer" };
   assert.equal(
@@ -64,4 +112,6 @@ test("a retained intervention never crosses into another round", () => {
   assert.equal(isInterventionForActiveRound("round-4", "round-4"), true);
   assert.equal(isInterventionForActiveRound("round-3", "round-4"), false);
   assert.equal(isInterventionForActiveRound(null, "round-4"), true);
+  assert.equal(isInterventionForActiveRound("round-3", null), false);
+  assert.equal(isInterventionForActiveRound(null, null), false);
 });

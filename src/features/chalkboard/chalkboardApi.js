@@ -6,6 +6,29 @@ async function readJson(response) {
   throw error;
 }
 
+export async function sendChalkboardCopy() {
+  return readJson(await fetch("/api/chalkboard/admin/send-copy", { method: "POST", credentials: "include", headers: { Accept: "application/json" } }));
+}
+
+export async function fetchChalkboardExport(id, { signal } = {}) {
+  return readJson(await fetch(`/api/chalkboard/admin/exports/${encodeURIComponent(id)}`, { credentials: "include", headers: { Accept: "application/json" }, signal }));
+}
+
+export async function fetchChalkboardFonts({ signal } = {}) {
+  const response = await fetch("/api/chalkboard/fonts", {
+    credentials: "include",
+    headers: { Accept: "application/json" },
+    signal,
+  });
+  return readJson(response);
+}
+
+export async function fetchChalkboardAccess({ signal } = {}) {
+  return readJson(await fetch("/api/chalkboard/access", {
+    credentials: "include", headers: { Accept: "application/json" }, signal,
+  }));
+}
+
 export async function fetchChalkboard(board, { revision, signal, weekId } = {}) {
   const query = new URLSearchParams();
   if (Number.isFinite(revision)) query.set("revision", String(revision));
@@ -35,6 +58,15 @@ export async function publishChalkboardIntervention(board, intervention) {
 export async function deleteChalkboardIntervention(id) {
   const response = await fetch(`/api/chalkboard/interventions/${encodeURIComponent(id)}`, {
     method: "DELETE",
+    credentials: "include",
+    headers: { Accept: "application/json" },
+  });
+  return readJson(response);
+}
+
+export async function undoChalkboardDeletion(board) {
+  const response = await fetch(`/api/chalkboard/${encodeURIComponent(board)}/undo-delete`, {
+    method: "POST",
     credentials: "include",
     headers: { Accept: "application/json" },
   });

@@ -1,0 +1,55 @@
+.mobile-target-hint {
+  flex: none;
+  min-width: 0;
+  min-height: 0;
+  box-sizing: border-box;
+  container-type: size;
+  overflow: hidden;
+}
+.mobile-target-hint-content {
+  display: grid;
+  grid-template-rows: 12px minmax(0, 1fr) 14px;
+  gap: 4px;
+  height: 100%;
+  padding: 6px 10px;
+}
+.mobile-target-hint-title {
+  text-align: center;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 12px;
+  letter-spacing: .06em;
+}
+.mobile-target-hint-word {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: 24px;
+  font-weight: 900;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+}
+.mobile-target-hint-definition {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 32px;
+  height: 32px;
+}
+.mobile-target-hint-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 14px;
+  white-space: nowrap;
+  opacity: .8;
+}
+@container (height <= 84px) {
+  .mobile-target-hint-word { font-size: 20px; }
+}
+@container (width < 320px) {
+  .mobile-target-hint-meta { font-size: 10px; }
+}

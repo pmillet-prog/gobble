@@ -46,7 +46,7 @@ export function useRoundClockController({
     const isCurrentSession = () =>
       sessionTokenRef.current === effectSessionToken;
     const unsubscribeExpiration = clock.onExpired(() => {
-      if (elapsedHandled || !isCurrentSession()) return;
+      if (disabled || elapsedHandled || !isCurrentSession()) return;
       elapsedHandled = true;
       if (specialRoundType === "ocid") {
         callbacksRef.current.onOcidExpired?.(effectSessionToken);

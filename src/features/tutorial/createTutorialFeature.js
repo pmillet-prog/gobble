@@ -7,7 +7,6 @@ export function createInitialTutorialState() {
     pendingLogin: false,
     specialOpen: false,
     specialPlan: null,
-    specialStepIndex: 0,
   };
 }
 

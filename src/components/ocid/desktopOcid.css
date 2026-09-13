@@ -1,0 +1,16 @@
+.desktop-responsive-grid .desktop-score-block.desktop-ocid-score-block { margin-bottom: 0 !important; }
+.desktop-ocid-panel { display: flex; flex: 1 1 0%; flex-direction: column; gap: 16px; min-width: 0; min-height: 0; }
+.desktop-ocid-title { flex: 0 0 auto; margin: 0; color: #d97706; text-align: center; font-size: 11px; font-weight: 900; letter-spacing: .12em; }
+.desktop-ocid-definition { flex: 1 1 0%; min-height: 0; min-width: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; padding: 4px; border-radius: 6px; }
+.desktop-ocid-definition > p { margin: 0; font-size: 16px; font-weight: 800; line-height: 1.5; text-align: center; overflow-wrap: anywhere; }
+.desktop-ocid-panel.is-voting .desktop-ocid-definition { flex: 0 1 auto; max-height: 30%; }
+.desktop-ocid-footer { flex: 0 0 auto; min-width: 0; }
+.desktop-ocid-proposal-label { display: block; margin-bottom: 6px; font-size: 12px; font-weight: 700; }
+.desktop-ocid-proposal-controls { display: flex; flex-wrap: wrap; gap: 8px; }
+.desktop-ocid-input-wrap { position: relative; flex: 1 1 150px; min-width: 0; }
+.desktop-ocid-input-wrap input { width: 100%; min-width: 0; height: 40px; border-width: 1px; border-radius: 8px; padding: 8px 32px 8px 10px; font-size: 14px; }
+.desktop-ocid-clear { position: absolute; top: 7px; right: 3px; display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; }
+.desktop-ocid-clear .material-icons-outlined { font-size: 18px; }
+.desktop-ocid-submit { flex: 1 0 auto; min-height: 40px; border-radius: 8px; padding: 8px 14px; font-size: 13px; font-weight: 800; }
+.desktop-ocid-status { margin: 10px 0 0; max-height: 4.5em; overflow-y: auto; font-size: 12px; font-weight: 600; line-height: 1.5; text-align: center; overflow-wrap: anywhere; }
+.desktop-ocid-panel.is-voting .desktop-ocid-status { margin-top: 0; }

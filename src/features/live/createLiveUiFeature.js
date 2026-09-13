@@ -14,6 +14,7 @@ export function createInitialLiveUiState() {
     scoreFlights: [],
     specialHint: null,
     specialSolvedOverlay: null,
+    threeWordsRecapOpen: false,
     targetDefinition: {
       complete: false,
       definition: "",

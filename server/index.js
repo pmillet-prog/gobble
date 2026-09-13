@@ -33,6 +33,7 @@ import {
 } from "../shared/finaleRules.js";
 import { LEPERS_ROUND_ANNOUNCEMENT_MS } from "../shared/lepersRules.js";
 import { isTournamentCelebrationActive } from "../shared/presenterCelebrationPolicy.js";
+import { areGameplayPresenterHintsDisabled } from "../shared/presenterRoundPolicy.js";
 import { shouldPersistRoundProgress } from "./trainingProgressPolicy.js";
 import {
   TrainingPoolStore,
@@ -57,6 +58,7 @@ import {
 import {
   LEPERS_BONUS_POINTS,
   LEPERS_RESULT_DELAY_MS,
+  buildLepersBonusAnnouncement,
   buildLepersResultIntervention,
   buildLepersSolvedIntervention,
   getLepersBonusForNick,
@@ -71,6 +73,7 @@ import {
 import { createComputePool } from "./compute/computePool.js";
 import { computeOcidGobbleAwards } from "./compute/ocidGobblePolicy.js";
 import { computeSpecial3GobbleAwards } from "./compute/special3GobblePolicy.js";
+import { evaluateLiveSpecial3Word } from "./compute/special3WordVerdict.js";
 import { createPersistenceClient } from "./persistence/persistenceClient.js";
 import { createShortLivedRequestCache } from "./shortLivedRequestCache.js";
 import { extractPersistedDevControls } from "./devControlsPersistence.js";
@@ -110,6 +113,8 @@ import { registerDisconnectHandler } from "./realtime/registerDisconnectHandler.
 import { registerSessionHandlers } from "./realtime/registerSessionHandlers.js";
 import { getSocketDeviceKind } from "./realtime/clientDeviceKind.js";
 import { registerChalkboardRoutes } from "./chalkboard/registerChalkboardRoutes.js";
+import { createPersistentChalkboard } from "./chalkboard/chalkboardRuntime.js";
+import { createChalkboardExports } from "./chalkboard/chalkboardExports.js";
 import {
   buildSessionPlayerCapabilities,
   deriveSessionSnapshotPhase,
@@ -135,15 +140,12 @@ import {
 import {
   initVocabularyService,
   recordVocabularyBatch,
-  getVocabularyCount,
-  getVocabularyCountForInstallIds,
+  getVocabularyProgressForInstallIds,
   getVocabularyLeaderboard,
-  getWeeklyVocabularyCountForInstallIds,
   getWeeklyVocabularyLeaderboard,
   migrateVocabularyProfile,
-  getKnownVocabWords,
-  getKnownVocabWordsForInstallIds,
 } from "./stats/vocabularyService.js";
+import { recordRoundVocabularyProgress } from "./stats/roundVocabularyProgress.js";
 import {
   initTrophyService,
   updateTrophiesForTournament,
@@ -1547,12 +1549,21 @@ app.get("/health", (req, res) => {
   });
 });
 
+const chalkboardService = await createPersistentChalkboard().catch(error => {
+  console.error("[chalkboard] persistent storage unavailable", error.message);
+  return null;
+});
+const chalkboardExports = chalkboardService ? createChalkboardExports({ service: chalkboardService }) : null;
 registerChalkboardRoutes({
   app,
   getRequestIdentity: getRequestPlayerIdentity,
   requireRequestIdentity: requireRequestPlayerIdentity,
   isModerator: isRequestChalkboardModerator,
+  isMaintenanceModeActive,
+  service: chalkboardService,
+  exports: chalkboardExports,
 });
+chalkboardExports?.start();
 
 // ===== SERVE FRONT VITE (dist) =====
 app.use(express.static(path.join(__dirname, "../dist")));
@@ -4924,6 +4935,7 @@ function buildLiveRanking(room, roundId) {
       userId: Number.isInteger(Number(player?.userId)) ? Number(player.userId) : null,
       score: data?.score || 0,
       gobbles: Number(roundGobbles.get(player.nick)) || 0,
+      lepersBonus: getLepersBonusForNick(room.currentRound.lepersChallenge, player.nick),
       team: getTeamForInstallCached(player.installId),
       afk: isPlayerAfk(player, now),
       isDailyChampion: isDailyChampionPlayer(player),
@@ -4938,6 +4950,7 @@ function buildLiveRanking(room, roundId) {
     score: Number(entry.score) || 0,
     rank: idx + 1,
     gobbles: Number(entry.gobbles) || 0,
+    lepersBonus: Number(entry.lepersBonus) || 0,
     team: entry.team || null,
     afk: !!entry.afk,
     isDailyChampion: !!entry.isDailyChampion,
@@ -5154,6 +5167,7 @@ function buildRankingUpdatePayload(room) {
       userId: Number.isInteger(Number(player?.userId)) ? Number(player.userId) : null,
       score: data?.score || 0,
       gobbles: Number(roundGobbles.get(player.nick)) || 0,
+      lepersBonus: getLepersBonusForNick(room.currentRound.lepersChallenge, player.nick),
       team: getTeamForInstallCached(player.installId),
       afk: isPlayerAfk(player, now),
       isDailyChampion: isDailyChampionPlayer(player),
@@ -5169,6 +5183,7 @@ function buildRankingUpdatePayload(room) {
     score: Number(entry.score) || 0,
     rank: idx + 1,
     gobbles: Number(entry.gobbles) || 0,
+    lepersBonus: Number(entry.lepersBonus) || 0,
     team: entry.team || null,
     afk: !!entry.afk,
     isDailyChampion: entry.isDailyChampion || false,
@@ -5178,7 +5193,7 @@ function buildRankingUpdatePayload(room) {
   const signature = ranking
     .map(
       (entry) =>
-        `${entry.nick}:${Number(entry.score) || 0}:${Number(entry.gobbles) || 0}:${entry.team || ""}:${entry.isDailyChampion ? 1 : 0}:${Number(entry.weeklyVocabPodiumRank) || (entry.isWeeklyVocabChampion ? 1 : 0)}`
+        `${entry.nick}:${Number(entry.score) || 0}:${Number(entry.gobbles) || 0}:${Number(entry.lepersBonus) || 0}:${entry.team || ""}:${entry.isDailyChampion ? 1 : 0}:${Number(entry.weeklyVocabPodiumRank) || (entry.isWeeklyVocabChampion ? 1 : 0)}`
     )
     .join("|");
 
@@ -5901,6 +5916,12 @@ function pushAmbientChatBotMessage(room, botKey, text, opts = {}) {
   if (!AMBIENT_CHAT_BOT_ENABLED_KEYS.has(botKey)) return null;
   if (!room || !room.currentRound) return null;
   const bot = AMBIENT_CHAT_BOTS[botKey];
+  if (
+    (botKey === "coach" || botKey === "detective") &&
+    areGameplayPresenterHintsDisabled(room.currentRound.special)
+  ) {
+    return null;
+  }
   let trimmed = String(text || "").replace(/\s+/g, " ").trim();
   if (bot?.nick) {
     const nickPrefix = `${bot.nick}:`;
@@ -6019,6 +6040,12 @@ function buildPresenterInterventionMessage(room, botKey, text, opts = {}) {
 function rememberRoundPresenterIntervention(room, botKey, text, opts = {}) {
   const round = room?.currentRound;
   if (!round) return null;
+  if (
+    (botKey === "coach" || botKey === "detective") &&
+    areGameplayPresenterHintsDisabled(round.special)
+  ) {
+    return null;
+  }
   const message = buildPresenterInterventionMessage(room, botKey, text, opts);
   if (!message) return null;
   round.presenterInterventions = {
@@ -6384,7 +6411,7 @@ function buildCoachSuffixLine(solutions, gridSize) {
 function buildCoachRoundLine(room, planUsed = null) {
   const round = room?.currentRound;
   if (
-    isAmbientTargetRound(room, planUsed) ||
+    areGameplayPresenterHintsDisabled(round?.special, planUsed) ||
     isAmbientSpeedRound(room, planUsed)
   ) {
     return "";
@@ -6548,6 +6575,8 @@ function maybeAwardLepersChallenge(room, { isBotPlayer, nick, player, socketId, 
   if (!(challenge.foundBy instanceof Set)) challenge.foundBy = new Set();
   if (challenge.foundBy.has(playerNick)) return false;
   challenge.foundBy.add(playerNick);
+  const announcement = buildLepersBonusAnnouncement(challenge, playerNick);
+  if (announcement) pushAnnouncement(room, announcement);
   const success = buildLepersSolvedIntervention(challenge.word);
   if (success) {
     emitLepersIntervention(
@@ -6578,7 +6607,7 @@ function scheduleRomejkoIntervention(
     !AMBIENT_CHAT_BOTS_ENABLED ||
     !AMBIENT_CHAT_BOT_ENABLED_KEYS.has("detective") ||
     !round ||
-    isAmbientTargetRound(room, planUsed)
+    areGameplayPresenterHintsDisabled(round.special, planUsed)
   ) {
     return;
   }
@@ -6615,7 +6644,7 @@ function scheduleAmbientRoundStartBots(room, planUsed, roundIntroMs = 0, roundDu
   const round = room.currentRound;
   const delayMs = getRomejkoScheduleDelayMs(roundIntroMs);
 
-  if (isAmbientTargetRound(room, planUsed)) return;
+  if (areGameplayPresenterHintsDisabled(round.special, planUsed)) return;
 
   const coachLine = buildCoachRoundLine(room, planUsed);
   if (coachLine) {
@@ -6638,7 +6667,7 @@ function prepareRoundPresenterInterventions(room, planUsed = null) {
   round.pivotResultInterventionPromise = null;
   if (!AMBIENT_CHAT_BOTS_ENABLED) return;
   preparePivotResultIntervention(room, planUsed);
-  if (isAmbientTargetRound(room, planUsed)) return;
+  if (areGameplayPresenterHintsDisabled(round.special, planUsed)) return;
   if (AMBIENT_CHAT_BOT_ENABLED_KEYS.has("coach")) {
     const coachLine = buildCoachRoundLine(room, planUsed);
     if (coachLine) {
@@ -8425,6 +8454,7 @@ function applyMaintenanceModeChange(previousControls, nextControls) {
   const wasEnabled = !!previousControls?.maintenanceMode;
   const isEnabled = !!nextControls?.maintenanceMode;
   if (wasEnabled === isEnabled) return;
+  io.emit("chalkboardAvailability", { maintenanceMode: isEnabled });
   if (isEnabled) {
     announceMaintenanceModeEnabled();
   }
@@ -9271,15 +9301,9 @@ function finalizeSpecial3WordsState(room, data) {
     seenWords.add(word);
     if (startTile != null) seenStartTiles.add(startTile);
 
-    const scored =
-      !duplicateWord &&
-      !duplicateStartTile &&
-      dictionary?.has?.(word) &&
-      Array.isArray(slot.path) &&
-      slot.path.length > 0
-        ? scoreWordOnGridWithPath(word, scoringBoard, slot.path, null)
-        : null;
-    const pts = scored ? Number(scored.pts) || 0 : 0;
+    const { scored, valid, reason, points: pts } = evaluateLiveSpecial3Word({
+      word, path: slot.path, grid: scoringBoard, dictionary, duplicateWord, duplicateStartTile,
+    });
     if (scored) {
       validWords.add(word);
       wordTimes.set(word, existingTimes.get(word) || Date.now());
@@ -9292,6 +9316,8 @@ function finalizeSpecial3WordsState(room, data) {
       display: String(slot.display || word).trim() || word.toUpperCase(),
       path: Array.isArray(scored?.path) ? [...scored.path] : [...slot.path],
       pts,
+      valid,
+      reason,
     });
   }
 
@@ -10932,136 +10958,25 @@ async function endRoundForRoom(room) {
   }
 
   const endedAt = room.currentRound.endsAt || Date.now();
-  const resultsByNick = new Map(results.map((entry) => [entry.nick, entry]));
   const vocabEntries = [];
-  const vocabLookups = [];
-  const vocabInstallIdsByNick = new Map();
   for (const entry of results) {
     await maybeYieldEndRound();
-    if (isTrainingRound || specialType === OCID_TYPE || isTargetRound) continue;
-    if (entry.isBot) continue;
-    const lookup = findPlayerByNick(room, entry.nick);
-    const player = lookup?.player || null;
+    if (isTrainingRound || specialType === OCID_TYPE || isTargetRound || entry.isBot) continue;
+    const player = findPlayerByNick(room, entry.nick)?.player || null;
     const installId = getInstallIdForNick(room, entry.nick);
-    if (!installId) continue;
-    const words = Array.isArray(entry.uniqueWords) ? entry.uniqueWords : [];
-    if (!words.length) continue;
-    const vocabInstallIds =
-      Number.isInteger(Number(player?.userId)) && Number(player.userId) > 0
-        ? await listIdentityInstallIds({
-            userId: Number(player.userId),
-            currentInstallId: installId,
-          })
-        : [installId];
     const playerKey = getMedalKeyForNickLookup(room, entry.nick);
-    if (!playerKey) continue;
-    vocabInstallIdsByNick.set(entry.nick, vocabInstallIds);
-    const vocabEntry = { installId, words, weeklyWords: words, ts: endedAt, nick: entry.nick };
-    vocabEntries.push(vocabEntry);
-    vocabLookups.push({
-      installId,
-      installIds: vocabInstallIds,
-      playerKey,
-      words,
-      nick: entry.nick,
-    });
+    if (!installId || !playerKey) continue;
+    const installIds =
+      Number.isInteger(Number(player?.userId)) && Number(player.userId) > 0
+        ? await listIdentityInstallIds({ userId: Number(player.userId), currentInstallId: installId })
+        : [installId];
+    const words = Array.isArray(entry.uniqueWords) ? entry.uniqueWords : [];
+    vocabEntries.push({ installId, installIds, playerKey, words, weeklyWords: words, ts: endedAt, nick: entry.nick });
   }
-  const weeklyVocabRankBeforeOverrides = [];
-  if (vocabLookups.length) {
-    for (const lookup of vocabLookups) {
-      await maybeYieldEndRound();
-      const weeklyCountBefore = await getWeeklyVocabularyCountForInstallIds(
-        lookup.installIds?.length ? lookup.installIds : [lookup.installId],
-        endedAt
-      );
-      lookup.weeklyVocabCountBefore = weeklyCountBefore;
-      weeklyVocabRankBeforeOverrides.push({
-        playerKey: lookup.playerKey,
-        nick: lookup.nick,
-        weeklyVocabCount: weeklyCountBefore,
-        achievedAt: endedAt,
-      });
-    }
-  }
-  const weeklyVocabRankBeforeMap = weeklyVocabRankBeforeOverrides.length
-    ? await computeWeeklyVocabRankMap(endedAt, weeklyVocabRankBeforeOverrides)
-    : new Map();
-  if (vocabLookups.length) {
-    for (const lookup of vocabLookups) {
-      await maybeYieldEndRound();
-      const knownWords = await getKnownVocabWordsForInstallIds(
-        lookup.installIds?.length ? lookup.installIds : [lookup.installId],
-        lookup.words
-      );
-      const newVocabWords = lookup.words.filter((word) => !knownWords.has(word));
-      const resultEntry = resultsByNick.get(lookup.nick);
-      if (resultEntry) {
-        resultEntry.newVocabWords = newVocabWords;
-        resultEntry.vocabWeeklyRank = {
-          before: weeklyVocabRankBeforeMap.get(lookup.playerKey) || null,
-          after: null,
-          delta: 0,
-        };
-        resultEntry.vocabWeeklyRace = {
-          beforeCount: Number(lookup.weeklyVocabCountBefore) || 0,
-          afterCount: null,
-        };
-      }
-    }
-  }
-  let vocabSummary = {};
-  if (vocabEntries.length) {
-    try {
-      vocabSummary = await recordVocabularyBatch(vocabEntries);
-    } catch (err) {
-      console.warn("Vocabulary batch failed", err);
-    }
-  }
-  if (vocabEntries.length && vocabSummary && typeof vocabSummary === "object") {
-    const weeklyVocabRankAfterOverrides = [];
-    const weeklyVocabCountAfterByPlayerKey = new Map();
-    for (const entry of vocabEntries) {
-      await maybeYieldEndRound();
-      const summary = vocabSummary[entry.installId];
-      if (!summary) continue;
-      const playerKey = getMedalKeyForNickLookup(room, entry.nick);
-      if (!playerKey) continue;
-      const vocabInstallIds = vocabInstallIdsByNick.get(entry.nick) || [entry.installId];
-      const totalCount = await getVocabularyCountForInstallIds(vocabInstallIds);
-      recordVocabCount(playerKey, entry.nick, totalCount, endedAt);
-      const weeklyCount = await getWeeklyVocabularyCountForInstallIds(vocabInstallIds, endedAt);
-      recordWeeklyVocabCount(playerKey, entry.nick, weeklyCount, endedAt);
-      weeklyVocabCountAfterByPlayerKey.set(playerKey, weeklyCount);
-      weeklyVocabRankAfterOverrides.push({
-        playerKey,
-        nick: entry.nick,
-        weeklyVocabCount: weeklyCount,
-        achievedAt: endedAt,
-      });
-    }
-    const weeklyVocabRankAfterMap = weeklyVocabRankAfterOverrides.length
-      ? await computeWeeklyVocabRankMap(endedAt, weeklyVocabRankAfterOverrides)
-      : new Map();
-    for (const entry of vocabEntries) {
-      await maybeYieldEndRound();
-      const playerKey = getMedalKeyForNickLookup(room, entry.nick);
-      if (!playerKey) continue;
-      const resultEntry = resultsByNick.get(entry.nick);
-      if (!resultEntry) continue;
-      const before = Number(resultEntry?.vocabWeeklyRank?.before) || null;
-      const after = weeklyVocabRankAfterMap.get(playerKey) || null;
-      resultEntry.vocabWeeklyRank = {
-        before,
-        after,
-        delta: Number.isFinite(before) && Number.isFinite(after) ? before - after : 0,
-      };
-      resultEntry.vocabWeeklyRace = {
-        ...(resultEntry.vocabWeeklyRace || {}),
-        beforeCount: Number(resultEntry.vocabWeeklyRace?.beforeCount) || 0,
-        afterCount: Number(weeklyVocabCountAfterByPlayerKey.get(playerKey)) || 0,
-      };
-    }
-  }
+  await recordRoundVocabularyProgress(
+    { results, entries: vocabEntries, atTs: endedAt, roundId: room.currentRound.id, roomId: room.id },
+    { recordVocabularyBatch, computeWeeklyVocabRankMap, recordVocabCount, recordWeeklyVocabCount }
+  );
 
   results.sort((a, b) =>
     specialType === OCID_TYPE ? compareOcidRoundResultEntries(a, b) : b.score - a.score
@@ -11934,8 +11849,7 @@ io.on("connection", (socket) => {
   registerPlayerProgressHandlers(socket, {
     ensureUserIdentityMigration,
     getTrophyStatus,
-    getVocabularyCountForInstallIds,
-    getWeeklyVocabularyCountForInstallIds,
+    getVocabularyProgressForInstallIds,
     listIdentityInstallIds,
     requireSocketPlayerIdentity,
     runDailyStartFlow,

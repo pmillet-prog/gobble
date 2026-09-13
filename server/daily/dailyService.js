@@ -3,6 +3,7 @@ import { fileURLToPath } from "url";
 import { promises as fs } from "fs";
 import { spawn } from "child_process";
 import { DAILY_GENERATION_VERSION } from "./dailyGeneration.js";
+import { evaluateDailySpecialWords } from "./dailySpecialReview.js";
 import {
   buildPathWordVariants,
   buildFakeTwinsGrid,
@@ -1724,6 +1725,9 @@ export async function submitDailyResult({
     wordSubmissions,
     safeMode === DAILY_SPECIAL_MODE ? DAILY_SPECIAL_WORD_TARGET : null
   );
+  const wordReview = safeMode === DAILY_SPECIAL_MODE
+    ? evaluateDailySpecialWords(submittedWords, { grid: scoringGrid, dictionary })
+    : null;
   let score = 0;
   let wordCount = 0;
   let longestWordLen = 0;
@@ -1744,7 +1748,16 @@ export async function submitDailyResult({
     if (!Number.isFinite(maxWordPts)) maxWordPts = fallbackMaxPts;
     if (!Number.isFinite(maxWordLen)) maxWordLen = fallbackMaxLen;
   }
-  if (submittedWords.length > 0) {
+  if (wordReview && (submittedWords.length > 0 || !foundWords?.length)) {
+    for (const item of wordReview) {
+      if (!item.valid) continue;
+      validatedWords.push(item.word);
+      score += item.points;
+      wordCount += 1;
+      bestWordPts = Math.max(bestWordPts, item.points);
+      longestWordLen = Math.max(longestWordLen, item.word.length);
+    }
+  } else if (submittedWords.length > 0) {
     const seen = new Set();
     const seenStartTiles = new Set();
     for (const item of submittedWords) {
@@ -1875,6 +1888,7 @@ export async function submitDailyResult({
     gobbles,
     words: validatedWords,
     wordSubmissions: submittedWords,
+    ...(wordReview && (submittedWords.length > 0 || !foundWords?.length) ? { wordReview } : {}),
     fakeTwinsCompletionBonus,
     fakeTwinWordsFound,
     fakeTwinWordsTotal,
@@ -1930,6 +1944,7 @@ export async function submitDailyResult({
     fakeTwinBonusWordsTotal,
     rank: rank >= 0 ? rank + 1 : null,
     totalPlayers: sorted.length,
+    ...(entry.wordReview ? { wordReview: entry.wordReview } : {}),
     board: buildDailyBoardEntries(submitState.results, thresholdsByMode),
   };
 }

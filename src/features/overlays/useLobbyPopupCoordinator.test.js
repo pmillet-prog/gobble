@@ -43,6 +43,22 @@ test("lobby popup coordinator gives patch notes first priority", () => {
   });
 });
 
+test("reading the previous release does not hide the major update from home", () => {
+  const seen = new Set([buildPatchNotesSeenMarker("2026-09-11")]);
+  const action = resolveLobbyPopupAction(eligibleConfig({ accountSeenMarkers: seen }));
+  assert.deepEqual(action, {
+    marker: buildPatchNotesSeenMarker("2026-09-13"),
+    type: "patch-notes",
+  });
+
+  seen.add(action.marker);
+  assert.notEqual(
+    resolveLobbyPopupAction(eligibleConfig({ accountSeenMarkers: seen }))?.type,
+    "patch-notes",
+    "the new release is only announced once per account",
+  );
+});
+
 test("lobby popup coordinator never overlaps duel with open patch notes", () => {
   const action = resolveLobbyPopupAction(
     eligibleConfig({

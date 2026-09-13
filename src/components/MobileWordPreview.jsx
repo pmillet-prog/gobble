@@ -77,6 +77,7 @@ function MobileWordPreview({
   const showStats = Boolean(previewStats?.show);
   return (
     <div
+      data-game-word-preview="true"
       className={`rounded-xl border border-slate-200 dark:border-slate-700 bg-white/90 dark:bg-slate-900/90 px-2.5 shadow-sm flex-none box-border ${
         isCompactPreview ? "py-0.5" : "py-1.5"
       }`}

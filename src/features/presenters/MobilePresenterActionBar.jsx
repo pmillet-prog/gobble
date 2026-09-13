@@ -9,18 +9,24 @@ import { ROMEJKO_INTERVENTION_CONFIG } from "../../components/romejko/romejkoAni
 import { useChatUnreadState } from "../chat/useChatUnreadState.js";
 import { PRESENTER_HINT_KEYS } from "./createPresenterHintsController.js";
 import usePresenterHintsController from "./usePresenterHintsController.js";
+import { CHAT_BOT_VISIBILITY_OPTIONS } from "../../components/chat/chatBotVisibility.js";
+
+const presenterNames = Object.fromEntries(CHAT_BOT_VISIBILITY_OPTIONS.map(({ key, nick }) => [key, nick]));
 
 export const PRESENTERS = Object.freeze([
   {
     key: PRESENTER_HINT_KEYS.romejko,
+    name: presenterNames.statistician,
     config: ROMEJKO_INTERVENTION_CONFIG,
   },
   {
     key: PRESENTER_HINT_KEYS.lepers,
+    name: presenterNames.culture,
     config: LEPERS_INTERVENTION_CONFIG,
   },
   {
     key: PRESENTER_HINT_KEYS.capello,
+    name: presenterNames.coach,
     config: CAPELLO_INTERVENTION_CONFIG,
     buttonScale: 1.12,
   },
@@ -28,6 +34,7 @@ export const PRESENTERS = Object.freeze([
 
 export const PIVOT_PRESENTER = Object.freeze({
   key: PRESENTER_HINT_KEYS.pivot,
+  name: presenterNames.linguist,
   config: PIVOT_INTERVENTION_CONFIG,
   buttonScale: 1.4,
   buttonOffsetY: "15%",
@@ -92,7 +99,7 @@ export function PresenterButton({
   const buttonUrl = stunned
     ? config.reactionUrls?.stars || config.buttonUrl
     : config.buttonUrl;
-  const label = `${config.accessibleName}${
+  const label = `${presenter.name || config.accessibleName}${
     disabled
       ? " : indisponible pendant cette manche"
       : stunned
@@ -124,6 +131,7 @@ export function PresenterButton({
           });
         }}
         disabled={unavailable}
+        data-presenter-key={key}
         aria-label={label}
         title={label}
       >
@@ -301,7 +309,7 @@ export function ResultsActionBar({
       className={`grid flex-none items-center justify-items-center overflow-visible rounded-2xl px-1 ${
         desktop
           ? "mt-2 w-full grid-cols-3 border-t border-slate-300 py-2 dark:border-slate-700"
-          : "-ml-2 grid-cols-5 h-[clamp(66px,18vw,78px)] w-[calc(100%+16px)]"
+          : "mt-auto -ml-2 grid-cols-5 h-[clamp(66px,18vw,78px)] w-[calc(100%+16px)]"
       } ${
         darkMode
           ? "bg-gradient-to-b from-slate-800/55 to-slate-950/85"

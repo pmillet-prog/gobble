@@ -367,7 +367,7 @@ export default function useDesktopSceneLayout({
     ],
   );
 
-  React.useEffect(() => {
+  React.useLayoutEffect(() => {
     desktopColumnOrderRef.current = desktopColumnOrderSafe;
   }, [desktopColumnOrderSafe]);
 
@@ -380,7 +380,7 @@ export default function useDesktopSceneLayout({
     [clearDesktopColumnDragState],
   );
 
-  React.useEffect(() => {
+  React.useLayoutEffect(() => {
     const key = String(installId || "").trim();
     if (!key) return;
     const persisted = readDesktopColumnOrderForInstall(
@@ -440,11 +440,11 @@ export default function useDesktopSceneLayout({
     installId,
   ]);
 
-  React.useEffect(() => {
+  React.useLayoutEffect(() => {
     desktopColumnFractionsRef.current = desktopColumnFractions;
   }, [desktopColumnFractions]);
 
-  React.useEffect(() => {
+  React.useLayoutEffect(() => {
     const key = String(installId || "").trim();
     if (!key) return;
     const persisted = readDesktopColumnFractionsForInstall(
@@ -581,7 +581,7 @@ export default function useDesktopSceneLayout({
     setDesktopColumnHandleLayout,
   ]);
 
-  React.useEffect(() => {
+  React.useLayoutEffect(() => {
     const element = playColumnRef.current;
     if (!element || typeof ResizeObserver === "undefined") return undefined;
 

@@ -1,0 +1,43 @@
+import { DAILY_SPECIAL_MODE } from "../../components/daily/dailyModes.js";
+
+// These actions use the native three-word slots and draggable bonus tiles.
+// Shared paths through R (3) and E (7) make the collective bonus strategy visible.
+export const THREE_WORDS_TUTORIAL = {
+  id: "three-words", title: "3 mots", board: "gold", duration: "2 min", icon: "filter_3",
+  description: "Choisis ton trio, place les bonus… et découvre le verdict.",
+  special: { type: DAILY_SPECIAL_MODE },
+  steps: [
+    { id: "three-first", kind: "slot", word: "zebre", guidePath: true,
+      title: "Trois places : choisis bien tes mots",
+      text: "Ici, tu gardes au maximum 3 mots. Commence par ZÈBRE. Tu peux composer tes mots et placer les bonus dans l’ordre que tu veux ; le chrono est en pause pour apprendre.",
+      actionText: "Trace ZÈBRE. Son score reste provisoire jusqu’aux résultats." },
+    { id: "three-starts", kind: "slot", word: "tire", path: [5, 6, 3, 7], guidePath: true, autoBegin: true,
+      title: "Un autre départ",
+      text: "Trace TIRE en partant du T. Chaque mot doit commencer sur une case différente : le Z est maintenant hachuré. Les autres cases peuvent servir dans plusieurs mots.",
+      actionText: "Trace TIRE : départ différent, autres cases réutilisables." },
+    { id: "three-multiplier", kind: "placement", placements: { M3: 7 }, autoBegin: true, focus: "bonus",
+      title: "Un bonus pour plusieurs mots",
+      text: "Glisse M3 sur le E au bout du chemin vert (à droite, deuxième ligne). ZÈBRE et TIRE passent tous les deux par là : leurs scores sont triplés ! Tu pourras déplacer ce bonus à nouveau.",
+      actionText: "Glisse M3 sur le E indiqué : tes deux mots seront triplés.",
+      guidePath: true, word: "tire", path: [5, 6, 3, 7] },
+    { id: "three-replace", kind: "slot", word: "tirer", path: [5, 6, 3, 7, 10], guidePath: true, autoBegin: true,
+      title: "Améliore ton choix",
+      text: "Supprime TIRE avec sa petite croix, puis trace TIRER. Tu récupères sa place et sa case de départ. Une lettre de plus ajoute aussi le bonus de longueur !",
+      actionText: "Supprime TIRE (×), puis trace TIRER : sa longueur rapporte davantage." },
+    { id: "three-risk", kind: "slot", word: "ribre", path: [10, 6, 2, 3, 7], guidePath: true, autoBegin: true,
+      title: "Un score encore provisoire",
+      text: "Pour l’expérience, trace RIBRE : c’est volontairement un faux mot. Il occupe la troisième place et reçoit un score provisoire. Le jeu ne vérifie le dictionnaire qu’à la fin.",
+      actionText: "Trace RIBRE, volontairement faux. Le dictionnaire ne tranche qu’aux résultats." },
+    { id: "three-optimize", kind: "read", allowPlay: true,
+      title: "Fais travailler les bonus pour ton trio",
+      text: "Tu peux encore déplacer les 4 bonus : L3 sur le Z valorise sa lettre chère ; M2 sur le R en haut à droite profite aux trois chemins, avec M3 sur le E juste dessous. L2 peut aller sur le B. Essaie et observe les scores se recalculer.",
+      detail: "Un bonus par case. Les emplacements et les chemins conservés à la fin déterminent les points.",
+      actionText: "Essaie L3 sur Z, L2 sur B et M2 sur le R du haut. Tu peux déplacer les bonus à volonté.",
+      nextLabel: "Vérifier mes 3 mots", finishRound: true },
+    { id: "three-review", kind: "recap", phase: "results" },
+    { id: "three-results", kind: "read", phase: "results", focus: "ranking",
+      title: "Trois bons mots, des bonus en commun",
+      text: "Au résultat, seuls les mots reconnus par le dictionnaire rapportent des points. Cherche un trio de mots sûrs dont les chemins partagent les multiplicateurs, et remplace tes choix si tu trouves mieux. Seul le Gobble du plus long mot est attribué dans cette manche.",
+      nextLabel: "Retour aux manches" },
+  ],
+};

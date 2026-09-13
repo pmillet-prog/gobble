@@ -38,10 +38,11 @@ const BOT_ROTATION_MINUTES = 60;
 
 // Modifiez librement ces listes : noms fixes, niveaux varies, fenetres de pause.
 export const BOT_ROSTER_4X4 = [
-  { nick: "Proutosaurus Rex", skill: 0.72, maxWordsPerRound: 72, minWordsPerRound: 28, pointBias: 0.72, pace: 0.84, sleep: { startHour: 2, durationHours: 2 } },
+  { nick: "Proutosaurus Rex", skill: 0.72, maxWordsPerRound: 68, minWordsPerRound: 27, pointBias: 0.72, pace: 0.84, sleep: { startHour: 2, durationHours: 2 } },
   { nick: "ProtoPanache", skill: 0.78, maxWordsPerRound: 78, minWordsPerRound: 30, pointBias: 0.76, pace: 0.9, sleep: { startHour: 4, durationHours: 3 } },
-  { nick: "Crux", skill: 0.74, maxWordsPerRound: 82, minWordsPerRound: 30, pointBias: 0.78, pace: 1.05 },
-  { nick: "QuasarMots", skill: 0.76, maxWordsPerRound: 74, minWordsPerRound: 29, pointBias: 0.72, pace: 0.88, sleep: { startHour: 3, durationHours: 3 } },
+  // Compensate for the lighter general reduction: Crux should not get stronger.
+  { nick: "Crux", skill: 0.67, maxWordsPerRound: 64, minWordsPerRound: 26, pointBias: 0.68, pace: 0.99 },
+  { nick: "QuasarMots", skill: 0.76, maxWordsPerRound: 70, minWordsPerRound: 28, pointBias: 0.72, pace: 0.88, sleep: { startHour: 3, durationHours: 3 } },
   { nick: "Celie", skill: 0.66, maxWordsPerRound: 74, minWordsPerRound: 28, pointBias: 0.7, pace: 1.0, sleep: { startHour: 3, durationHours: 3 } },
   { nick: "Sylvie50", skill: 0.6, maxWordsPerRound: 71, minWordsPerRound: 25, pointBias: 0.65, pace: 0.95 },
   { nick: "Alcapouet", skill: 0.75, maxWordsPerRound: 69, minWordsPerRound: 22, pointBias: 0.55, pace: 1.1 },
@@ -128,12 +129,13 @@ export const BOT_ROSTER_5X5 = [
 export const BOT_ROSTER = BOT_ROSTER_4X4;
 
 export const BOT_ANIMATOR_ROSTER = [
-  { nick: "Bernard Pinot", skill: 0.58, maxWordsPerRound: 44, minWordsPerRound: 8, pointBias: 0.84, rarityBias: 1, pace: 0.68, alwaysPresent: true, animator: true },
-  { nick: "Laurent Rhum&Co", skill: 0.64, maxWordsPerRound: 110, minWordsPerRound: 44, pointBias: 0.36, rarityBias: 0.05, pace: 1.25, alwaysPresent: true, animator: true },
-  { nick: "Inspecteur Grille", skill: 0.56, maxWordsPerRound: 66, minWordsPerRound: 22, pointBias: 0.64, rarityBias: 0.28, pace: 0.95, alwaysPresent: true, animator: true },
-  { nick: "Julien Lechéper", skill: 0.52, maxWordsPerRound: 58, minWordsPerRound: 18, pointBias: 0.54, rarityBias: 0.22, pace: 0.88, alwaysPresent: true, animator: true },
-  { nick: "Maître Gobbello", skill: 0.58, maxWordsPerRound: 76, minWordsPerRound: 26, pointBias: 0.46, rarityBias: 0.12, pace: 1.08, alwaysPresent: true, animator: true },
-  { nick: "MomoMotus", skill: 0.5, maxWordsPerRound: 50, minWordsPerRound: 14, pointBias: 0.66, rarityBias: 0.42, pace: 0.82, alwaysPresent: true, animator: true },
+  // Effective profiles: do not apply the regular roster's reduction again.
+  // The four main hosts form score milestones, not just rare-word specialists.
+  { nick: "Bernard Pinot", skill: 0.68, maxWordsPerRound: 56, minWordsPerRound: 23, pointBias: 0.66, rarityBias: 0.3, pace: 0.9, alwaysPresent: true, animator: true },
+  { nick: "Laurent Rhum&Co", skill: 0.3, maxWordsPerRound: 27, minWordsPerRound: 9, pointBias: 0.38, rarityBias: 0.05, pace: 1, alwaysPresent: true, animator: true },
+  { nick: "Julien Lechéper", skill: 0.43, maxWordsPerRound: 34, minWordsPerRound: 13, pointBias: 0.56, rarityBias: 0.16, pace: 0.94, alwaysPresent: true, animator: true },
+  { nick: "Maître Gobbello", skill: 0.57, maxWordsPerRound: 44, minWordsPerRound: 18, pointBias: 0.64, rarityBias: 0.28, pace: 1, alwaysPresent: true, animator: true },
+  { nick: "MomoMotus", skill: 0.37, maxWordsPerRound: 31, minWordsPerRound: 11, pointBias: 0.55, rarityBias: 0.35, pace: 0.88, alwaysPresent: true, animator: true },
 ];
 
 const BOT_ROSTERS_BY_SIZE = {
@@ -143,12 +145,12 @@ const BOT_ROSTERS_BY_SIZE = {
 
 const ELITE_BOT_NICKS = new Set(["Proutosaurus Rex", "connard32", "ProtoPanache", "OrgaMots", "Harmonix", "QuasarMots"]);
 const BOT_NERF = {
-  skill: 0.6,
-  maxWords: 0.55,
-  minWords: 0.5,
-  pointBias: 0.6,
-  pace: 0.85,
-  desired: 0.55,
+  skill: 0.66,
+  maxWords: 0.62,
+  minWords: 0.55,
+  pointBias: 0.68,
+  pace: 0.9,
+  desired: 0.6,
 };
 
 const RARITY_BUCKET_SORT_WEIGHT = Object.freeze({
@@ -335,8 +337,8 @@ function botSessionKey(roomId, nick) {
   return `${roomId || "room"}::${nick || "bot"}`;
 }
 
-function tuneBotProfile(bot) {
-  if (!bot || ELITE_BOT_NICKS.has(bot.nick)) {
+export function tuneBotProfile(bot) {
+  if (!bot || bot.animator || ELITE_BOT_NICKS.has(bot.nick)) {
     return { ...bot, difficultyScale: 1 };
   }
   const scaledSkill = Math.max(0.05, clamp01((bot?.skill ?? 0.5) * BOT_NERF.skill));

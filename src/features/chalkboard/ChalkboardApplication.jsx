@@ -1,83 +1,118 @@
 import React from "react";
+import { CHALKBOARD_BOARD } from "../../../shared/chalkboardRules.js";
 
 import {
-  deleteChalkboardIntervention,
   fetchChalkboard,
+  fetchChalkboardAccess,
   publishChalkboardIntervention,
 } from "./chalkboardApi.js";
 import {
-  CHALKBOARD_PALETTE,
   CHALKBOARD_WORLD,
-  hitTestIntervention,
+  getElementBounds,
 } from "./chalkboardModel.js";
 import { ChalkboardRenderer } from "./chalkboardRenderer.js";
+import { getChalkboardPointer } from "./chalkboardCanvasWindow.js";
 import ChalkboardBackdrop from "./ChalkboardBackdrop.jsx";
+import ChalkboardControls from "./ChalkboardControls.jsx";
+import ChalkboardExportButton from "./ChalkboardExportButton.jsx";
+import ChalkboardEraserCursor from "./ChalkboardEraserCursor.jsx";
+import ChalkboardScrollHints from "./ChalkboardScrollHints.jsx";
+import { collectChalkboardErasureCleanup } from "./chalkboardErasureCleanup.js";
+import ChalkboardTextComposer from "./ChalkboardTextComposer.jsx";
+import ChalkboardIcon from "./ChalkboardIcon.jsx";
 import useChalkboardEditor from "./useChalkboardEditor.js";
+import useChalkboardPan from "./useChalkboardPan.js";
+import useChalkboardModeration from "./useChalkboardModeration.js";
+import ChalkboardModerationPreview from "./ChalkboardModerationPreview.jsx";
+import ChalkboardModerationControls from "./ChalkboardModerationControls.jsx";
+import ChalkboardMaintenanceDialog from "./ChalkboardMaintenanceDialog.jsx";
 import "./chalkboard.css";
 
-const BOARD_OPTIONS = Object.freeze([
-  { id: "feedback", label: "Bugs & idées", icon: "lightbulb" },
-  { id: "free", label: "Figure libre", icon: "gesture" },
-]);
+const board = CHALKBOARD_BOARD;
 
 function getErrorMessage(error) {
+  if (error?.message === "maintenance_mode") return "Le grand tableau est fermé pendant la mise à jour.";
   if (error?.status === 401 || error?.message === "auth_required") {
     return "Connecte-toi à ton compte pour valider une intervention.";
   }
   if (error?.message === "empty_intervention") return "Ton intervention est vide.";
   if (error?.message === "moderation_forbidden") return "Accès de modération refusé.";
+  if (error?.message === "erasure_forbidden") return "Tu peux uniquement gommer tes propres interventions.";
+  if (error?.message === "erasure_limit") return "La limite de passages d’éponge est atteinte. Annule les derniers gestes pour pouvoir valider.";
+  if (error?.message === "stale_week") return "Le tableau a été renouvelé. Abandonne ce brouillon pour repartir sur le nouveau tableau.";
+  if (error?.message === "invalid_erasure") return "Ce passage d’éponge n’a pas pu être enregistré. Annule ce geste et réessaie.";
   return "Le tableau n'est pas disponible pour le moment.";
 }
 
-export default function ChalkboardApplication({ canPublish = false, onClose }) {
-  const [board, setBoard] = React.useState("feedback");
+export default function ChalkboardApplication({ canPublish = false, connection, onClose }) {
   const [snapshot, setSnapshot] = React.useState({
-    board: "feedback",
+    board,
     interventions: [],
     revision: null,
     weekId: "",
     canModerate: false,
+    canUndoDelete: false,
   });
   const [loading, setLoading] = React.useState(true);
   const [busy, setBusy] = React.useState(false);
+  const [maintenanceMode, setMaintenanceMode] = React.useState(false);
+  const maintenanceVersionRef = React.useRef(0);
   const [editing, setEditing] = React.useState(false);
-  const [feedbackKind, setFeedbackKind] = React.useState("idea");
-  const [moderationMode, setModerationMode] = React.useState(false);
   const [notice, setNotice] = React.useState("");
   const [viewport, setViewport] = React.useState({ width: 1, height: 1, scrollLeft: 0 });
   const canvasRef = React.useRef(null);
   const scrollRef = React.useRef(null);
   const rendererRef = React.useRef(null);
   const snapshotRef = React.useRef(snapshot);
-  const textInputRef = React.useRef(null);
   const scrollFrameRef = React.useRef(0);
   const editor = useChalkboardEditor();
+  const draftWeekRef = React.useRef("");
   const scale = viewport.height / CHALKBOARD_WORLD.height;
   const worldWidth = CHALKBOARD_WORLD.width * scale;
+  const interacting = editing && editor.tool !== "pan" && !busy && !maintenanceMode;
+  const erasing = editing && editor.tool === "erase";
 
   React.useLayoutEffect(() => {
     snapshotRef.current = snapshot;
   }, [snapshot]);
 
+  React.useEffect(() => {
+    const onAvailability = (payload) => {
+      maintenanceVersionRef.current += 1;
+      setMaintenanceMode(!!payload?.maintenanceMode);
+    };
+    connection?.on?.("chalkboardAvailability", onAvailability);
+    return () => connection?.off?.("chalkboardAvailability", onAvailability);
+  }, [connection]);
+
+  React.useEffect(() => {
+    if (maintenanceMode) editor.pointerCancel();
+  }, [maintenanceMode, editor.pointerCancel]);
+
   const loadBoard = React.useCallback(
-    async ({ quiet = false, signal } = {}) => {
+    async ({ quiet = false, signal, accessOnly = false } = {}) => {
+      const maintenanceVersion = ++maintenanceVersionRef.current;
       if (!quiet) setLoading(true);
       try {
         const currentSnapshot = snapshotRef.current;
-        const payload = await fetchChalkboard(board, {
+        const payload = accessOnly ? await fetchChalkboardAccess({ signal }) : await fetchChalkboard(board, {
           revision: currentSnapshot.board === board ? currentSnapshot.revision : null,
           signal,
           weekId: currentSnapshot.board === board ? currentSnapshot.weekId : "",
         });
+        if (maintenanceVersion === maintenanceVersionRef.current) setMaintenanceMode(false);
+        if (accessOnly) return;
         setSnapshot((current) => {
+          if (current.weekId > payload.weekId || (current.weekId === payload.weekId && current.revision > payload.revision)) return current;
           if (payload.unchanged) {
-            if (current.canModerate === !!payload.canModerate) return current;
-            return { ...current, canModerate: !!payload.canModerate };
+            if (current.canModerate === !!payload.canModerate && current.canUndoDelete === !!payload.canUndoDelete) return current;
+            return { ...current, canModerate: !!payload.canModerate, canUndoDelete: !!payload.canUndoDelete };
           }
           if (
             current.revision === payload.revision &&
             current.weekId === payload.weekId &&
-            current.canModerate === !!payload.canModerate
+            current.canModerate === !!payload.canModerate &&
+            current.canUndoDelete === !!payload.canUndoDelete
           ) {
             return current;
           }
@@ -87,10 +122,12 @@ export default function ChalkboardApplication({ canPublish = false, onClose }) {
             revision: payload.revision,
             weekId: payload.weekId || "",
             canModerate: !!payload.canModerate,
+            canUndoDelete: !!payload.canUndoDelete,
           };
         });
         setNotice("");
       } catch (error) {
+        if (error?.message === "maintenance_mode" && maintenanceVersion === maintenanceVersionRef.current) setMaintenanceMode(true);
         if (error?.name !== "AbortError") setNotice(getErrorMessage(error));
       } finally {
         if (!quiet) setLoading(false);
@@ -99,6 +136,12 @@ export default function ChalkboardApplication({ canPublish = false, onClose }) {
     [board]
   );
 
+  const moderation = useChalkboardModeration({
+    board, interventions: snapshot.interventions, canModerate: snapshot.canModerate,
+    canUndoDelete: snapshot.canUndoDelete, busy, setBusy, setNotice, reload: loadBoard, getErrorMessage,
+  });
+  useChalkboardPan(scrollRef, !interacting && !moderation.mode && !busy && !maintenanceMode);
+
   React.useEffect(() => {
     const controller = new AbortController();
     void loadBoard({ signal: controller.signal });
@@ -106,30 +149,50 @@ export default function ChalkboardApplication({ canPublish = false, onClose }) {
   }, [loadBoard]);
 
   React.useEffect(() => {
+    const controller = new AbortController();
     let cancelled = false;
     let timer = 0;
+    const refreshAccess = () => {
+      if (!cancelled && document.visibilityState === "visible") {
+        void loadBoard({ quiet: true, signal: controller.signal, accessOnly: true });
+      }
+    };
     const poll = async () => {
       if (!cancelled && document.visibilityState === "visible") {
-        await loadBoard({ quiet: true }).catch(() => {});
+        await loadBoard({ quiet: true, signal: controller.signal, accessOnly: erasing }).catch(() => {});
       }
       if (!cancelled) timer = window.setTimeout(poll, 10000);
     };
     timer = window.setTimeout(poll, 10000);
+    connection?.on?.("connect", refreshAccess);
+    window.addEventListener("focus", refreshAccess);
+    document.addEventListener("visibilitychange", refreshAccess);
     return () => {
       cancelled = true;
+      controller.abort();
       window.clearTimeout(timer);
+      connection?.off?.("connect", refreshAccess);
+      window.removeEventListener("focus", refreshAccess);
+      document.removeEventListener("visibilitychange", refreshAccess);
     };
-  }, [loadBoard]);
+  }, [connection, loadBoard, erasing]);
 
   React.useLayoutEffect(() => {
     const node = scrollRef.current;
     if (!node) return undefined;
     const updateSize = () => {
-      setViewport((current) => ({
-        width: Math.max(1, node.clientWidth),
-        height: Math.max(1, node.clientHeight),
-        scrollLeft: node.scrollLeft,
-      }));
+      const width = Math.max(1, node.clientWidth);
+      const height = Math.max(1, node.clientHeight);
+      const left = node.scrollLeft;
+      setViewport(current => {
+        if (current.width === width && current.height === height) return current;
+        // Tools and mobile keyboards change the surface height and its scale.
+        // Preserve the world point in the middle, not its old pixel offset.
+        const scrollLeft = current.height > 1
+          ? Math.max(0, (left + current.width / 2) * height / current.height - width / 2)
+          : left;
+        return { width, height, scrollLeft };
+      });
     };
     updateSize();
     const observer = new ResizeObserver(updateSize);
@@ -137,27 +200,23 @@ export default function ChalkboardApplication({ canPublish = false, onClose }) {
     return () => observer.disconnect();
   }, []);
 
+  React.useLayoutEffect(() => {
+    // Apply after React has resized the world, so the browser uses the new
+    // scroll limit. onScroll records any clamping at either end of the board.
+    if (scrollRef.current) scrollRef.current.scrollLeft = viewport.scrollLeft;
+  }, [viewport.width, viewport.height]);
+
   React.useEffect(() => {
     const node = scrollRef.current;
     if (!node) return undefined;
     const handleWheel = (event) => {
-      if (editing || Math.abs(event.deltaX) >= Math.abs(event.deltaY) || !event.deltaY) return;
+      if (interacting || Math.abs(event.deltaX) >= Math.abs(event.deltaY) || !event.deltaY) return;
       event.preventDefault();
       node.scrollLeft += event.deltaY;
     };
     node.addEventListener("wheel", handleWheel, { passive: false });
     return () => node.removeEventListener("wheel", handleWheel);
-  }, [editing]);
-
-  React.useEffect(() => {
-    if (!editor.textEntry) return;
-    const frame = requestAnimationFrame(() => textInputRef.current?.focus());
-    return () => cancelAnimationFrame(frame);
-  }, [editor.textEntry]);
-
-  React.useEffect(() => {
-    if (board === "feedback" && editor.tool !== "text") editor.setTool("text");
-  }, [board, editor.setTool, editor.tool]);
+  }, [interacting]);
 
   React.useLayoutEffect(() => {
     if (!canvasRef.current) return undefined;
@@ -170,22 +229,38 @@ export default function ChalkboardApplication({ canPublish = false, onClose }) {
   }, []);
 
   React.useLayoutEffect(() => {
+    if (editor.fontsReady) rendererRef.current?.invalidateText();
+  }, [editor.fontsReady]);
+
+  React.useLayoutEffect(() => {
     const renderer = rendererRef.current;
     if (!renderer) return;
-    renderer.setInterventions(snapshot.interventions, `${board}:${snapshot.weekId}:${snapshot.revision}`);
-    renderer.render({
+    renderer.setInterventions(snapshot.interventions, snapshot.revision, `${board}:${snapshot.weekId}`);
+    const render = () => renderer.renderWorldView({
       width: viewport.width,
       height: viewport.height,
       scale,
       scrollLeft: viewport.scrollLeft,
       draftElements: editing ? editor.getRenderElements() : [],
       selectedTextId: editing ? editor.selectedTextId : "",
+      onlyOwn: erasing,
     });
+    const handleFontsLoaded = () => { renderer.invalidateText(); render(); };
+    document.fonts?.addEventListener("loadingdone", handleFontsLoaded);
+    render();
+    const unsubscribe = editor.subscribeRender(render);
+    return () => {
+      unsubscribe();
+      document.fonts?.removeEventListener("loadingdone", handleFontsLoaded);
+    };
   }, [
     board,
     editing,
-    editor.renderTick,
+    erasing,
+    editor.getRenderElements,
+    editor.subscribeRender,
     editor.selectedTextId,
+    editor.fontsReady,
     scale,
     snapshot.interventions,
     snapshot.revision,
@@ -203,68 +278,62 @@ export default function ChalkboardApplication({ canPublish = false, onClose }) {
   );
 
   const getPointerPosition = React.useCallback(
-    (event) => {
-      const rect = canvasRef.current?.getBoundingClientRect();
-      if (!rect || scale <= 0) return null;
-      const screenX = event.clientX - rect.left;
-      const screenY = event.clientY - rect.top;
-      return {
-        screenX,
-        screenY,
-        worldX: Math.max(0, Math.min(CHALKBOARD_WORLD.width, (screenX + viewport.scrollLeft) / scale)),
-        worldY: Math.max(0, Math.min(CHALKBOARD_WORLD.height, screenY / scale)),
-      };
-    },
+    (event, rect = scrollRef.current?.getBoundingClientRect()) =>
+      getChalkboardPointer(event, rect, scrollRef.current?.scrollLeft ?? viewport.scrollLeft, scale),
     [scale, viewport.scrollLeft]
   );
 
   const handlePointerDown = (event) => {
+    if (busy || maintenanceMode || !event.isPrimary || event.button !== 0) return;
     const point = getPointerPosition(event);
     if (!point) return;
-    if (editing) {
+    if (interacting) {
       event.preventDefault();
       canvasRef.current?.setPointerCapture?.(event.pointerId);
-      editor.pointerDown({ ...point, scale });
+      editor.pointerDown({ ...point, scale, viewport, interventions: snapshot.interventions });
       return;
     }
-    if (!moderationMode || !snapshot.canModerate) return;
-    const intervention = [...snapshot.interventions]
-      .reverse()
-      .find((entry) => hitTestIntervention(entry, point.worldX, point.worldY));
-    if (!intervention) {
-      setNotice("Aucune intervention à cet endroit.");
-      return;
-    }
-    if (!window.confirm("Supprimer définitivement cette intervention du tableau ?")) return;
-    setBusy(true);
-    deleteChalkboardIntervention(intervention.id)
-      .then(() => loadBoard())
-      .catch((error) => setNotice(getErrorMessage(error)))
-      .finally(() => setBusy(false));
+    if (moderation.mode) moderation.select(point);
   };
 
   const handlePointerMove = (event) => {
+    if (maintenanceMode || !event.isPrimary) return;
+    if (moderation.mode) {
+      if (event.pointerType !== "touch") moderation.hover(getPointerPosition(event));
+      return;
+    }
     if (!editing || !canvasRef.current?.hasPointerCapture?.(event.pointerId)) return;
     event.preventDefault();
     const nativeEvent = event.nativeEvent || event;
     const samples = nativeEvent.getCoalescedEvents?.() || [nativeEvent];
     const pointerSamples = samples.length ? samples : [nativeEvent];
+    const rect = scrollRef.current?.getBoundingClientRect();
     for (const sample of pointerSamples) {
-      const point = getPointerPosition(sample);
+      const point = getPointerPosition(sample, rect);
       if (!point) continue;
       editor.pointerMove({ ...point, pressure: sample.pressure });
     }
   };
 
   const handlePointerUp = (event) => {
-    if (!editing) return;
+    if (maintenanceMode || !editing || !event.isPrimary) return;
+    if (!canvasRef.current?.hasPointerCapture?.(event.pointerId)) return;
+    const point = getPointerPosition(event);
+    if (point) editor.pointerMove(point);
+    editor.pointerUp();
     if (canvasRef.current?.hasPointerCapture?.(event.pointerId)) {
       canvasRef.current.releasePointerCapture(event.pointerId);
     }
-    editor.pointerUp();
+  };
+
+  const handlePointerCancel = (event) => {
+    if (!event.isPrimary) return;
+    editor.pointerCancel();
+    if (canvasRef.current?.hasPointerCapture?.(event.pointerId)) canvasRef.current.releasePointerCapture(event.pointerId);
   };
 
   const handleScroll = () => {
+    moderation.clearHover();
     if (scrollFrameRef.current) return;
     scrollFrameRef.current = requestAnimationFrame(() => {
       scrollFrameRef.current = 0;
@@ -278,11 +347,25 @@ export default function ChalkboardApplication({ canPublish = false, onClose }) {
     });
   };
 
-  const beginEditing = () => {
-    setModerationMode(false);
-    editor.setTool(board === "feedback" ? "text" : editor.tool);
-    setNotice(canPublish ? "Ton brouillon reste sur cet appareil jusqu'à sa validation." : "Connecte-toi pour pouvoir valider.");
-    setEditing(true);
+  const chooseTool = (tool) => {
+    if (busy || loading || maintenanceMode) return;
+    if (editing && editor.tool === tool) tool = "pan";
+    if (!editing) draftWeekRef.current = snapshot.weekId;
+    moderation.close();
+    editor.cancelTextEntry();
+    if (tool !== "text") editor.setSelectedTextId("");
+    editor.setTool(tool);
+    setNotice("");
+    if (tool !== "pan") setEditing(true);
+    if (tool === "text") {
+      editor.beginTextEntry({
+        worldX: (viewport.scrollLeft + viewport.width / 2) / scale,
+        worldY: CHALKBOARD_WORLD.height / 2,
+        viewport,
+        autoPlace: true,
+        occupied: [...snapshot.interventions.map(intervention => intervention.bounds), ...editor.elements.map(getElementBounds)],
+      });
+    }
   };
 
   const cancelEditing = () => {
@@ -292,216 +375,109 @@ export default function ChalkboardApplication({ canPublish = false, onClose }) {
     setNotice("");
   };
 
+  const placeText = (text) => {
+    if (maintenanceMode) return null;
+    const result = editor.finishTextEntry(text, viewport);
+    if (!result) return null;
+    // Keep the chosen spot visible if the nearest free space was farther away.
+    if (scrollRef.current) scrollRef.current.scrollLeft = result.position.x * scale - viewport.width / 2;
+    if (!result.placementFound) setNotice("Cette zone est bien remplie. Place ton texte avant de le publier.");
+    return result;
+  };
+
   const publish = async () => {
-    if (!editor.hasDraft || busy) return;
+    const elements = editor.elements;
+    if (!elements?.length || busy || maintenanceMode || !canPublish) return;
     setBusy(true);
-    setNotice("Validation en cours…");
+    setNotice("Publication en cours…");
     try {
+      const hasErasures = elements.some(element => element.type === "erase");
+      const cleanup = hasErasures ? await collectChalkboardErasureCleanup(snapshot.interventions, elements, { loadedFonts: editor.loadedFonts }) : null;
+      const draft = !hasErasures && rendererRef.current?.captureDraft(elements, editor.selectedTextId);
       const result = await publishChalkboardIntervention(board, {
-        feedbackKind,
-        elements: editor.elements,
+        elements: cleanup?.draftEmpty ? elements.filter(element => element.type === "erase") : elements,
+        ...(cleanup ? { removeIds: cleanup.removeIds } : {}),
+        weekId: draftWeekRef.current,
       });
-      setSnapshot((current) => ({
+      rendererRef.current?.reuseDraftForIntervention(result.intervention, draft);
+      setSnapshot((current) => current.weekId > result.weekId || (current.weekId === result.weekId && current.revision > result.revision) ? current : ({
         ...current,
         board,
         revision: result.revision,
         weekId: result.weekId,
-        interventions: [...current.interventions, result.intervention],
+        interventions: result.interventions || [...current.interventions, result.intervention].filter(Boolean),
       }));
       editor.reset();
       setEditing(false);
-      setNotice("Intervention ajoutée anonymement au tableau.");
+      setNotice(hasErasures ? "Modifications enregistrées sur le tableau." : "Intervention ajoutée anonymement au tableau.");
     } catch (error) {
+      if (error?.message === "maintenance_mode") {
+        maintenanceVersionRef.current += 1;
+        setMaintenanceMode(true);
+      }
       setNotice(getErrorMessage(error));
     } finally {
       setBusy(false);
     }
   };
 
-  const changeBoard = (nextBoard) => {
-    if (nextBoard === board) return;
-    if (editor.hasDraft && !window.confirm("Changer de tableau et abandonner ton brouillon ?")) return;
-    editor.reset();
-    setEditing(false);
-    setModerationMode(false);
-    editor.setTool(nextBoard === "feedback" ? "text" : "chalk");
-    setSnapshot((current) => ({
-      ...current,
-      board: nextBoard,
-      interventions: [],
-      revision: null,
-      weekId: "",
-    }));
-    setBoard(nextBoard);
-  };
-
   const close = () => {
-    if (editor.hasDraft && !window.confirm("Quitter et abandonner ton brouillon ?")) return;
+    if ((editor.hasDraft || editor.textEntry) && !window.confirm("Quitter et abandonner ton brouillon ?")) return;
     onClose?.();
   };
 
   return (
-    <main className="chalkboard-app">
+    <>
+    <main className="chalkboard-app" inert={maintenanceMode ? "" : undefined} aria-hidden={maintenanceMode || undefined}>
       <header className="chalkboard-header">
-        <button type="button" className="chalkboard-round-button chalkboard-back" onClick={close} aria-label="Retour à l'accueil">
-          <span className="material-symbols-outlined" aria-hidden="true">arrow_back</span>
-        </button>
+        <button type="button" className="chalkboard-back" onClick={close} disabled={busy} aria-label="Retour à l'accueil"><ChalkboardIcon name="back" /><span>Accueil</span></button>
         <div className="chalkboard-heading">
           <h1>Le grand tableau</h1>
-          <span>Anonyme · remis à zéro chaque lundi</span>
+          <span>Anonyme · effacé chaque lundi</span>
         </div>
-        <div className="chalkboard-tabs" role="tablist" aria-label="Choisir un tableau">
-          {BOARD_OPTIONS.map((option) => (
-            <button
-              key={option.id}
-              type="button"
-              role="tab"
-              aria-selected={board === option.id}
-              className={board === option.id ? "is-active" : ""}
-              onClick={() => changeBoard(option.id)}
-            >
-              <span className="material-symbols-outlined" aria-hidden="true">{option.icon}</span>
-              <span>{option.label}</span>
-            </button>
-          ))}
-        </div>
-        {!editing ? (
-          <div className="chalkboard-header-actions">
-            {snapshot.canModerate ? (
-              <button
-                type="button"
-                className={`chalkboard-admin-button ${moderationMode ? "is-active" : ""}`}
-                onClick={() => setModerationMode((value) => !value)}
-                disabled={busy}
-              >
-                <span className="material-symbols-outlined" aria-hidden="true">ink_eraser</span>
-                {moderationMode ? "Cliquer pour effacer" : "Modérer"}
-              </button>
-            ) : null}
-            <button type="button" className="chalkboard-start-button" onClick={beginEditing}>
-              <span className="material-symbols-outlined" aria-hidden="true">edit</span>
-              Intervenir
-            </button>
-          </div>
-        ) : null}
+        {snapshot.canModerate ? <div className="chalkboard-admin-actions">
+          <ChalkboardExportButton disabled={busy || editing} onNotice={setNotice} />
+          {!editing && <button type="button" className="chalkboard-admin-button" aria-label={moderation.mode ? "Quitter la modération" : "Modérer le tableau"} aria-pressed={moderation.mode} onClick={moderation.toggle} disabled={busy}><ChalkboardIcon name="erase" /><span>{moderation.mode ? "Fin de modération" : "Modérer"}</span></button>}
+        </div> : null}
       </header>
 
-      {editing ? (
-        <section className="chalkboard-toolbar" aria-label="Outils du brouillon">
-          <div className="chalkboard-tool-group">
-            {board === "free" ? (
-              <button type="button" className={editor.tool === "chalk" ? "is-active" : ""} onClick={() => editor.setTool("chalk")}>
-                <span className="material-symbols-outlined" aria-hidden="true">draw</span>
-                Craie
-              </button>
-            ) : null}
-            <button type="button" className={editor.tool === "text" ? "is-active" : ""} onClick={() => editor.setTool("text")}>
-              <span className="material-symbols-outlined" aria-hidden="true">text_fields</span>
-              Texte
-            </button>
-          </div>
-          {board === "free" && editor.tool === "chalk" ? (
-            <div className="chalkboard-colors" aria-label="Couleur de la craie">
-              {CHALKBOARD_PALETTE.map((entry) => (
-                <button
-                  key={entry}
-                  type="button"
-                  aria-label={`Craie ${entry}`}
-                  className={editor.color === entry ? "is-active" : ""}
-                  style={{ "--chalk-color": entry }}
-                  onClick={() => editor.setColor(entry)}
-                />
-              ))}
-              <label className="chalkboard-custom-color" title="Autre couleur">
-                <input type="color" value={editor.color} onChange={(event) => editor.setColor(event.target.value)} />
-              </label>
-              <label className="chalkboard-size">
-                <span>Épaisseur</span>
-                <input type="range" min="4" max="30" value={editor.size} onChange={(event) => editor.setSize(Number(event.target.value))} />
-              </label>
-            </div>
-          ) : (
-            <div className="chalkboard-text-help">Clique pour écrire · tire les poignées pour tourner ou agrandir</div>
-          )}
-          {board === "feedback" ? (
-            <div className="chalkboard-kind" aria-label="Type de retour">
-              <button type="button" className={feedbackKind === "bug" ? "is-active" : ""} onClick={() => setFeedbackKind("bug")}>Bug</button>
-              <button type="button" className={feedbackKind === "idea" ? "is-active" : ""} onClick={() => setFeedbackKind("idea")}>Idée</button>
-            </div>
-          ) : null}
-          <div className="chalkboard-draft-actions">
-            <button type="button" onClick={editor.undo} disabled={!editor.historyCount} aria-label="Annuler la dernière action">
-              <span className="material-symbols-outlined" aria-hidden="true">undo</span>
-            </button>
-            {editor.selectedTextId ? (
-              <button type="button" onClick={editor.removeSelected} aria-label="Supprimer le texte sélectionné">
-                <span className="material-symbols-outlined" aria-hidden="true">delete</span>
-              </button>
-            ) : null}
-            <button type="button" className="chalkboard-cancel" onClick={cancelEditing}>Abandonner</button>
-            <button type="button" className="chalkboard-publish" onClick={publish} disabled={!editor.hasDraft || busy || !canPublish}>
-              {busy ? "Validation…" : "Valider"}
-            </button>
-          </div>
-        </section>
-      ) : null}
-
-      {notice ? <div className="chalkboard-notice" role="status">{notice}</div> : null}
-
-      <section
-        ref={scrollRef}
-        className={`chalkboard-scroll ${editing ? "is-editing" : ""} ${moderationMode ? "is-moderating" : ""}`}
-        onScroll={handleScroll}
-        aria-label={board === "feedback" ? "Tableau des bugs et des idées" : "Tableau de figure libre"}
-      >
-        <div
-          className="chalkboard-world"
-          style={{
+      <div className="chalkboard-frame">
+        <section ref={scrollRef} className={`chalkboard-scroll ${interacting ? "is-editing" : ""} ${interacting && editor.tool === "erase" ? "is-erasing" : ""} ${moderation.mode ? "is-moderating" : ""}`} onScroll={handleScroll} aria-label="Le grand tableau" tabIndex={0}>
+          <div className="chalkboard-world" style={{
             width: `${Math.max(viewport.width, worldWidth)}px`,
             "--chalkboard-scale": scale,
             "--chalkboard-viewport-width": `${viewport.width}px`,
-          }}
-        >
-          <ChalkboardBackdrop />
-          <div className="chalkboard-canvas-shell">
-            <canvas
-              ref={canvasRef}
-              className="chalkboard-canvas"
-              onPointerDown={handlePointerDown}
-              onPointerMove={handlePointerMove}
-              onPointerUp={handlePointerUp}
-              onPointerCancel={handlePointerUp}
-            />
-            {editor.textEntry ? (
-              <input
-                ref={textInputRef}
-                className="chalkboard-text-entry"
-                style={{ left: editor.textEntry.screenX, top: editor.textEntry.screenY }}
-                type="text"
-                maxLength={280}
-                placeholder="Écris ici…"
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    event.preventDefault();
-                    editor.finishTextEntry(event.currentTarget.value);
-                  } else if (event.key === "Escape") {
-                    editor.cancelTextEntry();
-                  }
-                }}
-              />
-            ) : null}
-            {loading ? <div className="chalkboard-loader">La craie chauffe…</div> : null}
-            {!loading && !snapshot.interventions.length && !editing ? (
-              <div className="chalkboard-empty">Le tableau est encore vierge. À toi d'ouvrir le bal.</div>
-            ) : null}
-            {moderationMode ? <div className="chalkboard-moderation-hint">Mode admin · clique sur une intervention pour l'effacer</div> : null}
+          }}>
+            <ChalkboardBackdrop />
+            <canvas ref={canvasRef} className="chalkboard-canvas" onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerLeave={moderation.clearHover} onPointerUp={handlePointerUp} onPointerCancel={handlePointerCancel} onLostPointerCapture={handlePointerCancel} />
+            <div className="chalkboard-canvas-shell">
+              <ChalkboardEraserCursor canvasRef={canvasRef} viewportRef={scrollRef} enabled={interacting && editor.tool === "erase"} size={editor.eraserSize} scale={scale} />
+              {moderation.mode && <ChalkboardModerationPreview intervention={moderation.preview} viewport={viewport} scale={scale} />}
+              {loading ? <div className="chalkboard-loader">Chargement du tableau…</div> : null}
+              {!loading && !snapshot.interventions.length && !editing && !moderation.mode ? <div className="chalkboard-empty">
+                <span>À toi la craie !</span>
+                <p>Un bug à signaler, une idée pour le jeu, un dessin…</p>
+                <small>{canPublish ? "Choisis « Écrire » ou « Dessiner » en bas du tableau." : "Connecte-toi depuis l’accueil pour apporter ta contribution."}</small>
+              </div> : null}
+            </div>
           </div>
-        </div>
-      </section>
-      <footer className="chalkboard-footer" aria-hidden="true">
-        <span>Fais défiler le tableau horizontalement</span>
-        <span className="material-symbols-outlined">swipe</span>
-      </footer>
+        </section>
+        <ChalkboardScrollHints scrollRef={scrollRef} enabled={!interacting && !moderation.mode && !loading} viewport={viewport} worldWidth={worldWidth} />
+        {notice ? <div className="chalkboard-notice" role="status">{notice}</div> : null}
+      </div>
+
+      {moderation.mode
+        ? <ChalkboardModerationControls moderation={moderation} canUndo={snapshot.canUndoDelete} busy={busy} />
+        : <ChalkboardControls editor={editor} editing={editing} busy={busy || loading || maintenanceMode} canPublish={canPublish} onTool={chooseTool} onCancel={cancelEditing} onPublish={publish} />}
+      {editor.textEntry ? <ChalkboardTextComposer
+        canPublish={canPublish}
+        onCancel={editor.cancelTextEntry}
+        onPlace={placeText}
+        font={editor.font}
+        fontsReady={editor.fontsReady}
+      /> : null}
     </main>
+    {maintenanceMode ? <ChalkboardMaintenanceDialog hasDraft={editor.hasDraft || !!editor.textEntry} onClose={close} /> : null}
+    </>
   );
 }

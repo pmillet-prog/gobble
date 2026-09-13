@@ -1,173 +1,25 @@
 import {
-  CHALKBOARD_TILE_SIZE,
-  boundsIntersect,
-  getElementBounds,
-  getTextHandles,
-  getTextHeight,
-  localToWorld,
+  CHALKBOARD_TILE_SIZE, CHALKBOARD_WORLD, boundsIntersect,
+  getElementBounds, getTextHandles, getTextHeight, localToWorld,
 } from "./chalkboardModel.js";
+import { drawChalkElement } from "./chalkboardPaint.js";
+import { ChalkboardErasurePreview } from "./chalkboardErasurePreview.js";
+import { ChalkboardSpongeLayer } from "./chalkboardSpongeLayer.js";
+import { getChalkboardCanvasWindow } from "./chalkboardCanvasWindow.js";
+import {
+  ChalkboardTileCache, ChalkboardTileLayer, createChalkboardTile, TILE_RASTER_RATIO,
+} from "./chalkboardTileLayer.js";
 
-const TILE_RASTER_RATIO = 1.35;
-const MAX_CACHED_TILES = 72;
-
-function createRandom(seed) {
-  let value = Number(seed) >>> 0;
-  return () => {
-    value += 0x6d2b79f5;
-    let result = value;
-    result = Math.imul(result ^ (result >>> 15), result | 1);
-    result ^= result + Math.imul(result ^ (result >>> 7), result | 61);
-    return ((result ^ (result >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-function hexToRgb(hex) {
-  const value = Number.parseInt(String(hex || "#f4f0df").slice(1), 16);
-  return { r: (value >> 16) & 255, g: (value >> 8) & 255, b: value & 255 };
-}
-
-function isSegmentVisible(start, end, size, clipBounds) {
-  if (!clipBounds) return true;
-  const margin = size * 2;
-  return !(
-    Math.max(start.x, end.x) + margin < clipBounds.minX ||
-    Math.min(start.x, end.x) - margin > clipBounds.maxX ||
-    Math.max(start.y, end.y) + margin < clipBounds.minY ||
-    Math.min(start.y, end.y) - margin > clipBounds.maxY
-  );
-}
-
-function drawChalkStroke(context, element, offsetX = 0, offsetY = 0, clipBounds = null) {
-  const points = Array.isArray(element.points) ? element.points : [];
-  if (points.length < 2) return;
-  const rgb = hexToRgb(element.color);
-  context.save();
-  context.translate(-offsetX, -offsetY);
-  context.lineCap = "round";
-  context.lineJoin = "round";
-  for (let index = 1; index < points.length; index += 1) {
-    const start = points[index - 1];
-    const end = points[index];
-    if (!isSegmentVisible(start, end, element.size, clipBounds)) continue;
-    const dx = end.x - start.x;
-    const dy = end.y - start.y;
-    const length = Math.hypot(end.x - start.x, end.y - start.y);
-    if (!length) continue;
-    const random = createRandom((element.seed + index * 2654435761) >>> 0);
-    const normalX = -dy / length;
-    const normalY = dx / length;
-    const tangentX = dx / length;
-    const tangentY = dy / length;
-
-    context.globalAlpha = 1;
-    context.strokeStyle = `rgba(${rgb.r},${rgb.g},${rgb.b},0.30)`;
-    context.lineWidth = element.size * 0.72;
-    context.beginPath();
-    context.moveTo(start.x, start.y);
-    context.lineTo(end.x, end.y);
-    context.stroke();
-
-    const steps = Math.max(1, Math.ceil(length / 1.8));
-    const particles = Math.max(14, Math.round(element.size * 2.6));
-    for (let step = 0; step < steps; step += 1) {
-      const progress = step / steps;
-      const x = start.x + dx * progress;
-      const y = start.y + dy * progress;
-      for (let particle = 0; particle < particles; particle += 1) {
-        const spread = (random() - 0.5) * element.size * 1.85;
-        const along = (random() - 0.5) * 3.2;
-        const particleX = x + normalX * spread + tangentX * along;
-        const particleY = y + normalY * spread + tangentY * along;
-        const radius = random() * 1.25 + 0.18;
-        const alpha = 0.06 + random() * 0.24;
-        context.fillStyle = `rgba(${rgb.r},${rgb.g},${rgb.b},${alpha})`;
-        context.beginPath();
-        context.arc(particleX, particleY, radius, 0, Math.PI * 2);
-        context.fill();
-      }
-    }
-
-    const outerDust = Math.max(4, Math.round(length / 3.5));
-    for (let dust = 0; dust < outerDust; dust += 1) {
-      const progress = random();
-      const x = start.x + dx * progress;
-      const y = start.y + dy * progress;
-      const side = random() < 0.5 ? -1 : 1;
-      const dustOffset = side * (element.size * 0.45 + random() * element.size * 1.1);
-      context.fillStyle = `rgba(${rgb.r},${rgb.g},${rgb.b},${0.025 + random() * 0.09})`;
-      context.beginPath();
-      context.arc(
-        x + normalX * dustOffset + (random() - 0.5) * 4,
-        y + normalY * dustOffset + (random() - 0.5) * 4,
-        random() * 0.9 + 0.12,
-        0,
-        Math.PI * 2
-      );
-      context.fill();
-    }
-  }
-  context.restore();
-}
-
-// The published tiles keep the detailed particle renderer above. During an
-// intervention, however, the visible canvas is refreshed for every pointer
-// move: redrawing all particles from the beginning of every draft stroke made
-// the cost grow continuously. This lightweight preview preserves the path and
-// the chalk softness until publishing rasterizes the full texture once.
-function drawDraftChalkStroke(context, element, offsetX = 0, offsetY = 0) {
-  const points = Array.isArray(element.points) ? element.points : [];
-  if (points.length < 2) return;
-  const rgb = hexToRgb(element.color);
-  context.save();
-  context.translate(-offsetX, -offsetY);
-  context.lineCap = "round";
-  context.lineJoin = "round";
-  context.beginPath();
-  context.moveTo(points[0].x, points[0].y);
-  for (let index = 1; index < points.length; index += 1) {
-    context.lineTo(points[index].x, points[index].y);
-  }
-  context.strokeStyle = `rgba(${rgb.r},${rgb.g},${rgb.b},0.58)`;
-  context.lineWidth = Math.max(1, element.size * 0.78);
-  context.stroke();
-  context.globalAlpha = 0.24;
-  context.strokeStyle = `rgba(${rgb.r},${rgb.g},${rgb.b},0.72)`;
-  context.lineWidth = Math.max(0.7, element.size * 0.3);
-  context.setLineDash([1.1, 2.3]);
-  context.lineDashOffset = -(Number(element.seed) || 0) % 11;
-  context.stroke();
-  context.restore();
-}
-
-function drawChalkText(context, element, offsetX = 0, offsetY = 0) {
-  const random = createRandom(element.seed);
-  context.save();
-  context.translate(element.cx - offsetX, element.cy - offsetY);
-  context.rotate(element.angle);
-  context.scale(element.scale, element.scale);
-  context.textAlign = "center";
-  context.textBaseline = "middle";
-  context.font = `700 ${element.fontSize}px "GobbleCaveat", "Segoe Print", cursive`;
-  context.fillStyle = "#f5f2e8";
-  context.globalAlpha = 0.76;
-  context.fillText(element.text, 0, 0);
-  for (let pass = 0; pass < 4; pass += 1) {
-    context.globalAlpha = 0.07 + random() * 0.08;
-    const jitterX = (random() - 0.5) * 2.8;
-    const jitterY = (random() - 0.5) * 2.2;
-    context.fillText(element.text, jitterX, jitterY);
-  }
-  context.restore();
-}
-
-function drawElement(context, element, offsetX = 0, offsetY = 0, clipBounds = null) {
-  if (element?.type === "stroke") drawChalkStroke(context, element, offsetX, offsetY, clipBounds);
-  if (element?.type === "text") drawChalkText(context, element, offsetX, offsetY);
-}
-
-function drawDraftElement(context, element, offsetX = 0, offsetY = 0) {
-  if (element?.type === "stroke") drawDraftChalkStroke(context, element, offsetX, offsetY);
-  if (element?.type === "text") drawChalkText(context, element, offsetX, offsetY);
+// Only rendering data matters when reusing a draft confirmed by the server.
+// Pressure and client IDs do not affect the existing chalk texture.
+function visualSignature(elements) {
+  return JSON.stringify(elements.map(element => element.type === "erase"
+    ? [element.type, element.size, element.points.map(point => [point.x, point.y])]
+    : element.type === "stroke"
+    ? [element.type, element.seed, element.color.toLowerCase(), element.size,
+      element.points.map(point => [point.x, point.y])]
+    : [element.type, element.seed, element.text, element.cx, element.cy,
+      element.width, element.fontSize, element.scale, element.angle, element.font, element.lineBreaks]));
 }
 
 function prepareCanvas(canvas, width, height) {
@@ -241,84 +93,199 @@ export class ChalkboardRenderer {
     this.canvas = canvas;
     this.interventions = [];
     this.revision = null;
-    this.tileCache = new Map();
-    this.tileIndex = new Map();
+    this.scope = "";
+    this.records = new Map();
+    this.promotions = new Map();
+    this.tileCache = new ChalkboardTileCache();
+    this.published = new ChalkboardTileLayer(this.tileCache, "published",
+      (context, group, bounds) => this.paintPublished(context, group, bounds), false);
+    this.draftBefore = new ChalkboardTileLayer(this.tileCache, "draft-before");
+    this.draftSelected = new ChalkboardTileLayer(this.tileCache, "draft-selected");
+    this.draftAfter = new ChalkboardTileLayer(this.tileCache, "draft-after");
+    this.draftLayers = [this.draftBefore, this.draftSelected, this.draftAfter];
+    this.draftSplitId = "";
+    this.lastView = null;
+    this.erasurePreview = new ChalkboardErasurePreview();
+    this.baseInterventions = [];
+    this.erasureTile = null;
+    this.sponge = new ChalkboardSpongeLayer(this.tileCache, (context, group, bounds) => this.paintPublished(context, group, bounds));
+    this.spongeMode = false;
+    this.canvasWindow = null;
   }
 
-  setInterventions(interventions, revision) {
-    if (revision === this.revision && interventions === this.interventions) return;
+  paintPublished(context, group, bounds) {
+    const key = `${bounds.minX / CHALKBOARD_TILE_SIZE}:${bounds.minY / CHALKBOARD_TILE_SIZE}`;
+    const raster = this.promotions.get(group.id)?.tiles.get(key);
+    if (raster) {
+      context.save();
+      context.setTransform(1, 0, 0, 1, 0, 0);
+      context.drawImage(raster, 0, 0);
+      context.restore();
+      return;
+    }
+    const hasErasures = group.items.some(item => item.element.type === "erase");
+    // Erase on an isolated contribution tile, never on the shared board tile:
+    // marks underneath and above, by other authors, stay exactly as they were.
+    let paintContext = context;
+    if (hasErasures) {
+      this.erasureTile ||= createChalkboardTile();
+      paintContext = this.erasureTile.getContext("2d");
+      paintContext.setTransform(1, 0, 0, 1, 0, 0);
+      paintContext.clearRect(0, 0, this.erasureTile.width, this.erasureTile.height);
+      paintContext.setTransform(TILE_RASTER_RATIO, 0, 0, TILE_RASTER_RATIO, 0, 0);
+    }
+    for (const item of group.items) {
+      if (boundsIntersect(item.bounds, bounds)) {
+        drawChalkElement(paintContext, item.element, bounds.minX, bounds.minY, bounds);
+      }
+    }
+    if (hasErasures) {
+      context.save();
+      context.setTransform(1, 0, 0, 1, 0, 0);
+      context.drawImage(this.erasureTile, 0, 0);
+      context.restore();
+    }
+  }
+
+  setInterventions(interventions, revision, scope = "") {
+    this.baseInterventions = interventions;
+    this.updateInterventions(interventions, revision, scope);
+  }
+
+  updateInterventions(interventions, revision, scope = "") {
+    if (scope === this.scope && revision === this.revision && interventions === this.interventions) return;
+    if (scope !== this.scope) {
+      this.sponge.clear();
+      this.published.clear();
+      this.records.clear();
+      this.promotions.clear();
+    }
+    this.scope = scope;
     this.interventions = Array.isArray(interventions) ? interventions : [];
     this.revision = revision;
-    this.tileCache.clear();
-    this.tileIndex.clear();
-    for (const intervention of this.interventions) {
-      const bounds = intervention?.bounds;
-      if (!bounds) continue;
-      const firstX = Math.max(0, Math.floor(bounds.minX / CHALKBOARD_TILE_SIZE));
-      const lastX = Math.max(firstX, Math.floor(bounds.maxX / CHALKBOARD_TILE_SIZE));
-      const firstY = Math.max(0, Math.floor(bounds.minY / CHALKBOARD_TILE_SIZE));
-      const lastY = Math.max(firstY, Math.floor(bounds.maxY / CHALKBOARD_TILE_SIZE));
-      for (let tileY = firstY; tileY <= lastY; tileY += 1) {
-        for (let tileX = firstX; tileX <= lastX; tileX += 1) {
-          const key = `${tileX}:${tileY}`;
-          const entries = this.tileIndex.get(key) || [];
-          entries.push(intervention);
-          this.tileIndex.set(key, entries);
-        }
+    const records = new Map();
+    const groups = [];
+    for (const source of this.interventions) {
+      const previous = this.records.get(source.id);
+      let record = previous;
+      if (previous?.source !== source) {
+        // Poll responses deserialize new objects, including unchanged drawings.
+        // Keep their canonical references so their existing tiles remain valid.
+        const signature = JSON.stringify([source.bounds, source.elements, source.canErase]);
+        const group = previous?.signature === signature ? previous.group : {
+          ...source,
+          type: "group",
+          items: (source.elements || []).map(element => ({ element, bounds: getElementBounds(element) })),
+        };
+        record = { source, signature, group };
       }
+      records.set(source.id, record);
+      groups.push(record.group);
+    }
+    this.records = records;
+    this.published.setElements(groups);
+    // Consume the confirmed draft bitmaps now, before the editor clears them.
+    // Only tiles actually captured in the visible draft are eagerly composed.
+    for (const [id, promotion] of this.promotions) {
+      const record = records.get(id);
+      if (!record || visualSignature(record.source.elements) !== promotion.signature) {
+        this.promotions.delete(id);
+      }
+    }
+    for (const promotion of this.promotions.values()) {
+      for (const key of promotion.tiles.keys()) {
+        const [x, y] = key.split(":").map(Number);
+        this.published.getTile(x, y);
+      }
+    }
+    this.promotions.clear();
+  }
+
+  setDraftElements(elements, selectedTextId) {
+    // A mask affects every earlier draft element, including a selected text.
+    // Compose them together so it cannot erase the published layer underneath.
+    if (elements.some(element => element.type === "erase")) selectedTextId = this.draftSplitId = "";
+    if (selectedTextId) this.draftSplitId = selectedTextId;
+    const selectedIndex = elements.findIndex(element => element.id === this.draftSplitId && element.type === "text");
+    if (selectedIndex < 0) {
+      this.draftSplitId = "";
+      this.draftBefore.setElements(elements);
+      this.draftSelected.setElements([]);
+      this.draftAfter.setElements([]);
+      return;
+    }
+    // Keep the text's original stacking order while moving it. Retain the
+    // split after deselection, so picking up the chalk again needs no rebuild.
+    this.draftBefore.setElements(elements.slice(0, selectedIndex));
+    this.draftSelected.setElements([elements[selectedIndex]]);
+    this.draftAfter.setElements(elements.slice(selectedIndex + 1));
+  }
+
+  visibleTiles({ width, scale, scrollLeft }) {
+    const firstX = Math.max(0, Math.floor(scrollLeft / scale / CHALKBOARD_TILE_SIZE));
+    const lastX = Math.min(
+      Math.floor(CHALKBOARD_WORLD.width / CHALKBOARD_TILE_SIZE),
+      Math.floor((scrollLeft + width) / scale / CHALKBOARD_TILE_SIZE)
+    );
+    const tiles = [];
+    for (let y = 0; y <= Math.floor(CHALKBOARD_WORLD.height / CHALKBOARD_TILE_SIZE); y++) {
+      for (let x = firstX; x <= lastX; x++) tiles.push([x, y]);
+    }
+    return tiles;
+  }
+
+  captureDraft(elements, selectedTextId = "") {
+    if (!this.lastView || !elements.length) return null;
+    this.setDraftElements(elements, selectedTextId);
+    const tiles = new Map();
+    for (const [x, y] of this.visibleTiles(this.lastView)) {
+      const key = `${x}:${y}`;
+      if (!this.draftLayers.some(layer => layer.index.has(key))) continue;
+      const copy = createChalkboardTile();
+      const context = copy.getContext("2d");
+      for (const layer of this.draftLayers) {
+        const tile = layer.getTile(x, y);
+        if (tile) context.drawImage(tile, 0, 0);
+      }
+      tiles.set(key, copy);
+      // Bound temporary memory while an HTTP publication is in flight.
+      if (tiles.size >= 16) break;
+    }
+    return { scope: this.scope, signature: visualSignature(elements), tiles };
+  }
+
+  reuseDraftForIntervention(intervention, draft) {
+    if (!draft || !intervention?.id || draft.scope !== this.scope ||
+      visualSignature(intervention.elements) !== draft.signature) return false;
+    this.promotions.set(intervention.id, draft);
+    return true;
+  }
+
+  invalidateText() {
+    this.sponge.clear();
+    for (const [key, tile] of this.tileCache.entries) {
+      if (tile.entries.some(({ element }) => element.type === "text" ||
+        element.items?.some(item => item.element.type === "text"))) this.tileCache.delete(key);
     }
   }
 
-  getTile(tileX, tileY) {
-    const key = `${tileX}:${tileY}`;
-    const cached = this.tileCache.get(key);
-    if (cached) {
-      this.tileCache.delete(key);
-      this.tileCache.set(key, cached);
-      return cached;
-    }
-    const tile = document.createElement("canvas");
-    tile.width = Math.round(CHALKBOARD_TILE_SIZE * TILE_RASTER_RATIO);
-    tile.height = Math.round(CHALKBOARD_TILE_SIZE * TILE_RASTER_RATIO);
-    const context = tile.getContext("2d");
-    context.setTransform(TILE_RASTER_RATIO, 0, 0, TILE_RASTER_RATIO, 0, 0);
-    const tileBounds = {
-      minX: tileX * CHALKBOARD_TILE_SIZE,
-      minY: tileY * CHALKBOARD_TILE_SIZE,
-      maxX: (tileX + 1) * CHALKBOARD_TILE_SIZE,
-      maxY: (tileY + 1) * CHALKBOARD_TILE_SIZE,
-    };
-    context.save();
-    context.beginPath();
-    context.rect(0, 0, CHALKBOARD_TILE_SIZE, CHALKBOARD_TILE_SIZE);
-    context.clip();
-    for (const intervention of this.tileIndex.get(key) || []) {
-      if (!boundsIntersect(intervention.bounds, tileBounds)) continue;
-      for (const element of intervention.elements || []) {
-        if (!boundsIntersect(getElementBounds(element), tileBounds)) continue;
-        drawElement(context, element, tileBounds.minX, tileBounds.minY, tileBounds);
-      }
-    }
-    context.restore();
-    this.tileCache.set(key, tile);
-    while (this.tileCache.size > MAX_CACHED_TILES) {
-      this.tileCache.delete(this.tileCache.keys().next().value);
-    }
-    return tile;
-  }
-
-  render({ width, height, scale, scrollLeft, draftElements = [], selectedTextId = "" }) {
+  render({ width, height, scale, scrollLeft, draftElements = [], selectedTextId = "", onlyOwn = false }) {
     if (!this.canvas || width <= 0 || height <= 0 || scale <= 0) return;
     const context = prepareCanvas(this.canvas, width, height);
     const viewX = scrollLeft / scale;
-    const visibleWidth = width / scale;
-    const firstTileX = Math.max(0, Math.floor(viewX / CHALKBOARD_TILE_SIZE));
-    const lastTileX = Math.floor((viewX + visibleWidth) / CHALKBOARD_TILE_SIZE);
-    const lastTileY = Math.floor(1000 / CHALKBOARD_TILE_SIZE);
+    this.lastView = { width, height, scale, scrollLeft };
+    if (onlyOwn) this.sponge.update(this.baseInterventions, draftElements);
+    else {
+      if (this.spongeMode) this.sponge.clear();
+      this.updateInterventions(this.erasurePreview.apply(this.baseInterventions, draftElements), this.revision, this.scope);
+    }
+    this.spongeMode = onlyOwn;
+    this.setDraftElements(draftElements, selectedTextId);
     context.imageSmoothingEnabled = true;
-    for (let tileY = 0; tileY <= lastTileY; tileY += 1) {
-      for (let tileX = firstTileX; tileX <= lastTileX; tileX += 1) {
-        const tile = this.getTile(tileX, tileY);
+    for (const [tileX, tileY] of this.visibleTiles(this.lastView)) {
+      for (const layer of [onlyOwn ? this.sponge : this.published, ...this.draftLayers]) {
+        const tile = layer.getTile(tileX, tileY);
+        if (!tile) continue;
         context.drawImage(
           tile,
           (tileX * CHALKBOARD_TILE_SIZE - viewX) * scale,
@@ -328,17 +295,33 @@ export class ChalkboardRenderer {
         );
       }
     }
-    context.save();
-    context.scale(scale, scale);
-    for (const element of draftElements) drawDraftElement(context, element, viewX, 0);
-    context.restore();
-    const selected = draftElements.find((element) => element.id === selectedTextId);
+    const selected = draftElements.find(element => element.id === selectedTextId);
     drawSelection(context, selected, viewX, scale);
+  }
+
+  renderWorldView(view) {
+    const window = getChalkboardCanvasWindow(view, this.canvasWindow);
+    this.render({ ...view, width: window.width, scrollLeft: window.left });
+    // The pixels and their world anchor are changed together in this frame.
+    // No CSS translation attempts to catch up with the native scroll offset.
+    this.canvas.style.left = `${window.left}px`;
+    this.canvasWindow = window;
   }
 
   destroy() {
     this.tileCache.clear();
-    this.tileIndex.clear();
+    this.published.clear();
+    for (const layer of this.draftLayers) layer.clear();
+    this.records.clear();
+    this.promotions.clear();
+    this.interventions = [];
+    this.baseInterventions = [];
+    this.erasurePreview.clear();
+    this.sponge.clear();
+    if (this.erasureTile) this.erasureTile.width = this.erasureTile.height = 0;
+    this.erasureTile = null;
+    this.lastView = null;
+    this.canvasWindow = null;
     this.canvas = null;
   }
 }

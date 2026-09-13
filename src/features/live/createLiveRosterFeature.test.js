@@ -15,6 +15,31 @@ function createDeferred() {
   return { promise, reject, resolve };
 }
 
+test("a card-only update reaches live ranking even beyond the first twenty players", () => {
+  const scope = createResourceScope("live-roster-lepers-test");
+  let nowMs = 1000;
+  const feature = createLiveRosterFeature({ scope }, { now: () => nowMs });
+  feature.start();
+  const ranking = Array.from({ length: 25 }, (_, index) => ({
+    nick: `Player ${index}`, rank: index + 1, score: 100 - index, lepersBonus: 0,
+  }));
+  feature.queueRanking(ranking);
+  const metadata = feature.store.getState().provisionalRanking;
+  for (const finderIndex of [0, 24]) {
+    nowMs += 10000;
+    const update = feature.store.getState().liveProvisionalRanking.map((entry, index) =>
+      index === finderIndex ? { ...entry, lepersBonus: 2 } : entry
+    );
+    feature.queueRanking(update);
+    assert.equal(feature.store.getState().liveProvisionalRanking[finderIndex].lepersBonus, 2);
+    assert.equal(feature.store.getState().provisionalRanking, metadata);
+  }
+  nowMs += 10000;
+  feature.queueRanking(ranking);
+  assert.ok(feature.store.getState().liveProvisionalRanking.every((entry) => entry.lepersBonus === 0));
+  scope.dispose();
+});
+
 test("live roster isolates score updates and releases raw plus projected data", () => {
   const kernel = createApplicationKernel();
   const scope = createResourceScope("live-roster-test");

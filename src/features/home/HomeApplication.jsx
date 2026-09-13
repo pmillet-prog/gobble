@@ -5,6 +5,7 @@ import HomeLobby from "../../components/home/HomeLobby.jsx";
 import useHomeLobbyActions from "../../components/home/useHomeLobbyActions.js";
 import StandaloneTrainingPicker from "../../components/training/StandaloneTrainingPicker.jsx";
 import HomeApplicationRuntime from "./HomeApplicationRuntime.jsx";
+import useHomeTutorialVisibility from "./useHomeTutorialVisibility.js";
 import {
   countHomeLobbyPlayers,
   getHomeDailyRemainingCount,
@@ -37,6 +38,7 @@ export default function HomeApplication({
   weeklyRecapLoading = false,
 }) {
   const homeLobbyActions = useHomeLobbyActions(actions);
+  const showTutorialButton = useHomeTutorialVisibility(account);
   const playersCount = React.useMemo(
     () => countHomeLobbyPlayers(lobby),
     [
@@ -189,6 +191,7 @@ export default function HomeApplication({
         displayModeAction={displayMode?.action}
         onToggleFullscreen={displayMode?.onToggleFullscreen}
         {...homeLobbyActions}
+        onOpenTutorial={showTutorialButton ? homeLobbyActions.onOpenTutorial : undefined}
         onPlay={(event) => requestLiveAction("onPlay", event)}
         onResume={(event) => requestLiveAction("onResume", event)}
         playerTeam={duel?.team}

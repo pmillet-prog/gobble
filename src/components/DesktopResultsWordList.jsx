@@ -145,6 +145,7 @@ function DesktopResultsWordList({
           return (
             <li
               key={entry.word}
+              data-result-word={entry.word}
               onMouseEnter={() => onAnalyzeWord?.(entry.word)}
               onMouseLeave={() => onClearAnalysis?.()}
               onClick={(e) => {

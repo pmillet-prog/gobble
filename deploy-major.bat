@@ -25,6 +25,7 @@ if exist "%ARCHIVE%" del /q "%ARCHIVE%" >nul 2>&1
 
 tar -czf "%ARCHIVE%" ^
   --exclude=.git ^
+  --exclude=.tmp ^
   --exclude=node_modules ^
   --exclude=server/node_modules ^
   --exclude=dist ^

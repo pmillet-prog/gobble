@@ -5,7 +5,7 @@ import LiveFeedSatellite from "../../features/live/LiveFeedSatellite.jsx";
 import MobileGrid from "../MobileGrid.jsx";
 import MobileHeader from "../MobileHeader.jsx";
 import MobileWordPreview from "../MobileWordPreview.jsx";
-import TargetHintPattern from "../TargetHintPattern.jsx";
+import MobileTargetHintPanel from "./MobileTargetHintPanel.jsx";
 import OcidVoteOptionsGrid from "../ocid/OcidVoteOptionsGrid.jsx";
 import { MobileLiveRankingPanel } from "../../features/live/LiveRosterSatellites.jsx";
 import MobilePresenterActionBar from "../../features/presenters/MobilePresenterActionBar.jsx";
@@ -112,17 +112,11 @@ function MobileStandardPlaying(props) {
     showSolvedTargetLoupe = false,
     solvedTargetWord = "",
     special3LockedStartTileSet = null,
-    specialBlockHeight = 0,
     specialHint = "",
     specialHintDisplay = "",
     specialIndicatorPreset = null,
-    specialMetaFont = 10,
-    specialPadY = 6,
     specialRound = null,
-    specialScale = 1,
     specialSolvedOverlay = null,
-    specialTitleFont = 9,
-    specialWordFont = 16,
     targetScoreMax = 0,
     targetWaitDevActive = false,
     onTargetWaitDevGridHostChange = null,
@@ -142,18 +136,8 @@ function MobileStandardPlaying(props) {
 
   const hideOcidVotePlaySurface = phase === "playing" && isOcidRound && !!ocidVote;
   const adaptiveRanking = mobileLayoutSizing.adaptiveRanking === true;
-  const compactFeed = adaptiveRanking && mobileLayoutSizing.liveFeedHeight < 74;
-  const solvedTargetLength = String(solvedTargetWord || "").trim().length;
-  const isSolvedTargetDisplay = solvedTargetLength > 0;
-  const solvedTargetFontPx = isSolvedTargetDisplay
-    ? Math.max(
-        11,
-        Math.min(
-          specialWordFont,
-          Math.round((specialWordFont * 12) / Math.max(12, solvedTargetLength))
-        )
-      )
-    : specialWordFont;
+  const hasReservedFeed = adaptiveRanking || mobileLayoutSizing.targetHintHeight > 0;
+  const compactFeed = hasReservedFeed && mobileLayoutSizing.liveFeedHeight < 74;
   const previewStats = React.useMemo(
     () => ({
       show: showPreviewStats,
@@ -300,128 +284,21 @@ function MobileStandardPlaying(props) {
               </div>
             </div>
           ) : phase === "playing" && isTargetRound ? (
-            <div
-              ref={mobileRankingRef}
-              className="relative rounded-xl border border-slate-200 dark:border-slate-700 px-3 bg-white/90 dark:bg-slate-900/90 shadow-sm flex-none overflow-hidden box-border"
-              style={
-                specialBlockHeight > 0
-                  ? {
-                      height: `${specialBlockHeight}px`,
-                      maxHeight: `${specialBlockHeight}px`,
-                      minHeight: 0,
-                      paddingTop: `${specialPadY}px`,
-                      paddingBottom: `${specialPadY}px`,
-                    }
-                  : { paddingTop: `${specialPadY}px`, paddingBottom: `${specialPadY}px` }
-              }
-            >
-              <div
-                className="font-extrabold tracking-widest text-center text-amber-500 dark:text-amber-300"
-                style={{ fontSize: `${specialTitleFont}px` }}
-              >
-                {specialRound?.type === "target_long"
-                  ? "TROUVE LE PLUS LONG MOT"
-                  : specialRound?.type === "target_score"
-                  ? "TROUVE LE MEILLEUR MOT"
-                  : "MANCHE SPECIALE"}
-              </div>
-              <div
-                className={`mt-2 text-center font-black tabular-nums ${
-                  isSolvedTargetDisplay ? "tracking-normal" : "tracking-widest"
-                }`}
-                style={{ fontSize: `${specialWordFont}px` }}
-              >
-                {specialHintDisplay ? (
-                  <span
-                    className={`inline-flex items-center justify-center gap-2 ${
-                      isSolvedTargetDisplay ? "max-w-full min-w-0" : ""
-                    }`}
-                  >
-                    <TargetHintPattern
-                      display={specialHintDisplay}
-                      revealedWordIndices={specialHint?.wordIndices}
-                      solved={isSolvedTargetDisplay}
-                      wordLength={specialHint?.length}
-                      className={
-                        isSolvedTargetDisplay
-                          ? "block max-w-full whitespace-nowrap tracking-normal"
-                          : ""
-                      }
-                      style={
-                        isSolvedTargetDisplay
-                          ? {
-                              fontSize: `${solvedTargetFontPx}px`,
-                              letterSpacing: 0,
-                            }
-                          : undefined
-                      }
-                    />
-                    {showSolvedTargetLoupe && (
-                      <button
-                        type="button"
-                        className={`inline-flex items-center justify-center rounded-full border px-2 py-1 ${
-                          darkMode
-                            ? "bg-slate-800 border-slate-600 text-slate-100"
-                            : "bg-white border-gray-300 text-gray-700"
-                        } ${shouldDefinitionBlink ? "animate-pulse" : ""}`}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onOpenDefinition?.(solvedTargetWord);
-                        }}
-                        aria-label="Voir la dGinition"
-                        title="Voir la dGinition"
-                      >
-                        <svg
-                          width="16"
-                          height="16"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          aria-hidden="true"
-                        >
-                          <circle cx="11" cy="11" r="7" />
-                          <line x1="16.65" y1="16.65" x2="21" y2="21" />
-                        </svg>
-                      </button>
-                    )}
-                  </span>
-                ) : (
-                  <span
-                    className="tracking-normal opacity-80"
-                    style={{ fontSize: `${Math.max(11, Math.round(13 * specialScale))}px` }}
-                  >
-                    MOT MYSTERE
-                  </span>
-                )}
-              </div>
-              {specialRound?.type === "target_score" ? (
-                <div
-                  className="mt-1 font-semibold opacity-80 text-center"
-                  style={{ fontSize: `${specialMetaFont}px` }}
-                >
-                  {Number.isFinite(targetScoreMax) && targetScoreMax > 0
-                    ? `${formatNumber(targetScoreMax)} pts`
-                    : "-- pts"}
-                </div>
-              ) : null}
-              {specialHint?.length ? (
-                <div
-                  className="mt-1 font-semibold opacity-70 text-center"
-                  style={{ fontSize: `${specialMetaFont}px` }}
-                >
-                  {specialHint.length} lettres
-                </div>
-              ) : null}
-              <div
-                className="mt-1 font-semibold opacity-80 text-center"
-                style={{ fontSize: `${specialMetaFont}px` }}
-              >
-                {nextHintLabel}
-              </div>
-            </div>
+            <MobileTargetHintPanel
+              darkMode={darkMode}
+              formatNumber={formatNumber}
+              height={mobileLayoutSizing.targetHintHeight || Math.min(100, mobileLayoutSizing.rankingHeight || 100)}
+              nextHintLabel={nextHintLabel}
+              onOpenDefinition={onOpenDefinition}
+              panelRef={mobileRankingRef}
+              shouldDefinitionBlink={shouldDefinitionBlink}
+              showSolvedTargetLoupe={showSolvedTargetLoupe}
+              solvedTargetWord={solvedTargetWord}
+              specialHint={specialHint}
+              specialHintDisplay={specialHintDisplay}
+              targetScoreMax={targetScoreMax}
+              type={specialRound?.type}
+            />
           ) : (
             <MobileLiveRankingPanel
               assetVersion={assetVersion}
@@ -515,8 +392,9 @@ function MobileStandardPlaying(props) {
               />
             ) : null}
             </div>
-            {!isStandaloneTraining && showMobileLiveFeed ? <div
+            {!isStandaloneTraining && (showMobileLiveFeed || hasReservedFeed) ? <div
               className={`rounded-xl border border-slate-200 dark:border-slate-700 bg-white/90 dark:bg-slate-900/90 px-3 ${compactFeed ? "py-0.5" : "py-2"} shadow-sm flex-1 min-h-0 overflow-hidden box-border`}
+              style={hasReservedFeed ? { minHeight: mobileLayoutSizing.liveFeedMinHeight } : undefined}
             >
               <LiveFeedSatellite
                 darkMode={darkMode}

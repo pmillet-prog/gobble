@@ -8,6 +8,8 @@ import {
 import { HOME_DISPLAY_ACTIONS } from "../../utils/displayMode.js";
 import { useChatUnreadState } from "../../features/chat/useChatUnreadState.js";
 import useHomeLobbyIntro from "./useHomeLobbyIntro.js";
+import HomeChalkboardButton from "./HomeChalkboardButton.jsx";
+import HomeTutorialButton from "./HomeTutorialButton.jsx";
 
 const HOME_ASSETS = {
   title: UI_IMAGE_KEYS.home.title,
@@ -407,6 +409,12 @@ const styles = `
 .home-icon-button {
   width: min(17vw, 104px);
 }
+.home-bottom-nav.has-chalkboard {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+.home-bottom-nav.has-chalkboard .home-icon-button {
+  width: min(14vw, 90px);
+}
 .home-status-panel {
   flex: 0 0 auto;
   min-height: 24px;
@@ -703,6 +711,8 @@ const styles = `
     gap: 0.42vw;
   }
   .home-icon-button { width: 4.1vw; }
+  .home-bottom-nav.has-chalkboard { left: 34.6vw; width: 30.8vw; }
+  .home-bottom-nav.has-chalkboard .home-icon-button { width: 4.1vw; }
   .home-count-badge {
     min-width: 1.55vw;
     height: 1.55vw;
@@ -782,10 +792,12 @@ function HomeLobby({
   onIntroComplete,
   onOpenAccount,
   onOpenChat,
+  onOpenChalkboard,
   onOpenDaily,
   onOpenDuel,
   onOpenPlayers,
   onOpenSettings,
+  onOpenTutorial,
   onOpenStats,
   onOpenVault,
   onOpenWeeklyRecap,
@@ -881,6 +893,7 @@ function HomeLobby({
         />
       </picture>
       <div className="home-lobby-shell">
+        {onOpenTutorial ? <HomeTutorialButton onClick={onOpenTutorial} /> : null}
         {maintenanceMode ? (
           <div
             className="home-maintenance-banner home-lobby-secondary"
@@ -1003,7 +1016,7 @@ function HomeLobby({
         </div>
 
         <div
-          className="home-bottom-nav home-lobby-secondary"
+          className="home-bottom-nav home-lobby-secondary has-chalkboard"
           aria-label="Navigation accueil"
         >
           <HomeImageButton
@@ -1031,6 +1044,7 @@ function HomeLobby({
               <span className="home-count-badge">{formatBadgeCount(dailyRemainingCount)}</span>
             ) : null}
           </HomeImageButton>
+          <HomeChalkboardButton onClick={onOpenChalkboard} disabled={isConnecting || maintenanceMode} maintenanceMode={maintenanceMode} />
           <HomeImageButton
             alt="Chat"
             className="home-icon-button"

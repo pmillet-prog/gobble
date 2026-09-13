@@ -737,7 +737,11 @@ export function createWordSubmissionEngine({
       pathLength: Array.isArray(path) ? path.length : 0,
     });
     const computedPts = computeScore(raw, path, board, specialScoreConfig);
-    const pts = Number.isFinite(ptsOverride) ? Number(ptsOverride) : computedPts;
+    const pts = Number.isFinite(ptsOverride)
+      ? Number(ptsOverride)
+      : specialRound?.type === "speed"
+        ? Number(specialRound.fixedWordScore) || SPECIAL_TUTORIAL_SPEED_SCORE_FALLBACK
+        : computedPts;
     const flightPoints = resolveScoreFlightPoints({
       awardedPoints: pts,
       candidatePoints: scoreFlightPoints,
@@ -1019,6 +1023,7 @@ export function createWordSubmissionEngine({
   }
 
   function syncLiveSpecial3WordsState(nextSlots = dailyWordSlots, nextPlacements = dailySpecialPlacements) {
+    if (standaloneTrainingSessionRef.current) return;
     if (!isLiveSpecial3WordsMode || !socket.connected || !roundIdRef.current) return;
     const payload = {
       roundId: roundIdRef.current,
