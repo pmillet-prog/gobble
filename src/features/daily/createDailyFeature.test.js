@@ -182,7 +182,8 @@ test("daily satellite deduplicates history and preserves legacy medal totals", a
   const feature = createDailyFeature(
     { ports: {}, scope },
     {
-      fetchImpl() {
+      fetchImpl(url) {
+        assert.equal(new URL(url, "https://gobble.test").searchParams.get("includeWords"), "1");
         requestCount += 1;
         return Promise.resolve(responses.shift());
       },

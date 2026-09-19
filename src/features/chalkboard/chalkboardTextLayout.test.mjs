@@ -67,7 +67,9 @@ test("publication and deletion undo preserve all lines and their lower-line hit 
   const moderator = { userId: 17 };
   const element = makeElement(paragraph, { width: 1280, height: 650 });
   const published = service.addIntervention("free", { elements: [element] }, moderator).intervention;
-  const restored = JSON.parse(JSON.stringify(service.getSnapshot("free"))).interventions[0];
+  // Compare the same caller's view before and after undo (canErase is private
+  // to the owner; an anonymous snapshot deliberately has a different flag).
+  const restored = JSON.parse(JSON.stringify(service.getSnapshot("free", moderator))).interventions[0];
   const stored = restored.elements[0];
   assert.equal(stored.text, paragraph);
   assert.deepEqual(stored.lineBreaks, element.lineBreaks);

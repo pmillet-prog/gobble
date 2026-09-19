@@ -27,9 +27,10 @@ function wrapText(text, limit, measure) {
 }
 
 export function getChalkboardTextViewport(viewport) {
-  const scale = Math.max(1, viewport.height) / CHALKBOARD_WORLD.height;
+  const scale = viewport.scale > 0 ? viewport.scale : Math.max(1, viewport.height) / CHALKBOARD_WORLD.height;
   return {
     width: Math.max(1, viewport.width) / scale,
+    height: Math.min(CHALKBOARD_WORLD.height, Math.max(1, viewport.height) / scale),
     // Include the handle radius, its outline and a comfortable edge gap.
     margin: 24 / scale,
   };
@@ -47,7 +48,7 @@ export function layoutChalkboardText(text, font, viewport, measureWidth) {
     if (!measurements.has(value)) measurements.set(value, measureWidth(value));
     return measurements.get(value);
   };
-  const { width: visibleWidth, margin } = getChalkboardTextViewport(viewport);
+  const { width: visibleWidth, height: visibleHeight, margin } = getChalkboardTextViewport(viewport);
   let best;
   // Choose a compact paragraph that fits the available aspect ratio. Keep
   // lines at most 32 characters, without making narrow screens excessively tall.
@@ -57,7 +58,7 @@ export function layoutChalkboardText(text, font, viewport, measureWidth) {
     const height = getChalkboardTextHeight(candidate);
     candidate.scale = Math.min(1,
       (visibleWidth - 2 * margin) / (candidate.width + 28),
-      (CHALKBOARD_WORLD.height - 2 * margin) / (height + 92));
+      (visibleHeight - 2 * margin) / (height + 92));
     if (!best || candidate.scale > best.scale + .001) best = candidate;
   }
   // Very small viewports can need a smaller base size, but never distort the

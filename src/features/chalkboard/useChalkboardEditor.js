@@ -1,5 +1,6 @@
 import React from "react";
 import { DEFAULT_CHALKBOARD_TEXT_FONT } from "../../../shared/chalkboardRules.js";
+import { CHALKBOARD_LIMITS, getChalkboardDraftUsage } from "../../../shared/chalkboardLimits.js";
 
 import {
   CHALKBOARD_PALETTE,
@@ -48,6 +49,7 @@ export default function useChalkboardEditor() {
   const [eraserSize, setEraserSize] = React.useState(CHALKBOARD_ERASER.defaultSize);
   const [elements, setElements] = React.useState([]);
   const [historyCount, setHistoryCount] = React.useState(0);
+  const [limitReached, setLimitReached] = React.useState(false);
   const [selectedTextId, setSelectedTextId] = React.useState("");
   const [textEntry, setTextEntry] = React.useState(null);
   const [font, setFontState] = React.useState(DEFAULT_CHALKBOARD_TEXT_FONT);
@@ -80,6 +82,7 @@ export default function useChalkboardEditor() {
     return () => renderListenersRef.current.delete(listener);
   }, []);
   const getRenderElements = React.useCallback(() => renderElementsRef.current, []);
+  const getActiveGesture = React.useCallback(() => activeRef.current?.kind || null, []);
 
   const replaceElements = React.useCallback(
     (nextElements, { remember = true } = {}) => {
@@ -99,6 +102,7 @@ export default function useChalkboardEditor() {
   );
 
   const reset = React.useCallback(() => {
+    setLimitReached(false);
     activeRef.current = null;
     elementsRef.current = [];
     renderElementsRef.current = [];
@@ -111,6 +115,7 @@ export default function useChalkboardEditor() {
   }, [requestRender]);
 
   const undo = React.useCallback(() => {
+    setLimitReached(false);
     if (activeRef.current) {
       activeRef.current = null;
       renderElementsRef.current = elementsRef.current;
@@ -142,11 +147,16 @@ export default function useChalkboardEditor() {
       setTextEntry(null);
       const text = uppercaseChalkboardText(rawText).replace(/\s+/g, " ").trim();
       if (!entry || !text) return null;
+      if (elementsRef.current.length >= CHALKBOARD_LIMITS.maxElements) {
+        setLimitReached(true);
+        return null;
+      }
       // Use the narrower available world view, including the size before the
       // mobile keyboard opened. Its dismissal must not push handles offscreen.
       const placementViewport = {
         width: Math.min(viewport.width, entry.viewport?.width || viewport.width),
         height: Math.max(viewport.height, entry.viewport?.height || viewport.height),
+        scale: Math.max(viewport.scale || 0, entry.viewport?.scale || 0) || undefined,
       };
       const element = normalizeTextGeometry({
         type: "text",
@@ -183,6 +193,12 @@ export default function useChalkboardEditor() {
     ({ worldX, worldY, screenX, screenY, scale = 1, viewport, interventions = [] }) => {
       setTextEntry(null);
       if (activeRef.current) return false;
+      const usage = getChalkboardDraftUsage(elementsRef.current);
+      if ((tool === "chalk" || tool === "erase") &&
+        (usage.elements >= CHALKBOARD_LIMITS.maxElements || usage.points + 2 > CHALKBOARD_LIMITS.maxPoints)) {
+        setLimitReached(true);
+        return false;
+      }
       if (tool === "erase") {
         activeRef.current = createEraserGesture(roundCoordinate(worldX, CHALKBOARD_WORLD.width), roundCoordinate(worldY, CHALKBOARD_WORLD.height), eraserSize, interventions);
         renderElementsRef.current = [...elementsRef.current, ...activeRef.current.masks];
@@ -267,6 +283,13 @@ export default function useChalkboardEditor() {
       const active = activeRef.current;
       if (!active) return;
       if (active.kind === "erase") {
+        const usage = getChalkboardDraftUsage(renderElementsRef.current);
+        const split = active.masks.at(-1).points.length >= CHALKBOARD_ERASER.maxPoints;
+        if (usage.points + (split ? 2 : 1) > CHALKBOARD_LIMITS.maxPoints ||
+          (split && usage.elements >= CHALKBOARD_LIMITS.maxElements)) {
+          setLimitReached(true);
+          return;
+        }
         appendEraserGesture(active, roundCoordinate(worldX, CHALKBOARD_WORLD.width), roundCoordinate(worldY, CHALKBOARD_WORLD.height));
         renderElementsRef.current = [...elementsRef.current, ...active.masks];
         requestRender();
@@ -276,9 +299,14 @@ export default function useChalkboardEditor() {
         worldX = roundCoordinate(worldX, CHALKBOARD_WORLD.width);
         worldY = roundCoordinate(worldY, CHALKBOARD_WORLD.height);
         const points = active.element.points;
+        if (points.length >= CHALKBOARD_LIMITS.maxStrokePoints ||
+          getChalkboardDraftUsage(renderElementsRef.current).points >= CHALKBOARD_LIMITS.maxPoints) {
+          setLimitReached(true);
+          return;
+        }
         const previous = points[points.length - 1];
         if (Math.hypot(worldX - previous.x, worldY - previous.y) < 1.2) return;
-        points.push({ x: worldX, y: worldY, p: clamp(pressure || 0.5, 0, 1) });
+        points.push({ x: worldX, y: worldY, p: Math.round(clamp(pressure || 0.5, 0, 1) * 100) / 100 });
         requestRender();
         return;
       }
@@ -363,8 +391,10 @@ export default function useChalkboardEditor() {
     fontsError: fontCatalog.error,
     reloadFonts: fontCatalog.retry,
     getRenderElements,
+    getActiveGesture,
     hasDraft: elements.length > 0,
     historyCount,
+    limitReached,
     pointerDown,
     pointerMove,
     pointerUp,

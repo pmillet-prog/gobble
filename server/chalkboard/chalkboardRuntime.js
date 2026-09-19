@@ -34,7 +34,7 @@ export async function createPersistentChalkboard({
     await runtime.getSnapshot("free");
     return exclusive(() => store.enqueue(core.exportState(), `manual-${randomUUID()}`, now(), String(identity.userId)));
   };
-  runtime.repository = Object.fromEntries(["nextExport", "setPng", "markSent", "markFailed", "exportStatus"].map(method => [method, (...args) => exclusive(() => store[method](...args))]));
+  runtime.repository = Object.fromEntries(["nextExport", "setPng", "markSent", "markFailed", "exportStatus", "listArchives", "getArchive"].map(method => [method, (...args) => exclusive(() => store[method](...args))]));
   runtime.close = async () => { await queue; await store.close(); };
   // Reconcile a Monday crossed while the process was offline, before serving.
   await runtime.getSnapshot("free");

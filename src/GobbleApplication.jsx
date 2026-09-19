@@ -125,7 +125,6 @@ import { IMAGE_FALLBACKS, makeFileKey } from "./assets/bootAssetManifest.js";
 import {
   buildUiAssetManifest,
   detectWideUiViewport,
-  getHomeBackgroundKey,
   getUiImageUrl,
   scheduleDeferredUiAssetPreload,
 } from "./assets/uiAssetManifest.js";
@@ -11975,8 +11974,6 @@ function handleTouchEnd() {
     </React.Fragment>
   );
   const duelTeam = duelStatus?.team === "red" || duelStatus?.team === "blue" ? duelStatus.team : null;
-  const homeBackgroundDesktop = getUiImageUrl(getHomeBackgroundKey(duelTeam, "wide"));
-  const homeBackgroundMobile = getUiImageUrl(getHomeBackgroundKey(duelTeam, "tall"));
   const {
     duelContributorsBlue,
     duelContributorsRed,
@@ -12073,8 +12070,27 @@ function handleTouchEnd() {
     />
   ) : null;
 
+  const wordVaultOverlay = appView === "vault" ? (
+    <Suspense fallback={null}>
+      <WordVaultPage
+        darkMode={menuDarkMode}
+        loading={wordVault.loading}
+        error={wordVault.error}
+        words={wordVault.words}
+        accountLabel={authState.user?.usernameDisplay || ""}
+        standaloneWarning={isIosStandalone}
+        sortMode={wordVault.sortMode}
+        onSortChange={setWordVaultSortMode}
+        onOpenWord={(word) => openDefinition(word, { fromVault: true, preferLongDefinition: true })}
+        onRetry={() => fetchWordVault()}
+        onClose={() => setAppView(isLoggedIn ? "live" : "home")}
+      />
+    </Suspense>
+  ) : null;
+
   const chatOverlays = (
     <>
+      {wordVaultOverlay}
       {lepersRoundAnnouncementOverlay}
       {!presenterHintsDisabledForRound || showTournamentFinale ? (
         <CapelloIntervention
@@ -12217,8 +12233,7 @@ function handleTouchEnd() {
     resumeSnapshot?.lastRoundResults?.payload?.tournament?.round ||
     null;
 
-  if (!isLoggedIn && (appView === "daily" || appView === "daily_results")) {
-    return (
+  const dailyOverlay = !isLoggedIn && (appView === "daily" || appView === "daily_results") ? (
       <Suspense fallback={null}>
         <DailyApplication
           view={{ appView, darkMode, isMobileLayout, menuDarkMode }}
@@ -12239,19 +12254,9 @@ function handleTouchEnd() {
             duelStatus,
           }}
           identity={{ installId, selfNick }}
-          background={{ homeBackgroundDesktop, homeBackgroundMobile }}
           preparation={{
             shouldPrepareDailyOrDuelStandaloneView,
             shouldPrepareDailyStandaloneView,
-          }}
-          overlays={{
-            aboutModalView,
-            authDialogView,
-            chatOverlays,
-            globalChatLayer,
-            quickHelpOverlay,
-            settingsMenuView,
-            tutorialOverlay,
           }}
           actions={{
             closeDailyLaunchDialog,
@@ -12274,8 +12279,7 @@ function handleTouchEnd() {
           }}
         />
       </Suspense>
-    );
-  }
+  ) : null;
 
   if (!isLoggedIn && appView === "duel") {
     return (
@@ -12316,39 +12320,6 @@ function handleTouchEnd() {
     );
   }
 
-  if (!isLoggedIn && appView === "vault") {
-    return (
-      <>
-        {playersOverlay}
-        {playerProfileModalView}
-        {definitionOverlaysView}
-        {tutorialOverlay}
-        {authDialogView}
-        {settingsMenuView}
-        {aboutModalView}
-        {quickHelpOverlay}
-        <Suspense fallback={null}>
-          <WordVaultPage
-            backgroundDesktop={homeBackgroundDesktop}
-            backgroundMobile={homeBackgroundMobile}
-            darkMode={menuDarkMode}
-            loading={wordVault.loading}
-            error={wordVault.error}
-            words={wordVault.words}
-            accountLabel={authState.user?.usernameDisplay || ""}
-            standaloneWarning={isIosStandalone}
-            sortMode={wordVault.sortMode}
-            onSortChange={setWordVaultSortMode}
-            onOpenWord={(word) => openDefinition(word, { fromVault: true, preferLongDefinition: true })}
-            onRetry={() => fetchWordVault()}
-            onClose={() => setAppView("home")}
-          />
-        </Suspense>
-      </>
-    );
-  }
-
-
   if (appView === "chalkboard") {
     return (
       <Suspense fallback={null}>
@@ -12365,24 +12336,30 @@ function handleTouchEnd() {
     return (
       <>
         {teamTintOverlay}
-        {duelPopupOverlay}
-        {duelWeekRecapOverlay}
-        {globalRedAnnouncementOverlay}
-        {playtimeCountdownOverlay}
-        {perfTestOverlay}
-        {playersOverlay}
-        {playerProfileModalView}
-        {chatInteractionOverlaysView}
-        {definitionOverlaysView}
-        {tutorialOverlay}
-        {authDialogView}
+        {appView === "daily" ? chatOverlays : (
+          <>
+            {duelPopupOverlay}
+            {duelWeekRecapOverlay}
+            {globalRedAnnouncementOverlay}
+            {playtimeCountdownOverlay}
+            {perfTestOverlay}
+            {playersOverlay}
+            {playerProfileModalView}
+            {chatInteractionOverlaysView}
+            {definitionOverlaysView}
+            {tutorialOverlay}
+            {authDialogView}
+            {settingsMenuView}
+            {aboutModalView}
+            <ChatReactionToastSatellite />
+            <NotificationToastLayer darkMode={menuDarkMode} />
+          </>
+        )}
         {accountMenuView}
-        {settingsMenuView}
-        {aboutModalView}
         {quickHelpOverlay}
-        <ChatReactionToastSatellite />
-        <NotificationToastLayer darkMode={menuDarkMode} />
         {globalChatLayer}
+        {wordVaultOverlay}
+        {dailyOverlay}
         <HomeApplication
           key="home-application"
           account={{
@@ -12633,33 +12610,7 @@ function handleTouchEnd() {
   // === Mise en page mobile dédiée pendant la manche ===
   // ??cran unique : classement + prévisualisation du mot + grille en bas + bouton de chat
   const useUltraCompactLayout = isUltraCompact;
-  if (isLoggedIn && appView === "vault") {
-    return (
-      <>
-        {chatOverlays}
-        <Suspense fallback={null}>
-          <WordVaultPage
-            backgroundDesktop={homeBackgroundDesktop}
-            backgroundMobile={homeBackgroundMobile}
-            darkMode={menuDarkMode}
-            loading={wordVault.loading}
-            error={wordVault.error}
-            words={wordVault.words}
-            accountLabel={authState.user?.usernameDisplay || ""}
-            standaloneWarning={isIosStandalone}
-            sortMode={wordVault.sortMode}
-            onSortChange={setWordVaultSortMode}
-            onOpenWord={(word) =>
-              openDefinition(word, { fromVault: true, preferLongDefinition: true })
-            }
-            onRetry={() => fetchWordVault()}
-            onClose={() => setAppView("live")}
-          />
-        </Suspense>
-      </>
-    );
-  }
-  if (isLoggedIn && appView === "live" && phase === "lobby") {
+  if (isLoggedIn && (appView === "live" || appView === "vault") && phase === "lobby") {
     return (
       <>
         <Suspense fallback={null}>

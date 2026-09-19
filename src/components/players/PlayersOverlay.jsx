@@ -159,8 +159,8 @@ export default function PlayersOverlay({ actions, appearance, directory, rendere
       onClick={actions.onClose}
     >
       <FantasyPanelShell
-        className="relative w-full max-w-md max-h-[86vh]"
-        bodyClassName="overflow-hidden"
+        className="relative w-full max-w-md max-h-[min(86dvh,calc(100dvh-3rem))]"
+        bodyClassName="overflow-y-auto overscroll-contain custom-scrollbar custom-scrollbar-gray"
         eyebrow={directory.mode === "snapshot" ? "Classement en cours" : "Joueurs en jeu"}
         title={`Liste des joueurs${entries.length ? ` (${entries.length})` : ""}`}
         subtitle={[
@@ -181,7 +181,7 @@ export default function PlayersOverlay({ actions, appearance, directory, rendere
       >
         <div className="px-4 pb-4">
           {entries.length ? (
-            <div className="max-h-[70vh] overflow-y-auto custom-scrollbar custom-scrollbar-gray pr-1">
+            <div className="pr-1">
               {entries.map((entry, index) => {
                 const nick = entry?.nick ? String(entry.nick) : "";
                 const isReady =

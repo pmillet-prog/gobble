@@ -34,7 +34,7 @@ test("stats overlay is a global sibling and owns its viewport and navigation", (
   assert.match(statsApplicationSource, /fetchWeeklyStats/);
   assert.match(statsApplicationSource, /requestTrophyStatus/);
   assert.match(statsApplicationSource, /<WeeklyStatsScreen/);
-  assert.match(statsApplicationSource, /useStatsViewport\(\)/);
+  assert.match(statsApplicationSource, /useOverlayViewport\(\)/);
   assert.match(statsApplicationSource, /createPortal\(application, document.body\)/);
   assert.doesNotMatch(statsApplicationSource, /backgroundDesktop|backgroundMobile|overlayStyle/);
 

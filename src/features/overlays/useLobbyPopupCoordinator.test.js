@@ -43,11 +43,11 @@ test("lobby popup coordinator gives patch notes first priority", () => {
   });
 });
 
-test("reading the previous release does not hide the major update from home", () => {
-  const seen = new Set([buildPatchNotesSeenMarker("2026-09-11")]);
+test("reading the previous release does not hide the minor update from home", () => {
+  const seen = new Set([buildPatchNotesSeenMarker("2026-09-13")]);
   const action = resolveLobbyPopupAction(eligibleConfig({ accountSeenMarkers: seen }));
   assert.deepEqual(action, {
-    marker: buildPatchNotesSeenMarker("2026-09-13"),
+    marker: buildPatchNotesSeenMarker("2026-09-19"),
     type: "patch-notes",
   });
 

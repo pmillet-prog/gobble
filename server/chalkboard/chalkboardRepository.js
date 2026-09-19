@@ -14,7 +14,8 @@ export async function openChalkboardRepository(filename) {
       created_at INTEGER NOT NULL, requested_by TEXT, png_path TEXT,
       sent_at INTEGER, attempts INTEGER NOT NULL DEFAULT 0, next_attempt_at INTEGER NOT NULL DEFAULT 0, error TEXT
     );
-    CREATE INDEX IF NOT EXISTS chalkboard_exports_pending ON chalkboard_exports(next_attempt_at,created_at) WHERE sent_at IS NULL;`);
+    CREATE INDEX IF NOT EXISTS chalkboard_exports_pending ON chalkboard_exports(next_attempt_at,created_at) WHERE sent_at IS NULL;
+    CREATE INDEX IF NOT EXISTS chalkboard_archives_week ON chalkboard_exports(week_id DESC) WHERE requested_by IS NULL AND png_path IS NOT NULL;`);
 
   async function load() {
     const meta = await db.get("SELECT json FROM chalkboard_meta WHERE id=1");
@@ -55,6 +56,8 @@ export async function openChalkboardRepository(filename) {
     markSent: (id, now) => db.run("UPDATE chalkboard_exports SET sent_at=?, error=NULL WHERE id=?", now, id),
     markFailed: (id, now, attempts, error) => db.run("UPDATE chalkboard_exports SET attempts=?,next_attempt_at=?,error=? WHERE id=?", attempts, now + Math.min(3600000, 60000 * 2 ** Math.min(attempts - 1, 6)), error, id),
     exportStatus: id => db.get("SELECT id,week_id,created_at,png_path,sent_at,attempts,error FROM chalkboard_exports WHERE id=?", id),
+    listArchives: (before = "9999-99-99", limit = 31) => db.all("SELECT week_id,created_at FROM chalkboard_exports WHERE requested_by IS NULL AND id = 'weekly-' || week_id AND png_path IS NOT NULL AND week_id < ? ORDER BY week_id DESC LIMIT ?", before, limit),
+    getArchive: weekId => db.get("SELECT png_path FROM chalkboard_exports WHERE id=? AND week_id=? AND requested_by IS NULL AND png_path IS NOT NULL", `weekly-${weekId}`, weekId),
     close: () => db.close(),
   };
 }

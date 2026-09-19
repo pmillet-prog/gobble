@@ -1,0 +1,67 @@
+.chalkboard-archives { gap: 0; background: #17271f; }
+.chalkboard-archives button, .chalkboard-archives select, .chalkboard-archive-tools a {
+  min-height: 42px;
+  border: 1px solid #ffffff30;
+  border-radius: 10px;
+  padding: 8px 14px;
+  background: #263d31;
+  color: #f6f2df;
+  font: inherit;
+  cursor: pointer;
+}
+.chalkboard-archives button:disabled { opacity: .4; cursor: default; }
+.chalkboard-archives .chalkboard-back { background: transparent; border-color: transparent; }
+.chalkboard-archives :focus-visible { outline: 2px solid #eee6a9; outline-offset: -2px; }
+.chalkboard-archive-picker, .chalkboard-archive-tools {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px;
+  background: #17271f;
+  color: #f6f2df;
+}
+.chalkboard-archive-picker select { min-width: 0; max-width: calc(100% - 108px); }
+.chalkboard-archive-viewport {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  position: relative;
+  background: #0c1711;
+  touch-action: none;
+  user-select: none;
+  overscroll-behavior: contain;
+  contain: strict;
+  cursor: grab;
+}
+.chalkboard-archive-viewport.is-dragging { cursor: grabbing; }
+.chalkboard-archive-image {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: auto;
+  height: auto;
+  max-width: none;
+  max-height: none;
+  transform-origin: 0 0;
+  will-change: transform;
+  pointer-events: none;
+}
+.chalkboard-archive-message { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; flex-direction: column; color: #f6f2df; }
+.chalkboard-archive-tools { padding-bottom: max(10px, env(safe-area-inset-bottom)); }
+.chalkboard-archive-zoom { display: flex; align-items: center; gap: 6px; }
+.chalkboard-archive-zoom button { font-size: 24px; width: 44px; padding: 2px; }
+.chalkboard-archive-zoom output { min-width: 60px; text-align: center; font-variant-numeric: tabular-nums; }
+.chalkboard-archive-tools a { text-decoration: none; box-sizing: border-box; display: inline-flex; align-items: center; }
+.chalkboard-archive-tools small { flex-basis: 100%; text-align: center; opacity: .65; }
+.chalkboard-archive-empty { flex: 1; display: grid; place-content: center; padding: 24px; text-align: center; }
+.chalkboard-archive-error { padding: 10px; text-align: center; }
+@media (max-width: 600px) {
+  .chalkboard-archives .chalkboard-heading h1 { font-size: 16px; }
+  .chalkboard-archives .chalkboard-heading span { display: none; }
+  .chalkboard-archive-tools, .chalkboard-archive-picker { gap: 6px; padding: 8px; }
+  .chalkboard-archive-tools { padding-bottom: max(8px, env(safe-area-inset-bottom)); }
+  .chalkboard-archive-tools button, .chalkboard-archive-tools a { padding-inline: 10px; font-size: 13px; }
+}

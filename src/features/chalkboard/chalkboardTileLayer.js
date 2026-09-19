@@ -46,7 +46,8 @@ export class ChalkboardTileCache {
   delete(key) {
     const cached = this.entries.get(key);
     this.entries.delete(key);
-    if (cached) cached.canvas.width = cached.canvas.height = 0;
+    if (cached?.canvas.close) cached.canvas.close();
+    else if (cached) cached.canvas.width = cached.canvas.height = 0;
   }
 
   clear() {

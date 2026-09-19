@@ -29,6 +29,15 @@ export async function fetchChalkboardAccess({ signal } = {}) {
   }));
 }
 
+export async function fetchChalkboardArchives({ before, signal } = {}) {
+  const query = before ? `?before=${encodeURIComponent(before)}` : "";
+  const payload = await readJson(await fetch(`/api/chalkboard/archives${query}`, {
+    credentials: "include", headers: { Accept: "application/json" }, signal,
+  }));
+  if (!Array.isArray(payload.archives)) throw new Error("archives_unavailable");
+  return payload;
+}
+
 export async function fetchChalkboard(board, { revision, signal, weekId } = {}) {
   const query = new URLSearchParams();
   if (Number.isFinite(revision)) query.set("revision", String(revision));

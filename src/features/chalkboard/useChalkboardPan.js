@@ -11,13 +11,16 @@ export default function useChalkboardPan(scrollRef, enabled) {
       if (event.pointerType === "touch" || event.button !== 0) return;
       // Leave the native scrollbar to the browser.
       const rect = node.getBoundingClientRect();
-      if (event.clientY >= rect.top + node.clientHeight) return;
+      if (event.clientY >= rect.top + node.clientHeight || event.clientX >= rect.left + node.clientWidth) return;
       event.preventDefault();
-      drag = { id: event.pointerId, x: event.clientX, left: node.scrollLeft };
+      drag = { id: event.pointerId, x: event.clientX, y: event.clientY, left: node.scrollLeft, top: node.scrollTop };
       node.setPointerCapture(event.pointerId);
     };
     const move = event => {
-      if (drag?.id === event.pointerId) node.scrollLeft = drag.left + drag.x - event.clientX;
+      if (drag?.id === event.pointerId) {
+        node.scrollLeft = drag.left + drag.x - event.clientX;
+        node.scrollTop = drag.top + drag.y - event.clientY;
+      }
     };
     const stop = () => {
       const id = drag?.id;

@@ -1,4 +1,5 @@
 import React from "react";
+import ViewportOverlay from "./overlays/ViewportOverlay.jsx";
 
 const SORT_OPTIONS = [
   { key: "addedAt", label: "Date d'ajout" },
@@ -102,8 +103,6 @@ function buildGroups(words, sortMode) {
 }
 
 export default function WordVaultPage({
-  backgroundDesktop = "/background/desktop%20bleu.webp",
-  backgroundMobile = "/background/mobile%20bleu.webp",
   darkMode = false,
   loading = false,
   error = "",
@@ -129,33 +128,12 @@ export default function WordVaultPage({
   const cardClass = darkMode
     ? "bg-slate-950/45 border-amber-200/20 hover:bg-slate-950/60"
     : "bg-white/70 border-amber-300/40 hover:bg-amber-50/80";
-  const screenStyle = {
-    "--vault-bg-mobile": `url("${backgroundMobile}")`,
-    "--vault-bg-desktop": `url("${backgroundDesktop}")`,
-    minHeight: "100svh",
-  };
-
   return (
-    <div
-      className="relative w-full flex items-stretch justify-center px-2 sm:px-4 overflow-hidden text-amber-50"
-      style={screenStyle}
-    >
-      <style>{`
-        .vault-themed-screen {
-          background-image: var(--vault-bg-mobile);
-          background-size: cover;
-          background-position: center;
-        }
-        @media (min-aspect-ratio: 1/1) {
-          .vault-themed-screen { background-image: var(--vault-bg-desktop); }
-        }
-      `}</style>
-      <div className="vault-themed-screen absolute inset-0" aria-hidden="true" />
-      <div className="absolute inset-0 bg-black/42 backdrop-blur-[1px]" aria-hidden="true" />
+    <ViewportOverlay label="Coffre fort" onClose={onClose} className="vault-overlay">
       <div
-        className={`relative z-[1] w-full max-w-none h-full rounded-2xl border-2 shadow-2xl overflow-hidden flex flex-col min-h-0 ${shellClass}`}
+        className={`vault-panel w-full max-w-6xl h-full max-h-[920px] rounded-2xl border-2 shadow-2xl overflow-y-auto overscroll-contain flex flex-col min-h-0 ${shellClass}`}
       >
-        <div className={`p-4 pb-3 space-y-3 border-b ${headerClass}`}>
+        <div className={`shrink-0 p-4 pb-3 space-y-3 border-b ${headerClass}`}>
           <div className="flex items-start justify-between gap-3">
             <div>
               <div className="text-[11px] uppercase tracking-[0.18em] font-bold opacity-70">
@@ -217,7 +195,7 @@ export default function WordVaultPage({
           ) : null}
         </div>
         <div
-          className="px-4 py-4 flex-1 min-h-0 overflow-y-auto custom-scrollbar custom-scrollbar-gray"
+          className="px-4 py-4 flex-1 min-h-[120px] overflow-y-auto overscroll-contain custom-scrollbar custom-scrollbar-gray"
           style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-y" }}
         >
           {loading ? (
@@ -294,6 +272,6 @@ export default function WordVaultPage({
           )}
         </div>
       </div>
-    </div>
+    </ViewportOverlay>
   );
 }

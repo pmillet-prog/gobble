@@ -10,7 +10,7 @@ export class ChalkboardSpongeLayer {
     this.base = new ChalkboardTileLayer(cache, "sponge-base", paintPublished, false);
     this.layer = new ChalkboardTileLayer(cache, "sponge-live", (context, element, bounds, start) => {
       if (element.id === "sponge-base") {
-        const tile = this.base.getTile(bounds.minX / CHALKBOARD_TILE_SIZE, bounds.minY / CHALKBOARD_TILE_SIZE);
+        const tile = (this.baseRaster || this.base).getTile(bounds.minX / CHALKBOARD_TILE_SIZE, bounds.minY / CHALKBOARD_TILE_SIZE);
         if (tile) {
           context.save();
           context.setTransform(1, 0, 0, 1, 0, 0);
@@ -61,7 +61,10 @@ export class ChalkboardSpongeLayer {
     this.layer.setElements([this.anchor, ...this.deltas]);
   }
 
-  getTile(x, y) { return this.layer.getTile(x, y); }
+  getTile(x, y) {
+    if (this.baseRaster && this.base.index.has(`${x}:${y}`) && !this.baseRaster.getTile(x, y)) return null;
+    return this.layer.getTile(x, y);
+  }
 
   clear() {
     this.base.clear();

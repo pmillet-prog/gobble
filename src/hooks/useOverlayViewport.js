@@ -1,6 +1,6 @@
 import React from "react";
 
-export default function useStatsViewport() {
+export default function useOverlayViewport() {
   const ref = React.useRef(null);
   React.useLayoutEffect(() => {
     const viewport = window.visualViewport;

@@ -6,6 +6,7 @@ import { drawChalkElement } from "./chalkboardPaint.js";
 import { ChalkboardErasurePreview } from "./chalkboardErasurePreview.js";
 import { ChalkboardSpongeLayer } from "./chalkboardSpongeLayer.js";
 import { getChalkboardCanvasWindow } from "./chalkboardCanvasWindow.js";
+import { ChalkboardAsyncRaster } from "./chalkboardAsyncRaster.js";
 import {
   ChalkboardTileCache, ChalkboardTileLayer, createChalkboardTile, TILE_RASTER_RATIO,
 } from "./chalkboardTileLayer.js";
@@ -89,7 +90,7 @@ function drawSelection(context, element, viewX, scale) {
 }
 
 export class ChalkboardRenderer {
-  constructor(canvas) {
+  constructor(canvas, { worker, onChange = () => {} } = {}) {
     this.canvas = canvas;
     this.interventions = [];
     this.revision = null;
@@ -97,6 +98,10 @@ export class ChalkboardRenderer {
     this.records = new Map();
     this.promotions = new Map();
     this.tileCache = new ChalkboardTileCache();
+    // Published worker tiles use screen resolution and retain only the current
+    // canvas window. Draft undo tiles must not evict an in-flight publication.
+    this.asyncRaster = worker ? new ChalkboardAsyncRaster(new ChalkboardTileCache(96), worker, onChange) : null;
+    this.loading = false;
     this.published = new ChalkboardTileLayer(this.tileCache, "published",
       (context, group, bounds) => this.paintPublished(context, group, bounds), false);
     this.draftBefore = new ChalkboardTileLayer(this.tileCache, "draft-before");
@@ -148,6 +153,9 @@ export class ChalkboardRenderer {
   }
 
   setInterventions(interventions, revision, scope = "") {
+    // A worker completion redraws the same snapshot. Do not replace a stable
+    // erasure preview with its base and invalidate the job that just finished.
+    if (interventions === this.baseInterventions && revision === this.revision && scope === this.scope) return;
     this.baseInterventions = interventions;
     this.updateInterventions(interventions, revision, scope);
   }
@@ -155,6 +163,7 @@ export class ChalkboardRenderer {
   updateInterventions(interventions, revision, scope = "") {
     if (scope === this.scope && revision === this.revision && interventions === this.interventions) return;
     if (scope !== this.scope) {
+      this.asyncRaster?.clear();
       this.sponge.clear();
       this.published.clear();
       this.records.clear();
@@ -255,6 +264,7 @@ export class ChalkboardRenderer {
   }
 
   reuseDraftForIntervention(intervention, draft) {
+    if (this.asyncRaster && !this.asyncRaster.failed) return false;
     if (!draft || !intervention?.id || draft.scope !== this.scope ||
       visualSignature(intervention.elements) !== draft.signature) return false;
     this.promotions.set(intervention.id, draft);
@@ -262,6 +272,7 @@ export class ChalkboardRenderer {
   }
 
   invalidateText() {
+    this.asyncRaster?.clear();
     this.sponge.clear();
     for (const [key, tile] of this.tileCache.entries) {
       if (tile.entries.some(({ element }) => element.type === "text" ||
@@ -282,8 +293,12 @@ export class ChalkboardRenderer {
     this.spongeMode = onlyOwn;
     this.setDraftElements(draftElements, selectedTextId);
     context.imageSmoothingEnabled = true;
-    for (const [tileX, tileY] of this.visibleTiles(this.lastView)) {
-      for (const layer of [onlyOwn ? this.sponge : this.published, ...this.draftLayers]) {
+    const tiles = this.visibleTiles(this.lastView);
+    const asynchronous = this.asyncRaster && !this.asyncRaster.failed;
+    this.sponge.baseRaster = asynchronous ? this.asyncRaster : null;
+    if (asynchronous) this.asyncRaster.update(onlyOwn ? this.sponge.base.index : this.published.index, tiles, scale * Math.min(2, window.devicePixelRatio || 1));
+    for (const [tileX, tileY] of tiles) {
+      for (const layer of [onlyOwn ? this.sponge : asynchronous ? this.asyncRaster : this.published, ...this.draftLayers]) {
         const tile = layer.getTile(tileX, tileY);
         if (!tile) continue;
         context.drawImage(
@@ -296,6 +311,7 @@ export class ChalkboardRenderer {
       }
     }
     const selected = draftElements.find(element => element.id === selectedTextId);
+    this.loading = !!asynchronous && this.asyncRaster.pending;
     drawSelection(context, selected, viewX, scale);
   }
 
@@ -309,6 +325,7 @@ export class ChalkboardRenderer {
   }
 
   destroy() {
+    this.asyncRaster?.destroy();
     this.tileCache.clear();
     this.published.clear();
     for (const layer of this.draftLayers) layer.clear();

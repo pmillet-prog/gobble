@@ -1,5 +1,5 @@
 import React from "react";
-import useStatsViewport from "./useStatsViewport.js";
+import useOverlayViewport from "../../hooks/useOverlayViewport.js";
 import "./statsOverlay.css";
 import { createPortal } from "react-dom";
 
@@ -134,7 +134,7 @@ export default function StatsApplication({
     weeklyBoards,
   } = statsConfig;
   const statsFeature = useFeatureRuntime("stats");
-  const viewportRef = useStatsViewport();
+  const viewportRef = useOverlayViewport();
   const statsState = useFeatureFields(statsFeature, [
     "activeIndex",
     "error",

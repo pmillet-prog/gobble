@@ -218,8 +218,8 @@ test("GobbleApplication renders home, quick help in the salon, and authenticated
       const newReleasePosition = patchNotesHtml.indexOf(`dateTime="${PATCH_NOTES_VERSION}"`);
       assert.ok(newReleasePosition >= 0, "The announced release is included in the Patchnotes dialog");
       assert.ok(
-        newReleasePosition < patchNotesHtml.indexOf("mise à jour mineure du 11/09/2026"),
-        "The major release appears before the previous patch notes",
+        newReleasePosition < patchNotesHtml.indexOf('dateTime="2026-09-13"'),
+        "The new release appears before the previous patch notes",
       );
 
       kernel.commands.session.setAuthState({

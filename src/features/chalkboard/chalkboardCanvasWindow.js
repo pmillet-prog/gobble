@@ -18,12 +18,12 @@ export function getChalkboardCanvasWindow(view, previous = null) {
   return { left: origin, width: bufferWidth, height, scale, viewportWidth: width };
 }
 
-export function getChalkboardPointer(event, rect, scrollLeft, scale) {
+export function getChalkboardPointer(event, rect, scrollLeft, scale, scrollTop = 0) {
   if (!rect || scale <= 0) return null;
   const screenX = event.clientX - rect.left;
   const screenY = event.clientY - rect.top;
   return { screenX, screenY,
     worldX: Math.max(0, Math.min(CHALKBOARD_WORLD.width, (screenX + scrollLeft) / scale)),
-    worldY: Math.max(0, Math.min(CHALKBOARD_WORLD.height, screenY / scale)),
+    worldY: Math.max(0, Math.min(CHALKBOARD_WORLD.height, (screenY + scrollTop) / scale)),
   };
 }

@@ -32,10 +32,6 @@ test("daily hub renders every section without legacy helpers", async () => {
           setDailyRankingView: noOp,
           setDailySection: noOp,
         },
-        background: {
-          homeBackgroundDesktop: "",
-          homeBackgroundMobile: "",
-        },
         daily: {
           dailyBoard: { battle: null, error: "", ready: true },
           dailyEntries: [],
@@ -58,15 +54,6 @@ test("daily hub renders every section without legacy helpers", async () => {
           duelStatus: null,
         },
         identity: { installId: "", selfNick: "" },
-        overlays: {
-          aboutModalView: null,
-          authDialogView: null,
-          chatOverlays: null,
-          globalChatLayer: null,
-          quickHelpOverlay: null,
-          settingsMenuView: null,
-          tutorialOverlay: null,
-        },
         preparation: {
           shouldPrepareDailyOrDuelStandaloneView: true,
           shouldPrepareDailyStandaloneView: true,

@@ -13,6 +13,14 @@
 
 .chalkboard-app *, .chalkboard-composer * { box-sizing: border-box; }
 
+.chalkboard-zoom { position: absolute; z-index: 5; right: 22px; bottom: 23px; display: flex; align-items: center; gap: 7px; padding: 3px 9px; border: 1px solid #d3c28b66; border-radius: 7px; color: #f0e6c1; background: #172c22ed; font: 600 11px/1.2 Inter, system-ui, sans-serif; }
+.chalkboard-zoom input { width: 88px; height: 28px; margin: 0; accent-color: #ecc868; cursor: pointer; }
+.chalkboard-zoom input:focus-visible { outline: 2px solid #ecc868; outline-offset: 3px; }
+.chalkboard-zoom input:disabled { opacity: .4; cursor: default; }
+.chalkboard-zoom output { min-width: 36px; text-align: right; font-variant-numeric: tabular-nums; }
+.chalkboard-spinner { display: block; width: 30px; height: 30px; margin: 0 auto 12px; border: 3px solid #f0ecd744; border-top-color: #f0ecd7; border-radius: 50%; animation: chalkboard-spin .8s linear infinite; }
+@keyframes chalkboard-spin { to { transform: rotate(360deg); } }
+
 .chalkboard-maintenance {
   box-sizing: border-box;
   width: min(420px, calc(100vw - 32px));
@@ -102,17 +110,17 @@
   min-width: 0;
   min-height: 0;
   overflow-x: auto;
-  overflow-y: hidden;
+  overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-color: #b5a575 #20372d;
   scrollbar-width: thin;
   background: #263c2c;
-  touch-action: pan-x;
+  touch-action: pan-x pan-y;
   cursor: grab;
   box-shadow: 0 0 0 2px #3b3525, 0 1px 0 3px #b89660;
 }
 .chalkboard-world { position: relative; height: 100%; min-height: 1px; isolation: isolate; background: #263c2c; }
-.chalkboard-surface { position: absolute; z-index: 0; inset: 0; overflow: hidden; pointer-events: none; user-select: none; }
+.chalkboard-surface { position: absolute; z-index: 0; inset: 0; height: var(--chalkboard-world-height, 100%); overflow: hidden; pointer-events: none; user-select: none; }
 .chalkboard-surface-panel {
   position: absolute;
   top: 0;
@@ -131,7 +139,7 @@
   background: linear-gradient(#07170e24, transparent 14%, transparent 87%, #07170e28);
   box-shadow: inset 0 4px 9px #08180d66;
 }
-.chalkboard-canvas-shell { position: sticky; z-index: 2; left: 0; width: var(--chalkboard-viewport-width); height: 100%; overflow: hidden; pointer-events: none; }
+.chalkboard-canvas-shell { position: sticky; z-index: 2; top: 0; left: 0; width: var(--chalkboard-viewport-width); height: var(--chalkboard-viewport-height, 100%); overflow: hidden; pointer-events: none; }
 .chalkboard-canvas { position: absolute; z-index: 1; top: 0; left: 0; display: block; pointer-events: none; }
 .chalkboard-scroll.is-editing .chalkboard-canvas, .chalkboard-scroll.is-moderating .chalkboard-canvas { pointer-events: auto; }
 .chalkboard-scroll.is-editing, .chalkboard-scroll.is-editing .chalkboard-canvas { touch-action: none; cursor: crosshair; }

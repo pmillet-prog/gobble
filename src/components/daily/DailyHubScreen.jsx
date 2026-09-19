@@ -1,4 +1,5 @@
 import React from "react";
+import ViewportOverlay from "../overlays/ViewportOverlay.jsx";
 import { normalizeInstallId } from "../../app/adapters/browserIdentity.js";
 import {
   ENABLE_FAKE_DAILY_HISTORY,
@@ -26,9 +27,7 @@ export default function DailyHubScreen({
   view,
   daily,
   identity,
-  background,
   preparation,
-  overlays,
   actions,
   renderers,
 }) {
@@ -51,20 +50,10 @@ export default function DailyHubScreen({
     duelStatus,
   } = daily;
   const { installId, selfNick } = identity;
-  const { homeBackgroundDesktop, homeBackgroundMobile } = background;
   const {
     shouldPrepareDailyOrDuelStandaloneView,
     shouldPrepareDailyStandaloneView,
   } = preparation;
-  const {
-    aboutModalView,
-    authDialogView,
-    chatOverlays,
-    globalChatLayer,
-    quickHelpOverlay,
-    settingsMenuView,
-    tutorialOverlay,
-  } = overlays;
   const {
     closeDailyLaunchDialog,
     confirmDailyLaunch,
@@ -931,36 +920,19 @@ export default function DailyHubScreen({
     const dailyHistoryHeightClass = isMobileLayout ? "h-full min-h-0" : "max-h-[520px]";
     return (
       <>
-        {tutorialOverlay}
-        {authDialogView}
-        {settingsMenuView}
-        {aboutModalView}
-        {quickHelpOverlay}
         {dailyLaunchDialogView}
         {specialRecapOverlay}
-        <div
-          className={`relative overflow-hidden text-amber-50 ${
-            isMobileLayout
-              ? "h-[100svh] min-h-[100svh] flex items-stretch justify-center px-2 py-2"
-              : "min-h-screen flex items-center justify-center px-4"
-          }`}
+        <ViewportOverlay
+          label="Grilles du jour"
+          className="daily-overlay"
+          onClose={dailyLaunchDialog || specialRecap.opened ? undefined : () => setAppView("home")}
         >
           <div
-            className="absolute inset-0 bg-cover bg-center"
-            style={{
-              backgroundImage: `url('${
-                isMobileLayout ? homeBackgroundMobile : homeBackgroundDesktop
-              }')`,
-            }}
-            aria-hidden="true"
-          />
-          <div className="absolute inset-0 bg-black/42 backdrop-blur-[1px]" aria-hidden="true" />
-          <div
-            className={`relative z-[1] w-full max-w-2xl rounded-2xl border-2 border-amber-300/70 shadow-2xl bg-[linear-gradient(180deg,rgba(18,47,103,0.94),rgba(7,22,55,0.97))] text-amber-50 ${
-              isMobileLayout ? "h-full min-h-0 flex flex-col p-3 gap-2 overflow-hidden" : "p-4 sm:p-6 space-y-4"
+            className={`daily-panel w-full max-w-2xl h-full max-h-[920px] min-h-0 flex flex-col overflow-hidden rounded-2xl border-2 border-amber-300/70 shadow-2xl bg-[linear-gradient(180deg,rgba(18,47,103,0.94),rgba(7,22,55,0.97))] text-amber-50 ${
+              isMobileLayout ? "p-3 gap-2" : "p-4 sm:p-6 gap-4"
             }`}
           >
-            <div className="flex items-center justify-between gap-3">
+            <div className="shrink-0 flex items-center justify-between gap-3">
               <div>
                 <div className="text-2xl font-black tracking-tight">Grilles du jour</div>
                 <div className="text-xs opacity-70">
@@ -978,9 +950,9 @@ export default function DailyHubScreen({
               </button>
             </div>
 
-            <div className={isMobileLayout ? "flex-1 min-h-0 flex flex-col gap-2" : "space-y-4"}>
+            <div className={`daily-panel-content flex-1 min-h-0 overflow-y-auto overscroll-contain custom-scrollbar custom-scrollbar-gray ${isMobileLayout ? "flex flex-col gap-2" : "space-y-4"}`}>
             <div
-              className={`rounded-2xl border p-3 sm:p-4 space-y-3 ${
+              className={`shrink-0 rounded-2xl border p-3 sm:p-4 space-y-3 ${
                 "border-amber-200/25 bg-slate-950/35"
               }`}
             >
@@ -1038,7 +1010,7 @@ export default function DailyHubScreen({
               <div className="text-xs text-red-500">Erreur classement ({dailyBoard.error})</div>
             ) : null}
 
-            <div className="grid grid-cols-4 gap-2">
+            <div className="shrink-0 grid grid-cols-4 gap-2">
               {dailySections.map((section) => {
                 const meta = getDailySectionDefinition(section.key, { isMobileLayout });
                 const active = dailySection === section.key;
@@ -1064,7 +1036,7 @@ export default function DailyHubScreen({
 
             <div
               className={`overflow-hidden rounded-2xl border ${dailyHomePanelClass} ${
-                isMobileLayout ? "flex-1 min-h-0 flex flex-col" : ""
+                isMobileLayout ? "flex-1 min-h-[360px] flex flex-col" : ""
               }`}
             >
               <div className={`h-1.5 w-full bg-gradient-to-r ${selectedDailySectionMeta.accentClass}`} />
@@ -1173,9 +1145,7 @@ export default function DailyHubScreen({
             </div>
             </div>
           </div>
-        </div>
-        {globalChatLayer}
-        {chatOverlays}
+        </ViewportOverlay>
       </>
     );
   }
@@ -1184,23 +1154,16 @@ export default function DailyHubScreen({
     return (
       <>
         {specialRecapOverlay}
-        {tutorialOverlay}
-        {authDialogView}
-        {settingsMenuView}
-        {aboutModalView}
-        {quickHelpOverlay}
-        <div
-          className={`min-h-screen flex items-center justify-center px-4 ${
-            darkMode
-              ? "bg-gradient-to-br from-slate-900 via-slate-950 to-slate-800 text-white"
-              : "bg-gradient-to-br from-slate-50 via-white to-slate-100 text-slate-900"
-          }`}
+        <ViewportOverlay
+          label="Résultat grille du jour"
+          className="daily-results-overlay"
+          onClose={specialRecap.opened ? undefined : () => setAppView("daily")}
         >
           <div
-            className={`w-full max-w-2xl rounded-2xl shadow-2xl p-6 space-y-4 ${
+            className={`w-full max-w-2xl max-h-full overflow-y-auto overscroll-contain rounded-2xl shadow-2xl p-6 space-y-4 ${
               darkMode
-                ? "bg-slate-900/70 border border-white/10"
-                : "bg-white/90 border border-slate-200"
+                ? "bg-slate-900/70 text-white border border-white/10"
+                : "bg-white/90 text-slate-900 border border-slate-200"
             }`}
           >
             <div className="flex items-center justify-between gap-3">
@@ -1254,7 +1217,7 @@ export default function DailyHubScreen({
               </button>
             </div>
           </div>
-        </div>
+        </ViewportOverlay>
       </>
     );
   }

@@ -25,6 +25,21 @@ const view = { width: 800, height: 500, scale: .5, scrollLeft: 0 };
 const stroke = (id, x = 40) => ({ id, type: "stroke", seed: 7, size: 11, color: "#f4f0df", points: [{ x, y: 50 }, { x: x + 12, y: 60 }] });
 const group = element => ({ id: element.id, elements: [element], bounds: getElementBounds(element) });
 
+test("repeated snapshot notifications retain the same erasure preview and cached pixels", () => {
+  const renderer = new ChalkboardRenderer(canvas());
+  const source = [{ ...group(stroke("own")), canErase: true }];
+  const draftElements = [{ type: "erase", id: "mask", size: 30, points: [{ x: 40, y: 50 }], targetIds: ["own"] }];
+  renderer.setInterventions(source, 1, "week");
+  renderer.render({ ...view, draftElements });
+  const record = renderer.records.get("own").group;
+  arcs = 0;
+  renderer.setInterventions(source, 1, "week");
+  renderer.render({ ...view, draftElements });
+  assert.equal(renderer.records.get("own").group, record);
+  assert.equal(arcs, 0);
+  renderer.destroy();
+});
+
 test("unchanged poll responses and offscreen publications retain the visible raster", () => {
   const renderer = new ChalkboardRenderer(canvas());
   const first = group(stroke("first"));

@@ -1,4 +1,5 @@
 import { createChalkboardService } from "./chalkboardService.js";
+import { registerChalkboardArchiveRoutes } from "./registerChalkboardArchiveRoutes.js";
 
 function setJsonHeaders(res) {
   res.set("Content-Type", "application/json; charset=utf-8");
@@ -52,6 +53,8 @@ export function registerChalkboardRoutes({
     setJsonHeaders(res);
     return res.json({ ok: true, fonts: service.getFonts() });
   });
+
+  registerChalkboardArchiveRoutes({ router, repository: service.repository });
 
   router.get("/api/chalkboard/:board", async (req, res) => {
     setJsonHeaders(res);

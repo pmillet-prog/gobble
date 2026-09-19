@@ -9,7 +9,7 @@ dans un dossier temporaire ou remplacé pendant un déploiement.
 Le tableau et son catalogue de polices sont publics, y compris sans connexion.
 Tous les joueurs authentifiés peuvent publier et gommer leurs propres
 contributions. La suppression de modération, son annulation, l'audit et les
-exports PNG sont réservés aux comptes autorisés côté serveur.
+envois manuels de PNG sont réservés aux comptes autorisés côté serveur.
 
 Le lundi à 00 h, heure de Paris (vérification toutes les 60 secondes), la remise
 à zéro et l'archivage du tableau précédent sont enregistrés dans une transaction.
@@ -24,6 +24,28 @@ redémarrages ; un échec est réessayé avec un délai croissant jusqu'à une h
 Le bouton admin « Envoyer le PNG » copie la révision publiée au moment du clic,
 sans effacer le tableau ni inclure un brouillon. Les routes contrôlent les droits
 du compte côté serveur et limitent les demandes manuelles à une toutes les 30 s.
+
+## Consultation des tableaux précédents
+
+Le bouton « Archives » ouvre un visualisateur public des PNG hebdomadaires déjà
+générés, même si leur livraison par mail est encore en attente. La liste paginée
+`GET /api/chalkboard/archives?before=AAAA-MM-JJ` retourne 30 semaines au maximum.
+`GET /api/chalkboard/archives/:weekId/image.png` sert uniquement l'image d'un
+export hebdomadaire terminé, avec un cache immuable. Les exports manuels,
+instantanés vectoriels et chemins de stockage ne sont pas exposés.
+
+Le visualisateur décharge le tableau éditable et ses abonnements. Une seule
+image est affichée à la fois ; déplacement, inertie et pincement modifient sa
+transformation CSS sans redessiner les contributions ni mettre React à jour à
+chaque geste. Il propose aussi la molette, le clavier, les boutons de zoom,
+la vue d'ensemble et le téléchargement du PNG. Le tableau actuel doit être
+validé ou annulé avant de quitter un brouillon pour les archives.
+
+Pendant le déplacement d'un texte en cours de placement, une boucle limitée
+à la durée du geste fait défiler le tableau au voisinage des bords. Elle recalcule
+la position du texte depuis le défilement réel, même si le doigt est immobile,
+et s'arrête au relâchement, à l'annulation, à la perte de visibilité ou à la limite
+du tableau. Dessin, éponge, rotation et redimensionnement ne la déclenchent pas.
 
 ## Envoi par e-mail
 

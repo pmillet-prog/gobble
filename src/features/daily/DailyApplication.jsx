@@ -5,10 +5,8 @@ import DailyApplicationRuntime from "./DailyApplicationRuntime.jsx";
 
 export default function DailyApplication({
   actions,
-  background,
   daily,
   identity,
-  overlays,
   preparation,
   renderers,
   runtime,
@@ -40,10 +38,8 @@ export default function DailyApplication({
       <DailyApplicationRuntime {...runtime} />
       <DailyHubScreen
         actions={actions}
-        background={background}
         daily={{ ...daily, dailyHistoryScrollRef }}
         identity={identity}
-        overlays={overlays}
         preparation={preparation}
         renderers={renderers}
         view={view}

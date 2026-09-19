@@ -54,6 +54,27 @@ function averageScore(solutions, bot, options) {
   return total / 128;
 }
 
+test("long words and Gobbles remain occasional even with many tied record words", () => {
+  const solutions = makeSolutions(500);
+  const bot = tuneBotProfile(BOT_ROSTER_4X4[0]);
+  let longWords = 0, totalWords = 0, gobbleRounds = 0, doubleRounds = 0;
+  const maxLength = Math.max(...[...solutions.keys()].map(word => word.length));
+  const maxPoints = Math.max(...[...solutions.values()].map(entry => entry.pts));
+  for (let seed = 0; seed < 512; seed++) {
+    const words = pickWordsForBot(solutions, bot, { rand: seededRandom(seed * 907) });
+    totalWords += words.length;
+    longWords += words.filter(word => word.length >= 9).length;
+    const length = words.some(word => word.length === maxLength);
+    const score = words.some(word => solutions.get(word).pts === maxPoints);
+    gobbleRounds += Number(length || score);
+    doubleRounds += Number(length && score);
+  }
+  assert.ok(totalWords > 512 * 10, "bots must still participate");
+  assert.ok(longWords / totalWords < .12, "nine-letter words should be a small minority");
+  assert.ok(gobbleRounds > 0 && gobbleRounds < 512 * .2, `Gobble rounds: ${gobbleRounds}/512`);
+  assert.ok(doubleRounds < 512 * .025, `double Gobble rounds: ${doubleRounds}/512`);
+});
+
 for (const gridSize of [4, 5]) {
   for (const roundType of [null, "speed"]) {
     for (const count of [45, 160, 500]) {

@@ -1,5 +1,6 @@
 import { constants as cryptoConstants, publicEncrypt, randomUUID } from "crypto";
 import { CHALKBOARD_BOARD, normalizeChalkboardFont } from "../../shared/chalkboardRules.js";
+import { CHALKBOARD_LIMITS, chalkboardDraftFits } from "../../shared/chalkboardLimits.js";
 import { chalkboardFontCatalog } from "./chalkboardFontCatalog.js";
 import { getChalkboardTextHeight, normalizeChalkboardLineBreaks } from "../../shared/chalkboardText.js";
 import { erasuresFitBudget, normalizeChalkboardErasure } from "../../shared/chalkboardErasure.js";
@@ -9,9 +10,7 @@ export const CHALKBOARD_BOARDS = Object.freeze([CHALKBOARD_BOARD]);
 export const CHALKBOARD_WORLD = Object.freeze({ width: 24000, height: 1000 });
 
 const BOARD_ALIASES = new Set([CHALKBOARD_BOARD, "feedback"]);
-const MAX_ELEMENTS = 96;
-const MAX_POINTS_PER_STROKE = 1400;
-const MAX_POINTS_PER_INTERVENTION = 9000;
+const MAX_POINTS_PER_STROKE = CHALKBOARD_LIMITS.maxStrokePoints;
 const MAX_TEXT_LENGTH = 280;
 const COLOR_PATTERN = /^#[0-9a-f]{6}$/i;
 const MAX_UNDO_ENTRIES = 64;
@@ -150,9 +149,8 @@ function normalizeIntervention(raw, fontIds) {
   const source = raw && typeof raw === "object" ? raw : {};
   const sourceElements = Array.isArray(source.elements) ? source.elements : [];
   const elements = [];
-  let pointCount = 0;
   let bounds = null;
-  for (let index = 0; index < sourceElements.length && elements.length < MAX_ELEMENTS; index += 1) {
+  for (let index = 0; index < sourceElements.length; index += 1) {
     const rawElement = sourceElements[index];
     const element =
       rawElement?.type === "stroke"
@@ -163,10 +161,6 @@ function normalizeIntervention(raw, fontIds) {
         ? normalizeChalkboardErasure(rawElement)
         : null;
     if (!element) continue;
-    if (element.type === "stroke") {
-      if (pointCount + element.points.length > MAX_POINTS_PER_INTERVENTION) break;
-      pointCount += element.points.length;
-    }
     elements.push(element);
     if (element.type !== "erase") bounds = mergeBounds(bounds, getElementBounds(element));
   }
@@ -274,9 +268,10 @@ export function createChalkboardService({ now = () => Date.now(), auditPublicKey
     const board = normalizeBoard(boardValue);
     if (!board) return { ok: false, error: "invalid_board" };
     const sourceElements = Array.isArray(raw?.elements) ? raw.elements : [];
-    const hasErasures = sourceElements.some(element => element?.type === "erase") || raw?.removeIds !== undefined;
+    const hasErasures = sourceElements.some(element => element?.type === "erase") || !!raw?.removeIds?.length;
     if (hasErasures && raw.weekId !== weekId) return { ok: false, error: "stale_week" };
-    if (hasErasures && (sourceElements.length > MAX_ELEMENTS || !erasuresFitBudget(sourceElements))) return { ok: false, error: "erasure_limit" };
+    if (hasErasures && !erasuresFitBudget(sourceElements)) return { ok: false, error: "erasure_limit" };
+    if (!chalkboardDraftFits(sourceElements)) return { ok: false, error: "drawing_limit" };
     const cleanup = prepareChalkboardCleanup(boards.get(board), raw?.removeIds, identity);
     if (!cleanup.ok) return cleanup;
     const erasures = prepareChalkboardErasures(boards.get(board), sourceElements, identity, cleanup.removals);

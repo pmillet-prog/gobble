@@ -1,4 +1,5 @@
 import { OCID_TYPE, normalizeWord, solveGrid } from "../../shared/gameLogic.js";
+import { createBotWordDiscovery } from "./botWordDiscovery.js";
 
 const SOLVE_CACHE_MAX = 8;
 const solveCache = new Map();
@@ -417,6 +418,7 @@ export function pickWordsForBot(solutions, botProfile, opts = {}) {
   }
 
   const skill = clamp01(botProfile?.skill, 0.5);
+  const discovers = createBotWordDiscovery(pool, skill, isSpeedRound, rand);
   const minWords = Math.max(4, botProfile?.minWordsPerRound || 0);
   const profileMax = botProfile?.maxWordsPerRound || 0;
   const baseMax =
@@ -491,6 +493,7 @@ export function pickWordsForBot(solutions, botProfile, opts = {}) {
     const candidate = source.splice(idx, 1)[0];
     // petite probabilité de passer son tour pour éviter le spam
     if (rand() < (isSpeedRound ? 0.05 : 0.08)) continue;
+    if (!discovers(candidate)) continue;
     if (sourceIsTop) topHits++;
     chosen.push(candidate);
   }

@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { generateKeyPairSync } from "node:crypto";
+import { CHALKBOARD_LIMITS } from "../../shared/chalkboardLimits.js";
 
 import {
   createChalkboardService,
@@ -25,6 +26,34 @@ function makeIntervention() {
     ],
   };
 }
+
+test("large chalk drawings are saved completely, including an empty legacy cleanup list", () => {
+  const service = createChalkboardService();
+  const raw = makeIntervention();
+  const points = Array.from({ length: 50 }, (_, i) => ({ x: i * 2, y: i * 3, p: .5 }));
+  raw.elements = Array.from({ length: 240 }, (_, i) => ({ ...raw.elements[0], id: `stroke-${i}`, points }));
+  raw.removeIds = [];
+  const result = service.addIntervention("free", raw, { userId: 1 });
+  assert.equal(result.ok, true);
+  assert.equal(result.intervention.elements.length, 240);
+  assert.equal(result.intervention.elements.reduce((sum, item) => sum + item.points.length, 0), 12000);
+  assert.ok(Buffer.byteLength(JSON.stringify(raw)) < 1024 * 1024);
+});
+
+test("over-budget drawings are rejected atomically instead of truncated or reported as sponge errors", () => {
+  const service = createChalkboardService();
+  const raw = makeIntervention();
+  const cases = [
+    Array.from({ length: CHALKBOARD_LIMITS.maxElements + 1 }, () => raw.elements[0]),
+    [{ ...raw.elements[0], points: Array.from({ length: CHALKBOARD_LIMITS.maxStrokePoints + 1 }, () => ({ x: 10, y: 10 })) }],
+    Array.from({ length: 20 }, () => ({ ...raw.elements[0], points: Array.from({ length: 1000 }, () => ({ x: 10, y: 10 })) })),
+  ];
+  for (const elements of cases) {
+    const before = service.getSnapshot("free");
+    assert.equal(service.addIntervention("free", { elements, removeIds: [] }, { userId: 1 }).error, "drawing_limit");
+    assert.deepEqual(service.getSnapshot("free"), before);
+  }
+});
 
 test("chalkboard week starts on Monday in Paris", () => {
   assert.equal(getChalkboardWeekId(Date.parse("2026-09-06T20:00:00Z")), "2026-08-31");

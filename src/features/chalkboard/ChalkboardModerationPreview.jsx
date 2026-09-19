@@ -16,7 +16,7 @@ export default function ChalkboardModerationPreview({ intervention, viewport, sc
     if (!intervention) return;
     context.fillStyle = "rgba(4, 17, 9, .18)";
     context.fillRect(0, 0, viewport.width, viewport.height);
-    context.translate(-viewport.scrollLeft, 0);
+    context.translate(-viewport.scrollLeft, -(viewport.scrollTop || 0));
     context.scale(scale, scale);
     context.strokeStyle = "rgba(255, 214, 92, .9)";
     context.fillStyle = "rgba(255, 214, 92, .4)";
@@ -41,6 +41,6 @@ export default function ChalkboardModerationPreview({ intervention, viewport, sc
         context.restore();
       }
     }
-  }, [intervention, viewport.width, viewport.height, viewport.scrollLeft, scale]);
+  }, [intervention, viewport.width, viewport.height, viewport.scrollLeft, viewport.scrollTop, scale]);
   return <canvas ref={canvasRef} className="chalkboard-moderation-preview" data-intervention-id={intervention?.id || ""} aria-hidden="true" />;
 }
