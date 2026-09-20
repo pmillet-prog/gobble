@@ -117,6 +117,36 @@
   pointer-events: none;
 }
 
+.sprite-intervention-word {
+  appearance: none;
+  display: inline;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 2px;
+  background: transparent;
+  font: inherit;
+  letter-spacing: inherit;
+  text-align: inherit;
+  vertical-align: baseline;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+  pointer-events: auto;
+  touch-action: manipulation;
+}
+
+.sprite-intervention-word:disabled {
+  opacity: 1;
+  pointer-events: none;
+  cursor: inherit;
+}
+
+.sprite-intervention-word:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 3px;
+}
+
 .sprite-intervention-bubble::before,
 .sprite-intervention-bubble::after {
   position: absolute;

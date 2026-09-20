@@ -2,6 +2,7 @@ import React from "react";
 
 import { useLazyArrayController } from "../../app/react/useLazyController.js";
 import { createDailyGameController } from "../../components/daily/createDailyGameController.js";
+import useDailyLaunchConfirmation from "./useDailyLaunchConfirmation.js";
 
 export default function useDailySessionController({
   application,
@@ -17,6 +18,10 @@ export default function useDailySessionController({
   const dailySessionRef = React.useRef({ dateId: null, startedAt: null });
   const dailySubmitRef = React.useRef({ inFlight: false });
   const dailyTictocPlayedRef = React.useRef(false);
+  useDailyLaunchConfirmation({
+    appView: application?.appView, appViewRef: application?.appViewRef,
+    board: game?.board, sessionRef: dailySessionRef, emitSocketAck: network?.emitSocketAck,
+  });
 
   const [
     startDailyGame,

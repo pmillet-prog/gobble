@@ -21,6 +21,10 @@ export function useApplicationKernel() {
   return kernel;
 }
 
+export function useOptionalApplicationKernel() {
+  return React.useContext(ApplicationKernelContext);
+}
+
 export function useApplicationSelector(selector) {
   const kernel = useApplicationKernel();
   const selectorRef = React.useRef(selector);

@@ -1,4 +1,5 @@
 import { findBestPathForWord } from "../gameLogic.js";
+import { createDailyLaunchId, launchDailyGame } from "./dailyLaunchTransport.js";
 import {
   DAILY_FAKE_TWINS_MODE,
   DAILY_SPECIAL_MODE,
@@ -109,6 +110,7 @@ function classifyDailyStartNetworkError(err) {
 
 async function startDailyGame(requestedMode = DAILY_SPECIAL_MODE, e) {
   requestAudioUnlock(e);
+  if (dailyLifecycleRef.current.inFlight) return;
   if (!ensureAuthenticated({ source: "daily" })) {
     return;
   }
@@ -118,6 +120,7 @@ async function startDailyGame(requestedMode = DAILY_SPECIAL_MODE, e) {
     return;
   }
   const modeToStart = normalizeDailyMode(requestedMode);
+  dailyLifecycleRef.current.inFlight = true;
   const startGeneration =
     Math.max(0, Number(dailyLifecycleRef?.current?.startGeneration) || 0) + 1;
   if (dailyLifecycleRef?.current) {
@@ -131,10 +134,10 @@ async function startDailyGame(requestedMode = DAILY_SPECIAL_MODE, e) {
     });
   setDailyStartError(null);
   setDailySubmitError("");
-  const payload = { installId, pseudo, dailyMode: modeToStart };
+  const payload = { installId, pseudo, dailyMode: modeToStart, launchId: createDailyLaunchId() };
   const applyDailyStartSuccess = (data) => {
     if (!isStartRequestCurrent()) return false;
-    if (!data?.grid || !Array.isArray(data.grid)) {
+    if (!data?.grid?.length || !Array.isArray(data.grid) || typeof startGameFromServerRef.current !== "function") {
       throw new Error("bad_grid");
     }
     const modeFromServer =
@@ -158,7 +161,11 @@ async function startDailyGame(requestedMode = DAILY_SPECIAL_MODE, e) {
     }
     dailySessionRef.current = {
       dateId: data.dateId || null,
-      startedAt: Date.now(),
+      startedAt: Date.now() - Math.max(0, data.durationMs - data.remainingMs),
+      launchId: data.launchId,
+      mode,
+      pseudo,
+      confirmed: false,
     };
     setDailyResult(null);
     setDailyPlayMode(mode);
@@ -195,143 +202,53 @@ async function startDailyGame(requestedMode = DAILY_SPECIAL_MODE, e) {
         applyThemeVisualState(themeAppliedSafe);
       });
     }
-    startGameFromServerRef.current?.(
-      gridForPlay,
-      null,
-      data.durationMs || null,
-      null,
-      null,
-      data.gridSize || null,
-      null,
-      data.gridQuality || null,
-      null,
-      [],
-      data.solutions ? { solutions: data.solutions } : null
-    );
+    try {
+      startGameFromServerRef.current(
+        gridForPlay,
+        null,
+        data.remainingMs || data.durationMs || null,
+        null,
+        null,
+        data.gridSize || null,
+        null,
+        data.gridQuality || null,
+        null,
+        [],
+        data.solutions ? { solutions: data.solutions } : null
+      );
+    } catch (error) {
+      // A local initialization error must leave the recovery action accessible.
+      dailySessionRef.current = { dateId: null, startedAt: null };
+      appViewRef.current = "daily";
+      isDailyPlayRef.current = false;
+      setAppView("daily");
+      throw error;
+    }
     fetchDailyBoard(data.dateId || null);
     return true;
   };
   try {
-    let res = null;
-    let data = null;
-    let parseMeta = { raw: "", parseOk: false, isLikelyHtml: false };
-    for (let attempt = 0; attempt < 2; attempt += 1) {
-      const cacheBust = attempt > 0 ? `?r=${Date.now()}` : "";
-      res = await fetch(`/api/daily/start${cacheBust}`, {
-        method: "POST",
-        cache: "no-store",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-          "Cache-Control": "no-store, no-cache, max-age=0",
-          Pragma: "no-cache",
-        },
-        body: JSON.stringify(payload),
-      });
-      parseMeta = await readJsonResponseLoose(res);
-      data = parseMeta.data;
-      if (!isStartRequestCurrent()) return;
-      if (parseMeta.parseOk || !res.ok || attempt > 0) break;
-      await new Promise((resolve) => setTimeout(resolve, 120));
-    }
-    if (!res) {
-      throw new Error("bad_payload");
-    }
-    if (!res.ok) {
-      if (data?.error === "maintenance_mode") {
-        setDailyStartError("Maintenance en cours");
-        fetchDailyStatus();
-        fetchDailyBoard();
-        return;
-      }
-      if (data?.error === "already_played") {
-        setDailyStartError(getDailyModeDefinition(modeToStart).alreadyPlayedLabel);
-        fetchDailyStatus();
-        fetchDailyBoard();
-        return;
-      }
-      if (data?.error === "bad_grid") {
-        setDailyStartError("E_DAILY_BAD_GRID");
-        console.warn("[daily/start] bad_grid", {
-          status: res.status,
-          hasInstallId: !!installId,
-          pseudoLen: pseudo.length,
-          installIdLen: typeof installId === "string" ? installId.length : 0,
-        });
-        fetchDailyStatus();
-        fetchDailyBoard();
-        return;
-      }
-      const code = `E${res.status || 0}`;
-      setDailyStartError(code);
-      console.warn("[daily/start] http", {
-        status: res.status,
-        error: data?.error || null,
-        hasInstallId: !!installId,
-        pseudoLen: pseudo.length,
-        installIdLen: typeof installId === "string" ? installId.length : 0,
-      });
-      fetchDailyStatus();
-      fetchDailyBoard();
-      return;
-    }
-    if (!data || typeof data !== "object") {
-      throw new Error(parseMeta.isLikelyHtml ? "bad_json_html" : parseMeta.raw ? "bad_json" : "bad_payload");
-    }
-    applyDailyStartSuccess(data);
+    const data = await launchDailyGame(payload, {
+      emitSocketAck,
+      isReady: () => isStartRequestCurrent() &&
+        typeof startGameFromServerRef.current === "function" &&
+        (typeof document === "undefined" || document.visibilityState !== "hidden"),
+    });
+    if (data) applyDailyStartSuccess(data);
+    else if (isStartRequestCurrent()) setDailyStartError("Le lancement a été interrompu. Vous pouvez réessayer.");
   } catch (err) {
     if (!isStartRequestCurrent()) return;
-    const code = classifyDailyStartNetworkError(err);
-    if (code === "ENET_PROXY_HTML") {
-      try {
-        const socketData = await emitSocketAck("daily:start", payload, { timeoutMs: 7000 });
-        if (!isStartRequestCurrent()) return;
-        if (!socketData || typeof socketData !== "object") {
-          throw new Error("bad_payload");
-        }
-        if (socketData.ok === false) {
-          const socketError = String(socketData.error || "error");
-          if (socketError === "already_played") {
-            setDailyStartError(getDailyModeDefinition(modeToStart).alreadyPlayedLabel);
-          } else if (socketError === "bad_grid") {
-            setDailyStartError("E_DAILY_BAD_GRID");
-          } else if (socketError === "not_ready") {
-            setDailyStartError("E503");
-          } else if (socketError === "maintenance_mode") {
-            setDailyStartError("Maintenance en cours");
-          } else if (socketError === "bad_request") {
-            setDailyStartError("E400");
-          } else {
-            setDailyStartError("E_SOCKET");
-          }
-          fetchDailyStatus();
-          fetchDailyBoard();
-          return;
-        }
-        applyDailyStartSuccess(socketData);
-        return;
-      } catch (socketErr) {
-        if (!isStartRequestCurrent()) return;
-        console.warn("[daily/start] socket fallback failed", {
-          name: socketErr?.name || null,
-          message: socketErr?.message || String(socketErr || ""),
-        });
-      }
-    }
-    if (!isStartRequestCurrent()) return;
-    setDailyStartError(code);
-    console.warn("[daily/start] network", {
-      code,
-      name: err?.name || null,
-      message: err?.message || String(err || ""),
-      online:
-        typeof navigator !== "undefined" && navigator
-          ? navigator.onLine
-          : null,
-    });
+    const code = err.code || classifyDailyStartNetworkError(err);
+    setDailyStartError(code === "already_played"
+      ? getDailyModeDefinition(modeToStart).alreadyPlayedLabel
+      : code === "maintenance_mode" ? "Maintenance en cours"
+      : code === "date_changed" ? "Le jour a changé. Actualisez les grilles."
+      : "La grille n’a pas pu démarrer. Réessayez maintenant.");
+    console.warn("[daily/start]", code);
     fetchDailyStatus();
     fetchDailyBoard();
+  } finally {
+    dailyLifecycleRef.current.inFlight = false;
   }
 }
 

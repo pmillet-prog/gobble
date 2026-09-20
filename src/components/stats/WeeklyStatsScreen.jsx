@@ -3,6 +3,7 @@ import { formatNumber } from "../../utils/numbers.js";
 import { getVocabLevelMeta } from "../../vocabRanks.js";
 import FantasyPanelShell from "../home/FantasyPanelShell.jsx";
 import WeeklyNickLine from "./WeeklyNickLine.jsx";
+import AvatarThumbnail from "../../features/avatar/AvatarThumbnail.jsx";
 import {
   formatMsShort,
   formatWeeklyDate,
@@ -187,6 +188,8 @@ export default function WeeklyStatsScreen({ runtime }) {
       >
         <div className="flex items-center gap-2 min-w-0">
           <span className="w-6 text-center text-xs font-bold text-amber-500">{rank}</span>
+          {statsTab !== "season" ? <AvatarThumbnail userId={profileUserId} size={32} showPlaceholder
+            onClick={openWeeklyProfile} label={`Voir le profil de ${baseNick}`} buttonProps={{ "data-stats-profile-button": "true" }} /> : null}
           <div className="min-w-0">
             <WeeklyNickLine
               nick={baseNick}

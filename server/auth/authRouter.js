@@ -1,4 +1,6 @@
 import express from "express";
+import { registerAvatarRoutes } from "../avatars/registerAvatarRoutes.js";
+import { registerStarterGrantRoutes } from "../stats/registerStarterGrantRoutes.js";
 import {
   AUTH_SESSION_TTL_MS,
   authenticateUser,
@@ -22,6 +24,10 @@ import {
   updatePassword,
   validatePassword,
   verifyUserPassword,
+  userAvatars,
+  avatarInventory,
+  avatarThumbnails,
+  avatarStarterGrant,
 } from "./authService.js";
 
 const SESSION_COOKIE_NAME = "gobble_session";
@@ -178,6 +184,9 @@ function requireAuth(auth, res, req) {
 export function createAuthRouter({
   normalizeInstallIdRaw,
   resolveCanonicalInstallId,
+  onAvatarPurchase,
+  onAvatarSaved,
+  isMaintenanceModeActive,
 }) {
   const router = express.Router();
 
@@ -185,6 +194,7 @@ export function createAuthRouter({
     await initAuthService();
     next();
   });
+  registerStarterGrantRoutes({ router, getAuthContext, requireAuth, grants: avatarStarterGrant });
 
   router.post("/status", async (req, res) => {
     res.set("Cache-Control", "no-store");
@@ -475,6 +485,9 @@ export function createAuthRouter({
     const markers = await listUserUiSeenMarkers(auth.user.id);
     return res.json({ ok: true, markers });
   });
+
+  registerAvatarRoutes({ router, getAuthContext, requireAuth, repository: userAvatars, inventory: avatarInventory,
+    onPurchase: onAvatarPurchase, thumbnails: avatarThumbnails, onSaved: onAvatarSaved, isMaintenanceModeActive });
 
   router.post("/ui-seen", async (req, res) => {
     res.set("Cache-Control", "no-store");

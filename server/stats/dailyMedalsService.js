@@ -2,6 +2,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { promises as fs } from "fs";
 import { pruneTimestampedBackups } from "../persistence/backupRetention.js";
+import { summarizeDailyMedals } from "../../shared/dailyMedals.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -238,6 +239,12 @@ export function getDailyMedalsForRoom(roomId) {
     medals: reviveMap(entry.medals),
     expiry: reviveMap(entry.expiry),
   };
+}
+
+// Read the same daily awards as the room badges; never use weekly/all-time totals.
+export function getDailyMedalsForUser(userId) {
+  ensureDailyReset();
+  return summarizeDailyMedals(state, userId);
 }
 
 export function persistDailyMedalsForRoom(roomId, medalsMap, expiryMap) {

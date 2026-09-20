@@ -82,7 +82,8 @@ for (const gridSize of [4, 5]) {
         const solutions = makeSolutions(count, { rare: !roundType, speed: roundType === "speed" });
         const scores = hosts.map(bot => averageScore(solutions, bot, { gridSize, roundType }));
         for (let index = 1; index < scores.length; index++) {
-          assert.ok(scores[index - 1] >= scores[index] * 1.12,
+          const minimumGap = index === 1 ? 1.08 : 1.12;
+          assert.ok(scores[index - 1] >= scores[index] * minimumGap,
             `${HOST_ORDER[index - 1]} (${scores[index - 1]}) must be a distinct milestone above ${HOST_ORDER[index]} (${scores[index]})`);
         }
       });
@@ -90,16 +91,26 @@ for (const gridSize of [4, 5]) {
   }
 }
 
-test("Bernard Pinot stays near Proutosaurus with variable scores", () => {
+test("Bernard Pinot stays below Proutosaurus with variable scores after the volume reduction", () => {
   const solutions = makeSolutions(240);
   const proutosaurus = BOT_ROSTER_4X4.find(bot => bot.nick === "Proutosaurus Rex");
   const pinot = averageScore(solutions, hosts[0], { gridSize: 4 });
   const prout = averageScore(solutions, proutosaurus, { gridSize: 4 });
-  assert.ok(pinot >= prout * 0.85 && pinot <= prout * 1.03, `Pinot ${pinot}, Proutosaurus ${prout}`);
+  assert.ok(pinot >= prout * 0.74 && pinot <= prout * 0.9, `Pinot ${pinot}, Proutosaurus ${prout}`);
   const pinotScores = new Set(Array.from({ length: 32 }, (_, seed) =>
     pickWordsForBot(solutions, tuneBotProfile(hosts[0]), { rand: seededRandom(seed) })
       .reduce((sum, word) => sum + solutions.get(word).pts, 0)));
   assert.ok(pinotScores.size > 16, "scores should still vary from round to round");
+});
+
+test("Pinot finds roughly ten percent fewer words while retaining the same word preferences", () => {
+  const current = hosts[0], previous = { ...current, minWordsPerRound: 23, maxWordsPerRound: 56 };
+  for (const gridSize of [4, 5]) for (const count of [45, 160, 500]) {
+    const solutions = makeSolutions(count);
+    const volume = bot => Array.from({ length: 128 }, (_, seed) => pickWordsForBot(solutions, tuneBotProfile(bot), { gridSize, rand: seededRandom(seed * 907) }).length).reduce((a, b) => a + b, 0);
+    const ratio = volume(current) / volume(previous);
+    assert.ok(ratio >= .85 && ratio <= .95, `${gridSize}x${gridSize}, ${count} solutions: ${ratio}`);
+  }
 });
 
 test("a busy room applies calibrated profiles and retains its submission budget", () => {

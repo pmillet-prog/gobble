@@ -4,6 +4,7 @@ import { promises as fs } from "fs";
 import { spawn } from "child_process";
 import { DAILY_GENERATION_VERSION } from "./dailyGeneration.js";
 import { evaluateDailySpecialWords } from "./dailySpecialReview.js";
+import { canRecoverDailyLaunch, normalizeDailyLaunchId } from "./dailyLaunchPolicy.js";
 import {
   buildPathWordVariants,
   buildFakeTwinsGrid,
@@ -1474,9 +1475,9 @@ export async function getDailyStatus(dateId, installId) {
       installId,
       DAILY_FAKE_TWINS_MODE
     );
-    hasPlayedMonstrous = !!myMonstrousResult || !!monstrousAttempt;
-    hasPlayedSpecial = !!mySpecialResult || !!specialAttempt;
-    hasPlayedFakeTwins = !!myFakeTwinsResult || !!fakeTwinsAttempt;
+    hasPlayedMonstrous = !!myMonstrousResult || (!!monstrousAttempt && !canRecoverDailyLaunch(monstrousAttempt));
+    hasPlayedSpecial = !!mySpecialResult || (!!specialAttempt && !canRecoverDailyLaunch(specialAttempt));
+    hasPlayedFakeTwins = !!myFakeTwinsResult || (!!fakeTwinsAttempt && !canRecoverDailyLaunch(fakeTwinsAttempt));
     hasPlayed = hasPlayedMonstrous;
   }
   return {
@@ -1532,17 +1533,11 @@ export async function getDailyResultsSnapshot(dateId) {
   };
 }
 
-export async function getDailyHistory({
-  days = 7,
-  installId = null,
-  dictionary = null,
-  includeWords = false,
-} = {}) {
+export async function getDailyHistory({ days = 7 } = {}) {
   const safeDays = Math.min(30, Math.max(1, Math.round(days || 7)));
   const todayId = getParisDateId();
   const history = [];
   const crownsMap = new Map();
-  const safeInstallId = String(installId || "").trim() || null;
 
   for (let offset = 0; offset < safeDays; offset += 1) {
     const dateId = addDaysToDateId(todayId, -offset);
@@ -1553,41 +1548,10 @@ export async function getDailyHistory({
     const boardEntries = buildDailyBoardEntries(results, thresholdsByMode).filter(
       (entry) => !entry?.isPalier
     );
-    const myResults = safeInstallId
-      ? results.filter((entry) => entry?.installId === safeInstallId)
-      : [];
-    const myWordsByMode = {
-      [DAILY_MONSTROUS_MODE]: normalizeDailyStoredWords(
-        myResults.find((entry) => normalizeDailyMode(entry?.mode) === DAILY_MONSTROUS_MODE)?.words
-      ),
-      [DAILY_SPECIAL_MODE]: normalizeDailyStoredWords(
-        myResults.find((entry) => normalizeDailyMode(entry?.mode) === DAILY_SPECIAL_MODE)?.words
-      ),
-      [DAILY_FAKE_TWINS_MODE]: normalizeDailyStoredWords(
-        myResults.find((entry) => normalizeDailyMode(entry?.mode) === DAILY_FAKE_TWINS_MODE)?.words
-      ),
-    };
     history.push({
       dateId,
       entries: boardEntries,
       totalPlayers: results.length,
-      findableWordsByMode: includeWords
-        ? {
-            [DAILY_MONSTROUS_MODE]: buildDailyHistoryWordPool(
-              getDailyModeGridEntry(gridPayload, DAILY_MONSTROUS_MODE),
-              dictionary
-            ),
-            [DAILY_SPECIAL_MODE]: buildDailyHistoryWordPool(
-              getDailyModeGridEntry(gridPayload, DAILY_SPECIAL_MODE),
-              dictionary
-            ),
-            [DAILY_FAKE_TWINS_MODE]: buildDailyHistoryWordPool(
-              getDailyModeGridEntry(gridPayload, DAILY_FAKE_TWINS_MODE),
-              dictionary
-            ),
-          }
-        : {},
-      myWordsByMode,
     });
     const winner = boardEntries[0];
     const winnerNick = winner?.nick;
@@ -1607,14 +1571,41 @@ export async function getDailyHistory({
   return { days: history, crownTotals };
 }
 
+export async function getDailyHistoryWords({ dateId, dailyMode, installId, dictionary } = {}) {
+  // Past days only: never reveal the current day's solutions through history.
+  const today = getParisDateId();
+  if (
+    typeof dateId !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(dateId) ||
+    dateId >= today || dateId < addDaysToDateId(today, -30) ||
+    ![DAILY_MONSTROUS_MODE, DAILY_SPECIAL_MODE, DAILY_FAKE_TWINS_MODE].includes(dailyMode)
+  ) return { ok: false, error: "bad_request" };
+  const gridPayload = await loadDailyGrid(dateId);
+  const gridEntry = getDailyModeGridEntry(gridPayload, dailyMode);
+  if (!gridEntry?.grid?.length) return { ok: false, error: "not_ready" };
+  const resultsPayload = installId ? await loadDailyResults(dateId) : null;
+  const ownResult = resultsPayload?.results?.find(
+    (entry) => entry.installId === installId && normalizeDailyMode(entry.mode) === dailyMode
+  );
+  return {
+    ok: true, dateId, mode: dailyMode,
+    findableWords: buildDailyHistoryWordPool(gridEntry, dictionary),
+    myWords: normalizeDailyStoredWords(ownResult?.words),
+  };
+}
+
 export async function startDailyAttempt(
   dateId,
   installId,
   pseudo,
-  { dailyMode = null, dictionary = null } = {}
+  { dailyMode = null, dictionary = null, launchId = null, stage = "start" } = {}
 ) {
   const safeDateId = dateId || getParisDateId();
   const safeMode = normalizeDailyMode(dailyMode);
+  const safeLaunchId = normalizeDailyLaunchId(launchId);
+  if (launchId != null && !safeLaunchId) return { ok: false, error: "bad_request" };
+  if (!["prepare", "start"].includes(stage) || (stage === "prepare" && !safeLaunchId)) {
+    return { ok: false, error: "bad_request" };
+  }
   const gridPayload = await loadDailyGrid(safeDateId);
   if (!gridPayload) {
     return { ok: false, error: "not_ready", dateId: safeDateId };
@@ -1623,6 +1614,13 @@ export async function startDailyAttempt(
   if (!Array.isArray(gridEntry?.grid) || gridEntry.grid.length === 0) {
     return { ok: false, error: "bad_grid", dateId: safeDateId };
   }
+  // Finish grid preparation before any irreversible write to the attempt ledger.
+  const playGrid = safeMode === DAILY_SPECIAL_MODE
+    ? cloneGridWithoutBonuses(gridEntry.grid) : cloneGridWithBonuses(gridEntry.grid);
+  const solutions = stage !== "prepare" && safeMode === DAILY_FAKE_TWINS_MODE
+    ? await buildDailyFakeTwinsStartSolutions(playGrid, dictionary) : null;
+  const durationMs = Number.isFinite(Number(gridPayload.durationMs))
+    ? Math.max(0, Math.round(Number(gridPayload.durationMs))) : DAILY_DURATION_MS;
   let startState = null;
   try {
     startState = await withDailyResultsLock(safeDateId, async () => {
@@ -1640,20 +1638,28 @@ export async function startDailyAttempt(
         return { ok: false, error: "already_played", dateId: safeDateId };
       }
       const attempts = resultsPayload.attempts;
-      if (getDailyAttemptEntry(attempts, installId, safeMode)) {
-        return { ok: false, error: "already_played", dateId: safeDateId };
+      const existing = getDailyAttemptEntry(attempts, installId, safeMode);
+      if (existing) {
+        if (!safeLaunchId || !canRecoverDailyLaunch(existing) ||
+          (stage !== "prepare" && existing.launchId !== safeLaunchId)) {
+          return { ok: false, error: "already_played", dateId: safeDateId };
+        }
+        return { ok: true, ...existing };
       }
-      setDailyAttemptEntry(attempts, installId, safeMode, {
+      if (stage === "prepare") return { ok: true, launchId: safeLaunchId };
+      const attempt = {
         pseudo: String(pseudo || "").trim().slice(0, 32),
         startedAt: Date.now(),
         mode: safeMode,
-      });
+        ...(safeLaunchId ? { launchId: safeLaunchId, durationMs } : {}),
+      };
+      setDailyAttemptEntry(attempts, installId, safeMode, attempt);
       await saveDailyResults(safeDateId, {
         dateId: safeDateId,
         results,
         attempts,
       });
-      return { ok: true };
+      return { ok: true, ...attempt };
     });
   } catch (err) {
     console.warn(`[daily] start attempt failed to load results date=${safeDateId}`, err);
@@ -1662,14 +1668,9 @@ export async function startDailyAttempt(
   if (!startState?.ok) {
     return startState || { ok: false, error: "results_unavailable", dateId: safeDateId };
   }
-  const playGrid =
-    safeMode === DAILY_SPECIAL_MODE
-      ? cloneGridWithoutBonuses(gridEntry.grid)
-      : cloneGridWithBonuses(gridEntry.grid);
-  const solutions =
-    safeMode === DAILY_FAKE_TWINS_MODE
-      ? await buildDailyFakeTwinsStartSolutions(playGrid, dictionary)
-      : null;
+  if (stage === "prepare") return {
+    ok: true, prepared: true, dateId: safeDateId, mode: safeMode, launchId: startState.launchId,
+  };
   return {
     ok: true,
     dateId: safeDateId,
@@ -1680,10 +1681,34 @@ export async function startDailyAttempt(
     seed: gridEntry.seed,
     gridQuality: gridEntry.gridQuality || null,
     solutions,
-    durationMs: Number.isFinite(Number(gridPayload.durationMs))
-      ? Math.max(0, Math.round(Number(gridPayload.durationMs)))
-      : DAILY_DURATION_MS,
+    durationMs,
+    ...(safeLaunchId ? {
+      launchId: startState.launchId,
+      startedAt: startState.startedAt,
+      endsAt: startState.startedAt + durationMs,
+      serverNow: Date.now(),
+    } : {}),
   };
+}
+
+export async function confirmDailyLaunch({ dateId, installId, dailyMode, launchId }) {
+  if (dateId !== getParisDateId() || !normalizeDailyLaunchId(launchId)) {
+    return { ok: false, error: "bad_request" };
+  }
+  try {
+    return await withDailyResultsLock(dateId, async () => {
+      const payload = cloneDailyResultsPayload(await loadDailyResults(dateId, { strict: true }), dateId);
+      const attempt = getDailyAttemptEntry(payload.attempts, installId, dailyMode);
+      if (!attempt || attempt.launchId !== launchId) return { ok: false, error: "invalid_launch" };
+      if (!attempt.confirmedAt) {
+        setDailyAttemptEntry(payload.attempts, installId, dailyMode, { ...attempt, confirmedAt: Date.now() });
+        await saveDailyResults(dateId, payload);
+      }
+      return { ok: true };
+    });
+  } catch (_) {
+    return { ok: false, error: "results_unavailable" };
+  }
 }
 
 export async function submitDailyResult({

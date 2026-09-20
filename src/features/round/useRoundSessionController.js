@@ -644,7 +644,9 @@ export default function useRoundSessionController() {
 
     if (phase === "results" && lastRound?.payload) {
       skipVocabOverlayOnceRef.current = true;
-      refs.processRoundEndedRef.current?.(lastRound.payload);
+      refs.processRoundEndedRef.current?.({ ...lastRound.payload,
+        tournamentSummaryAt: breakState?.tournamentSummaryAt || lastRound.payload.tournamentSummaryAt,
+      });
       if (lastRound.round?.grid && Array.isArray(lastRound.round.grid)) {
         setBoard(lastRound.round.grid);
         setGridSize(lastRound.round.gridSize || getGridSizeForRoom(snapshot.roomId));

@@ -2,6 +2,7 @@ import React, { Suspense } from "react";
 import { clampValue, formatNumber } from "../../utils/numbers.js";
 import { tileScore } from "../gameLogic.js";
 import { normalizeBonusLabel } from "../daily/dailySpecialModel.js";
+import { DAILY_SPECIAL_MODE } from "../daily/dailyModes.js";
 import LiveSalonScene from "../live/LiveSalonScene.jsx";
 import MiniTournamentStartOverlay from "../live/MiniTournamentStartOverlay.jsx";
 import SwapFadeText from "../results/SwapFadeText.jsx";
@@ -507,6 +508,7 @@ export default function MobileStandardScene({ state, refs, actions, content, con
             isStandaloneTraining={!!standaloneTrainingSession}
             isTargetRound={isTargetRound}
             listItemRefs={listItemRefs}
+            isThreeWordsRound={specialRound?.type === DAILY_SPECIAL_MODE}
             mobileBodyHeightStyle={mobileBodyHeightStyle}
             mobileBodyPaddingTop={mobileBodyPaddingTop}
             mobileHeaderRef={mobileHeaderRef}

@@ -2,6 +2,9 @@
   "name": "Gobble Beta",
   "version": "0.0.1",
   "scripts": {
+    "avatar:dev": "node .Tmp/avatar/avatar/editor/serve-preview.cjs",
+    "avatar:sync": "node scripts/import-avatar-workshop.mjs --families=hair,headwear",
+    "avatar:import-hair": "python scripts/import-avatar-hair-pack.py && npm run avatar:sync",
     "dev": "node scripts/generate-music-manifest.js && vite",
     "build": "node scripts/generate-music-manifest.js && node ./node_modules/vite/bin/vite.js build",
     "definitions:build": "node scripts/build-wiktionary-definitions.mjs",

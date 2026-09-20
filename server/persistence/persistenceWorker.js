@@ -1,4 +1,5 @@
 import { parentPort } from "worker_threads";
+import { avatarInventory } from "../auth/authService.js";
 
 import {
   initPlayerProfileService,
@@ -35,6 +36,7 @@ function ensureReady() {
 
 async function handleJob(type, payload) {
   await ensureReady();
+  if (type === "recordAvatarObjectives") return avatarInventory.objectives.recordBatch(payload);
   if (type === "recordPlayerRoundStats") {
     return recordPlayerRoundStats(payload || {});
   }

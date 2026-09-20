@@ -10,6 +10,7 @@ function PivotIntervention({
   enabled = false,
   hostRef,
   manual = false,
+  onOpenWord = null,
   phaseKey = "",
   roundId = null,
 }) {
@@ -37,6 +38,7 @@ function PivotIntervention({
       placementController={presenterHintsController}
       manualKey="pivot"
       onManualActivation={handleManualActivation}
+      onOpenWord={onOpenWord}
       onPresentationComplete={handlePresentationComplete}
       phaseKey={phaseKey}
       queueWhileDisabled

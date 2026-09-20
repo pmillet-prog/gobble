@@ -3,7 +3,7 @@ import DailySpecialRecapDialog from "../../components/daily/DailySpecialRecapDia
 import { getLiveThreeWordsRecap } from "./liveThreeWordsRecap.js";
 import { useFeatureRuntime } from "../../app/react/useFeatureRuntime.js";
 
-export default function LiveThreeWordsRecap({ roundId, results, userId, nickname }) {
+export default function LiveThreeWordsRecap({ roundId, results, userId, nickname, training = false }) {
   const liveUi = useFeatureRuntime("liveUi");
   const [closedRound, setClosedRound] = React.useState(null);
   const recap = React.useMemo(() => getLiveThreeWordsRecap(results, { userId, nickname }), [results, userId, nickname]);
@@ -14,6 +14,7 @@ export default function LiveThreeWordsRecap({ roundId, results, userId, nickname
   }, [liveUi, visible]);
   if (!visible) return null;
   return <DailySpecialRecapDialog key={roundId} {...recap} animate
-    contextLabel="Manche live · 3 mots" footerNote={null}
+    contextLabel={training ? "Entraînement · 3 mots" : "Manche live · 3 mots"} footerNote={null}
+    doneLabel={training ? "Voir le bilan" : "Voir le classement"}
     onClose={() => setClosedRound(roundId)} />;
 }

@@ -1,0 +1,10 @@
+.avatar-thumbnail{position:relative;display:inline-grid;place-items:center;flex-shrink:0;overflow:hidden;border-radius:50%;vertical-align:middle;padding:0;border:0;background:transparent;color:inherit}
+button.avatar-thumbnail{cursor:pointer;touch-action:manipulation;-webkit-user-select:none;user-select:none}
+button.avatar-thumbnail:focus-visible{outline:2px solid #d99d25;outline-offset:2px}
+.avatar-thumbnail img{display:block;width:100%;height:100%;object-fit:cover}
+.avatar-thumbnail-pending{opacity:0}
+.avatar-thumbnail-placeholder{width:100%;height:100%;padding:3px;background:#94a3b826;fill:currentColor;opacity:.45}
+.avatar-thumbnail-loading{position:absolute;inset:0;display:grid;place-items:center}
+.avatar-thumbnail-loading i{width:60%;height:60%;border:2px solid #94a3b840;border-top-color:#d99d25;border-radius:50%;animation:avatar-thumbnail-spin .8s linear infinite}
+@keyframes avatar-thumbnail-spin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.avatar-thumbnail-loading i{animation:none;border-style:dotted}}

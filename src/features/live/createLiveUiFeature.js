@@ -15,6 +15,7 @@ export function createInitialLiveUiState() {
     specialHint: null,
     specialSolvedOverlay: null,
     threeWordsRecapOpen: false,
+    podiumDismissedKey: "",
     targetDefinition: {
       complete: false,
       definition: "",

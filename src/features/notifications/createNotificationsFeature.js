@@ -1,11 +1,15 @@
 import { createFeatureStore } from "../../app/core/createFeatureStore.js";
+import { createGobblarsRewardQueue } from "./createGobblarsRewardQueue.js";
 
 export function createNotificationsFeature(
   { scope },
-  { clearTimeoutFn = clearTimeout, setTimeoutFn = setTimeout } = {}
+  { clearTimeoutFn = clearTimeout, setTimeoutFn = setTimeout, now = Date.now } = {}
 ) {
-  const store = createFeatureStore({ toasts: [] });
+  const store = createFeatureStore({ toasts: [], gobblarsReward: null });
   const timers = new Map();
+  const gobblars = createGobblarsRewardQueue({
+    publish: reward => store.set("gobblarsReward", reward), now, clearTimeoutFn, setTimeoutFn,
+  });
 
   function remove(id) {
     const timerId = timers.get(id);
@@ -18,9 +22,11 @@ export function createNotificationsFeature(
     for (const timerId of timers.values()) clearTimeoutFn(timerId);
     timers.clear();
     store.set("toasts", []);
+    gobblars.clear();
   }
 
   function show(message, durationMs = 2800, options = {}) {
+    if (options?.gobblarsReward) return gobblars.enqueue(options.gobblarsReward);
     const text = String(message || "").trim();
     if (!text) return null;
     const displayMs = Math.max(1500, Math.round((Number(durationMs) || 2800) + 500));
@@ -30,6 +36,7 @@ export function createNotificationsFeature(
       iconSrc: typeof options?.iconSrc === "string" ? options.iconSrc : "",
       id: Date.now() + Math.random(),
       message: text,
+      avatarReward: options?.avatarReward || null,
       position: options?.position === "top-left" ? "top-left" : "top-right",
     });
     store.set("toasts", (current) => [...current, toast].slice(-6));

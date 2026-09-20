@@ -132,3 +132,16 @@ test("daily start refuses an empty sanitized nickname before entering the flow",
   assert.deepEqual(response, { ok: false, error: "bad_request" });
   assert.equal(startCalls, 0);
 });
+
+test("daily launch preparation and confirmation retain the account identity over socket fallback", async () => {
+  const harness = createHarness();
+  for (const stage of ["prepare", "start", "confirm"]) {
+    let response;
+    const payload = {
+      stage, dateId: "2026-09-20", launchId: "launch-0000000001", dailyMode: "special",
+      pseudo: "Test", installId: "someone-else",
+    };
+    await harness.socket.trigger("daily:start", payload, value => { response = value; });
+    assert.deepEqual(response.startedWith, { ...payload, installId: "install-current" });
+  }
+});

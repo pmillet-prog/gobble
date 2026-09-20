@@ -1,4 +1,5 @@
 import React from "react";
+import "./mobileGameViewport.css";
 
 import { RoundClockSeconds } from "../../features/clock/RoundClockDisplay.jsx";
 import MobileGrid from "../MobileGrid.jsx";
@@ -17,7 +18,7 @@ function MobileUltraCompactPlaying({
   return (
     <>
       <div
-        className={`flex flex-col ${
+        className={`mobile-game-viewport flex flex-col ${
           darkMode ? "bg-slate-900 text-slate-100" : "bg-slate-50 text-slate-900"
         }`}
         style={mobileViewportContainerStyle}

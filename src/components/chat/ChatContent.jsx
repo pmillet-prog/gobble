@@ -6,6 +6,8 @@ import { isChatBotMessage } from "../../utils/chatMessages.js";
 import useChatAutoScroll from "./useChatAutoScroll.js";
 import NotebookReactionEmoji from "./NotebookReactionEmoji.jsx";
 import PresenterChatAvatar from "./PresenterChatAvatar.jsx";
+import PlayerChatAvatar from "./PlayerChatAvatar.jsx";
+import PlayerProfileLink from "../profile/PlayerProfileLink.jsx";
 
 const LONG_PRESS_MS = 420;
 const SWIPE_REPLY_TRIGGER_PX = 72;
@@ -468,15 +470,10 @@ export default function ChatContent({
       if (!message?.id) return;
       if (event.pointerType === "mouse" && event.button !== 0) return;
       const rawTarget = event?.target;
-      const targetIsAuthorButton =
-        typeof Element !== "undefined" &&
-        rawTarget instanceof Element &&
-        !!rawTarget.closest("[data-chat-author-button='true']");
       if (
         typeof Element !== "undefined" &&
         rawTarget instanceof Element &&
-        rawTarget.closest("button, a, input, textarea, select, label") &&
-        !targetIsAuthorButton
+        rawTarget.closest("button, a, input, textarea, select, label")
       ) {
         abortPointerGesture();
         return;
@@ -864,7 +861,10 @@ export default function ChatContent({
                 (authorInstallId ? authorInstallId === selfInstallId : author === selfNick);
               const isOwn = !!isYou;
               const canOpenMenu =
-                !isSystem && authorInstallId && authorInstallId !== selfInstallId;
+                !isSystem && !isAmbientBot && (authorInstallId || msg.userId);
+              const openAuthorMenu = canOpenMenu ? event => onOpenUserMenu?.(event, {
+                nick: author, userId: msg.userId, installId: authorInstallId, messageId: msg.id,
+              }) : undefined;
               const replyPreview = getReplyPreview(msg);
               const replyTargetsSelf = !!(
                 replyPreview &&
@@ -982,7 +982,7 @@ export default function ChatContent({
                           style={NON_SELECTABLE_TOUCH_STYLE}
                         >
                           <div className="font-semibold" style={NON_SELECTABLE_TOUCH_STYLE}>
-                            {replyPreview.nick}
+                            <PlayerProfileLink entry={replyPreview} />
                           </div>
                           <div style={{ ...THREE_LINE_CLAMP_STYLE, ...NON_SELECTABLE_TOUCH_STYLE }}>
                             {replyPreview.text}
@@ -996,21 +996,14 @@ export default function ChatContent({
                             message={msg}
                             className="-my-1 mr-0.5 h-7 w-7 self-center"
                           />
-                        ) : null}
+                        ) : <PlayerChatAvatar message={msg} onClick={openAuthorMenu} label={`Menu de ${author}`} />}
                         {canOpenMenu ? (
                           <button
                             type="button"
                             className={`chat-message-author ${authorBaseClass} hover:underline`}
                             style={NON_SELECTABLE_TOUCH_STYLE}
                             data-chat-author-button="true"
-                            onClick={(e) =>
-                              onOpenUserMenu?.(e, {
-                                nick: author,
-                                userId: msg.userId,
-                                installId: authorInstallId,
-                                messageId: msg.id,
-                              })
-                            }
+                            onClick={openAuthorMenu}
                           >
                             {author}:
                           </button>

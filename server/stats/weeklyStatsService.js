@@ -699,6 +699,11 @@ export function getPreviousWeeklyVocabChampion(now = Date.now()) {
   };
 }
 
+export function getWeeklyAvatarAuraPeriod() {
+  const podium = getPreviousWeeklyVocabPodium();
+  return { weekStartTs: state.weekStartTs, nextResetTs: getNextResetTs(state.weekStartTs), podium };
+}
+
 export function getWeeklyStats(topN = TOP_N) {
   ensureCurrentWeek();
   // Always expose the current week so rankings reset immediately on Monday 00:00 (Paris time).

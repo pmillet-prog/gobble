@@ -1,38 +1,10 @@
 import React from "react";
-
-const AVATAR_BY_PRESENTER = Object.freeze({
-  capello: "/bots/presenters/capello/button.webp",
-  lepers: "/bots/presenters/lepers/button.webp",
-  pivot: "/bots/presenters/pivot/button.webp",
-  romejko: "/bots/presenters/romejko/button.webp",
-});
-
-const PRESENTER_BY_CATEGORY = Object.freeze({
-  coach: "capello",
-  culture: "lepers",
-  detective: "romejko",
-  linguist: "pivot",
-  statistician: "romejko",
-});
-
-const PRESENTER_BY_AUTHOR = Object.freeze({
-  "bernard pinot": "pivot",
-  "julien lechéper": "lepers",
-  "laurent rhum&co": "romejko",
-  "maître gobbello": "capello",
-});
+import { PRESENTER_IDENTITIES, resolvePresenterKey } from "../../features/presenters/presenterIdentity.js";
 
 export function getPresenterChatAvatarUrl(message) {
   const explicit = String(message?.meta?.avatarUrl || "").trim();
   if (explicit) return explicit;
-  const presenterKey = String(message?.meta?.presenterKey || "").trim();
-  const category = String(message?.meta?.category || "").trim();
-  const author = String(message?.nick || message?.author || "")
-    .trim()
-    .toLocaleLowerCase("fr");
-  const resolvedKey =
-    presenterKey || PRESENTER_BY_CATEGORY[category] || PRESENTER_BY_AUTHOR[author] || "";
-  return AVATAR_BY_PRESENTER[resolvedKey] || "";
+  return PRESENTER_IDENTITIES[resolvePresenterKey(message)]?.buttonUrl || "";
 }
 
 export default function PresenterChatAvatar({

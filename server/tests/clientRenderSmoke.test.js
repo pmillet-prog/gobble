@@ -218,7 +218,7 @@ test("GobbleApplication renders home, quick help in the salon, and authenticated
       const newReleasePosition = patchNotesHtml.indexOf(`dateTime="${PATCH_NOTES_VERSION}"`);
       assert.ok(newReleasePosition >= 0, "The announced release is included in the Patchnotes dialog");
       assert.ok(
-        newReleasePosition < patchNotesHtml.indexOf('dateTime="2026-09-13"'),
+        newReleasePosition < patchNotesHtml.indexOf('dateTime="2026-09-19"'),
         "The new release appears before the previous patch notes",
       );
 

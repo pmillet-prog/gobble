@@ -8,17 +8,24 @@ export default function PlayerProfileModalHost({
   loading,
   error,
   profile,
+  viewerUserId,
+  gobblarsBalance,
+  nickname,
   onClose,
 }) {
   if (!open) return null;
   return (
     <Suspense fallback={null}>
       <PlayerProfileModal
+        key={profile?.userId || "loading"}
         open={open}
         darkMode={darkMode}
         loading={loading}
         error={error}
         profile={profile}
+        viewerUserId={viewerUserId}
+        gobblarsBalance={gobblarsBalance}
+        nickname={nickname}
         onClose={onClose}
       />
     </Suspense>

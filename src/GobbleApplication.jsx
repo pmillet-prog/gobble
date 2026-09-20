@@ -5,6 +5,7 @@ import "./styles/desktopResponsive.css";
 import "./styles/gameRuntime.css";
 import { playBlackHoleOutro3D } from "./effects/blackHoleOutro3D.js";
 import { createCelebrationEffects } from "./effects/createCelebrationEffects.js";
+import { showGobblarsSpent } from "./features/notifications/showGobblarsSpent.js";
 import {
   TILE_LETTER_SCALE_MIN,
   TILE_LETTER_SCALE_MAX,
@@ -221,6 +222,8 @@ import useDailySpecialInteraction, {
   getDailySpecialDragTransform,
 } from "./components/daily/useDailySpecialInteraction.js";
 import useDailySessionController from "./features/daily/useDailySessionController.js";
+import { resolvePlayerProfileTarget } from "./features/overlays/playerProfileTarget.js";
+import { buildTrainingThreeWordsResult } from "./features/training/trainingThreeWordsResults.js";
 import {
   DAILY_FAKE_TWINS_MODE,
   DAILY_MONSTROUS_MODE,
@@ -254,6 +257,7 @@ import { usePlaytimeLimit } from "./hooks/usePlaytimeLimit.js";
 import { useFinaleNavigation, useResultsNavigation } from "./hooks/useResultsNavigation.js";
 import useDisplayMode from "./hooks/useDisplayMode.js";
 import useAccountSeenMarkers from "./hooks/useAccountSeenMarkers.js";
+import useAccountAvatarSync from "./features/avatar/useAccountAvatarSync.js";
 import {
   CHAT_MESSAGES_HISTORY_MAX,
   CHAT_MESSAGES_STORAGE_KEY,
@@ -389,7 +393,7 @@ const ChalkboardApplication = React.lazy(() =>
 );
 const LepersRoundAnnouncementOverlay = React.lazy(loadQuestions3DOverlay);
 const TournamentFinaleScreen = React.lazy(() =>
-  import("./components/finale/TournamentFinaleScreen.jsx")
+  import("./features/celebration/TournamentFinaleExperience.jsx")
 );
 const loadDesktopGameScene = () => import("./components/desktop/DesktopGameScene.jsx");
 const DesktopGameScene = React.lazy(loadDesktopGameScene);
@@ -1267,7 +1271,7 @@ export default function GobbleApplication() {
     visualScoreFlightsEnabled: visualScoreFlightsEnabledRef,
     visualScreenShakeEnabled: visualScreenShakeEnabledRef,
   } = preferencesFeature.refs;
-  const gobblarsKnownBalanceRef = useRef(null);
+  const gobblarsKnownBalanceRef = preferencesFeature.refs.gobblarsKnownBalanceRef;
   const fetchThemeProfileRef = useRef(null);
   const showToastRef = useRef(() => {});
   const themeProfileFetchStateRef = useRef({ inFlight: false, lastAt: 0 });
@@ -1908,6 +1912,7 @@ export default function GobbleApplication() {
     : null;
   const installId = authenticatedUserId ? buildUserScopedInstallId(authenticatedUserId) : "";
   const isAccountAuthenticated = authState.status === "authenticated" && !!authState.user;
+  useAccountAvatarSync({ authenticatedUserId, isAuthenticated: isAccountAuthenticated, nickname: authState?.user?.usernameDisplay });
   const {
     ready: accountSeenReady,
     markers: accountSeenMarkers,
@@ -3879,7 +3884,7 @@ export default function GobbleApplication() {
     [weeklyStats]
   );
 
-  const liveThreeWordsResults = appView === "live" && !standaloneTrainingSession &&
+  const threeWordsResults = (appView === "live" || appView === "training") && !isGuidedTutorial &&
     specialRound?.type === DAILY_SPECIAL_MODE;
 
   function stopVocabOverlayAnimation() {
@@ -3904,7 +3909,7 @@ export default function GobbleApplication() {
       stopVocabOverlayAnimation();
       return;
     }
-    if (targetSummary || liveThreeWordsResults) {
+    if (targetSummary || threeWordsResults) {
       stopVocabOverlayAnimation();
       return;
     }
@@ -4016,7 +4021,7 @@ export default function GobbleApplication() {
     vocabResultsReadyKey,
     weeklyStats,
     targetSummary,
-    liveThreeWordsResults,
+    threeWordsResults,
   ]);
 
   useEffect(() => {
@@ -4251,6 +4256,7 @@ export default function GobbleApplication() {
   function showToast(message, durationMs = 2800, options = {}) {
     const toast = notificationsFeature.show(message, durationMs, options);
     if (!toast) return;
+    if (options.gobblarsReward) return; // The reward animation owns its synchronized sound.
     playOneShotAudio(SFX_KEYS.vocabCling, {
       cooldownKey: "toastPop",
       cooldownMs: 100,
@@ -5403,6 +5409,7 @@ export default function GobbleApplication() {
     submitDailyScore,
   } = useDailySessionController({
     application: {
+      appView,
       appViewRef,
       isDailyPlayRef,
       setAppView,
@@ -6173,15 +6180,7 @@ export default function GobbleApplication() {
   }
 
   function getUserIdFromPlayerProfileTarget(target = {}) {
-    const direct = normalizeUserIdForProfile(target?.userId);
-    if (direct) return direct;
-    const numericProfileKey = normalizeUserIdForProfile(target?.installId);
-    if (numericProfileKey) return numericProfileKey;
-    const playerKey = String(target?.playerKey || "").trim();
-    if (playerKey.startsWith("install:")) {
-      return normalizeUserIdForProfile(playerKey.slice("install:".length));
-    }
-    return null;
+    return resolvePlayerProfileTarget(target, [players, lobbyPlayersList, finalResults, chatMessagesSnapshot])?.userId || null;
   }
 
   function canOpenPlayerProfile(target = {}) {
@@ -7254,6 +7253,18 @@ function handleTouchEnd() {
     inputLockedRef.current = false;
     setAllWords(Array.isArray(serverAllWordsRef.current) ? serverAllWordsRef.current : []);
     setTargetSummary(buildStandaloneTrainingTargetSummary(training));
+    if (training.mode === DAILY_SPECIAL_MODE && !training.tutorial) {
+      // Capture the submitted slots before leaving play clears the editor.
+      const { wordSlots, specialPlacements } = dailyFeature.store.getState();
+      const result = buildTrainingThreeWordsResult({ training, wordSlots,
+        placements: specialPlacements, nick: nicknameRef.current, userId: authenticatedUserId });
+      setFinalResults([result]);
+      setScore(result.score);
+      setAccepted(result.words);
+      syncAcceptedRuntimeCaches(result.words, { scoreMap: new Map(Object.entries(result.wordScores)) });
+      dailyAcceptedPathsRef.current = new Map(result.specialWordSlots
+        .filter(slot => slot.valid).map(slot => [slot.word, { path: slot.path }]));
+    }
     setPhase("results");
     gameplaySessionFeature.transitionPhase("results");
   }
@@ -8846,6 +8857,7 @@ function handleTouchEnd() {
       });
       const ranking = rankingCore
         .map((entry) => ({
+          ...entry,
           nick: entry.nick,
           points: typeof entry.score === "number" ? entry.score : entry.points || 0,
           gobbles: entry.gobbles ?? null,
@@ -9864,7 +9876,7 @@ function handleTouchEnd() {
   })();
   const tournamentFinaleDismissKey = tournamentFinaleSummary
     ? String(
-        tournamentFinaleSummary.tournamentId ||
+        tournamentFinaleSummary.id || tournamentFinaleSummary.tournamentId ||
           tournament?.id ||
           tournamentSummaryAt ||
           tournamentFinaleHoldUntil ||
@@ -10072,6 +10084,9 @@ function handleTouchEnd() {
       loading={playerProfileModal.loading}
       error={playerProfileModal.error}
       profile={playerProfileModal.profile}
+      viewerUserId={authenticatedUserId}
+      gobblarsBalance={gobblarsBalance}
+      nickname={playerProfileModal.nick}
       onClose={closePlayerProfileModal}
     />
   );
@@ -10668,13 +10683,13 @@ function handleTouchEnd() {
             const prevBalance = Number(gobblarsKnownBalanceRef.current);
             if (
               announceGain &&
+              gobblarsKnownBalanceRef.current != null &&
               Number.isFinite(prevBalance) &&
               nextBalance > prevBalance
             ) {
               const gain = nextBalance - prevBalance;
               showToastRef.current?.(`+${gain} Gobblars`, 2600, {
-                iconSrc: gobblarsBadgeUrl,
-                iconAlt: "Gobblars",
+                gobblarsReward: { amount: gain, balance: nextBalance, label: "Récompense reçue" },
               });
             }
             gobblarsKnownBalanceRef.current = nextBalance;
@@ -11364,11 +11379,8 @@ function handleTouchEnd() {
             );
           }, 650);
         }
-        const spent = Math.max(0, Number(payload.spent) || 0);
-        showToast(spent > 0 ? `-${spent} Gobblars` : "Thème appliqué.", 2600, {
-          iconSrc: spent > 0 ? gobblarsBadgeUrl : "",
-          iconAlt: "Gobblars",
-        });
+        if (payload.spent > 0) showGobblarsSpent(showToast, payload, "Achat de thème");
+        else showToast("Thème appliqué.", 2600);
         setThemePurchaseConfirm(null);
         return true;
       } catch (_) {
@@ -12051,6 +12063,7 @@ function handleTouchEnd() {
       <DuelWeekRecapOverlay
         open
         summary={duelWeekSummary}
+        viewerUserId={authenticatedUserId}
         page={duelWeekRecapPage}
         weeklyStats={weeklyStats}
         onNext={nextDuelWeekRecapPage}
@@ -12122,6 +12135,7 @@ function handleTouchEnd() {
         }
         hostRef={gridRef}
         manual={showResultsPresenterActionBar}
+        onOpenWord={phase === "results" ? handleDesktopWordDefinitionOpen : null}
         phaseKey={phase}
         roundId={activePresenterRoundId}
       />
@@ -12155,6 +12169,7 @@ function handleTouchEnd() {
         }
         hostRef={gridRef}
         liveRoundFeature={liveRoundFeature}
+        onOpenWord={phase === "results" ? handleDesktopWordDefinitionOpen : null}
         manual={isGuidedTutorial || showTournamentFinale || showLivePresenterActionBar}
         phaseKey={activePresenterPhaseKey}
         playBonusVoice={playBonusVoice}
@@ -12185,9 +12200,10 @@ function handleTouchEnd() {
       {roundPlayerModalView}
       {recordModalView}
       {vocabOverlayView}
-      {liveThreeWordsResults && phase === "results" ? (
+      {threeWordsResults && phase === "results" ? (
         <Suspense fallback={null}>
-          <LiveThreeWordsRecap roundId={roundId} results={finalResults}
+          <LiveThreeWordsRecap roundId={standaloneTrainingSession?.sessionId || standaloneTrainingSession?.gridId || roundId}
+            training={!!standaloneTrainingSession} results={finalResults}
             userId={authenticatedUserId} nickname={nickname} />
         </Suspense>
       ) : null}
@@ -12365,6 +12381,7 @@ function handleTouchEnd() {
           account={{
             isAuthenticated: isAccountAuthenticated,
             userId: authenticatedUserId,
+            gobblarsBalance,
             legacyProfileUsername,
             loginError,
             nickname,
@@ -12499,6 +12516,7 @@ function handleTouchEnd() {
     return (
       <Suspense fallback={null}>
         <TournamentFinaleScreen
+          tournamentKey={tournamentFinaleDismissKey}
           appearance={{
             assetVersion,
             chatDesktopFontScale,
@@ -12580,7 +12598,7 @@ function handleTouchEnd() {
             tournamentRanking,
             tournamentRef,
           }}
-          identity={{ installId, selfNick }}
+          identity={{ installId, selfNick, userId: authenticatedUserId, knownPlayers: players }}
           overlays={{ aboutModalView, chatOverlays, globalChatLayer, settingsMenuView }}
           weekly={{
             dedupeWeeklyEntries,

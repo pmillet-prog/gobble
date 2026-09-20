@@ -2,6 +2,9 @@ import React from "react";
 import AssetManager from "../assets/assetManager";
 import { IMAGE_KEYS } from "../assets/assetKeys";
 import TrainingPlayerBadge from "./training/TrainingPlayerBadge.jsx";
+import PlayerProfileLink from "./profile/PlayerProfileLink.jsx";
+import AvatarThumbnail from "../features/avatar/AvatarThumbnail.jsx";
+import { playerProfileUserId } from "../features/overlays/playerProfileTarget.js";
 import LepersBonusBadge from "./results/LepersBonusBadge.jsx";
 import { getCompactRankingLayout } from "./ranking/compactRankingLayout.js";
 
@@ -19,6 +22,7 @@ function areRankingListsEquivalent(left, right) {
     const b = right[i] || {};
     if ((a.playerKey || a.nick || i) !== (b.playerKey || b.nick || i)) return false;
     if ((a.nick || "") !== (b.nick || "")) return false;
+    if (playerProfileUserId(a) !== playerProfileUserId(b)) return false;
     if ((a.score || 0) !== (b.score || 0)) return false;
     if ((a.wordsCount ?? null) !== (b.wordsCount ?? null)) return false;
     if (!!a.isPalier !== !!b.isPalier) return false;
@@ -366,6 +370,7 @@ function RankingWidgetMobile({
   showBadge = false,
   flatStyle = false,
   showRoundAward = false,
+  showAvatars = false,
   showNickDecorations = true,
   stackNickDecorations = false,
   showGobbleWordAwards = true,
@@ -1018,6 +1023,7 @@ function RankingWidgetMobile({
                     <span className="inline-flex">{renderAfterRank(entry, rank)}</span>
                   ) : null}
                 </span>
+                {showAvatars && playerProfileUserId(entry) ? <AvatarThumbnail userId={playerProfileUserId(entry)} size={24} className="self-center" showPlaceholder /> : null}
                 <span className="min-w-0 flex-1">
                   {shouldStackNickDecorations ? (
                       <span className="min-w-0 flex flex-col items-start gap-0.5">
@@ -1029,7 +1035,7 @@ function RankingWidgetMobile({
                           nickClassName,
                         ].filter(Boolean).join(" ")}
                       >
-                        {entry.nick}
+                        <PlayerProfileLink entry={entry} className="max-w-full truncate" />
                       </span>
                       {afkBadge}
                       {hasSecondaryNickLine ? (
@@ -1055,7 +1061,7 @@ function RankingWidgetMobile({
                           nickClassName,
                         ].filter(Boolean).join(" ")}
                       >
-                        {entry.nick}
+                        <PlayerProfileLink entry={entry} className="max-w-full truncate" />
                       </span>
                       {afkBadge}
                       {trainingBadge}
@@ -1782,6 +1788,7 @@ function areStringListsEquivalent(left, right) {
 }
 
 function areRankingWidgetPropsEqual(prev, next) {
+  if (!!prev.showAvatars !== !!next.showAvatars) return false;
   const hasDecorationKey =
     prev.nickDecorationKey != null ||
     next.nickDecorationKey != null;

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { createResourceScope } from "../../app/core/createResourceScope.js";
+import { chatAvatarRevisions } from "../avatar/chatAvatarRevisions.js";
 import {
   createChatFeature,
   isCapelloInterventionMessage,
@@ -117,6 +118,7 @@ test("chat feature owns realtime messages, unread counts and socket cleanup", ()
   chat.start();
 
   assert.deepEqual([...handlers.keys()].sort(), [
+    "avatar:updated",
     "chat:history",
     "chat:message_delete",
     "chat:message_reaction",
@@ -132,6 +134,11 @@ test("chat feature owns realtime messages, unread counts and socket cleanup", ()
     text: "Salut",
   });
   assert.equal(chat.store.getState().mobileUnreadCount, 1);
+
+  const unchangedMessages = chat.store.getState().messages;
+  socket.fire("avatar:updated", { userId: 9035, revision: 2 });
+  assert.match(chatAvatarRevisions.url(9035), /\/9035\/chat\.png\?v=2/);
+  assert.equal(chat.store.getState().messages, unchangedMessages, "editing an avatar does not rebuild the message list");
 
   socket.fire("chatMessage", {
     createdAt: 2,

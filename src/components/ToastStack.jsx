@@ -1,4 +1,6 @@
 import React from "react";
+import AvatarRewardToast from "../features/avatar/AvatarRewardToast.jsx";
+import "../features/avatar/avatarRewardToast.css";
 
 export default function ToastStack({ toasts = [], darkMode = false }) {
   const list = Array.isArray(toasts) ? toasts : [];
@@ -32,7 +34,7 @@ export default function ToastStack({ toasts = [], darkMode = false }) {
               ["--toast-shift-x"]: isLeft ? "-10px" : "10px",
             }}
           >
-            <span className="inline-flex items-center gap-2">
+            {toast?.avatarReward ? <AvatarRewardToast reward={toast.avatarReward} /> : <span className="inline-flex items-center gap-2">
               {toast?.iconSrc ? (
                 <img
                   src={toast.iconSrc}
@@ -41,7 +43,7 @@ export default function ToastStack({ toasts = [], darkMode = false }) {
                 />
               ) : null}
               <span>{toast?.message || ""}</span>
-            </span>
+            </span>}
           </div>
         ))}
       </div>

@@ -10,6 +10,9 @@ import { useChatUnreadState } from "../../features/chat/useChatUnreadState.js";
 import useHomeLobbyIntro from "./useHomeLobbyIntro.js";
 import HomeChalkboardButton from "./HomeChalkboardButton.jsx";
 import HomeTutorialButton from "./HomeTutorialButton.jsx";
+import LocalPlayerAvatar from "../../features/avatar/LocalPlayerAvatar.jsx";
+import NewFeatureBadge from "../NewFeatureBadge.jsx";
+import GobblarsBalance from "../GobblarsBalance.jsx";
 
 const HOME_ASSETS = {
   title: UI_IMAGE_KEYS.home.title,
@@ -409,6 +412,18 @@ const styles = `
 .home-icon-button {
   width: min(17vw, 104px);
 }
+.home-account-avatar {
+  position: absolute;
+  left: 6.8%;
+  top: 30.5%;
+  width: 26.7%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 2px solid #d8ac63;
+  box-shadow: 0 1px 5px #321e10aa;
+  pointer-events: none;
+}
 .home-bottom-nav.has-chalkboard {
   grid-template-columns: repeat(6, minmax(0, 1fr));
 }
@@ -773,6 +788,8 @@ function HomeImageButton({
 
 function HomeLobby({
   accountLabel = "",
+  accountUserId = null,
+  gobblarsBalance = 0,
   accountOnline = false,
   accountNotice = "",
   backgroundDesktop = "",
@@ -893,6 +910,7 @@ function HomeLobby({
         />
       </picture>
       <div className="home-lobby-shell">
+        {accountUserId ? <div className="home-gobblars home-lobby-secondary" data-maintenance={maintenanceMode}><GobblarsBalance balance={gobblarsBalance} /></div> : null}
         {onOpenTutorial ? <HomeTutorialButton onClick={onOpenTutorial} /> : null}
         {maintenanceMode ? (
           <div
@@ -926,6 +944,8 @@ function HomeLobby({
           onClick={onOpenAccount}
         >
           <span className="home-account-name">{safeAccountLabel}</span>
+          <NewFeatureBadge />
+          {accountUserId ? <span className="home-account-avatar"><LocalPlayerAvatar userId={accountUserId} size={64} label="Mon avatar" /></span> : null}
           <span
             className={`home-account-dot ${accountOnline ? "" : "home-account-dot-off"}`}
             aria-hidden="true"

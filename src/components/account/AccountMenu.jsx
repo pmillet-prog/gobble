@@ -1,5 +1,6 @@
 import React from "react";
 import SettingsMenuFrame from "../settings/SettingsMenuFrame.jsx";
+import NewFeatureBadge from "../NewFeatureBadge.jsx";
 
 export default function AccountMenu({ actions, appearance, auth, labels }) {
   const close = actions.onClose;
@@ -69,7 +70,7 @@ export default function AccountMenu({ actions, appearance, auth, labels }) {
                 }}
                 className={`w-full rounded-xl border px-3 py-2 text-left text-sm font-semibold ${appearance.goldButtonClass}`}
               >
-                Voir mon profil
+                Voir mon profil <NewFeatureBadge className="ml-2" />
               </button>
               <button
                 type="button"

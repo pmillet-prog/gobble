@@ -17,7 +17,7 @@ export default function SettingsShortcutMenu({ darkMode, devMenuUnlocked, devCon
   onAbout, onHome, onDev, onModeration }) {
   return <nav className={`settings-shortcuts${darkMode ? " is-dark" : ""}`} aria-label="Réglages et aide">
     <div className="settings-shortcuts-main">
-      <Shortcut label="Réglages" icon="settings" onClick={onGeneral} active={playtimeLimitActive} tone="is-general" />
+      <Shortcut label="Réglages" icon="tune" onClick={onGeneral} active={playtimeLimitActive} tone="is-general" />
       <Shortcut label="Aide rapide et didacticiel" icon="help" onClick={onHelp} tone="is-help" />
       <Shortcut label="À propos" icon="info" onClick={onAbout} tone="is-about" />
       <Shortcut label="Groupe Facebook" onClick={openFacebookGroup} tone="is-facebook">

@@ -6,8 +6,10 @@ import { buildStandaloneTrainingTargetSummary } from "../training/standaloneTrai
 import { shouldProcessLiveRoomEvent } from "../utils/liveEventScope.js";
 import { createRoundBreakHandler } from "../features/round/createRoundBreakHandler.js";
 import { resolveVocabRoundProgress } from "../features/stats/vocabRoundProgress.js";
+import { resolveTournamentFinaleGate } from "../features/celebration/tournamentFinaleGate.js";
 
 export default function useRoundLifecycle(runtime) {
+  const finaleGateRef = React.useRef(null);
   const {
     appViewRef,
     blackHoleAuxStopRef,
@@ -160,10 +162,13 @@ export default function useRoundLifecycle(runtime) {
         ensureTournamentBaseline(tournamentPayload, { captureRanking: true });
       }
       if (endBreakKind === "tournament_end") {
-        setTournamentFinaleHoldUntil(
-          getNowServerMs() + FINAL_ROUND_RESULTS_SECONDS * 1000
-        );
+        finaleGateRef.current = resolveTournamentFinaleGate(finaleGateRef.current, {
+          key: `${endedRoomId || ""}:${tournamentPayload?.id || ""}:${endedId || ""}`,
+          summaryAt, now: getNowServerMs(), delayMs: FINAL_ROUND_RESULTS_SECONDS * 1000,
+        });
+        setTournamentFinaleHoldUntil(finaleGateRef.current.at);
       } else {
+        finaleGateRef.current = null;
         setTournamentFinaleHoldUntil(null);
       }
       setTournamentRoundPoints(tournamentPayload?.roundAwarded || {});
@@ -189,6 +194,7 @@ export default function useRoundLifecycle(runtime) {
                   ? basePos - posNow
                   : e.delta ?? 0;
               return {
+                ...e,
                 nick: e.nick,
                 score: e.points,
                 gobbles: e.gobbles ?? null,

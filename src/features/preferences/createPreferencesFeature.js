@@ -284,14 +284,15 @@ export function createPreferencesFeature({ scope }, options = {}) {
     })
   );
   let previous = store.getState();
-  const refs = Object.freeze(
-    Object.fromEntries(
+  const refs = Object.freeze({
+    ...Object.fromEntries(
       IMPERATIVE_PREFERENCE_FIELDS.map((field) => [
         field,
         { current: previous[field] },
       ])
-    )
-  );
+    ),
+    gobblarsKnownBalanceRef: { current: null },
+  });
 
   function syncImperativeRefs(state) {
     for (const field of IMPERATIVE_PREFERENCE_FIELDS) {

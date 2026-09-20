@@ -20,8 +20,7 @@ test("daily hub renders every section without legacy helpers", async () => {
       vite.ssrLoadModule("/src/components/daily/dailyModes.js"),
     ]);
     const noOp = () => {};
-    const markup = renderToString(
-      React.createElement(DailyHubScreen, {
+    const element = React.createElement(DailyHubScreen, {
         actions: {
           closeDailyLaunchDialog: noOp,
           confirmDailyLaunch: noOp,
@@ -69,14 +68,33 @@ test("daily hub renders every section without legacy helpers", async () => {
           isMobileLayout: false,
           menuDarkMode: false,
         },
-      }),
-    );
+      });
+    const markup = renderToString(element);
 
     assert.match(markup, /Grilles du jour/);
     assert.match(markup, /Lancer/);
     assert.match(markup, /Grille monstrueuse/);
     assert.match(markup, /Monstrueuse/);
     assert.match(markup, /Faux jumeaux/);
+    const historyMarkup = renderToString(React.cloneElement(element, {
+      view: { ...element.props.view, isMobileLayout: true },
+      daily: {
+        ...element.props.daily, dailyRankingView: "history", dailySection: DAILY_MONSTROUS_MODE,
+        dailyLaunchDialog: null,
+        dailyHistory: { days: [{ dateId: "2026-09-03", entries: [{ nick: "Test", score: 100, mode: DAILY_MONSTROUS_MODE }] }] },
+      },
+    }));
+    assert.match(historyMarkup, /Mots trouvables/);
+    assert.match(historyMarkup, /2026-09-03/);
+    assert.match(historyMarkup, /Test/);
+    assert.doesNotMatch(historyMarkup, /Liste des mots indisponible|Chargement des mots/);
+    const { default: DailyHistoryWords } = await vite.ssrLoadModule("/src/components/daily/DailyHistoryWords.jsx");
+    const wordsMarkup = renderToString(React.createElement(DailyHistoryWords, {
+      state: { findableWords: ["chat", "rien"], myWords: ["chat"] }, openDefinition: noOp,
+    }));
+    assert.match(wordsMarkup, /class="font-bold">chat/);
+    assert.match(wordsMarkup, /bg-current invisible/);
+    assert.match(wordsMarkup, /Voir la définition de chat/);
   } finally {
     await vite.close();
   }

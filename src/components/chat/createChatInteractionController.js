@@ -2,6 +2,7 @@ import { normalizeInstallId } from "../../app/adapters/browserIdentity.js";
 import { getDefaultRoomId } from "../../app/adapters/deviceCapabilities.js";
 import { isSystemChatMessage } from "../../utils/chatMessages.js";
 import { ACCOUNT_SEEN_MARKERS } from "../../utils/accountSeenMarkers.js";
+import { getChatUserMenuPosition } from "./chatUserMenuLayout.js";
 
 const CHAT_DRAWER_ANIM_MS = 420;
 
@@ -425,36 +426,16 @@ function openDesktopChatReactionPicker(e, message) {
 
 function openUserMenu(e, { nick, userId: targetUserId = null, installId: targetInstallId, messageId = null }) {
   const key = normalizeInstallId(targetInstallId);
-  if (!key || key === installId) return;
   if (key.startsWith("dev-bot:")) return;
   const profileUserId =
     normalizeUserIdForProfile(targetUserId) || normalizeUserIdForProfile(targetInstallId);
+  if (!key && !profileUserId) return;
   if (e?.preventDefault) e.preventDefault();
   if (e?.stopPropagation) e.stopPropagation();
   const rect = e?.currentTarget?.getBoundingClientRect?.();
   const viewportWidth = window.innerWidth || 360;
   const viewportHeight = window.innerHeight || 640;
-  const menuWidth = 180;
-  const menuHeight = 154;
-  const padding = 8;
-  const anchorCenterX =
-    Number.isFinite(rect?.left) && Number.isFinite(rect?.width)
-      ? rect.left + rect.width / 2
-      : padding;
-  const anchorCenterY =
-    Number.isFinite(rect?.top) && Number.isFinite(rect?.height)
-      ? rect.top + rect.height / 2
-      : padding;
-  const baseLeft = anchorCenterX - menuWidth / 2;
-  const baseTop = anchorCenterY - menuHeight / 2;
-  let left = Math.min(
-    Math.max(padding, Math.round(baseLeft)),
-    Math.max(padding, viewportWidth - menuWidth - padding)
-  );
-  let top = Math.min(
-    Math.max(padding, Math.round(baseTop)),
-    Math.max(padding, viewportHeight - menuHeight - padding)
-  );
+  const { left, top } = getChatUserMenuPosition(rect, viewportWidth, viewportHeight);
   setUserMenu({
     open: true,
     left,
@@ -462,6 +443,7 @@ function openUserMenu(e, { nick, userId: targetUserId = null, installId: targetI
     nick: nick || "Joueur",
     userId: profileUserId,
     installId: key,
+    canModerate: !!key && key !== installId,
     messageId: messageId || null,
   });
 }

@@ -1,5 +1,7 @@
 import { createStateFeature } from "../../app/core/createStateFeature.js";
 import { getDefaultRoomId } from "../../app/adapters/deviceCapabilities.js";
+import { chatAvatarRevisions } from "../avatar/chatAvatarRevisions.js";
+import { playerProfileUserId } from "../overlays/playerProfileTarget.js";
 import {
   CHAT_BOT_VISIBILITY_STORAGE_KEY,
   CHAT_SHOW_BOT_MESSAGES_STORAGE_KEY,
@@ -350,6 +352,8 @@ export function createChatFeature(context, options = {}) {
     const normalizedEntries = history
       .map((entry) => normalizeChatMessageShape(entry))
       .filter(Boolean);
+    // History also arrives after reconnect: recover edits missed while disconnected.
+    chatAvatarRevisions.refresh(normalizedEntries.map(playerProfileUserId).filter(Boolean));
     let historyCapelloIntervention = null;
     let historyPivotIntervention = null;
     let historyRomejkoIntervention = null;
@@ -557,6 +561,7 @@ export function createChatFeature(context, options = {}) {
     realtimeSocket = nextSocket;
     if (!active || typeof realtimeSocket?.bind !== "function") return;
     realtimeUnsubscribe = realtimeSocket.bind({
+      "avatar:updated": chatAvatarRevisions.update,
       "chat:history": onChatHistory,
       "chat:message_delete": onChatMessageDelete,
       "chat:message_reaction": onChatReactionUpdate,

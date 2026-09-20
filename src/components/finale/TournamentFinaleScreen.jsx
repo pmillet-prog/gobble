@@ -1,4 +1,5 @@
 import React from "react";
+import PlayerProfileLink from "../profile/PlayerProfileLink.jsx";
 import IntermissionReturnLabel from "../../features/intermission/IntermissionReturnLabel.jsx";
 import { useChatDraft } from "../../features/chat/useChatDraft.js";
 import { useChatPresentation } from "../../features/chat/useChatPresentation.js";
@@ -11,6 +12,7 @@ import {
   QUICK_REPLIES,
 } from "../chat/chatPresentationConfig.js";
 import PresenterChatAvatar from "../chat/PresenterChatAvatar.jsx";
+import PlayerChatAvatar from "../chat/PlayerChatAvatar.jsx";
 import RankingWidgetMobile from "../RankingWidgetMobile.jsx";
 import DesktopPresenterActionBar from "../../features/presenters/DesktopPresenterActionBar.jsx";
 import MobilePresenterActionBar from "../../features/presenters/MobilePresenterActionBar.jsx";
@@ -414,6 +416,7 @@ export default function TournamentFinaleScreen({
           ? basePos - posNow
           : fallbackDelta;
       return {
+        ...e,
         nick: e.nick,
         score: typeof e.points === "number" ? e.points : e.score || 0,
         gobbles: typeof e.gobbles === "number" ? e.gobbles : 0,
@@ -951,7 +954,7 @@ export default function TournamentFinaleScreen({
                       (authorInstallId ? authorInstallId === installId : author === selfNick);
                     const isLast = msg.id === lastMessageId;
                     const canOpenMenu =
-                      !isSystem && authorInstallId && authorInstallId !== installId;
+                      !isSystem && !isAmbientBot && (authorInstallId || msg.userId);
                     const replyPreview = getChatMessageReplyPreview(msg);
                     const reactionEntries = getChatMessageReactionEntries(msg);
                     const replyTargetsSelf = !!(
@@ -1029,7 +1032,7 @@ export default function TournamentFinaleScreen({
 	                                }`}
                                   style={{ fontSize: `${desktopChatMetaFontPx}px`, lineHeight: `${desktopChatMetaLineHeightPx}px` }}
 	                              >
-                                <div className="font-semibold">{replyPreview.nick}</div>
+                                <div className="font-semibold"><PlayerProfileLink entry={replyPreview} /></div>
                                 <div
                                   style={{
                                     display: "-webkit-box",
@@ -1048,7 +1051,7 @@ export default function TournamentFinaleScreen({
 	                                  message={msg}
 	                                  className="-my-1 mr-0.5 h-7 w-7 self-center"
 	                                />
-	                              ) : null}
+	                              ) : <PlayerChatAvatar message={msg} />}
 	                              {canOpenMenu ? (
 	                                <button
 	                                  type="button"

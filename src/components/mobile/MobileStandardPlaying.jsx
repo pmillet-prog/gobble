@@ -1,4 +1,5 @@
 import React from "react";
+import "./mobileGameViewport.css";
 
 import HelpOverlay from "../HelpOverlay.jsx";
 import LiveFeedSatellite from "../../features/live/LiveFeedSatellite.jsx";
@@ -157,7 +158,7 @@ function MobileStandardPlaying(props) {
   return (
     <>
       <div
-        className={`flex flex-col ${
+        className={`mobile-game-viewport flex flex-col ${
           darkMode ? "bg-slate-900 text-slate-100" : "bg-slate-50 text-slate-900"
         }`}
         style={mobileViewportContainerStyle}

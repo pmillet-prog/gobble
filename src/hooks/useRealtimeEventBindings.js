@@ -424,9 +424,7 @@ useEffect(() => {
         const timerId = window.setTimeout(() => {
           gobblarToastDelayTimersRef.current.delete(timerId);
           showToastRef.current?.(message, 3000, {
-            iconSrc: "/Gobblars.png",
-            iconAlt: "Gobblars",
-            position: "top-left",
+            gobblarsReward: { amount, balance, label: amount >= 2 ? "Double gobble !" : "Gobble !", receipt: payload.ts ? `live_gobble:${payload.ts}:${balance}` : "" },
           });
         }, 1000);
         gobblarToastDelayTimersRef.current.add(timerId);
@@ -445,8 +443,7 @@ useEffect(() => {
         ? `Médaille ${medalLabel}: +${amount} Gobblars`
         : `+${amount} Gobblars`;
       showToastRef.current?.(message, 3000, {
-        iconSrc: "/Gobblars.png",
-        iconAlt: "Gobblars",
+        gobblarsReward: { amount, balance, label: medalLabel ? `Médaille ${medalLabel === "or" ? "d’or" : medalLabel === "argent" ? "d’argent" : "de bronze"}` : "Bien joué !", receipt: payload.ts ? `${awardKind}:${payload.ts}:${balance}` : "" },
       });
     }
 

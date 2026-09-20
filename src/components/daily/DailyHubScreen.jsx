@@ -1,4 +1,5 @@
 import React from "react";
+import PlayerProfileLink from "../profile/PlayerProfileLink.jsx";
 import ViewportOverlay from "../overlays/ViewportOverlay.jsx";
 import { normalizeInstallId } from "../../app/adapters/browserIdentity.js";
 import {
@@ -12,6 +13,8 @@ import {
   DAILY_SPECIAL_MODE,
 } from "./dailyModes.js";
 import useDailySpecialRecap from "./useDailySpecialRecap.js";
+import useDailyHistoryWords from "./useDailyHistoryWords.js";
+import DailyHistoryWords from "./DailyHistoryWords.jsx";
 import { isOwnDailyEntry } from "./dailySpecialRecapModel.js";
 import {
   DAILY_PLAYABLE_MODES,
@@ -66,6 +69,7 @@ export default function DailyHubScreen({
   } = actions;
   const { renderCrownIcon, renderGobbleBadge, renderHumanDot } = renderers;
   const specialRecap = useDailySpecialRecap({ appView, dailyResult, dailyStatus });
+  const historyWords = useDailyHistoryWords({ installId, section: dailySection, rankingView: dailyRankingView });
   const specialRecapOverlay = specialRecap.opened ? (
     <React.Suspense fallback={null}>
       <DailySpecialRecapDialog {...specialRecap.opened} onClose={specialRecap.close} />
@@ -211,20 +215,6 @@ export default function DailyHubScreen({
           .map((page) => ({
             ...page,
             entries: filterDailyEntriesBySection(page?.entries, dailySection),
-            findableWords:
-              isDailyMode(dailySection)
-                ? Array.isArray(page?.findableWordsByMode?.[dailySection])
-                  ? page.findableWordsByMode[dailySection]
-                  : []
-                : Array.isArray(page?.findableWords)
-                ? page.findableWords
-                : [],
-            myWords:
-              isDailyMode(dailySection)
-                ? Array.isArray(page?.myWordsByMode?.[dailySection])
-                  ? page.myWordsByMode[dailySection]
-                  : []
-                : [],
           }))
           .filter((page) =>
             dailySection === DAILY_OVERVIEW_SECTION
@@ -303,20 +293,12 @@ export default function DailyHubScreen({
                 <span className="text-[11px] font-black tabular-nums w-6 text-right opacity-70">
                   {idx + 1}
                 </span>
-                {canReviewWords ? (
-                  <button type="button" className="min-w-0 truncate font-semibold flex items-center gap-1 underline decoration-dotted underline-offset-4"
-                    onClick={specialRecap.open} aria-label={`Voir le récapitulatif de mes 3 mots (${entry.nick || "Joueur"})`} title="Revoir mes 3 mots">
-                    {entry.nick || "Joueur"}
-                    {renderHumanDot(entry.nick, entry)}
-                    {gobbleBadge}
-                  </button>
-                ) : (
                   <span className="truncate font-semibold flex items-center gap-1">
-                    {entry?.nick || "Joueur"}
+                    <PlayerProfileLink entry={entry} className="truncate" />
                     {renderHumanDot(entry?.nick, entry)}
                     {gobbleBadge}
                   </span>
-                )}
+                {canReviewWords ? <button type="button" className="shrink-0 rounded-lg border border-current/30 px-2 py-1 text-xs font-bold" onClick={specialRecap.open} title="Revoir mes 3 mots">Mes 3 mots</button> : null}
               </div>
               <span className="text-[11px] font-semibold opacity-80 shrink-0">{label}</span>
             </div>
@@ -415,7 +397,7 @@ export default function DailyHubScreen({
                 {row.idx + 1}
               </span>
               <span className="min-w-0 truncate text-[11px] sm:text-xs font-semibold flex items-center gap-1">
-                {row.entry?.nick || "Joueur"}
+                <PlayerProfileLink entry={row.entry} className="truncate" />
                 {renderHumanDot(row.entry?.nick, { ...row.entry, team })}
                 {row.gobbleBadge}
               </span>
@@ -511,87 +493,6 @@ export default function DailyHubScreen({
       );
     })()
   );
-  const dailyHistoryFoundDotStyle = {
-    width: "0.4rem",
-    height: "0.4rem",
-    borderRadius: "9999px",
-    backgroundColor: menuDarkMode ? "#f8fafc" : "#0f172a",
-    flexShrink: 0,
-  };
-  const renderDailyHistoryWords = (page) => {
-    if (!isDailyMode(dailySection)) {
-      return null;
-    }
-    const words = Array.isArray(page?.findableWords) ? page.findableWords : [];
-    const selfEntry = Array.isArray(page?.entries)
-      ? page.entries.find((entry) => entry?.installId && installId && entry.installId === installId)
-      : null;
-    if (!words.length) {
-      return (
-        <div className="text-xs opacity-70 py-3 text-center">
-          Liste des mots indisponible pour cette grille.
-        </div>
-      );
-    }
-    const foundSet = new Set(
-      (Array.isArray(page?.myWords) ? page.myWords : [])
-        .map((word) => String(word || "").trim())
-        .filter(Boolean)
-    );
-    const highlightUnavailable =
-      !!selfEntry && (Number(selfEntry?.wordsCount) || 0) > 0 && foundSet.size === 0;
-    return (
-      <div className="space-y-2">
-        <div className="flex items-center justify-between gap-2">
-          <div className="text-sm font-semibold">Mots trouvables</div>
-          <div className="text-[11px] opacity-70">{words.length}</div>
-        </div>
-        {highlightUnavailable ? (
-          <div className="text-[11px] opacity-70">
-            Mise en surbrillance indisponible pour cette ancienne grille.
-          </div>
-        ) : null}
-        <div className="max-h-[240px] overflow-y-auto custom-scrollbar custom-scrollbar-gray pr-1">
-          <ul className="relative flex flex-col text-sm">
-            {words.map((word) => {
-              const isFound = foundSet.has(word);
-              return (
-                <li
-                  key={`daily-history-word-${page?.dateId || "day"}-${word}`}
-                  className="rounded px-1 flex items-center justify-between gap-2 transition hover:bg-slate-950/45"
-                >
-                  <button
-                    type="button"
-                    className="flex items-center gap-2 text-left min-w-0"
-                    onClick={() => openDefinition(word)}
-                    aria-label={`Voir la définition de ${word}`}
-                    title="Voir la définition"
-                  >
-                    <span
-                      style={{
-                        ...dailyHistoryFoundDotStyle,
-                        opacity: isFound ? 1 : 0,
-                      }}
-                      aria-hidden="true"
-                    />
-                    <span
-                      className={`min-w-0 truncate ${
-                        isFound
-                          ? "font-semibold"
-                          : "text-amber-50/70"
-                      }`}
-                    >
-                      {word}
-                    </span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      </div>
-    );
-  };
   const renderDailyHistorySlider = (pages = filteredDailyHistoryPages, panelHeightClass = "max-h-[320px]") =>
     dailyHistoryPageCount > 0 ? (
       <div
@@ -636,8 +537,16 @@ export default function DailyHubScreen({
                   >
                     {page.type === "day" ? (
                       <>
-                        <div className="flex items-baseline justify-between gap-2 mb-2">
-                          <div className="text-sm font-bold">Date : {page.dateId}</div>
+                        <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 mb-2">
+                          <div className="text-xs sm:text-sm font-bold">{page.dateId}</div>
+                          {isDailyMode(dailySection) ? (
+                            <button type="button"
+                              className={`rounded-lg border px-2 py-2 text-xs sm:text-sm font-bold ${historyWords.opened?.dateId === page.dateId ? "border-amber-300 bg-amber-300/20" : dailyHomeInnerPanelClass}`}
+                              aria-pressed={historyWords.opened?.dateId === page.dateId}
+                              onClick={() => historyWords.toggle(page.dateId)}>
+                              {historyWords.opened?.dateId === page.dateId ? "Classement" : "Mots trouvables"}
+                            </button>
+                          ) : <span />}
                           {Number.isFinite(
                             dailySection === DAILY_OVERVIEW_SECTION
                               ? Array.isArray(page?.entries)
@@ -647,7 +556,7 @@ export default function DailyHubScreen({
                               ? page.entries.length
                               : null
                           ) ? (
-                            <div className="text-[11px] opacity-70">
+                            <div className="text-[11px] opacity-70 text-right">
                               {dailySection === DAILY_OVERVIEW_SECTION
                                 ? Array.isArray(page?.entries)
                                   ? page.entries.length
@@ -696,7 +605,11 @@ export default function DailyHubScreen({
                               </div>
                             </div>
                           ) : null}
-                          {dailySection === DAILY_OVERVIEW_SECTION ? (
+                          {isDailyMode(dailySection) && historyWords.opened?.dateId === page.dateId ? (
+                            <DailyHistoryWords state={historyWords.opened}
+                              selfEntry={page.entries?.find((entry) => isOwnDailyEntry(entry, { installId, selfNick }))}
+                              openDefinition={openDefinition} onRetry={() => historyWords.toggle(page.dateId)} />
+                          ) : dailySection === DAILY_OVERVIEW_SECTION ? (
                             Array.isArray(page?.entries) && page.entries.length > 0 ? (
                               <div
                                 className={`rounded-lg border overflow-hidden ${dailyHomeInnerPanelClass}`}
@@ -723,7 +636,7 @@ export default function DailyHubScreen({
                                             {entryIdx + 1}
                                           </span>
                                           <span className="truncate font-semibold flex items-center gap-1">
-                                            {entry?.nick || "Joueur"}
+                                            <PlayerProfileLink entry={entry} className="truncate" />
                                             {renderHumanDot(entry?.nick, entry)}
                                             {gobbleBadge}
                                           </span>
@@ -763,7 +676,7 @@ export default function DailyHubScreen({
                                         {entryIdx + 1}
                                       </span>
                                       <span className="truncate font-semibold flex items-center gap-1">
-                                        {entry?.nick || "Joueur"}
+                                        <PlayerProfileLink entry={entry} className="truncate" />
                                         {renderHumanDot(entry?.nick, entry)}
                                         {gobbleBadge}
                                       </span>
@@ -780,13 +693,6 @@ export default function DailyHubScreen({
                               Aucun score pour ce jour.
                             </div>
                           )}
-                          {dailySection !== DAILY_OVERVIEW_SECTION ? (
-                            <div
-                              className={`pt-3 border-t ${dailyHomeRowBorderClass}`}
-                            >
-                              {renderDailyHistoryWords(page)}
-                            </div>
-                          ) : null}
                         </div>
                       </>
                     ) : (
@@ -812,7 +718,7 @@ export default function DailyHubScreen({
                                     {entryIdx + 1}
                                   </span>
                                   <span className="truncate font-semibold flex items-center gap-1">
-                                    {entry?.nick || "Joueur"}
+                                    <PlayerProfileLink entry={entry} className="truncate" />
                                     {entryIdx === 0 ? renderCrownIcon() : null}
                                   </span>
                                 </div>

@@ -5,6 +5,7 @@ import "./dailySpecialRecap.css";
 
 export default function DailySpecialRecapDialog({ result, review, animate = false, onClose,
   contextLabel = "Grille du jour · 3 mots",
+  doneLabel = "Voir le classement",
   footerNote = "Tu peux retrouver ce bilan en cliquant sur ton pseudo dans le classement 3 mots.",
 }) {
   const dialogRef = React.useRef(null);
@@ -64,7 +65,7 @@ export default function DailySpecialRecapDialog({ result, review, animate = fals
         <p className="daily-special-recap-note">Le détail des points par mot n’a pas été conservé pour cette ancienne partie.</p> : null}
       {footerNote ? <p className="daily-special-recap-note">{footerNote}</p> : null}
       <button type="button" className="daily-special-recap-done" onClick={complete ? onClose : () => setRevealed(review.length)}>
-        {complete ? "Voir le classement" : "Tout afficher"}
+        {complete ? doneLabel : "Tout afficher"}
       </button>
     </dialog>, document.body
   );

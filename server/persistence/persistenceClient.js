@@ -135,6 +135,9 @@ export function createPersistenceClient() {
     addGobblars(payload) {
       return call("addGobblars", payload);
     },
+    recordAvatarObjectives(payload) {
+      return call("recordAvatarObjectives", payload);
+    },
     grantWeeklyWinnerGobblars(payload) {
       return call("grantWeeklyWinnerGobblars", payload);
     },

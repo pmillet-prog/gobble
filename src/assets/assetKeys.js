@@ -43,6 +43,7 @@ export const SFX_KEYS = {
   tictoc: "sfx_tictoc",
   vocabOverlay: "sfx_vocab_overlay",
   vocabCling: "sfx_vocab_cling",
+  cashRegister: "sfx_cash_register",
   invalidWord: "sfx_invalid_word",
   dejaJoue: "sfx_deja_joue",
   uiClick: "sfx_ui_click",

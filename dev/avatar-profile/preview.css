@@ -1,0 +1,10 @@
+body{margin:0;background:#081723;color:#d7e4ec;font-family:Arial,sans-serif}
+.avatar-review-page{max-width:880px;margin:auto;padding:35px 20px 70px}
+.avatar-review-page h1{font-size:30px;font-weight:850;color:#ffe5ad;margin:8px 0 12px}
+.avatar-review-page>p:not(.profile-eyebrow){font-size:14px;line-height:1.6;color:#a5bccb}
+.avatar-review-actions{display:flex;gap:10px;flex-wrap:wrap;margin:25px 0 40px}
+.avatar-review-actions button{border:1px solid #d4b77870;background:#22333c;border-radius:10px;padding:10px 14px;color:#ffe3a7;font-weight:750}
+.avatar-review-thumbnails{margin-top:25px}
+.avatar-review-thumbnails h2{margin:0 0 15px;color:#ffe5ad;font-size:20px;font-weight:800}
+.avatar-review-thumbnails .avatar-parts{grid-template-columns:repeat(5,minmax(0,1fr))}
+@media(max-width:600px){.avatar-review-thumbnails .avatar-parts{grid-template-columns:repeat(3,minmax(0,1fr))}}

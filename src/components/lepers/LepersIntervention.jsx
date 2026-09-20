@@ -16,6 +16,7 @@ function LepersIntervention({
   hostRef,
   liveRoundFeature,
   manual = false,
+  onOpenWord = null,
   phaseKey = "",
   playBonusVoice,
   roundId = null,
@@ -105,6 +106,7 @@ function LepersIntervention({
       placementController={presenterHintsController}
       manualKey="lepers"
       onManualActivation={handleManualActivation}
+      onOpenWord={onOpenWord}
       onPresentationComplete={handlePresentationComplete}
       phaseKey={phaseKey}
       queueWhileDisabled

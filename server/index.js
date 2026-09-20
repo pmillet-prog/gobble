@@ -50,6 +50,8 @@ import {
   getTournamentLobbyCooldownStatus,
 } from "./tournamentLobbyCooldownPolicy.js";
 import { createBotManager, BOT_ROSTER_4X4 } from "./bots/botManager.js";
+import { getLiveRoundDurationMs, OCID_PROPOSAL_DURATION_MS, OCID_VOTE_DURATION_MS } from "./liveRoundDuration.js";
+import { createCoachHintPicker } from "./bots/coachHints.js";
 import {
   buildRomejkoInterventionText,
   getRomejkoLongestWordSummary,
@@ -124,6 +126,7 @@ import {
   getWeekStartTs,
   getPreviousWeeklyVocabChampion,
   getPreviousWeeklyVocabPodium,
+  getWeeklyAvatarAuraPeriod,
   getWeeklyStats,
   recordBestSpecial3Score,
   recordBestRoundScore,
@@ -179,6 +182,8 @@ import {
   ensureDaily,
   getDailyBoard,
   getDailyHistory,
+  getDailyHistoryWords,
+  confirmDailyLaunch,
   getDailyStatus,
   getDailyResultsSnapshot,
   getParisDateId,
@@ -214,7 +219,10 @@ import {
   setBroadcastMessage,
 } from "./admin/broadcastService.js";
 import { createAuthRouter } from "./auth/authRouter.js";
+import { createAvatarObjectiveBatcher } from "./avatars/avatarObjectiveBatcher.js";
+import { getPlayerProfileAppearance } from "./avatars/playerProfileAppearance.js";
 import {
+  avatarStarterGrant,
   consumeSocketTicket,
   findUserById,
   getSessionByToken,
@@ -222,6 +230,7 @@ import {
   listDevicesForUser,
   normalizeUsername,
   setUserIdentityMigrationSignature,
+  weeklyAvatarAuras,
 } from "./auth/authService.js";
 import {
   addPlaytimeUsage,
@@ -247,6 +256,14 @@ await applyPendingScoreRecordRollback()
 
 const computePool = createComputePool();
 const persistenceClient = createPersistenceClient();
+const avatarObjectiveProgress = createAvatarObjectiveBatcher({
+  persist: events => persistenceClient.recordAvatarObjectives(events),
+  onRewards: rewards => {
+    for (const { userId, reward } of rewards) for (const client of io.sockets.sockets.values()) {
+      if (Number(client.data?.authUser?.id) === userId) client.emit("avatarRewardsUnlocked", { userId, rewards: [reward] });
+    }
+  },
+});
 void initVocabularyService().catch((err) =>
   console.warn("Vocabulary service init failed", err)
 );
@@ -258,6 +275,9 @@ void initGobblarsService({ applyGlobalGrant: false }).catch((err) =>
 );
 void initPlayerProfileService().catch((err) =>
   console.warn("Player profile service init failed", err)
+);
+await avatarStarterGrant.initialize().catch((err) =>
+  console.warn("Avatar starter grant init failed", err)
 );
 void initWordVaultService().catch((err) =>
   console.warn("Word vault service init failed", err)
@@ -318,6 +338,9 @@ app.use(
   createAuthRouter({
     normalizeInstallIdRaw,
     resolveCanonicalInstallId,
+    onAvatarPurchase: userId => clearThemeProfileResponseCache(String(userId)),
+    onAvatarSaved: update => io.emit("avatar:updated", update),
+    isMaintenanceModeActive,
   })
 );
 
@@ -376,6 +399,7 @@ function setCachedPlayerProfile(cacheKey, profile) {
 
 app.get("/api/player-profile/user/:userId", async (req, res) => {
   try {
+    res.set("Cache-Control", "no-store");
     pruneHeavyEndpointRateBuckets();
     const userId = Number(req.params?.userId);
     if (!Number.isInteger(userId) || userId <= 0) {
@@ -392,8 +416,9 @@ app.get("/api/player-profile/user/:userId", async (req, res) => {
     const fallbackNick = String(req.query?.nick || "");
     const cacheKey = `${userId}|${safeViewerUserId || 0}|${fallbackNick.slice(0, 48)}`;
     const cachedProfile = getCachedPlayerProfile(cacheKey);
+    const appearance = await getPlayerProfileAppearance(userId);
     if (cachedProfile) {
-      return res.json({ ok: true, profile: cachedProfile });
+      return res.json({ ok: true, profile: { ...cachedProfile, ...appearance } });
     }
     const profile = await getPublicPlayerProfileByUserId(userId, {
       fallbackNick,
@@ -403,7 +428,7 @@ app.get("/api/player-profile/user/:userId", async (req, res) => {
       return res.status(404).json({ ok: false, error: "profile_not_found" });
     }
     setCachedPlayerProfile(cacheKey, profile);
-    return res.json({ ok: true, profile });
+    return res.json({ ok: true, profile: { ...profile, ...appearance } });
   } catch (err) {
     console.warn("Player profile route failed", err);
     return res.status(500).json({ ok: false, error: "profile_unavailable" });
@@ -893,15 +918,19 @@ function sanitizeDailyMode(raw) {
   return DAILY_MONSTROUS_MODE;
 }
 
-async function runDailyStartFlow({ installId, pseudo, dailyMode }) {
+async function runDailyStartFlow({ installId, pseudo, dailyMode, launchId, stage, dateId }) {
   if (isMaintenanceModeActive()) {
     return buildMaintenanceBlockedPayload();
   }
-  const result = await startDailyAttempt(null, installId, pseudo, { dailyMode, dictionary });
+  if (dateId && dateId !== getParisDateId()) return { ok: false, error: "date_changed" };
+  if (stage === "confirm") return confirmDailyLaunch({ dateId, installId, dailyMode, launchId });
+  const result = await startDailyAttempt(null, installId, pseudo, { dailyMode, dictionary, launchId, stage });
   if (!result?.ok) return result;
+  // The grid response must not depend on a second service after the attempt is recorded.
+  if (launchId && stage !== "prepare") return result;
   await refreshInstallDuelCache(installId).catch(() => null);
   clearDuelStatusResponseCache(installId);
-  const duel = await getCachedDuelStatus(installId, { dateId: result?.dateId || null, force: true });
+  const duel = await getCachedDuelStatus(installId, { dateId: result?.dateId || null, force: true }).catch(() => null);
   return { ...result, duel };
 }
 
@@ -1017,16 +1046,10 @@ app.get("/api/daily/history", async (req, res) => {
   res.set("Content-Type", "application/json; charset=utf-8");
   res.set("Cache-Control", "no-store");
   const rawDays = Number(req.query?.days);
-  const identity = await getRequestPlayerIdentity(req);
-  const installId = identity?.installId || null;
   const days = Number.isFinite(rawDays)
     ? Math.min(30, Math.max(1, Math.round(rawDays)))
     : 7;
-  const includeWords =
-    req.query?.includeWords === "1" ||
-    req.query?.includeWords === "true" ||
-    req.query?.includeWords === true;
-  const payload = await getDailyHistory({ days, installId, dictionary, includeWords });
+  const payload = await getDailyHistory({ days });
   const safeDays = Array.isArray(payload?.days) ? payload.days : [];
   const enrichedDays = [];
   for (const day of safeDays) {
@@ -1050,6 +1073,18 @@ app.get("/api/daily/history", async (req, res) => {
   });
 });
 
+app.get("/api/daily/history/words", async (req, res) => {
+  res.set("Cache-Control", "no-store");
+  const identity = await getRequestPlayerIdentity(req);
+  const result = await getDailyHistoryWords({
+    dateId: req.query?.dateId,
+    dailyMode: req.query?.dailyMode,
+    installId: identity?.installId || null,
+    dictionary,
+  });
+  return res.status(result.ok ? 200 : result.error === "not_ready" ? 404 : 400).json(result);
+});
+
 app.post("/api/daily/start", async (req, res) => {
   res.set("Content-Type", "application/json; charset=utf-8");
   res.set("Cache-Control", "no-store");
@@ -1062,7 +1097,10 @@ app.post("/api/daily/start", async (req, res) => {
     res.status(400);
     return res.json({ ok: false, error: "bad_request" });
   }
-  const result = await runDailyStartFlow({ installId, pseudo, dailyMode });
+  const result = await runDailyStartFlow({
+    installId, pseudo, dailyMode,
+    launchId: req.body?.launchId, stage: req.body?.stage, dateId: req.body?.dateId,
+  });
   if (!result.ok) {
     if (result.error === "already_played") {
       res.status(409);
@@ -1074,6 +1112,8 @@ app.post("/api/daily/start", async (req, res) => {
       res.status(503);
     } else if (result.error === "maintenance_mode") {
       res.status(503);
+    } else if (result.error === "bad_request" || result.error === "date_changed" || result.error === "invalid_launch") {
+      res.status(400);
     } else {
       res.status(500);
     }
@@ -1693,10 +1733,6 @@ const MIN_BIG_WORD = 50;
 const MIN_LONG_WORD = 6;
 const DEFAULT_MIN_WORDS = 150;
 const SPECIAL_ROUND_EVERY = 5;
-const LIVE_SPECIAL_ROUND_DURATION_MS = 120 * 1000;
-const TARGET_SPECIAL_ROUND_DURATION_MS = 90 * 1000;
-const OCID_PROPOSAL_DURATION_MS = 40 * 1000;
-const OCID_VOTE_DURATION_MS = 20 * 1000;
 const OCID_PROPOSAL_END_GRACE_MS = LIVE_ROUND_END_GRACE_MS;
 const OCID_EXACT_TARGET_POINTS = 1000;
 const OCID_CORRECT_VOTE_POINTS = 600;
@@ -3627,16 +3663,8 @@ function getEstimatedRoundDurationMs(room, plan) {
   const introDurationMs =
     ROUND_INTRO_DURATION_MS +
     (plan?.lepersChallengeEnabled ? LEPERS_ROUND_ANNOUNCEMENT_MS : 0);
-  if (type === OCID_TYPE) {
-    return introDurationMs + OCID_PROPOSAL_DURATION_MS + OCID_VOTE_DURATION_MS;
-  }
-  if (type === "target_long" || type === "target_score") {
-    return introDurationMs + TARGET_SPECIAL_ROUND_DURATION_MS;
-  }
-  if (type === "speed" || type === "monstrous" || type === MASSIVE_BOGGLE_TYPE) {
-    return introDurationMs + LIVE_SPECIAL_ROUND_DURATION_MS;
-  }
-  return introDurationMs + (room?.config?.durationMs || DEFAULT_ROUND_DURATION_MS);
+  return introDurationMs + getLiveRoundDurationMs(type, room?.config?.durationMs || DEFAULT_ROUND_DURATION_MS)
+    + (type === OCID_TYPE ? OCID_VOTE_DURATION_MS : 0);
 }
 
 function getEstimatedPostRoundBreakMs(room, plan, { finalRound = false } = {}) {
@@ -4438,7 +4466,7 @@ function emitMedals(room) {
   persistRoomMedals(room);
 }
 
-function addMedal(room, nick, type) {
+function addMedal(room, nick, type, tournamentKey = null) {
   if (!room || !nick) return;
   if (isBotNick(room, nick)) return;
   const key = getMedalKeyForNickLookup(room, nick);
@@ -4457,6 +4485,9 @@ function addMedal(room, nick, type) {
   }
   const installId = getInstallIdForNick(room, nick);
   if (installId) {
+    if (type === "gold" && tournamentKey) {
+      avatarObjectiveProgress.record({ userId: Number(installId), eventKey: tournamentKey, occurredAt: Date.now(), objective: "mini_tournament_wins" });
+    }
     void recordTournamentMedalPoints({
       installId,
       nick,
@@ -6293,17 +6324,6 @@ function getPreparedRoundSolutions(round) {
     : [];
 }
 
-function getQuadrantLabelForPath(path, gridSize) {
-  if (!Array.isArray(path) || !path.length || !(gridSize > 0)) return "";
-  const idx = Number(path[0]);
-  if (!Number.isInteger(idx) || idx < 0) return "";
-  const row = Math.floor(idx / gridSize);
-  const col = idx % gridSize;
-  const vertical = row < gridSize / 2 ? "haut" : "bas";
-  const horizontal = col < gridSize / 2 ? "gauche" : "droite";
-  return `${vertical} ${horizontal}`;
-}
-
 const NARRATOR_VOWEL_HEAVY_LINES = Object.freeze([
   "Beaucoup de voyelles sur cette grille. Les rallonges devraient etre plus accessibles.",
   "La grille respire cote voyelles. Les terminaisons peuvent rapporter gros.",
@@ -6351,90 +6371,9 @@ function buildNarratorRoundLine(room) {
   return "";
 }
 
-const COACH_SUFFIX_MIN_LEN = 4;
-const COACH_SUFFIX_MAX_LEN = 9;
-const COACH_SUFFIX_BLOCKLIST = new Set([
-  "able",
-  "ible",
-  "ique",
-  "ment",
-]);
-
-function rankCoachSuffixes(solutions, gridSize = 4) {
-  const counts = new Map();
-  for (const entry of Array.isArray(solutions) ? solutions : []) {
-    const word = normalizeWord(entry?.word || "");
-    if (!word || word.length < COACH_SUFFIX_MIN_LEN + 2) continue;
-    const maxLen = Math.min(COACH_SUFFIX_MAX_LEN, word.length - 2);
-    for (let len = COACH_SUFFIX_MIN_LEN; len <= maxLen; len += 1) {
-      const suffix = word.slice(-len);
-      if (!/[aeiouy]/.test(suffix)) continue;
-      const item = counts.get(suffix) || { suffix, count: 0, words: [] };
-      item.count += 1;
-      if (item.words.length < 8) item.words.push(word);
-      counts.set(suffix, item);
-    }
-  }
-
-  const minCount = Number(gridSize) >= 5 ? 3 : 2;
-  return Array.from(counts.values())
-    .filter((item) => {
-      if (item.count < minCount) return false;
-      if (COACH_SUFFIX_BLOCKLIST.has(item.suffix) && item.count < minCount + 1) return false;
-      if (item.suffix.length <= 4 && item.count < minCount + 1) return false;
-      return true;
-    })
-    .map((item) => {
-      const len = item.suffix.length;
-      const conjugationBoost =
-        /(aient|ions|iez|asses|assent|assiez|assions|assiaient|erions|eriez|irions|iriez)$/.test(
-          item.suffix
-        )
-          ? 18
-          : 0;
-      const score = len * len + item.count * 5 + conjugationBoost;
-      return { ...item, score };
-    })
-    .sort((a, b) => b.score - a.score || b.suffix.length - a.suffix.length || b.count - a.count);
-}
-
-function buildCoachSuffixLine(solutions, gridSize) {
-  const best = rankCoachSuffixes(solutions, gridSize)[0];
-  if (!best) return "";
-  const label = best.count > 1 ? `${best.count} mots possibles` : "plusieurs mots possibles";
-  if (best.suffix.length >= 7) {
-    return `Je renifle une grosse terminaison: -${best.suffix}. Il y a ${label}, ça vaut le détour.`;
-  }
-  return `Je conseille de tester la terminaison -${best.suffix}: ${label} semblent s'y accrocher.`;
-}
-
+const coachHints = createCoachHintPicker();
 function buildCoachRoundLine(room, planUsed = null) {
-  const round = room?.currentRound;
-  if (
-    areGameplayPresenterHintsDisabled(round?.special, planUsed) ||
-    isAmbientSpeedRound(room, planUsed)
-  ) {
-    return "";
-  }
-  const solutions = getPreparedRoundSolutions(round);
-  if (!solutions.length) return "";
-  const gridSize = Number(room?.config?.gridSize) || 0;
-  const suffixLine = buildCoachSuffixLine(solutions, gridSize);
-  if (suffixLine) return suffixLine;
-
-  const longByQuadrant = new Map();
-  solutions
-    .filter((entry) => entry.word.length >= 8)
-    .forEach((entry) => {
-      const label = getQuadrantLabelForPath(entry.path, gridSize);
-      if (!label) return;
-      longByQuadrant.set(label, (longByQuadrant.get(label) || 0) + 1);
-    });
-  const best = Array.from(longByQuadrant.entries()).sort((a, b) => b[1] - a[1])[0];
-  if (best && best[1] >= 2) {
-    return `Indice de coach, sans vendre de mot: plusieurs chemins longs semblent démarrer en zone ${best[0]}.`;
-  }
-  return "";
+  return coachHints.forRound(room, planUsed)?.text || "";
 }
 
 function hydrateLepersChallenge(rawChallenge, roundId) {
@@ -8806,6 +8745,10 @@ function submitWordForNick(
     socketId: playerEntry?.socketId || null,
     word: norm,
   });
+  if (lepersBonusAwarded && persistentProgressAllowed && !isBotPlayer && playerInstallId) {
+    avatarObjectiveProgress.record({ userId: Number(playerInstallId), objective: "lepers_correct_answers",
+      eventKey: `${room.id}:${room.currentRound.lepersChallenge.id}`, occurredAt: Date.now() });
+  }
   if (persistentProgressAllowed && !isBotPlayer && playerKey && !isTargetRound) {
     const achievedAt = Date.now();
     if (isScoreRecordEligibleRound(room.currentRound)) {
@@ -10411,16 +10354,7 @@ async function runStartRoundForRoom(room, options = {}) {
   const quality = prepared?.quality || null;
   const now = Date.now();
   const roundId = now;
-  const roundDurationMs =
-    planUsed?.type === OCID_TYPE
-      ? OCID_PROPOSAL_DURATION_MS
-      : planUsed?.type === "target_long" || planUsed?.type === "target_score"
-      ? TARGET_SPECIAL_ROUND_DURATION_MS
-      : planUsed?.type === "speed" ||
-        planUsed?.type === "monstrous" ||
-        planUsed?.type === MASSIVE_BOGGLE_TYPE
-      ? LIVE_SPECIAL_ROUND_DURATION_MS
-      : room.config.durationMs;
+  const roundDurationMs = getLiveRoundDurationMs(planUsed?.type, room.config.durationMs);
   const lepersChallenge = isLepersChallengeRound({
     enabled: planUsed?.lepersChallengeEnabled === true,
     tournamentRound,
@@ -11352,6 +11286,8 @@ async function endRoundForRoom(room) {
         const installId = getInstallIdForNick(room, nick);
         return {
           nick,
+          installId,
+          userId: !isBotNick(room, nick) && /^[1-9]\d*$/.test(String(installId)) ? Number(installId) : null,
           points,
           basePoints,
           gobbles,
@@ -11505,7 +11441,7 @@ async function endRoundForRoom(room) {
     const medalDelay = Math.max(0, tournamentSummaryAt - Date.now());
     setTimeout(() => {
       if (room.breakState?.breakKind !== "tournament_end") return;
-      if (medalWinners[0]) addMedal(room, medalWinners[0], "gold");
+      if (medalWinners[0]) addMedal(room, medalWinners[0], "gold", `${room.id}:${t.id}`);
       if (medalWinners[1]) addMedal(room, medalWinners[1], "silver");
       if (medalWinners[2]) addMedal(room, medalWinners[2], "bronze");
       emitMedals(room);
@@ -11923,6 +11859,7 @@ botManager = createBotManager({
 });
 
 const PORT = 4000;
+weeklyAvatarAuras.start({ getPeriod: getWeeklyAvatarAuraPeriod, onUpdate: snapshot => io.emit("avatar:weekly-auras", snapshot) });
 server.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running on *:${PORT}`);
 });

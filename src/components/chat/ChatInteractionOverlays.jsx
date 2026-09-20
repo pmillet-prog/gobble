@@ -1,5 +1,6 @@
 import React from "react";
 import { createPortal } from "react-dom";
+import PlayerProfileLink from "../profile/PlayerProfileLink.jsx";
 
 const REPORT_REASONS = [
   "Spam",
@@ -71,7 +72,8 @@ function UserMenu({ appearance, menu }) {
   return createPortal(
     <div className="fixed inset-0 z-[20060]" onClick={menu.onClose}>
       <div
-        className={`fixed min-w-[170px] rounded-lg border px-2 py-2 text-xs shadow-lg ${
+        role="dialog" aria-label={`Actions pour ${state.nick}`}
+        className={`fixed w-[280px] max-w-[calc(100vw-24px)] max-h-[calc(100dvh-24px)] overflow-y-auto rounded-2xl border p-3 text-base shadow-2xl ${
           darkMode
             ? "bg-slate-900 text-slate-100 border-slate-700"
             : "bg-white text-slate-900 border-slate-200"
@@ -79,10 +81,10 @@ function UserMenu({ appearance, menu }) {
         style={{ left: `${state.left}px`, top: `${state.top}px` }}
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="px-1 pb-1 text-[11px] font-semibold opacity-70">{state.nick}</div>
+        <div className="px-3 pb-3 text-base font-bold truncate">{state.nick}</div>
         <button
           type="button"
-          className={`w-full flex items-center gap-2 px-2 py-1 rounded-md transition ${
+          className={`w-full min-h-14 flex items-center gap-3 px-3 py-3 rounded-xl font-semibold transition ${
             darkMode ? "hover:bg-slate-800" : "hover:bg-slate-100"
           }`}
           onClick={() => {
@@ -90,15 +92,15 @@ function UserMenu({ appearance, menu }) {
             menu.onClose();
           }}
         >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <circle cx="12" cy="8" r="4" />
             <path d="M4 21a8 8 0 0 1 16 0" />
           </svg>
-          Profil
+          Voir le profil
         </button>
-        <button
+        {state.canModerate !== false ? <><button
           type="button"
-          className={`w-full flex items-center gap-2 px-2 py-1 rounded-md transition ${
+          className={`w-full min-h-14 flex items-center gap-3 px-3 py-3 rounded-xl font-semibold transition ${
             darkMode ? "hover:bg-slate-800" : "hover:bg-slate-100"
           }`}
           onClick={() => {
@@ -106,7 +108,7 @@ function UserMenu({ appearance, menu }) {
             menu.onClose();
           }}
         >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9" />
             <line x1="5" y1="19" x2="19" y2="5" />
           </svg>
@@ -114,7 +116,7 @@ function UserMenu({ appearance, menu }) {
         </button>
         <button
           type="button"
-          className={`w-full flex items-center gap-2 px-2 py-1 rounded-md transition ${
+          className={`w-full min-h-14 flex items-center gap-3 px-3 py-3 rounded-xl font-semibold transition ${
             darkMode ? "hover:bg-slate-800" : "hover:bg-slate-100"
           }`}
           onClick={() => {
@@ -126,15 +128,15 @@ function UserMenu({ appearance, menu }) {
             menu.onClose();
           }}
         >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="M4 5v16" />
             <path d="M4 5h12l-2 4 2 4H4" />
           </svg>
           Signaler
-        </button>
+        </button></> : null}
         <button
           type="button"
-          className={`w-full mt-1 px-2 py-1 rounded-md text-[11px] font-semibold ${
+          className={`w-full min-h-11 mt-2 px-3 py-2 rounded-xl text-sm font-semibold ${
             darkMode
               ? "text-slate-300 hover:text-slate-100"
               : "text-slate-500 hover:text-slate-800"
@@ -224,7 +226,7 @@ function ReactionDetails({ appearance, reactions }) {
                   : "bg-slate-50 text-slate-700"
               }`}
             >
-              {user.nick}
+              <PlayerProfileLink entry={user} />
               {isMe ? " (toi)" : ""}
             </div>
           );

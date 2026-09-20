@@ -803,6 +803,7 @@ export default function DesktopGameScene({ runtime }) {
       <div className="flex-1 min-h-0">
         <RankingWidgetMobile
           fullRanking={resultsRankingList}
+          showAvatars
           selfNick={selfNick}
           darkMode={darkMode}
           expanded={true}

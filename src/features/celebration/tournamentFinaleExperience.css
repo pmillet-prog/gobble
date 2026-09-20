@@ -1,0 +1,7 @@
+.tournament-celebration-screen{position:fixed;inset:0;z-index:20000;background:#091c29;color:#f8eed9;overflow-y:auto;overscroll-behavior:contain}
+.tournament-celebration-toolbar{position:sticky;top:0;z-index:10;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px max(16px,env(safe-area-inset-right));background:#091c29ed;border-bottom:1px solid #f4ce8530}
+.tournament-celebration-toolbar>span{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.08em}
+.tournament-celebration-toolbar button{display:flex;align-items:center;gap:18px;min-height:48px;padding:8px 18px;background:#f4ce85;border-radius:12px;color:#352b1c;font-weight:800;font-size:14px}
+.tournament-celebration-toolbar button>span{font-size:26px;line-height:1}
+.tournament-celebration-loading{display:grid;place-items:center;min-height:60vh}
+@media(max-width:600px){.tournament-celebration-toolbar>span{display:none}.tournament-celebration-toolbar{justify-content:center}.tournament-celebration-toolbar button{width:100%;justify-content:space-between}}

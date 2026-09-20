@@ -8,6 +8,18 @@
 - Keep the user's product goal in mind, but push back on shortcuts that would make live operation harder later.
 - Do not touch the VM or live deployment unless the user explicitly asks for it in the current conversation.
 
+## Rédaction des patchnotes
+
+- Les patchnotes s’adressent aux joueurs. Leur référence est la dernière version publique qu’ils ont pu utiliser, jamais un prototype local, un état intermédiaire du développement ou le dernier commit.
+- Ne présenter que les nouvelles fonctionnalités, en expliquant leur fonctionnement concret (où les trouver, comment les utiliser, conditions et limites utiles), et les corrections de bugs qui existaient dans une version accessible aux joueurs.
+- Ne jamais présenter comme des corrections publiques les bugs rencontrés pendant la création d’une fonctionnalité encore inédite. Un problème observé uniquement dans l’atelier de développement ou les tests locaux n’a pas sa place dans les patchnotes.
+- Décrire directement le fonctionnement final d’une nouveauté. Exclure le récit des essais, ajustements, décisions abandonnées et corrections intermédiaires : aperçu réduit ou recentré, croix réalignée, bouton renommé, asset rétabli, cache corrigé pendant le développement, etc.
+- Exemple : écrire « Créez votre avatar depuis le crayon de votre profil ; essayez les pièces puis débloquez-les avec vos gobblars ». Ne pas écrire « L’aperçu de l’atelier a été réduit » si les joueurs n’ont encore jamais vu cet atelier.
+- Pour chaque correction annoncée, vérifier qu’elle concerne bien une fonctionnalité déjà publiée. En l’absence de preuve, ne pas la présenter comme un bug subi par les joueurs.
+- « Toutes les modifications » signifie tous les changements pertinents pour les joueurs depuis la version publique de référence, pas un journal exhaustif des échanges, des fichiers modifiés ou des détails de réalisation.
+- Regrouper les informations par fonctionnalité et éviter les microdétails de mise en page sans intérêt pour l’utilisation. Les détails techniques, tests et états de déploiement restent hors du texte destiné aux joueurs.
+- Avant de reprendre un brouillon, relire son état actuel et conserver les modifications de Paul. Ne pas réintroduire les passages qu’il a supprimés.
+
 ## Architecture Refactors
 
 - A small entry file or wrapper is not a new application core. Never present line-count reduction, file moves, lazy imports, or a facade around the legacy component as completion of an architectural rewrite.

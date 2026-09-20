@@ -1,0 +1,20 @@
+body{margin:0;background:#081827;color:#eff5fc;font-family:Arial,sans-serif}
+.reward-preview-page{max-width:1060px;margin:auto;padding:30px 20px 60px}
+.reward-preview-page h1{font-size:clamp(28px,4vw,42px);font-weight:900;margin:6px 0 12px;color:#f7d392}
+.reward-preview-kicker{font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:#b4c6d9}
+.reward-preview-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:24px;align-items:start}
+.reward-preview-card{border:1px solid #42607b;border-radius:22px;background:#12283c;padding:20px}
+.reward-preview-portrait{width:100%;aspect-ratio:1;border-radius:18px;position:relative;overflow:hidden}
+.reward-preview-portrait>.avatar-portrait{position:absolute;inset:0}
+.reward-preview-card>p{font-size:13px;margin-top:14px;color:#bacee0}
+.reward-preview-controls{display:flex;flex-direction:column;gap:10px}
+.reward-preview-controls label{display:flex;flex-direction:column;gap:6px;font-weight:700;font-size:13px}
+.reward-preview-controls input{padding:12px;color:white;border:1px solid #7d9db9;border-radius:10px;background:#081827;font-size:19px}
+.reward-preview-tag{height:110px;width:230px;margin:5px auto}
+.reward-preview-count{font-size:22px;color:#f7d392}
+.reward-preview-controls progress{width:100%;accent-color:#eec374}
+.reward-preview-controls button{border-radius:10px;border:1px solid #607b96;background:#1c3d58;padding:12px;font-weight:800}
+.reward-preview-controls>button:first-of-type{background:#f3ca81;color:#302411;border-color:#f3ca81}
+.reward-preview-options{display:flex;gap:7px;flex-wrap:wrap}.reward-preview-options button{font-size:11px;padding:8px}
+.reward-preview-controls small{color:#acbed0;font-size:11px;line-height:1.5}
+@media(max-width:680px){.reward-preview-grid{grid-template-columns:1fr}.reward-preview-page{padding:20px 12px}.reward-preview-portrait{max-width:360px;margin:auto}}

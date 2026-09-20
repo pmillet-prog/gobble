@@ -167,6 +167,26 @@ async function navigationNetworkFirst(request) {
   }
 }
 
+async function avatarResource(request, url) {
+  const key = makeCacheKey(url, true);
+  const cache = await caches.open(MEDIA_CACHE);
+  const catalog = url.pathname.endsWith(".json");
+  const valid = response => response?.ok && (catalog ? /application\/json/i : /^image\//i).test(response.headers.get("content-type") || "");
+  const cached = await cache.match(key);
+  if (cached && !valid(cached)) await cache.delete(key);
+  if (!catalog && valid(cached) && request.cache !== "reload") return cached;
+  try {
+    const response = await fetch(request, { cache: "reload" });
+    if (!valid(response)) return valid(cached) ? cached : new Response("Avatar unavailable", { status: 503 });
+    await putInCache(MEDIA_CACHE, key, response);
+    await trimCache(MEDIA_CACHE);
+    return response;
+  } catch (error) {
+    if (valid(cached)) return cached;
+    throw error;
+  }
+}
+
 self.addEventListener("install", (event) => {
   event.waitUntil(
     (async () => {
@@ -204,6 +224,11 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
   if (!isSameOrigin(url)) return;
   if (isApiRequest(url.pathname)) return;
+
+  if (url.pathname.startsWith("/avatars/")) {
+    event.respondWith(avatarResource(request, url));
+    return;
+  }
 
   if (url.pathname === "/chalkboard/surface/patinee-v2.webp") {
     event.respondWith(chalkboardTextureCache(request, url));

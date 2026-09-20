@@ -73,7 +73,10 @@ export function registerPlayerProgressHandlers(
         cb?.({ ok: false, error: "bad_request" });
         return;
       }
-      const result = await runDailyStartFlow({ installId, pseudo, dailyMode });
+      const result = await runDailyStartFlow({
+        installId, pseudo, dailyMode,
+        launchId: payload?.launchId, stage: payload?.stage, dateId: payload?.dateId,
+      });
       if (!result || typeof result !== "object") {
         cb?.({ ok: false, error: "internal" });
         return;

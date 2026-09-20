@@ -1,4 +1,5 @@
 import React from "react";
+import PlayerProfileLink from "../profile/PlayerProfileLink.jsx";
 import IntermissionTenSecondOverlay from "../../features/intermission/IntermissionTenSecondOverlay.jsx";
 import { MASSIVE_BOGGLE_TYPE } from "../../game/specialRoundTypes.js";
 import { pickDefinitionList, sanitizeDefinitionText } from "../../utils/definitionPayload.js";
@@ -45,6 +46,7 @@ export default function useDesktopResultsPresentation(runtime) {
     tournament,
     upcomingSpecial,
   } = runtime;
+  const profileEntry = entry => finalResults?.find(player => player.nick === entry?.nick) || entry;
 
   const resultLabelClass = darkMode ? "text-gray-300" : "text-gray-600";
   const resultPillClass = darkMode
@@ -131,7 +133,7 @@ export default function useDesktopResultsPresentation(runtime) {
             </span>
           </div>
           <div className="flex flex-wrap items-center gap-1">
-            <span className={`${pillClass} break-all`}>{special3Leader.nick || "Joueur"}</span>
+            <PlayerProfileLink entry={profileEntry(special3Leader)} className={`${pillClass} break-all`} />
           </div>
           <div className="space-y-1.5">
             {special3Leader.slots.map((slot, idx) => (
@@ -333,7 +335,7 @@ export default function useDesktopResultsPresentation(runtime) {
                       key={`best-finder-${finder?.nick || "player"}-${idx}`}
                       className={`${compactPillClass} break-all`}
                     >
-                      {finder?.nick || "Joueur"}
+                      <PlayerProfileLink entry={profileEntry(finder)} />
                     </span>
                   )
                 )}
@@ -453,7 +455,7 @@ export default function useDesktopResultsPresentation(runtime) {
                     key={`longest-finder-${finder?.nick || "player"}-${idx}`}
                     className={`${compactPillClass} break-all`}
                   >
-                    {finder?.nick || "Joueur"}
+                    <PlayerProfileLink entry={profileEntry(finder)} />
                   </span>
                 ))}
               </div>
@@ -508,7 +510,7 @@ export default function useDesktopResultsPresentation(runtime) {
                 </span>
               </div>
               <div className="flex justify-start">
-                <span className={`${compactPillClass} break-all`}>{endStats.mostWords.nick}</span>
+                <PlayerProfileLink entry={profileEntry(endStats.mostWords)} className={`${compactPillClass} break-all`} />
               </div>
             </div>
           )}
@@ -739,7 +741,7 @@ export default function useDesktopResultsPresentation(runtime) {
             <span className={`text-[10px] ${mutedClass}`}>{special3Leader.score} pts</span>
           </div>
           <div className="flex flex-wrap items-center gap-1">
-            <span className={`${finderPillClass} break-all`}>{special3Leader.nick || "Joueur"}</span>
+            <PlayerProfileLink entry={profileEntry(special3Leader)} className={`${finderPillClass} break-all`} />
           </div>
           <div className="space-y-1.5">
             {special3Leader.slots.map((slot, idx) => (
@@ -936,7 +938,7 @@ export default function useDesktopResultsPresentation(runtime) {
             <div className="flex flex-wrap items-center gap-1">
               {(bestFinders.length ? bestFinders : [{ nick: endStats.bestWord.nick }]).map((finder, idx) => (
                 <span key={`dock-best-finder-${finder?.nick || "player"}-${idx}`} className={finderPillClass}>
-                  {finder?.nick || "Joueur"}
+                  <PlayerProfileLink entry={profileEntry(finder)} />
                 </span>
               ))}
             </div>
@@ -1016,7 +1018,7 @@ export default function useDesktopResultsPresentation(runtime) {
               {(longestFinders.length ? longestFinders : [{ nick: endStats.longestWord.nick }]).map(
                 (finder, idx) => (
                   <span key={`dock-long-finder-${finder?.nick || "player"}-${idx}`} className={finderPillClass}>
-                    {finder?.nick || "Joueur"}
+                    <PlayerProfileLink entry={profileEntry(finder)} />
                   </span>
                 )
               )}

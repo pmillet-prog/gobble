@@ -12,8 +12,8 @@ import {
   randomIntegerBetween,
   resolveInterventionAppearanceSfxKey,
   schedulePresenterHitExit,
-  splitInterventionText,
 } from "./spriteInterventionAnimation.js";
+import { mountTypedText } from "./interventionText.js";
 import { observeInterventionPlacement, updateInterventionPlacement } from "./spriteInterventionPlacement.js";
 import "./SpriteIntervention.css";
 
@@ -56,33 +56,6 @@ function getCharacterFrameUrl(config, frame) {
   return String(frameUrls[safeFrame] || frameUrls[0] || "");
 }
 
-function mountTypedText(container, text, highlights) {
-  if (!container || typeof document === "undefined") {
-    return { units: [], revealAll() {} };
-  }
-  container.replaceChildren();
-  const units = [];
-  const writers = [];
-  for (const segment of buildInterventionTextSegments(text, highlights)) {
-    const element = document.createElement("span");
-    if (segment.highlighted) element.className = "sprite-intervention-highlight";
-    const textNode = document.createTextNode("");
-    element.append(textNode);
-    container.append(element);
-    const writer = { fullText: segment.text, node: textNode };
-    writers.push(writer);
-    for (const unit of splitInterventionText(segment.text)) {
-      units.push({ unit, writer });
-    }
-  }
-  return {
-    units,
-    revealAll() {
-      for (const writer of writers) writer.node.data = writer.fullText;
-    },
-  };
-}
-
 export function preloadInterventionSprite(spriteUrl) {
   const url = String(spriteUrl || "");
   if (!url || typeof Image === "undefined") return Promise.resolve();
@@ -116,6 +89,7 @@ function SpriteIntervention({
   manualKey = "",
   onManualActivation = null,
   onPresentationComplete = null,
+  onOpenWord = null,
   queueWhileDisabled = false,
   phaseKey = "",
   roundId = null,
@@ -136,6 +110,9 @@ function SpriteIntervention({
   const completedPresentationKeysRef = React.useRef(new Set());
   const completedRoundIdRef = React.useRef(roundId);
   const onPresentationCompleteRef = React.useRef(onPresentationComplete);
+  const onOpenWordRef = React.useRef(onOpenWord);
+  onOpenWordRef.current = onOpenWord;
+  const wordsInteractive = typeof onOpenWord === "function";
   const nextHitRef = React.useRef(0);
   const stunnedRef = React.useRef(false);
   const enabledRef = React.useRef(enabled);
@@ -473,7 +450,8 @@ function SpriteIntervention({
     const typedText = mountTypedText(
       textRef.current,
       intervention.text,
-      intervention.highlights
+      intervention.highlights,
+      wordsInteractive ? word => onOpenWordRef.current?.(word) : null
     );
     setPhase("entering");
 
@@ -546,7 +524,7 @@ function SpriteIntervention({
         if (finished) return;
         const current = units[index] || null;
         const unit = current?.unit || "";
-        if (current?.writer?.node) current.writer.node.data += unit;
+        if (current?.writer) current.writer.write(current.writer.node.data + unit);
         index += 1;
         if (index >= units.length) {
           finishTyping();
@@ -585,6 +563,7 @@ function SpriteIntervention({
     animated,
     enabled,
     intervention,
+    wordsInteractive,
     schedule,
     setSpriteFrame,
     updatePlacement,
@@ -698,11 +677,11 @@ function SpriteIntervention({
         data-phase={phase}
         data-intervention-id={intervention.id}
       >
-        <div className="sprite-intervention-bubble-slot" aria-hidden="true">
+        <div className="sprite-intervention-bubble-slot" aria-hidden={wordsInteractive ? undefined : true}>
           <div className="sprite-intervention-bubble">
             <span ref={textRef} className="sprite-intervention-text" />
           </div>
-          <div className="sprite-intervention-bubble-measure">
+          <div className="sprite-intervention-bubble-measure" aria-hidden="true">
             <span className="sprite-intervention-text">
               {measuredSegments.map((segment, index) => (
                 <span

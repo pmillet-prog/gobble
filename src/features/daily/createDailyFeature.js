@@ -234,7 +234,6 @@ export function createDailyFeature(
     const safeInstallId = String(installId || "");
     const params = new URLSearchParams();
     params.set("days", String(days));
-    params.set("includeWords", "1");
     if (safeInstallId) params.set("installId", safeInstallId);
     return runHttpRequest({
       key: `${safeInstallId}|${days}`,

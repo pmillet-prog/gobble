@@ -1,6 +1,8 @@
 import React from "react";
+import PlayerProfileLink from "./profile/PlayerProfileLink.jsx";
 import { createPortal } from "react-dom";
 import { resolveWeeklyRecapPodium } from "../utils/weeklyRecap.js";
+import WeeklyRecapAvatar, { WeeklyRecapAvatars } from "../features/avatar/WeeklyRecapAvatar.jsx";
 
 const TEAM_LABELS = {
   red: "Rouges",
@@ -73,9 +75,10 @@ function ContributorList({ team, entries, formatNumber }) {
           key={`${team}-${entry?.installId || entry?.nick || index}`}
           className="flex items-center justify-between gap-2 rounded-lg border border-white/10 bg-slate-950/25 px-2 py-1.5 text-xs"
         >
-          <span className="min-w-0 truncate">
+          <WeeklyRecapAvatar entry={entry} />
+          <span className="min-w-0 flex-1 truncate">
             <span className={`font-black ${colorClass}`}>#{index + 1}</span>{" "}
-            <span className="font-semibold">{entry?.nick || "Joueur"}</span>
+            <PlayerProfileLink entry={entry} className="font-semibold" />
           </span>
           <span className="shrink-0 font-black tabular-nums">{formatValue(formatNumber, entry?.points)}</span>
         </div>
@@ -93,9 +96,10 @@ function RecordSection({ title, entries, valueLabel, formatNumber, getValue }) {
         {top.length ? (
           top.map((entry, index) => (
             <div key={`${title}-${entry?.playerKey || entry?.nick || index}`} className="flex items-center justify-between gap-2 text-xs">
-              <span className="min-w-0 truncate">
+              <WeeklyRecapAvatar entry={entry} />
+              <span className="min-w-0 flex-1 truncate">
                 <span className="font-black text-amber-200">#{index + 1}</span>{" "}
-                <span className="font-semibold">{entry?.nick || "Joueur"}</span>
+                <PlayerProfileLink entry={entry} className="font-semibold" />
               </span>
               <span className="shrink-0 font-black tabular-nums">
                 {formatValue(formatNumber, getValue(entry))} {valueLabel}
@@ -121,11 +125,11 @@ function MedalDisc({ rank, large = false }) {
       />
       <div
         className={`relative z-10 flex shrink-0 flex-col items-center justify-center rounded-full border-4 font-black leading-none ${meta.medalClass} ${
-          large ? "h-28 w-28" : "h-20 w-20"
+          large ? "h-16 w-16" : "h-12 w-12"
         }`}
       >
-        <div className={large ? "text-4xl" : "text-2xl"}>{rank}</div>
-        <div className={large ? "mt-1 text-[11px]" : "mt-0.5 text-[9px]"}>{meta.medal}</div>
+        <div className={large ? "text-2xl" : "text-lg"}>{rank}</div>
+        <div className={large ? "mt-0.5 text-[9px]" : "mt-0.5 text-[7px]"}>{meta.medal}</div>
       </div>
     </div>
   );
@@ -141,12 +145,15 @@ function PodiumCard({ entry, index, formatNumber, featured = false }) {
       }`}
     >
       <div className={`absolute inset-x-0 top-0 h-1 ${meta.barClass}`} />
-      <MedalDisc rank={rank} large={featured} />
+      <div className={`weekly-recap-podium-portrait${featured ? " weekly-recap-podium-featured" : ""}`}>
+        <WeeklyRecapAvatar entry={entry} portrait />
+        <div className="weekly-recap-podium-award"><MedalDisc rank={rank} large={featured} /></div>
+      </div>
       <div className="mt-3 text-[10px] font-black uppercase tracking-[0.18em] opacity-75">
         {meta.title}
       </div>
       <div className={`${featured ? "text-3xl" : "text-xl"} mt-1 truncate font-black leading-tight`}>
-        {entry?.nick || "Joueur"}
+        <PlayerProfileLink entry={entry} />
       </div>
       <div className="mt-2 inline-flex items-baseline gap-1 rounded-full border border-white/15 bg-slate-950/30 px-3 py-1">
         <span className={`${featured ? "text-2xl" : "text-lg"} font-black tabular-nums`}>
@@ -178,7 +185,7 @@ function RacePodiumFinale({ podium, winnerNick, formatNumber }) {
         <PodiumCard entry={champion} index={0} formatNumber={formatNumber} featured />
       ) : null}
       {runners.length ? (
-        <div className="grid gap-2 sm:grid-cols-2">
+        <div className="grid grid-cols-2 gap-2">
           {runners.map((entry, index) => (
             <PodiumCard
               key={entry?.playerKey || entry?.installId || entry?.nick || index}
@@ -198,6 +205,7 @@ export default function DuelWeekRecapOverlay({
   summary = null,
   page = 0,
   weeklyStats = null,
+  viewerUserId = null,
   onNext = null,
   onClose = null,
   formatNumber = null,
@@ -228,6 +236,7 @@ export default function DuelWeekRecapOverlay({
   );
 
   return createPortal(
+    <WeeklyRecapAvatars summary={summary} weeklyStats={weeklyStats} viewerUserId={viewerUserId}>
     <div className="fixed inset-0 z-[20145] flex items-center justify-center bg-black/60 px-4 py-6">
       <div
         role="dialog"
@@ -354,7 +363,8 @@ export default function DuelWeekRecapOverlay({
 
         <div className="border-t border-white/10 px-4 py-3">{action}</div>
       </div>
-    </div>,
+    </div>
+    </WeeklyRecapAvatars>,
     document.body
   );
 }

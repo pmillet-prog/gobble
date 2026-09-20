@@ -183,7 +183,7 @@ test("daily satellite deduplicates history and preserves legacy medal totals", a
     { ports: {}, scope },
     {
       fetchImpl(url) {
-        assert.equal(new URL(url, "https://gobble.test").searchParams.get("includeWords"), "1");
+        assert.equal(new URL(url, "https://gobble.test").searchParams.has("includeWords"), false);
         requestCount += 1;
         return Promise.resolve(responses.shift());
       },

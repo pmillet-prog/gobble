@@ -1,4 +1,5 @@
 import React from "react";
+import MobileResultsSummary from "./MobileResultsSummary.jsx";
 
 import HelpOverlay from "../HelpOverlay.jsx";
 import LiveFeedSatellite from "../../features/live/LiveFeedSatellite.jsx";
@@ -36,6 +37,7 @@ function MobileResultsScreen(props) {
     isSpeedRound = false,
     isStandaloneTraining = false,
     isTargetRound = false,
+    isThreeWordsRound = false,
     listItemRefs = null,
     mobileBodyHeightStyle = undefined,
     mobileBodyPaddingTop = undefined,
@@ -448,6 +450,7 @@ function MobileResultsScreen(props) {
                     <div className="flex-1 min-h-0 overflow-hidden">
                       <RankingWidgetMobile
                         fullRanking={resultsRankingList}
+                        showAvatars
                         selfNick={selfNick}
                         darkMode={darkMode}
                         expanded={true}
@@ -505,9 +508,10 @@ function MobileResultsScreen(props) {
           {resultsDots}
           {!(isStandaloneTraining && isTargetRound) &&
           (isTargetRound ? targetSummary : endStats) && (
-            <div className={summaryWrapperClass} style={mobileResultsSummaryStyle}>
+            <MobileResultsSummary scale={isThreeWordsRound ? 0.75 : 1}
+              className={summaryWrapperClass} style={mobileResultsSummaryStyle}>
               {renderDesktopResultsDockPanel?.()}
-            </div>
+            </MobileResultsSummary>
           )}
           {!isStandaloneTraining ? (
             <MobileResultsActionBar

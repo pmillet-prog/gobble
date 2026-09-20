@@ -10,6 +10,14 @@ import {
 } from "crypto";
 import sqlite3 from "sqlite3";
 import { open } from "sqlite";
+import { createAvatarRepository } from "../avatars/avatarRepository.js";
+import { createAvatarInventoryRepository } from "../avatars/avatarInventoryRepository.js";
+import { createDonorAvatarRepository } from "../avatars/donorAvatarRepository.js";
+import { createWeeklyAvatarAuras } from "../avatars/weeklyAvatarAuras.js";
+import { createAvatarThumbnailRenderer } from "../avatars/avatarThumbnailRenderer.js";
+import { loadCatalog } from "../avatars/avatarValidation.js";
+import { initGobblarsService } from "../stats/gobblarsService.js";
+import { createAvatarStarterGrant, recordStarterGrant } from "../stats/avatarStarterGrant.js";
 import {
   runSerializedSqliteWrite,
   runSqliteImmediateTransaction,
@@ -223,6 +231,7 @@ function serializeUser(row) {
 }
 
 async function ensureDb() {
+  if (initPromise) return initPromise;
   if (db) return db;
   if (!initPromise) {
     initPromise = (async () => {
@@ -471,6 +480,29 @@ export async function syncLegacyReservations() {
 export async function initAuthService() {
   await ensureDb();
 }
+
+export const avatarStarterGrant = createAvatarStarterGrant({
+  getDb: async () => { const ready = await ensureDb(); await initGobblarsService({ applyGlobalGrant: false }); return ready; },
+  runWrite: runAuthWrite,
+  loadWeeklyStats: async () => {
+    try { return JSON.parse((await fs.readFile(WEEKLY_STATS_PATH, "utf8")).replace(/^\uFEFF/, "")); }
+    catch (error) { if (error.code === "ENOENT") return {}; throw error; }
+  },
+});
+
+export const userAvatars = createAvatarRepository({ getDb: ensureDb, runWrite: runAuthWrite });
+const donorAvatars = createDonorAvatarRepository({ getDb: ensureDb, runWrite: runAuthWrite });
+export const weeklyAvatarAuras = createWeeklyAvatarAuras({ getDb: ensureDb, runWrite: runAuthWrite, loadCatalog });
+export const avatarInventory = createAvatarInventoryRepository({
+  getDb: async () => { const ready = await ensureDb(); await initGobblarsService({ applyGlobalGrant: false }); return ready; },
+  runWrite: runAuthWrite, loadCatalog,
+  ensureDonorEntitlements: donorAvatars.ensure,
+  weeklyAuras: weeklyAvatarAuras,
+});
+export const avatarThumbnails = {
+  ...createAvatarThumbnailRenderer(),
+  get: userAvatars.getThumbnail,
+};
 
 export async function listUserUiSeenMarkers(userId) {
   const safeUserId = Number(userId);
@@ -787,6 +819,7 @@ export async function createUser({
   allowShortUsername = false,
 }) {
   const ready = await ensureDb();
+  await avatarStarterGrant.initialize();
   const displayResult = sanitizeUsernameDisplay(usernameDisplay, {
     allowShort: allowShortUsername,
   });
@@ -860,6 +893,7 @@ export async function createUser({
               Number(claimedReservationId)
             );
           }
+          await recordStarterGrant(ready, createdUserId, { now: timestamp });
           return createdUserId;
         },
         { label: "auth-create-user" }

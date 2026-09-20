@@ -1,8 +1,10 @@
 import React from "react";
+import PlayerProfileLink from "./profile/PlayerProfileLink.jsx";
 import { useChatDraft } from "../features/chat/useChatDraft.js";
 import { useChatPresentation } from "../features/chat/useChatPresentation.js";
 import useDesktopChatPresentationController from "../features/chat/useDesktopChatPresentationController.js";
 import PresenterChatAvatar from "./chat/PresenterChatAvatar.jsx";
+import PlayerChatAvatar from "./chat/PlayerChatAvatar.jsx";
 import {
   formatChatMessageTime,
   formatChatUnreadSuffix,
@@ -309,7 +311,7 @@ function DesktopChatPanel({
           const isYou =
             !isAmbientBot && (authorInstallId ? authorInstallId === installId : author === selfNick);
           const isLast = msg.id === lastMessageId;
-          const canOpenMenu = !isSystem && authorInstallId && authorInstallId !== installId;
+          const canOpenMenu = !isSystem && !isAmbientBot && (authorInstallId || msg.userId);
           const replyPreview = getChatMessageReplyPreview(msg);
           const reactionEntries = getChatMessageReactionEntries(msg);
           const replyTargetsSelf = !!(
@@ -412,7 +414,7 @@ function DesktopChatPanel({
                           lineHeight: `${desktopChatMetaLineHeightPx}px`,
                         }}
                       >
-                        <div className="font-semibold">{replyPreview.nick}</div>
+                        <div className="font-semibold"><PlayerProfileLink entry={replyPreview} /></div>
                         <div
                           style={{
                             display: "-webkit-box",
@@ -431,7 +433,7 @@ function DesktopChatPanel({
                           message={msg}
                           className="-my-1 mr-0.5 h-7 w-7 self-center"
                         />
-                      ) : null}
+                      ) : <PlayerChatAvatar message={msg} />}
                       {canOpenMenu ? (
                         <button
                           type="button"

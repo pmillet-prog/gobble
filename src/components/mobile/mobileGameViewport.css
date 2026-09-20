@@ -1,0 +1,6 @@
+/* Clip composited tile/sprite/filter layers as well as ordinary overflow.
+   A stacking context alone does not clip those layers at the Android WebView edge. */
+.mobile-game-viewport {
+  clip-path: inset(0);
+  isolation: isolate;
+}

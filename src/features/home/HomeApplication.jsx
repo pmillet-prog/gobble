@@ -175,6 +175,8 @@ export default function HomeApplication({
       <HomeLobby
         key="home-lobby"
         accountLabel={accountLabel}
+        accountUserId={account?.isAuthenticated ? account.userId : null}
+        gobblarsBalance={account?.gobblarsBalance}
         accountOnline={account?.isAuthenticated}
         accountNotice={account?.notice}
         canResumeNow={resume?.canResumeNow}
