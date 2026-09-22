@@ -1,8 +1,22 @@
+.chalkboard-viewport {
+  position: fixed;
+  inset: 0;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  overflow: hidden;
+  background: #e8dfca;
+  container: chalkboard / size;
+}
 .chalkboard-app {
   --chalk-gold: #ecc868;
   box-sizing: border-box;
-  height: 100svh;
-  height: 100dvh;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -13,11 +27,6 @@
 
 .chalkboard-app *, .chalkboard-composer * { box-sizing: border-box; }
 
-.chalkboard-zoom { position: absolute; z-index: 5; right: 22px; bottom: 23px; display: flex; align-items: center; gap: 7px; padding: 3px 9px; border: 1px solid #d3c28b66; border-radius: 7px; color: #f0e6c1; background: #172c22ed; font: 600 11px/1.2 Inter, system-ui, sans-serif; }
-.chalkboard-zoom input { width: 88px; height: 28px; margin: 0; accent-color: #ecc868; cursor: pointer; }
-.chalkboard-zoom input:focus-visible { outline: 2px solid #ecc868; outline-offset: 3px; }
-.chalkboard-zoom input:disabled { opacity: .4; cursor: default; }
-.chalkboard-zoom output { min-width: 36px; text-align: right; font-variant-numeric: tabular-nums; }
 .chalkboard-spinner { display: block; width: 30px; height: 30px; margin: 0 auto 12px; border: 3px solid #f0ecd744; border-top-color: #f0ecd7; border-radius: 50%; animation: chalkboard-spin .8s linear infinite; }
 @keyframes chalkboard-spin { to { transform: rotate(360deg); } }
 
@@ -76,7 +85,7 @@
   grid-template-columns: auto minmax(190px, 1fr) auto;
   align-items: center;
   gap: 22px;
-  padding: max(12px, env(safe-area-inset-top)) 24px 12px;
+  padding: 12px 24px;
   color: #343b30;
   background: linear-gradient(#f4eddd, #e8dfca);
 }
@@ -187,7 +196,7 @@
 }
 .chalkboard-moderation-hint { background: #78392f; color: white; }
 
-.chalkboard-tray { flex: 0 0 auto; padding: 12px max(24px, env(safe-area-inset-right)) max(9px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left)); color: #474a3b; }
+.chalkboard-tray { flex: 0 0 auto; max-height: 45%; overflow-y: auto; padding: 12px 24px 9px; color: #474a3b; }
 .chalkboard-actions { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 8px 24px; }
 .chalkboard-tools, .chalkboard-draft-actions { display: flex; align-items: center; justify-content: center; gap: 7px; }
 .chalkboard-tools button { border-color: #978b714f; background: #f9f4e9; box-shadow: 0 2px 1px #74674718; min-width: 112px; }
@@ -212,33 +221,31 @@
 
 .chalkboard-composer {
   box-sizing: border-box;
-  position: fixed;
-  inset: max(16px, 12dvh) auto auto 50%;
-  transform: translateX(-50%);
+  flex: 0 0 auto;
   margin: 0;
-  width: min(520px, calc(100vw - 28px));
-  max-height: calc(100dvh - 32px);
-  padding: 24px;
+  width: 100%;
+  max-height: 45%;
+  padding: 10px 20px 8px;
   overflow-y: auto;
-  border: 1px solid #d4c7a5;
-  border-radius: 9px;
+  border-top: 1px solid #d4c7a5;
   background: #f4eddc;
   color: #3b4736;
-  box-shadow: 0 18px 70px #08180eb3;
   font: 14px/1.45 Inter, ui-sans-serif, system-ui, sans-serif;
 }
-.chalkboard-composer::backdrop { background: #07190e88; }
-.chalkboard-composer-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.chalkboard-composer-heading h2 { margin: 0; font: 700 23px/1.2 Georgia, "Times New Roman", serif; }
-.chalkboard-composer-heading button { min-height: 36px; padding: 6px; }
-.chalkboard-composer p { margin: 8px 0 16px; color: #7a7865; font-size: 12px; }
+.chalkboard-composer-fields { display: flex; gap: 10px; align-items: center; }
+.chalkboard-composer p { margin: 6px 0 0; color: #7a7865; font-size: 11px; }
 .chalkboard-message-label { display: block; margin-bottom: 5px; font-size: 12px; font-weight: 700; }
-.chalkboard-text-entry { display: block; width: 100%; min-height: 68px; padding: 14px 12px; border: 1px solid #6e8264; border-radius: 5px; outline-offset: 3px; background: #2b4333; color: #faf4de; caret-color: #efd18a; font: 400 28px/1.3 sans-serif; text-transform: uppercase; }
+.chalkboard-text-style { display: flex; align-items: center; gap: 18px; margin-bottom: 7px; }
+.chalkboard-text-style label { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 12px; font-weight: 700; }
+.chalkboard-text-color input { width: 44px; height: 36px; padding: 3px; border: 1px solid #a69a80; border-radius: 5px; background: #fffaf0; cursor: pointer; }
+.chalkboard-text-font { flex: 1; max-width: 330px; }
+.chalkboard-text-font select { width: 100%; min-width: 0; min-height: 36px; padding: 5px 8px; border: 1px solid #a69a80; border-radius: 5px; background: #fffaf0; color: #314e3a; font-size: 16px; cursor: pointer; }
+.chalkboard-text-style input:focus-visible, .chalkboard-text-style select:focus-visible { outline: 2px solid #bc8225; outline-offset: 2px; }
+.chalkboard-text-entry { display: block; flex: 1; min-width: 0; width: 100%; min-height: 58px; max-height: 120px; resize: vertical; padding: 8px 12px; border: 1px solid #6e8264; border-radius: 5px; outline-offset: 3px; background: #2b4333; color: #faf4de; caret-color: #efd18a; font: 400 16px/1.4 system-ui,sans-serif; overflow-wrap: normal; word-break: normal; }
 .chalkboard-text-entry::placeholder { color: #c6ceb695; }
-.chalkboard-composer-actions { display: flex; justify-content: flex-end; gap: 10px; margin: 18px 0 12px; }
+.chalkboard-composer-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; flex: 0 0 auto; }
 .chalkboard-composer-actions > button:first-child { border-color: #b4aa8e80; }
 .chalkboard-composer .chalkboard-place { background: #314e3a; color: #fff6d8; border-color: #263d2d; }
-.chalkboard-composer small { display: block; color: #827b64; font-size: 11px; }
 .chalkboard-font-error { margin: 8px 0 0; text-align: center; color: #845c45; font-size: 12px; }
 .chalkboard-font-error button { text-decoration: underline; }
 .chalkboard-moderation-preview { position: absolute; inset: 0; z-index: 3; width: 100%; height: 100%; pointer-events: none; }
@@ -251,14 +258,17 @@
   .chalkboard-app button:hover:not(:disabled), .chalkboard-composer button:hover:not(:disabled) { filter: brightness(1.08); }
 }
 @media (max-width: 900px) {
-  .chalkboard-header { grid-template-columns: auto minmax(0, 1fr) auto; gap: 6px 12px; padding: max(8px, env(safe-area-inset-top)) 16px 8px; }
+  .chalkboard-header { grid-template-columns: auto minmax(0, 1fr) auto; gap: 6px 12px; padding: 8px 16px; }
   .chalkboard-heading { text-align: center; }
   .chalkboard-heading h1 { font-size: 24px; }
   .chalkboard-admin-button { grid-row: 1; grid-column: 3; }
   .chalkboard-frame { margin-inline: 10px; padding: 7px 8px 11px; }
-  .chalkboard-tray { padding: 10px 12px max(8px, env(safe-area-inset-bottom)); }
+  .chalkboard-tray { padding: 10px 12px 8px; }
 }
 @media (max-width: 620px) {
+  .chalkboard-composer { padding-inline: 10px; }
+  .chalkboard-composer-actions { flex-direction: column; }
+  .chalkboard-composer-actions button { min-height: 34px; padding: 5px 8px; font-size: 12px; }
   .chalkboard-header { padding-inline: 10px; gap: 4px; }
   .chalkboard-app .chalkboard-back { padding-inline: 6px; }
   .chalkboard-back > span, .chalkboard-admin-button > span { display: none; }
@@ -275,15 +285,77 @@
   .chalkboard-colors { gap: 0; }
   .chalkboard-colors > button, .chalkboard-custom-color { width: 32px; }
   .chalkboard-size input { width: 65px; }
-  .chalkboard-composer { padding: 18px; inset-block-start: 16px; }
-  .chalkboard-composer-heading h2 { font-size: 21px; }
 }
-@media (max-height: 500px) and (min-width: 621px) {
+@media (orientation: landscape) and (max-height: 600px) {
   .chalkboard-header { display: flex; padding-block: 5px; }
   .chalkboard-heading { margin-right: auto; }
   .chalkboard-heading h1 { font-size: 19px; }
   .chalkboard-heading > span { display: none; }
-  .chalkboard-tray { padding-block: 6px; display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 6px 12px; }
-  .chalkboard-chalks { margin: 0; }
-  .chalkboard-guidance { margin: 0; width: 100%; }
+  .chalkboard-header .chalkboard-back > span { display: none; }
+  .chalkboard-frame { margin-inline: 5px; padding: 5px 6px 9px; }
+
+  /* Navigation and tools share one row; the board owns all remaining height.
+     Keep a single mounted editor when rotating or opening the keyboard. */
+  .chalkboard-board { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+  .chalkboard-board > .chalkboard-header { grid-area: 1 / 1; gap: 4px; padding: 4px 6px; background: none; }
+  .chalkboard-board .chalkboard-heading { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .chalkboard-board > .chalkboard-frame { grid-area: 2 / 1 / 3 / -1; min-width: 0; }
+  .chalkboard-board > .chalkboard-tray,
+  .chalkboard-board > .chalkboard-composer { grid-area: 1 / 2; min-width: 0; max-height: none; }
+  .chalkboard-board > .chalkboard-tray {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    flex-wrap: nowrap;
+    gap: 12px;
+    padding: 4px 8px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    scrollbar-width: thin;
+    scrollbar-color: #a69a80 transparent;
+  }
+  .chalkboard-board .chalkboard-tray > *,
+  .chalkboard-board .chalkboard-actions > *,
+  .chalkboard-board .chalkboard-chalks > * { flex: 0 0 auto; }
+  .chalkboard-board .chalkboard-actions,
+  .chalkboard-board .chalkboard-chalks { flex-wrap: nowrap; gap: 8px; }
+  .chalkboard-board .chalkboard-tools { width: auto; gap: 4px; }
+  .chalkboard-board .chalkboard-tools button { flex: 0 0 auto; min-width: 0; }
+  .chalkboard-board .chalkboard-draft-actions { width: auto; border-left: 1px solid #a69a8052; padding-left: 8px; gap: 4px; }
+  .chalkboard-board .chalkboard-draft-actions .chalkboard-publish { min-width: 0; margin-left: 0; }
+  .chalkboard-board .chalkboard-header button,
+  .chalkboard-board .chalkboard-actions button { min-width: 40px; min-height: 40px; padding: 5px 8px; gap: 5px; font-size: 12px; white-space: nowrap; }
+  .chalkboard-board .chalkboard-admin-button > span { display: none; }
+  .chalkboard-board .chalkboard-chalks { margin: 0; }
+  .chalkboard-board .chalkboard-guidance:last-child { display: none; }
+  .chalkboard-board .chalkboard-guidance,
+  .chalkboard-board .chalkboard-font-error,
+  .chalkboard-board .chalkboard-moderation-guidance { margin: 0; white-space: nowrap; }
+  .chalkboard-board .chalkboard-moderation-guidance { order: 1; }
+
+  .chalkboard-board > .chalkboard-composer { display: grid; grid-template-columns: minmax(160px, 30%) minmax(0, 1fr); align-items: center; gap: 8px; padding: 4px 8px; border: 0; background: none; }
+  .chalkboard-board .chalkboard-composer > .chalkboard-message-label,
+  .chalkboard-board .chalkboard-composer > p,
+  .chalkboard-board .chalkboard-text-style label > span { display: none; }
+  .chalkboard-board .chalkboard-text-style { margin: 0; gap: 6px; }
+  .chalkboard-board .chalkboard-text-color input { width: 36px; }
+  .chalkboard-board .chalkboard-composer-fields { min-width: 0; gap: 6px; }
+  .chalkboard-board .chalkboard-text-entry { min-height: 64px; height: 64px; max-height: 64px; resize: none; padding: 6px 8px; }
+  .chalkboard-board .chalkboard-composer-actions { flex-direction: column; gap: 4px; }
+  .chalkboard-board .chalkboard-composer-actions button { min-height: 32px; padding: 5px 8px; font-size: 12px; }
+}
+
+/* Query the visible frame, including keyboard shrinkage, not the layout
+   viewport whose media-query height can stay unchanged on mobile. */
+@container chalkboard (max-height: 320px) {
+  .chalkboard-app.is-composing .chalkboard-header { display: none; }
+  .chalkboard-board.is-composing > .chalkboard-composer { grid-column: 1 / -1; }
+  .chalkboard-composer { max-height: 65%; }
+  .chalkboard-composer > .chalkboard-message-label, .chalkboard-composer > p { display: none; }
+}
+@container chalkboard (max-height: 320px) and (min-width: 620px) {
+  .chalkboard-composer { display: grid; grid-template-columns: minmax(260px, 36%) minmax(0, 1fr); align-items: center; gap: 10px; }
+  .chalkboard-text-style { margin: 0; gap: 10px; }
+  .chalkboard-composer-fields { min-width: 0; }
 }

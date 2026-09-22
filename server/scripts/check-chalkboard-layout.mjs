@@ -1,0 +1,178 @@
+// Headless Chrome layout checks against the actual React feature and CSS.
+// Only the fixture's API and physical orientation sensor are simulated.
+import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
+import { once } from "node:events";
+import { mkdir, mkdtemp, readFile, writeFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { createServer } from "vite";
+import WebSocket from "ws";
+
+const root = fileURLToPath(new URL("../../", import.meta.url));
+const output = path.join(root, "dev/chalkboard-layout/review");
+const profile = await mkdtemp(path.join(tmpdir(), "gobble-chalkboard-layout-"));
+const vite = await createServer({ root, configFile: false, logLevel: "error",
+  optimizeDeps: { entries: [path.join(root, "dev/chalkboard-layout/index.html")] },
+  server: { host: "127.0.0.1", port: 0 } });
+let chrome, socket, closeBrowser;
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+async function until(read, timeout = 15000) {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) { const value = await read(); if (value) return value; await sleep(50); }
+  throw new Error("Layout browser timed out");
+}
+try {
+  await vite.listen(); await mkdir(output, { recursive: true });
+  chrome = spawn(process.env.CHROME_PATH || "C:/Program Files/Google/Chrome/Application/chrome.exe", [
+    "--headless=new", "--disable-gpu", "--no-first-run", "--no-default-browser-check", "--disable-background-networking",
+    "--remote-debugging-port=0", `--user-data-dir=${profile}`, "about:blank",
+  ], { windowsHide: true, stdio: "ignore" });
+  chrome.on("error", error => { console.error(error); });
+  const port = await until(() => readFile(path.join(profile, "DevToolsActivePort"), "utf8").then(text => Number(text.split("\n")[0])).catch(() => null));
+  const target = await (await fetch(`http://127.0.0.1:${port}/json/new?about:blank`, { method: "PUT" })).json();
+  socket = new WebSocket(target.webSocketDebuggerUrl); await once(socket, "open");
+  let nextId = 0; const pending = new Map(), errors = [], measurements = [];
+  socket.addEventListener("message", event => {
+    const message = JSON.parse(event.data);
+    if (message.method === "Runtime.exceptionThrown") errors.push(message.params.exceptionDetails.text + " " + (message.params.exceptionDetails.exception?.description || ""));
+    const task = pending.get(message.id);
+    if (task) { pending.delete(message.id); clearTimeout(task.timer); message.error ? task.reject(new Error(message.error.message)) : task.resolve(message.result); }
+  });
+  const send = (method, params = {}) => new Promise((resolve, reject) => {
+    const id = ++nextId;
+    const timer = setTimeout(() => { pending.delete(id); reject(new Error(`CDP timeout: ${method} ${params.expression?.slice(0, 150) || ""}; browser errors: ${errors.join("; ")}`)); }, 30000);
+    pending.set(id, { resolve, reject, timer }); socket.send(JSON.stringify({ id, method, params }));
+  });
+  closeBrowser = () => send("Browser.close").catch(() => {});
+  const evaluate = async expression => {
+    let result;
+    try { result = await send("Runtime.evaluate", { expression, returnByValue: true, awaitPromise: true }); }
+    catch (error) {
+      const screenshot = await send("Page.captureScreenshot", { format: "png" }).catch(() => null);
+      if (screenshot) await writeFile(path.join(output, "failure.png"), Buffer.from(screenshot.data, "base64"));
+      throw error;
+    }
+    if (result.exceptionDetails) throw new Error(result.exceptionDetails.exception?.description || "Evaluation failed");
+    return result.result.value;
+  };
+  const settle = () => evaluate("new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(resolve))))");
+  const navigate = async url => {
+    const result = await send("Page.navigate", { url });
+    if (result.errorText) throw new Error(result.errorText);
+    await until(() => evaluate("!!document.querySelector('.chalkboard-write:not(:disabled)')"), 60000);
+  };
+  const capture = async name => {
+    await settle();
+    const size = await evaluate(`(() => {
+      const rect = selector => { const r = document.querySelector(selector).getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height, bottom: r.bottom }; };
+      const scroll = document.querySelector('.chalkboard-scroll');
+      return { screen: rect('.chalkboard-viewport'), app: rect('.chalkboard-app'), frame: rect('.chalkboard-frame'),
+        header: rect('.chalkboard-header'), footer: rect('.chalkboard-tray, .chalkboard-composer'), world: rect('.chalkboard-world'), boardHeight: scroll.clientHeight,
+        compact: getComputedStyle(document.querySelector('.chalkboard-app')).display === 'grid',
+        composing: !!document.querySelector('.chalkboard-composer'),
+        viewport: { x: visualViewport.offsetLeft, y: visualViewport.offsetTop, width: visualViewport.width, height: visualViewport.height },
+        slider: !!document.querySelector('[aria-label="Zoom du tableau"]') };
+    })()`);
+    assert.equal(size.slider, false);
+    for (const key of ["x", "y", "width", "height"]) assert.ok(Math.abs(size.screen[key] - size.viewport[key]) < 1, `${name}: viewport ${key}`);
+    assert.equal(size.world.height, size.boardHeight, `${name}: board fills height`);
+    assert.ok(size.boardHeight > 50, `${name}: usable canvas`);
+    assert.ok(size.footer.bottom <= size.screen.bottom + 1, `${name}: footer in screen`);
+    if (size.compact) {
+      assert.ok(size.footer.bottom <= size.frame.y + 1, `${name}: tools above the board`);
+      if (size.header.height) {
+        assert.ok(Math.abs(size.header.y - size.footer.y) < 1, `${name}: navigation and tools share one row`);
+        assert.ok(size.header.x + size.header.width <= size.footer.x + 1, `${name}: navigation does not overlap tools`);
+      }
+      assert.ok(size.boardHeight >= size.app.height - (size.composing ? 100 : 76), `${name}: most height reserved for the board`);
+      const tray = await evaluate(`(() => {
+        const node = document.querySelector('.chalkboard-tray');
+        if (!node) return null;
+        const controls = [...node.querySelectorAll('button, input')].filter(el => el.getBoundingClientRect().height);
+        const reachable = controls.every(el => {
+          el.scrollIntoView({block:'nearest', inline:'nearest'});
+          const r=el.getBoundingClientRect(), t=node.getBoundingClientRect();
+          return r.left >= t.left - 1 && r.right <= t.right + 1 && r.top >= t.top - 1 && r.bottom <= t.bottom + 1;
+        });
+        node.scrollLeft=0;
+        return {reachable, height:node.clientHeight, contentHeight:node.scrollHeight};
+      })()`);
+      if (tray) {
+        assert.ok(tray.reachable, `${name}: every toolbar control can be reached by horizontal scrolling`);
+        assert.ok(tray.contentHeight <= tray.height + 1, `${name}: no second row or vertical clipping`);
+      }
+    } else {
+      assert.ok(size.frame.bottom <= size.footer.y + 1, `${name}: no overlap`);
+    }
+    if (name.endsWith('-text') || name === 'landscape-keyboard') {
+      const fields=await evaluate(`['.chalkboard-text-style','textarea','.chalkboard-composer-actions'].map(selector=>{
+        const r=document.querySelector(selector).getBoundingClientRect();return {selector,top:r.top,bottom:r.bottom};
+      })`);
+      for(const field of fields)assert.ok(field.top>=size.footer.y&&field.bottom<=size.footer.bottom+1,`${name}: ${field.selector} fully visible`);
+    }
+    measurements.push({ name, ...size });
+    console.log(`${name}: screen ${size.screen.width}×${size.screen.height}, board ${size.boardHeight}px`);
+    const screenshot = await send("Page.captureScreenshot", { format: "png" });
+    await writeFile(path.join(output, `${name}.png`), Buffer.from(screenshot.data, "base64"));
+  };
+  const writeColoredText = async () => {
+    await send("Input.insertText", { text: "Bonjour à tous,\nà vous la craie !" });
+    await evaluate(`(() => {
+      const input=document.querySelector('[aria-label="Couleur du texte"]');
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'#81d4fa');
+      input.dispatchEvent(new Event('input',{bubbles:true}));
+      const font=document.querySelector('[aria-label="Police du texte"]');
+      if(font.options.length!==3)throw new Error('Missing font choices');
+      font.value='chalk';font.dispatchEvent(new Event('change',{bubbles:true}));
+    })()`);
+    await settle();
+    const before=await evaluate("document.querySelector('.chalkboard-canvas').toDataURL()");
+    await evaluate("const font=document.querySelector('[aria-label=\"Police du texte\"]');font.value='white-chalk';font.dispatchEvent(new Event('change',{bubbles:true}));");
+    await settle();
+    const after=await evaluate("document.querySelector('.chalkboard-canvas').toDataURL()");
+    assert.notEqual(before,after,'changing typeface updates the board preview');
+    const state=await evaluate(`(() => {
+      const canvas=document.querySelector('.chalkboard-canvas'), pixels=canvas.getContext('2d').getImageData(0,0,canvas.width,canvas.height).data;
+      let blue=0;for(let i=0;i<pixels.length;i+=4)if(pixels[i+3]>100&&pixels[i+2]>pixels[i]+40&&pixels[i+1]>pixels[i]+25)blue++;
+      return {blue,text:document.querySelector('textarea').value,color:document.querySelector('input[type=color]').value};
+    })()`);
+    assert.equal(state.text,"Bonjour à tous,\nà vous la craie !");
+    assert.equal(state.color,"#81d4fa");
+    assert.ok(state.blue>100,'the canvas contains blue chalk text');
+  };
+  await send("Runtime.enable"); await send("Page.enable");
+  for (const [width, height] of [[1280, 800], [393, 852], [852, 393], [915, 412], [667, 375], [568, 320], [1024, 600]]) {
+    console.log(`Checking ${width}×${height}`);
+    await send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: true });
+    await navigate(`http://127.0.0.1:${vite.httpServer.address().port}/dev/chalkboard-layout/index.html`);
+    await until(() => evaluate("!!document.querySelector('.chalkboard-write:not(:disabled)')"));
+    await capture(`${width}x${height}-read`);
+    await evaluate("document.querySelector('.chalkboard-draw').click()"); await capture(`${width}x${height}-draw`);
+    await evaluate("document.querySelector('.chalkboard-write').click()"); await settle();
+    await writeColoredText(); await capture(`${width}x${height}-text`);
+  }
+  await send("Emulation.setDeviceMetricsOverride", { width: 915, height: 412, deviceScaleFactor: 1, mobile: true });
+  await evaluate("window.setLayoutViewport({ width: 915, height: 212, offsetTop: 40, offsetLeft: 0 })");
+  await capture("landscape-keyboard");
+  await evaluate("window.setLayoutViewport({})");
+  await evaluate("document.querySelector('.chalkboard-composer button[type=button]').click()");
+  await capture("landscape-keyboard-closed");
+  await evaluate("document.querySelector('.chalkboard-viewport').style.padding = '0px 44px 21px'");
+  await capture("landscape-safe-areas");
+  await evaluate("document.querySelector('.chalkboard-back').click()"); await settle();
+  assert.deepEqual(await evaluate("window.layoutOrientationCalls"), ["any", "default", "portrait"]);
+  assert.deepEqual(errors, []);
+  await writeFile(path.join(output, "measurements.json"), JSON.stringify(measurements, null, 2));
+  console.log(`${measurements.length} viewport/mode checks passed; screenshots in dev/chalkboard-layout/review/`);
+} finally {
+  if (socket?.readyState === WebSocket.OPEN) await closeBrowser?.();
+  socket?.close();
+  if (chrome && chrome.exitCode === null) chrome.kill(); // Only this isolated headless test browser.
+  await vite.close();
+  // The target is a unique temporary profile, never the user's Chrome profile.
+  if (path.dirname(profile) === path.resolve(tmpdir()) && path.basename(profile).startsWith("gobble-chalkboard-layout-")) {
+    await rm(profile, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }).catch(() => {});
+  }
+}

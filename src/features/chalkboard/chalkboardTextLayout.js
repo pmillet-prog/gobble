@@ -2,28 +2,60 @@ import { getChalkboardTextLines, getChalkboardTextHeight } from "../../../shared
 import { chalkboardCanvasFont } from "./chalkboardFonts.js";
 import { CHALKBOARD_WORLD } from "./chalkboardModel.js";
 
-function wrapText(text, limit, measure) {
+function wrapText(text, limit, measure, maxWidth = 1500, paragraphBreaks = []) {
   const breaks = [];
   let start = 0;
   while (start < text.length) {
     let end = start;
     let lastSpace = -1;
     let count = 0;
-    for (const character of text.slice(start)) {
+    const paragraphEnd = paragraphBreaks.find(end => end > start) || text.length;
+    for (const character of text.slice(start, paragraphEnd)) {
       const next = end + character.length;
-      if (count && (count >= limit || measure(text.slice(start, next).trim()) > 1500)) break;
+      if (count && (count >= limit || measure(text.slice(start, next).trim()) > maxWidth)) break;
       if (character === " ") lastSpace = end;
       end = next;
       count++;
     }
-    if (end === text.length) break;
+    if (end === paragraphEnd) {
+      if (end === text.length) break;
+      breaks.push(end); start = end; continue;
+    }
     // Prefer whole words; split only a word that cannot fit on a line itself.
     if (text[end] === " ") end++;
     else if (lastSpace > start) end = lastSpace + 1;
+    else {
+      // A normal word may exceed the preferred width. Keep it whole instead
+      // of orphaning its last letter. Only pathological tokens hit the cap.
+      const space = text.indexOf(" ", end);
+      const wordEnd = space < 0 ? paragraphEnd : Math.min(space, paragraphEnd);
+      if (measure(text.slice(start, wordEnd)) <= 1500) end = wordEnd < paragraphEnd ? wordEnd + 1 : wordEnd;
+      else {
+        for (const character of text.slice(end, wordEnd)) {
+          if (measure(text.slice(start, end + character.length)) > 1500) break;
+          end += character.length;
+        }
+        if ([...text.slice(end, wordEnd)].length === 1 && [...text.slice(start, end)].length > 2) end -= [...text.slice(start, end)].at(-1).length;
+      }
+    }
+    if (end === text.length) break;
     breaks.push(end);
     start = end;
   }
   return breaks;
+}
+
+export function reflowChalkboardText(element, width, measureWidth) {
+  if (!measureWidth) {
+    const context = document.createElement("canvas").getContext("2d");
+    context.font = chalkboardCanvasFont(element.font, element.fontSize);
+    measureWidth = value => context.measureText(value).width;
+  }
+  const padding = element.fontSize * .24;
+  const requestedWidth = Math.max(80, Math.min(1600, width));
+  const lineBreaks = wrapText(element.text, Infinity, measureWidth, requestedWidth - padding, element.paragraphBreaks);
+  const actualWidth = Math.max(requestedWidth, ...getChalkboardTextLines({ ...element, lineBreaks }).map(line => measureWidth(line) + padding));
+  return { ...element, width: Math.min(1600, actualWidth), lineBreaks };
 }
 
 export function getChalkboardTextViewport(viewport) {

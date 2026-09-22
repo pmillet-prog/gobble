@@ -4,6 +4,7 @@ import { createCanvas, loadImage } from "@napi-rs/canvas";
 import { createAvatarRenderer } from "../../src/features/avatar/avatarRenderer.js";
 import { loadCatalog } from "./avatarValidation.js";
 import { getWeeklyAvatarAura } from "../../shared/avatarWeeklyAuras.js";
+import { getAvatarPartIds } from "../../shared/avatarSelections.js";
 
 const root = new URL("../../public/avatars/v1/", import.meta.url);
 parentPort.on("message", async ({ avatar }) => {
@@ -14,7 +15,7 @@ parentPort.on("message", async ({ avatar }) => {
     });
     // Keep time-limited decorations out of the immutable chat PNG, like medals.
     const result = await renderer.prepare({ ...avatar,
-      accessories: ["participant_tag", "tiger_plush"].includes(avatar.accessories) ? "" : avatar.accessories,
+      accessories: getAvatarPartIds(avatar, "accessories").filter(id => !["participant_tag", "tiger_plush"].includes(id)),
       auras: getWeeklyAvatarAura(avatar.auras) ? "" : avatar.auras,
     });
     const canvas = createCanvas(64, 64);

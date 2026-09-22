@@ -7,6 +7,7 @@ import { ChalkboardErasurePreview } from "./chalkboardErasurePreview.js";
 import { ChalkboardSpongeLayer } from "./chalkboardSpongeLayer.js";
 import { getChalkboardCanvasWindow } from "./chalkboardCanvasWindow.js";
 import { ChalkboardAsyncRaster } from "./chalkboardAsyncRaster.js";
+import { normalizeChalkboardTextColor } from "../../../shared/chalkboardText.js";
 import {
   ChalkboardTileCache, ChalkboardTileLayer, createChalkboardTile, TILE_RASTER_RATIO,
 } from "./chalkboardTileLayer.js";
@@ -20,7 +21,7 @@ function visualSignature(elements) {
     ? [element.type, element.seed, element.color.toLowerCase(), element.size,
       element.points.map(point => [point.x, point.y])]
     : [element.type, element.seed, element.text, element.cx, element.cy,
-      element.width, element.fontSize, element.scale, element.angle, element.font, element.lineBreaks]));
+      element.width, element.fontSize, element.scale, element.angle, element.font, element.lineBreaks, normalizeChalkboardTextColor(element.color)]));
 }
 
 function prepareCanvas(canvas, width, height) {
@@ -55,6 +56,7 @@ function drawSelection(context, element, viewX, scale) {
   const rotate = toScreen(handles.rotate);
   const rotateAnchor = toScreen(handles.rotateAnchor);
   const scaleHandle = toScreen(handles.scale);
+  const widthHandle = toScreen(handles.width);
   const handleRadius = Math.max(8, Math.min(13, 10 * scale));
 
   context.save();
@@ -74,7 +76,7 @@ function drawSelection(context, element, viewX, scale) {
   context.moveTo(rotateAnchor.x, rotateAnchor.y);
   context.lineTo(rotate.x, rotate.y);
   context.stroke();
-  for (const point of [rotate, scaleHandle]) {
+  for (const point of [rotate, scaleHandle, widthHandle]) {
     context.beginPath();
     context.arc(point.x, point.y, handleRadius, 0, Math.PI * 2);
     context.fill();
@@ -86,6 +88,7 @@ function drawSelection(context, element, viewX, scale) {
   context.textBaseline = "middle";
   context.fillText("↻", rotate.x, rotate.y + 0.5);
   context.fillText("↘", scaleHandle.x, scaleHandle.y + 0.5);
+  context.fillText("↔", widthHandle.x, widthHandle.y + 0.5);
   context.restore();
 }
 
@@ -98,8 +101,8 @@ export class ChalkboardRenderer {
     this.records = new Map();
     this.promotions = new Map();
     this.tileCache = new ChalkboardTileCache();
-    // Published worker tiles use screen resolution and retain only the current
-    // canvas window. Draft undo tiles must not evict an in-flight publication.
+    // Published worker tiles use screen resolution with a bounded visited-area
+    // cache. Draft undo tiles must not evict an in-flight publication.
     this.asyncRaster = worker ? new ChalkboardAsyncRaster(new ChalkboardTileCache(96), worker, onChange) : null;
     this.loading = false;
     this.published = new ChalkboardTileLayer(this.tileCache, "published",

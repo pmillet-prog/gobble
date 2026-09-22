@@ -1,6 +1,6 @@
 import { chalkboardCanvasFont } from "./chalkboardFonts.js";
 import { isChalkboardFontId } from "../../../shared/chalkboardRules.js";
-import { getChalkboardLineHeight, getChalkboardTextLines } from "../../../shared/chalkboardText.js";
+import { getChalkboardLineHeight, getChalkboardTextLines, normalizeChalkboardTextColor } from "../../../shared/chalkboardText.js";
 
 export function paintChalkboardTextLines(context, element, method = "fillText", dx = 0, dy = 0) {
   const lines = getChalkboardTextLines(element);
@@ -124,7 +124,7 @@ function drawChalkText(context, element, offsetX = 0, offsetY = 0) {
   context.textAlign = "center";
   context.textBaseline = "middle";
   context.font = chalkboardCanvasFont(element.font, element.fontSize);
-  context.fillStyle = "#f5f2e8";
+  context.fillStyle = normalizeChalkboardTextColor(element.color);
   if (isChalkboardFontId(element.font)) {
     // These faces contain their own chalk grain. Keep natural glyph proportions.
     context.globalAlpha = .94;

@@ -45,7 +45,8 @@ test("a new blank avatar has no preselected pieces and round-trips without addin
   for (const base of ["femme", "homme"]) {
     const empty = createBlankAvatar(base);
     assert.equal(empty.base, base);
-    for (const family of ["eyes", "nose", "mouths", "brows", "hair", "clothes", "glasses", "accessories"]) assert.equal(empty[family], "", family);
+    for (const family of ["eyes", "nose", "mouths", "brows", "hair", "clothes", "glasses"]) assert.equal(empty[family], "", family);
+    assert.deepEqual(empty.accessories, []);
     assert.deepEqual(normalizeAvatar(JSON.parse(JSON.stringify(empty))), empty);
     assert.equal(normalizeAvatar({ ...empty, eyes: "open" }).hair, "");
   }

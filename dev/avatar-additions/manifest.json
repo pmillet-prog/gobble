@@ -1,0 +1,62 @@
+{
+  "tool": "image_gen.imagegen",
+  "generatedAt": "2026-09-22",
+  "assets": [
+    {
+      "id": "witch_nose",
+      "prompt": "One isolated witch nose sprite ONLY, straight-on frontal view for a cute 3D cartoon avatar. Long narrow bridge, prominent elongated hooked drooping point, slight asymmetry and one very small rounded wart on the side. Warm peach skin (#f6bd91 midtone) with soft smooth cream highlights, gentle caramel ambient shading and dark brown small nostrils. Whimsical storybook witch rather than horror. No face, eyes, eyebrows, mustache, mouth, jewelry or other body parts. The nose is fully opaque, with a soft blended top edge, entirely inside the canvas. A single coherent protruding 3D nose, recognizable from FRONT. Not a side profile. Isolated on truly transparent RGBA background, no floor, no cast shadow outside the nose, no text. Center the nose and fill roughly 65% of a square image, leaving ample transparent margin. Smooth polished mobile game avatar asset, similar to Pixar inspired rounded facial feature, no black outlines. High quality transparent PNG.",
+      "source": "C:\\Users\\Paul\\.codex\\generated_images\\01a0be89-2c28-7822-b0dc-429f53fe0430\\exec-0b7fd8ca-b4e3-4bf6-8e30-319f682703af.png",
+      "family": "nose",
+      "sha256": "1b0b85919e5efb5fa57224a76904ed8c4fb27857a2c7c3368583859f01a94ba4",
+      "file": "additions/2026-09-22/witch_nose.png"
+    },
+    {
+      "id": "button_nose",
+      "prompt": "One isolated cute tiny BUTTON NOSE sprite ONLY, straight-on frontal view for a polished 3D cartoon avatar. Very short bridge, unusually small round upturned tip, small soft wings and two subtle tiny dark brown nostrils. Warm peach skin (#f6bd91 midtone), soft cream specular highlights, gentle caramel shading, no black outlines, smooth rounded 3D mobile game style. No face, eyes, mouth, hair, jewelry or body parts. Fully opaque nose with soft blended top edge. Isolated on truly transparent RGBA background with no floor, cast shadow outside nose or text. One single symmetrical nose centered filling about 65% of the square image leaving ample transparent margin. Front view only, not side profile. High quality transparent PNG.",
+      "source": "C:\\Users\\Paul\\.codex\\generated_images\\01a0be89-2c28-7822-b0dc-429f53fe0430\\exec-47e48640-489c-4190-b50b-df16d54f7776.png",
+      "family": "nose",
+      "sha256": "c280318ca927656501ab84e7c265a054f764357bd3b69623b6d2ce1d63d99c94",
+      "file": "additions/2026-09-22/button_nose.png"
+    },
+    {
+      "id": "crooked_nose",
+      "prompt": "One isolated characterful CROOKED BOXER NOSE sprite ONLY, straight-on frontal view for a polished friendly 3D cartoon avatar. A visibly bent lumpy bridge leaning gently to the viewer's right, broad slightly flattened irregular tip and subtly uneven nostrils. Natural peach skin (#f6bd91 midtone), soft cream highlights, caramel shading and small dark brown nostrils. Friendly expressive and weathered, no bruises or blood. Smooth softly sculpted 3D mobile game asset without black outlines. No face, eyes, eyebrows, mouth, mustache, jewelry or other body parts. Fully opaque nose with soft blended top edge, centered filling about 65% of a square canvas with transparent margin on every side. Truly transparent RGBA background, no floor, no cast shadow outside nose, no text. Front view only, not profile. High quality transparent PNG.",
+      "source": "C:\\Users\\Paul\\.codex\\generated_images\\01a0be89-2c28-7822-b0dc-429f53fe0430\\exec-171dbcac-ca7f-43a8-b387-4ea7d4380f85.png",
+      "family": "nose",
+      "sha256": "58274034982c221a8bb12ce6776899ff67530355f7257cc0819998ee7cf4b114",
+      "file": "additions/2026-09-22/crooked_nose.png"
+    },
+    {
+      "id": "earrings_hoops",
+      "prompt": "One large classic golden hoop earring, a thick tubular circular gold ring with a tiny fastening at the top, face-on view so the entire round open center is visible, rich warm gold, chunky elegant hoop. A single earring ONLY, upright straight-on frontal view, centered with transparent margin on all sides. No pair, ear, face, person, hands, stand, packaging or text. TRUE TRANSPARENT RGBA background and transparent empty space through openings, no background shadow. Polished softly rounded 3D cartoon mobile-game jewelry asset, simple readable silhouette, soft highlights from upper left, refined gold reflections, no black outlines. Fill about 70% of the square image. High quality transparent PNG.",
+      "source": "C:\\Users\\Paul\\.codex\\generated_images\\01a0be89-2c28-7822-b0dc-429f53fe0430\\exec-0478cddd-2b8e-409c-ba1d-010cc9b62343.png",
+      "family": "accessories",
+      "sha256": "1fde85ebf452cf78858da8eacf5e22046191794b265fe26f07b10f909c07cd68",
+      "file": "additions/2026-09-22/earrings_hoops.png"
+    },
+    {
+      "id": "earrings_pearls",
+      "prompt": "One elegant hanging pearl earring: tiny round gold stud at the top, short golden link beneath it, one large luminous ivory teardrop pearl hanging below, distinctly vertical silhouette, gold and creamy white. A single earring ONLY, upright straight-on frontal view, centered with transparent margin on all sides. No pair, ear, face, person, hands, stand, packaging or text. TRUE TRANSPARENT RGBA background and transparent empty space through openings, no background shadow. Polished softly rounded 3D cartoon mobile-game jewelry asset, simple readable silhouette, soft highlights from upper left, refined gold reflections, no black outlines. Fill about 70% of the square image. High quality transparent PNG.",
+      "source": "C:\\Users\\Paul\\.codex\\generated_images\\01a0be89-2c28-7822-b0dc-429f53fe0430\\exec-75c208f2-46b3-4f02-9391-9fbcbb430c54.png",
+      "family": "accessories",
+      "sha256": "67e33b01930f7adcca38a0eb206a7150adff979d1aaca4f3ff7d79cff4d4d511",
+      "file": "additions/2026-09-22/earrings_pearls.png"
+    },
+    {
+      "id": "earrings_stars",
+      "prompt": "One whimsical dangling star earring: small round gold stud at top, slender short gold chain below, large five-point softly beveled gold star pendant dangling at the bottom, readable simple gold star. A single earring ONLY, upright straight-on frontal view, centered with transparent margin on all sides. No pair, ear, face, person, hands, stand, packaging or text. TRUE TRANSPARENT RGBA background and transparent empty space through openings, no background shadow. Polished softly rounded 3D cartoon mobile-game jewelry asset, simple readable silhouette, soft highlights from upper left, refined gold reflections, no black outlines. Fill about 70% of the square image. High quality transparent PNG.",
+      "source": "C:\\Users\\Paul\\.codex\\generated_images\\01a0be89-2c28-7822-b0dc-429f53fe0430\\exec-5c856aa5-f5b7-447e-b22d-f352b3bc4114.png",
+      "family": "accessories",
+      "sha256": "7a55121ce8c3a67adb20cdefcf9c1773cdbc19042e8ac980173e02bdda955830",
+      "file": "additions/2026-09-22/earrings_stars.png"
+    },
+    {
+      "id": "earrings_gems",
+      "prompt": "One ornate dangling emerald chandelier earring: small round emerald green gem in gold setting at top, suspended larger faceted emerald green teardrop with thick gold outline below, three small teardrop golden pendants at the bottom, luxurious emerald and gold, wide elegant dangling silhouette. A single earring ONLY, upright straight-on frontal view, centered with transparent margin on all sides. No pair, ear, face, person, hands, stand, packaging or text. TRUE TRANSPARENT RGBA background and transparent empty space through openings, no background shadow. Polished softly rounded 3D cartoon mobile-game jewelry asset, simple readable silhouette, soft highlights from upper left, refined gold reflections, no black outlines. Fill about 70% of the square image. High quality transparent PNG.",
+      "source": "C:\\Users\\Paul\\.codex\\generated_images\\01a0be89-2c28-7822-b0dc-429f53fe0430\\exec-87fb898b-4501-4be7-b2ad-1e2630995a2a.png",
+      "family": "accessories",
+      "sha256": "4ac2e4f1092e0c07d17fd4486ca28ea717dadc6c2085a9bc38eb5d2cbd17d497",
+      "file": "additions/2026-09-22/earrings_gems.png"
+    }
+  ]
+}

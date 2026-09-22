@@ -1,5 +1,6 @@
 // Persisted configuration contract, shared by the editor and account API.
 import { SCAR_ADJUSTMENT_RANGES } from "./avatarCosmetics.js";
+import { getAvatarPartIds } from "./avatarSelections.js";
 export const AVATAR_ADJUSTMENT_RANGES = Object.freeze({
   irisScale: [.6, 1.3], openness: [.3, 1.2], spacing: [-12, 12], dx: [-8, 8], dy: [-10, 10],
   browWidth: [.75, 1.25], browThickness: [.6, 1.5], browDy: [-12, 12],
@@ -23,7 +24,7 @@ export function normalizeAvatarAdjustments(source) {
 }
 
 export const DEFAULT_AVATAR = Object.freeze({
-  version: 1, base: "homme", eyes: "open", brows: "straight", nose: "short", accessories: "",
+  version: 1, base: "homme", eyes: "open", brows: "straight", nose: "short", accessories: Object.freeze([]),
   mouths: "thin_neutral", hair: "quiff", headwear: "", headwearHair: "auto", glasses: "", lashes: "", facialhair: "", clothes: "", backdrops: "", auras: "",
   tone: "native", customColor: "#f6bd91", hairColor: "#653a23", irisColor: "#658c6c",
   backgroundColor: "#204e63", mouthColor: "", headwearColor: "", glassesColor: "", clothesColor: "", facialhairColor: "#653a23", backdropColor: "#597ea5",
@@ -47,6 +48,12 @@ export function normalizeAvatar(value, catalog) {
   for (const key of COLOR_KEYS) if (/^#[\da-f]{6}$/i.test(source[key])) next[key] = source[key];
   for (const key of ["hairColor", "facialhairColor"]) if (source[key] === "") next[key] = "";
   for (const key of PART_KEYS) {
+    if (key === "accessories") {
+      next.accessories = [...new Set(getAvatarPartIds(source, key).filter(id =>
+        typeof id === "string" && /^[a-z0-9_]{1,60}$/.test(id)
+        && (!catalog || catalog.families.accessories?.some(part => part.id === id))))];
+      continue;
+    }
     const id = source[key];
     if (typeof id === "string" && /^[a-z0-9_]{0,60}$/.test(id)) next[key] = id;
     if (key === "mouths") next[key] = next[key].replace(/_(happy|sad|surprised)$/, "_neutral");

@@ -108,4 +108,9 @@ test("the isolated renderer produces small, distinct 64px PNGs from real approve
   const originalScar = await renderer.render({ ...avatar, accessories: "scar" });
   const movedScar = await renderer.render({ ...avatar, accessories: "scar", scarDx: -175, scarDy: -30, scarRotation: 35 });
   assert.ok(!movedScar.png.equals(originalScar.png), "chat uses the saved scar placement");
+  const earrings = await renderer.render({ ...avatar, accessories: ["earrings_hoops"] });
+  const combined = await renderer.render({ ...avatar, nose: "witch_nose", accessories: ["earrings_hoops", "freckles", "scar"] });
+  assert.ok(!combined.png.equals(earrings.png), "the chat thumbnail includes the nose and all facial accessories");
+  const withPortraitOnly = await renderer.render({ ...avatar, nose: "witch_nose", accessories: ["earrings_hoops", "freckles", "scar", "participant_tag", "tiger_plush"] });
+  assert.deepEqual(withPortraitOnly.png, combined.png, "portrait-only extras do not suppress facial accessories in the PNG worker");
 });

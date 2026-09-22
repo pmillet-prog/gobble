@@ -19,5 +19,5 @@ export default function AvatarPartThumbnail({ part, nickname }) {
     const { width, height, viewBox: [x, y, w, h] } = part.preview;
     style = { width: `${width / w * 100}%`, height: `${height / h * 100}%`, left: `${-x / w * 100}%`, top: `${-y / h * 100}%` };
   }
-  return <span className={`avatar-part-art${part.preview ? " avatar-part-art-framed" : ""}${part.previewTone === "brown" ? " avatar-part-art-brown" : ""}`}>{part.id === "participant_tag" ? <AvatarAccessoryPreview nickname={nickname} /> : <img loading="lazy" src={url} onError={retry} style={style} alt="" />}{failed ? <span className="avatar-thumbnail-error">Aperçu indisponible</span> : null}</span>;
+  return <span className={`avatar-part-art${part.preview ? " avatar-part-art-framed" : ""}${part.previewTone === "brown" ? " avatar-part-art-brown" : ""}`}>{part.id === "participant_tag" ? <AvatarAccessoryPreview nickname={nickname} /> : <img loading="lazy" src={url} onError={retry} style={style} alt="" draggable={false} />}{failed ? <span className="avatar-thumbnail-error">Aperçu indisponible</span> : null}</span>;
 }

@@ -15,6 +15,8 @@ import GobblarsBalance from "../../components/GobblarsBalance.jsx";
 import AvatarCheckoutDialog from "./AvatarCheckoutDialog.jsx";
 import AvatarMaintenanceNotice from "./AvatarMaintenanceNotice.jsx";
 import { getAvatarPurchasePlan, getOwnedAvatarAppearance } from "./avatarPurchasePlan.js";
+import { getAvatarPartIds, selectAvatarPart, removeAvatarParts } from "../../../shared/avatarSelections.js";
+import useAvatarDragScroll from "./useAvatarDragScroll.js";
 
 const CATEGORIES = [
   ["base", "Visage", "face"], ["eyes", "Regard", "visibility"],
@@ -44,6 +46,8 @@ export default function AvatarEditor({ initialValue, nickname, onClose, onSave, 
   const savingRef = React.useRef(false);
   const mountedRef = React.useRef(true);
   const optionsRef = React.useRef(null);
+  const categoryDrag = useAvatarDragScroll("x");
+  const optionsDrag = useAvatarDragScroll("y");
 
   React.useEffect(() => {
     mountedRef.current = true;
@@ -69,16 +73,16 @@ export default function AvatarEditor({ initialValue, nickname, onClose, onSave, 
   const locked = baseChosen && catalog && inventory ? getLockedAvatarParts(draft, catalog, inventory) : [];
   const plan = getAvatarPurchasePlan(draft, catalog, inventory);
   const wearable = baseChosen && catalog && inventory ? getOwnedAvatarAppearance(draft, initialValue, catalog, inventory) : draft;
-  const selectPart = (family, part) => {
+  const selectPart = (family, part, toggle = true) => {
     if (savingRef.current || purchasing) return;
     if (family === "lashes" && lashesUnavailable) return;
-    change({ [family]: part.id });
+    change({ [family]: selectAvatarPart(draft, family, part.id, { toggle })[family] });
     if (family === "base") setBaseChosen(true);
   };
   const openUnlock = (family, part) => {
     if (savingRef.current || purchasing) return;
     if (inventory && !isAvatarPartUnlocked(inventory, family, part.id, part)) {
-      selectPart(family, part);
+      selectPart(family, part, false);
       setSelection({ family, part, rule: getAvatarUnlockRule(family, part.id, part) });
     }
   };
@@ -122,6 +126,7 @@ export default function AvatarEditor({ initialValue, nickname, onClose, onSave, 
   };
   const parts = getAvatarChoices(catalog, category, draft.base);
   const categoryLabel = CATEGORIES.find(([key]) => key === category)?.[1];
+  const selectedIds = getAvatarPartIds(draft, category);
 
   if (maintenanceMode) return <AvatarMaintenanceNotice onClose={onClose} hasDraft />;
 
@@ -137,12 +142,12 @@ export default function AvatarEditor({ initialValue, nickname, onClose, onSave, 
         </div>
       </aside>
       <div className="avatar-editor-customize">
-        {baseChosen ? <nav className="avatar-categories" aria-label="Catégories de l’avatar">
+        {baseChosen ? <nav className="avatar-categories" aria-label="Catégories de l’avatar" {...categoryDrag}>
           {CATEGORIES.filter(([key]) => key !== "facialhair" || draft.base === "homme").map(([key, label, icon]) =>
             <button type="button" key={key} aria-pressed={category === key} onClick={() => setCategory(key)}><AvatarCategoryIcon category={key} fallback={icon} />{label}</button>
           )}
         </nav> : null}
-        <section ref={optionsRef} className="avatar-options" aria-label={categoryLabel} tabIndex={0}>
+        <section ref={optionsRef} className="avatar-options" aria-label={categoryLabel} tabIndex={0} {...optionsDrag}>
           {!catalog ? <p role="status">{error || "Ouverture de l’atelier…"}{error ? <button type="button" onClick={() => setAttempt(value => value + 1)}>Réessayer</button> : null}</p> : <>
             <div className="avatar-options-heading"><h3>{baseChosen ? categoryLabel : "Choisis ton visage"}</h3></div>
             {inventory ? <p className="avatar-editor-note">{!baseChosen ? "Homme ou Femme : 500 gobblars. Ajoute ensuite les pièces de ton choix." : "Compose ton aperçu librement. Achète une pièce pour la porter aussitôt, ou utilise Acheter et porter en bas pour valider l’ensemble."}</p> : null}
@@ -154,14 +159,15 @@ export default function AvatarEditor({ initialValue, nickname, onClose, onSave, 
               </div>)}
             </div> : <>
               {category === "auras" ? <p className="avatar-editor-note">Or, argent, bronze : le podium de la course hebdo débloque son aura jusqu’au lundi suivant à 00 h, heure de Paris. L’aura des donateurs reste acquise.</p> : null}
+              {category === "accessories" ? <p className="avatar-editor-note">Tu peux porter plusieurs accessoires ensemble. Touche un accessoire pour l’ajouter ou le retirer ; « Aucun » les retire tous.</p> : null}
               {category === "lashes" && lashesUnavailable ? <p className="avatar-editor-note">Débloque des yeux, puis choisis un modèle avec paupières pour ajouter des cils.</p> : null}
               <div className={`avatar-parts avatar-parts-${category}`}>
-                {OPTIONAL.has(category) ? <button type="button" className="avatar-choice avatar-choice-preview" data-selected={!draft[category]} aria-pressed={!draft[category]} onClick={() => change({ [category]: "" })}><span className="avatar-part-empty" aria-hidden="true">∅</span><span>{category === "clothes" ? "Tenue d’origine" : "Aucun"}</span></button> : null}
-                {parts.map(part => <div key={part.id} className="avatar-choice" data-selected={draft[category] === part.id}>
-                  <button type="button" className="avatar-choice-preview" disabled={category === "lashes" && lashesUnavailable} aria-pressed={draft[category] === part.id} onClick={() => selectPart(category, part)} title={part.unlock?.label}>
+                {OPTIONAL.has(category) ? <button type="button" className="avatar-choice avatar-choice-preview" data-selected={!selectedIds.length} aria-pressed={!selectedIds.length} onClick={() => change({ [category]: "" })}><span className="avatar-part-empty" aria-hidden="true">∅</span><span>{category === "clothes" ? "Tenue d’origine" : "Aucun"}</span></button> : null}
+                {parts.map(part => <div key={part.id} className="avatar-choice" data-selected={selectedIds.includes(part.id)}>
+                  <button type="button" className="avatar-choice-preview" disabled={category === "lashes" && lashesUnavailable} aria-pressed={selectedIds.includes(part.id)} onClick={() => selectPart(category, part)} title={part.unlock?.label}>
                     <AvatarPartThumbnail part={part} nickname={nickname} />
                     <span>{part.label.replace(/ — Base neutre$| · (Femme|Homme)$/g, "")}</span>
-                    {draft[category] === part.id ? <i aria-hidden="true">✓</i> : null}
+                    {selectedIds.includes(part.id) ? <i aria-hidden="true">✓</i> : null}
                   </button>
                   <AvatarUnlockBadge inventory={inventory} family={category} id={part.id} part={part} disabled={saving || purchasing} onActivate={() => openUnlock(category, part)} />
                 </div>)}
@@ -182,6 +188,6 @@ export default function AvatarEditor({ initialValue, nickname, onClose, onSave, 
       onCheckout={() => { setSelection(null); setCheckout(true); }} onClose={() => setSelection(null)} /> : null}
     {checkout ? <AvatarCheckoutDialog plan={plan} inventory={inventory} busy={purchasing || saving}
       onConfirm={() => { if (conflict) throw new Error("Recharge ton avatar avant de réessayer."); return apply(draft, plan.purchasable.map(({ family, id }) => ({ family, id }))); }}
-      onRemoveUnavailable={() => change(Object.fromEntries(plan.unavailable.map(item => [item.family, ""])))} onClose={() => setCheckout(false)} /> : null}
+      onRemoveUnavailable={() => change(removeAvatarParts(draft, plan.unavailable))} onClose={() => setCheckout(false)} /> : null}
   </div>;
 }

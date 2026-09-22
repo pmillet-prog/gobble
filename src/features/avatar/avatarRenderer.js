@@ -12,6 +12,8 @@ import { drawAvatarMedals } from "./avatarMedals.js";
 import { loadAvatarImage } from "./avatarAssetCache.js";
 import { drawAvatarAccessories, drawAvatarCompanion, loadAvatarMarkerFont } from "./avatarAccessories.js";
 import { createAvatarCosmeticsRenderer } from "./avatarCosmeticsRenderer.js";
+import { createAvatarNoseRasterizer } from "./avatarNoseRasterizer.js";
+import { getAvatarPartIds } from "../../../shared/avatarSelections.js";
 export { loadAvatarCatalog } from "./avatarCatalog.js";
 
 const ROOT = "/avatars/v1/";
@@ -26,6 +28,7 @@ export async function createAvatarRenderer(dependencies = {}) {
   const manifest = family => ({ parts: catalog.families[family] });
   const engine = eyes.create(makeCanvas, manifest("eyes"));
   const cosmetics = createAvatarCosmeticsRenderer(makeCanvas);
+  const rasterizeNose = createAvatarNoseRasterizer(makeCanvas);
   engine.setDecorations(decorations.create(makeCanvas, { brows: manifest("brows"), lashes: manifest("lashes") }));
   engine.setHair(hair.create(makeCanvas, manifest("hair")));
   engine.setMouths(mouths.create(makeCanvas, manifest("mouths")));
@@ -49,23 +52,29 @@ export async function createAvatarRenderer(dependencies = {}) {
       const add = (key, file) => { if (file) loads.push(load(file).then(image => { assets[key] = image; })); };
       for (const base of catalog.bases) { add(base.id, base.file); if (state.tone === "custom") add(base.id + "_mask", base.mask); }
       for (const family of Object.keys(catalog.families)) {
-        const part = catalog.families[family].find(item => item.id === state[family]);
-        if (!part) continue;
-        const key = (family === "eyes" ? "eye" : family) + "_" + part.id;
-        add(key, part.file);
-        add(key + (family === "eyes" ? "_skin" : "_mask"), part.mask);
-        for (const [name, file] of Object.entries(part.layers)) add(key + "_" + name, file);
-        for (const [name, file] of Object.entries(part.masks)) add(key + "_" + name, file);
+        const selected = getAvatarPartIds(state, family);
+        for (const part of catalog.families[family].filter(item => selected.includes(item.id))) {
+          const key = (family === "eyes" ? "eye" : family) + "_" + part.id;
+          add(key, part.file);
+          add(key + (family === "eyes" ? "_skin" : "_mask"), part.mask);
+          for (const [name, file] of Object.entries(part.layers)) add(key + "_" + name, file);
+          for (const [name, file] of Object.entries(part.masks)) add(key + "_" + name, file);
+        }
       }
       await Promise.all(loads);
-      if (state.accessories === "participant_tag") await loadAvatarMarkerFont();
+      const nose = catalog.families.nose?.find(part => part.id === state.nose);
+      if (nose?.sourceBounds && nose.placement) {
+        const { art, mask } = rasterizeNose(assets["nose_" + nose.id], nose);
+        assets["nose_" + nose.id] = art; assets["nose_" + nose.id + "_mask"] = mask;
+      }
+      if (state.accessories.includes("participant_tag")) await loadAvatarMarkerFont();
       const resolved = engine.resolve(state, assets);
-      const cosmetic = catalog.families.accessories?.find(part => part.id === state.accessories);
+      const selectedCosmetics = catalog.families.accessories?.filter(part => state.accessories.includes(part.id)) || [];
       return { ...resolved, draw(canvas, view, medals, nickname = options.nickname) {
         const ctx = canvas.getContext("2d");
         engine.draw(canvas, assets, resolved.state, {
           view, background: "transparent",
-          drawAccessories: (ctx, layer) => cosmetics.draw(ctx, assets, resolved.state, cosmetic, layer),
+          drawAccessories: (ctx, layer) => cosmetics.draw(ctx, assets, resolved.state, selectedCosmetics, layer),
         });
         if (view === "portrait") drawAvatarMedals(ctx, canvas.gobbleViewport, medals);
         if (view === "portrait") drawAvatarAccessories(ctx, canvas.gobbleViewport, assets.accessories_participant_tag, nickname);

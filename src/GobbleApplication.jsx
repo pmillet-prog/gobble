@@ -2931,6 +2931,7 @@ export default function GobbleApplication() {
         isMobileLayout,
         layoutFeature,
         maxGridWidth: MOBILE_GRID_MAX_WIDTH,
+        allowLandscape: appView === "chalkboard",
         showLiveActionBar: showMobileLiveActionBar,
         adaptiveRanking: showMobileLiveActionBar &&
           !["target_long", "target_score", OCID_TYPE].includes(specialRound?.type),

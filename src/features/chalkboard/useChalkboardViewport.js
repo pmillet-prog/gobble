@@ -3,7 +3,7 @@ import { CHALKBOARD_WORLD } from "./chalkboardModel.js";
 import { chalkboardScale, resizeChalkboardViewport } from "./chalkboardViewport.js";
 
 export default function useChalkboardViewport(scrollRef) {
-  const [viewport, setViewport] = React.useState({ width: 1, height: 1, scrollLeft: 0, scrollTop: 0, zoom: 1 });
+  const [viewport, setViewport] = React.useState({ width: 1, height: 1, scrollLeft: 0, scrollTop: 0 });
   const frameRef = React.useRef(0);
   const scale = chalkboardScale(viewport);
 
@@ -24,7 +24,7 @@ export default function useChalkboardViewport(scrollRef) {
     // React has now resized the world, so native scroll limits are up to date.
     scrollRef.current.scrollLeft = viewport.scrollLeft;
     scrollRef.current.scrollTop = viewport.scrollTop;
-  }, [scrollRef, viewport.width, viewport.height, viewport.zoom]);
+  }, [scrollRef, viewport.width, viewport.height]);
 
   React.useEffect(() => () => cancelAnimationFrame(frameRef.current), []);
   const onScroll = React.useCallback(() => {
@@ -38,13 +38,6 @@ export default function useChalkboardViewport(scrollRef) {
     });
   }, [scrollRef]);
 
-  const setZoom = React.useCallback(zoom => {
-    const node = scrollRef.current;
-    if (!node) return;
-    setViewport(current => resizeChalkboardViewport(
-      { ...current, scrollLeft: node.scrollLeft, scrollTop: node.scrollTop }, { zoom }));
-  }, [scrollRef]);
-
-  return { viewport: { ...viewport, scale }, scale, setZoom, onScroll,
+  return { viewport: { ...viewport, scale }, scale, onScroll,
     worldWidth: CHALKBOARD_WORLD.width * scale, worldHeight: CHALKBOARD_WORLD.height * scale };
 }

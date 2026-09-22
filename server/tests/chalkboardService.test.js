@@ -157,16 +157,30 @@ test("the former board addresses publish to the same board without message categ
   assert.deepEqual(service.undoLastDeletion("free", moderator).intervention, { ...first, canErase: false });
 });
 
-test("the chosen typeface survives publication, fresh snapshots, deletion and undo", () => {
+test("the chosen typeface and color survive publication, fresh snapshots, deletion and undo", () => {
   const service = createChalkboardService();
   const moderator = { userId: 17 };
   for (const font of ["chalk", "white-chalk"]) {
     const published = service.addIntervention("free", { elements: [
-      { type: "text", id: font, text: "UN MOT SUR LE TABLEAU", font, cx: 600, cy: 400, width: 800, fontSize: 68, scale: 1, angle: 0 },
+      { type: "text", id: font, text: "UN MOT SUR LE TABLEAU", font, color: "#81D4FA", cx: 600, cy: 400, width: 800, fontSize: 68, scale: 1, angle: 0 },
     ] }, moderator).intervention;
     assert.equal(published.elements[0].font, font);
-    assert.equal(JSON.parse(JSON.stringify(service.getSnapshot("free"))).interventions.at(-1).elements[0].font, font);
+    assert.equal(published.elements[0].color, "#81d4fa");
+    const received = JSON.parse(JSON.stringify(service.getSnapshot("free"))).interventions.at(-1).elements[0];
+    assert.equal(received.font, font);
+    assert.equal(received.color, "#81d4fa");
     service.deleteIntervention(published.id, moderator);
-    assert.equal(service.undoLastDeletion("free", moderator).intervention.elements[0].font, font);
+    const restored = service.undoLastDeletion("free", moderator).intervention.elements[0];
+    assert.equal(restored.font, font);
+    assert.equal(restored.color, "#81d4fa");
+  }
+});
+
+test("legacy text and invalid colors retain the original white chalk", () => {
+  const service = createChalkboardService();
+  for (const color of [undefined, "red", "#123", "url(https://invalid)", {}]) {
+    const result = service.addIntervention("free", { elements: [{ type: "text", text: "BONJOUR", color }] }, { userId: 1 });
+    assert.equal(result.ok, true);
+    assert.equal(result.intervention.elements[0].color, "#f5f2e8");
   }
 });

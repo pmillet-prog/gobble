@@ -1,7 +1,8 @@
 // The compositor calls these stages in avatar coordinates: necklace under the
 // head, facial accessories over features but under front hair and glasses.
 export function createAvatarCosmeticsRenderer(makeCanvas) {
-  let cachedKey = null, cachedCanvas = null;
+  const layers = new Map();
+  let scratch = null;
 
   function drawImage(ctx, image, part, state) {
     const [x, y, width] = part.placement[state.base || "homme"];
@@ -23,31 +24,41 @@ export function createAvatarCosmeticsRenderer(makeCanvas) {
     }
     // Keep the entire native canvas and alpha. Bounds only set its scale/anchor.
     ctx.drawImage(image, x - sx * scale, y - sy * scale, image.width * scale, image.height * scale);
+    if (part.pair) ctx.drawImage(image, 1024 - x - width - sx * scale, y - sy * scale, image.width * scale, image.height * scale);
     ctx.restore();
   }
 
   return {
-    draw(ctx, assets, state, part, layer) {
-      if (!part?.placement || part.layer !== layer) return;
-      const image = assets["accessories_" + part.id];
-      if (!image) return;
+    draw(ctx, assets, state, parts, layer) {
+      const selected = parts.filter(part => part.placement && part.layer === layer && assets["accessories_" + part.id]);
+      if (!selected.length) { layers.delete(layer); return; }
       // Rasterize once at avatar resolution so very small rings survive the
-      // final reduction to chat size. Keep just one reusable surface per avatar.
-      const key = JSON.stringify([part.id, state.base, state.dx, state.dy, state.spacing,
+      // final reduction to chat size. Bound the cache to the two drawing stages,
+      // regardless of how many accessories are selected or tried on.
+      const key = JSON.stringify([selected.map(part => part.id), state.base, state.dx, state.dy, state.spacing,
         state.noseDx, state.noseDy, state.noseScale, state.scarDx, state.scarDy, state.scarRotation]);
-      if (key !== cachedKey) {
-        if (!cachedCanvas) cachedCanvas = makeCanvas(1024, 1024);
-        const target = cachedCanvas.getContext("2d");
+      let cached = layers.get(layer);
+      if (key !== cached?.key) {
+        const canvas = cached?.canvas || makeCanvas(1024, 1024);
+        const target = canvas.getContext("2d");
         target.clearRect(0, 0, 1024, 1024); target.globalCompositeOperation = "source-over";
         target.imageSmoothingEnabled = true; target.imageSmoothingQuality = "high";
-        drawImage(target, image, part, state);
-        if (part.clipToHead) {
-          target.globalCompositeOperation = "destination-in";
-          target.drawImage(assets["head_" + (state.base || "homme")], 0, 0);
+        for (const part of selected) {
+          const image = assets["accessories_" + part.id];
+          if (!part.clipToHead) { drawImage(target, image, part, state); continue; }
+          // Clip this piece only: freckles must not erase an earring or necklace.
+          if (!scratch) scratch = makeCanvas(1024, 1024);
+          const clipped = scratch.getContext("2d");
+          clipped.clearRect(0, 0, 1024, 1024);
+          drawImage(clipped, image, part, state);
+          clipped.globalCompositeOperation = "destination-in";
+          clipped.drawImage(assets["head_" + (state.base || "homme")], 0, 0);
+          clipped.globalCompositeOperation = "source-over";
+          target.drawImage(scratch, 0, 0);
         }
-        target.globalCompositeOperation = "source-over"; cachedKey = key;
+        cached = { key, canvas }; layers.set(layer, cached);
       }
-      ctx.drawImage(cachedCanvas, 0, 0);
+      ctx.drawImage(cached.canvas, 0, 0);
     },
   };
 }

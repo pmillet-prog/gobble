@@ -6,7 +6,7 @@ import { CHALKBOARD_LIMITS, getChalkboardDraftUsage } from "../../../shared/chal
 
 const COLOR_NAMES = ["blanche", "jaune", "rose", "bleue", "verte", "violette"];
 
-export default function ChalkboardControls({ editor, editing, busy, canPublish, onTool, onCancel, onPublish }) {
+export default function ChalkboardControls({ editor, editing, busy, canPublish, onTool, onCancel, onPublish, onEditText }) {
   const tool = editing ? editor.tool : "pan";
   const hasErasures = editor.elements.some(element => element.type === "erase");
   const usage = getChalkboardDraftUsage(editor.elements);
@@ -27,6 +27,7 @@ export default function ChalkboardControls({ editor, editing, busy, canPublish, 
         </div>
         {editing && <div className="chalkboard-draft-actions">
           <button type="button" onClick={editor.undo} disabled={!editor.historyCount || busy} aria-label="Annuler la dernière action" title="Annuler la dernière action"><ChalkboardIcon name="undo" /></button>
+          {editor.selectedTextId && <button type="button" onClick={onEditText} disabled={busy} aria-label="Modifier le texte sélectionné" title="Modifier le texte sélectionné"><ChalkboardIcon name="write" /></button>}
           {editor.selectedTextId && <button type="button" onClick={editor.removeSelected} disabled={busy} aria-label="Supprimer le texte sélectionné" title="Supprimer le texte sélectionné"><ChalkboardIcon name="erase" /></button>}
           <button type="button" className="chalkboard-cancel" onClick={onCancel} disabled={busy}>Abandonner</button>
           <button type="button" className="chalkboard-publish" onClick={() => onPublish()} disabled={!editor.hasDraft || busy || !canPublish}><ChalkboardIcon name="check" />{busy ? "Enregistrement…" : hasErasures ? "Valider" : "Publier"}</button>
@@ -45,7 +46,7 @@ export default function ChalkboardControls({ editor, editing, busy, canPublish, 
       {editor.fontsError && <p className="chalkboard-font-error" role="status">Les polices n’ont pas pu être chargées. <button type="button" onClick={editor.reloadFonts}>Réessayer</button></p>}
       {editing && (editor.limitReached || nearLimit) && <p className="chalkboard-font-error" role="status">{editor.limitReached ? "Ce brouillon a atteint sa limite. Publie-le pour continuer à dessiner." : "Ton dessin est bien rempli : pense à le publier bientôt pour continuer."}</p>}
       {!canPublish && <p className="chalkboard-guidance">Le tableau est public. Connecte-toi depuis l’accueil pour écrire ou dessiner.</p>}
-      <p className="chalkboard-guidance">{tool === "erase" ? "Seules tes interventions sont affichées. Frotte pour gommer, puis valide." : tool === "chalk" ? "Dessine sur le tableau, puis publie quand c’est prêt." : tool === "text" ? "Déplace ton texte à la main. Les poignées servent à le tourner ou l’agrandir." : editing ? "Déplace le tableau pour continuer ailleurs. Ton brouillon est conservé." : "Fais glisser le tableau ou utilise la molette pour découvrir la suite."}{tool !== "pan" ? " Reclique sur l’outil actif pour faire défiler." : ""}</p>
+      <p className="chalkboard-guidance">{tool === "erase" ? "Seules tes interventions sont affichées. Frotte pour gommer, puis valide." : tool === "chalk" ? "Dessine sur le tableau, puis publie quand c’est prêt." : tool === "text" ? "Déplace ton texte. Poignées : ↻ rotation, ↘ taille, ↔ largeur et retours à la ligne." : editing ? "Déplace le tableau pour continuer ailleurs. Ton brouillon est conservé." : "Fais glisser le tableau ou utilise la molette pour découvrir la suite."}{tool !== "pan" ? " Reclique sur l’outil actif pour faire défiler." : ""}</p>
     </footer>
   );
 }

@@ -2,7 +2,7 @@ import { constants as cryptoConstants, publicEncrypt, randomUUID } from "crypto"
 import { CHALKBOARD_BOARD, normalizeChalkboardFont } from "../../shared/chalkboardRules.js";
 import { CHALKBOARD_LIMITS, chalkboardDraftFits } from "../../shared/chalkboardLimits.js";
 import { chalkboardFontCatalog } from "./chalkboardFontCatalog.js";
-import { getChalkboardTextHeight, normalizeChalkboardLineBreaks } from "../../shared/chalkboardText.js";
+import { getChalkboardTextHeight, normalizeChalkboardLineBreaks, normalizeChalkboardTextColor } from "../../shared/chalkboardText.js";
 import { erasuresFitBudget, normalizeChalkboardErasure } from "../../shared/chalkboardErasure.js";
 import { prepareChalkboardCleanup, prepareChalkboardErasures } from "./chalkboardErasure.js";
 
@@ -96,7 +96,9 @@ function normalizeText(raw, index, fontIds) {
     seed: Math.trunc(finiteNumber(raw?.seed, index + 1)) >>> 0,
     text,
     ...(Array.isArray(raw?.lineBreaks) ? { lineBreaks: normalizeChalkboardLineBreaks(text, raw.lineBreaks) } : {}),
+    ...(Array.isArray(raw?.paragraphBreaks) ? { paragraphBreaks: normalizeChalkboardLineBreaks(text, raw.paragraphBreaks) } : {}),
     font: normalizeChalkboardFont(raw?.font, fontIds),
+    color: normalizeChalkboardTextColor(raw?.color),
     cx: roundCoordinate(raw?.cx, CHALKBOARD_WORLD.width),
     cy: roundCoordinate(raw?.cy, CHALKBOARD_WORLD.height),
     width: Math.round(clamp(finiteNumber(raw?.width, 120), 18, 1600) * 10) / 10,

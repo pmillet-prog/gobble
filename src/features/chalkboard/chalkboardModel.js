@@ -59,9 +59,19 @@ export function getTextHandles(element) {
   const halfHeight = getTextHeight(element) / 2;
   return {
     scale: localToWorld(element, halfWidth + 14, halfHeight + 14),
+    width: localToWorld(element, halfWidth + 14, 0),
     rotate: localToWorld(element, 0, -halfHeight - 46),
     rotateAnchor: localToWorld(element, 0, -halfHeight),
   };
+}
+
+export function hitTestTextHandle(element, point, radius) {
+  const handles = getTextHandles(element);
+  // Touch targets overlap at small zoom levels. Pick the nearest handle,
+  // otherwise the scale target can swallow the horizontal-width handle.
+  const nearest = ["rotate", "scale", "width"].map(kind => ({ kind, distance: distance(handles[kind], point) }))
+    .sort((a, b) => a.distance - b.distance)[0];
+  return nearest.distance <= radius ? nearest.kind : null;
 }
 
 export function hitTestText(element, x, y, padding = 10) {

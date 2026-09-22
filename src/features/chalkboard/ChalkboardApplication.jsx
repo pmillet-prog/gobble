@@ -8,7 +8,7 @@ import {
 } from "./chalkboardApi.js";
 import { getElementBounds } from "./chalkboardModel.js";
 import useChalkboardRenderer from "./useChalkboardRenderer.js";
-import ChalkboardZoom from "./ChalkboardZoom.jsx";
+import useOverlayViewport from "../../hooks/useOverlayViewport.js";
 import useChalkboardViewport from "./useChalkboardViewport.js";
 import { getChalkboardPointer } from "./chalkboardCanvasWindow.js";
 import ChalkboardBackdrop from "./ChalkboardBackdrop.jsx";
@@ -26,6 +26,7 @@ import useChalkboardModeration from "./useChalkboardModeration.js";
 import ChalkboardModerationPreview from "./ChalkboardModerationPreview.jsx";
 import ChalkboardModerationControls from "./ChalkboardModerationControls.jsx";
 import ChalkboardMaintenanceDialog from "./ChalkboardMaintenanceDialog.jsx";
+import ChalkboardLoadingIndicator from "./ChalkboardLoadingIndicator.jsx";
 import "./chalkboard.css";
 
 const board = CHALKBOARD_BOARD;
@@ -33,11 +34,12 @@ const ChalkboardArchives = React.lazy(() => import("./ChalkboardArchives.jsx"));
 
 export default function ChalkboardApplication(props) {
   const [archives, setArchives] = React.useState(false);
-  return archives
+  const viewportRef = useOverlayViewport();
+  return <div ref={viewportRef} className="chalkboard-viewport">{archives
     ? <React.Suspense fallback={<main className="chalkboard-app"><button className="chalkboard-back" onClick={() => setArchives(false)}>Retour au tableau</button><p role="status">Chargement des archives…</p></main>}>
         <ChalkboardArchives onClose={() => setArchives(false)} />
       </React.Suspense>
-    : <ChalkboardBoard {...props} onArchives={() => setArchives(true)} />;
+    : <ChalkboardBoard {...props} onArchives={() => setArchives(true)} />}</div>;
 }
 
 function getErrorMessage(error) {
@@ -76,7 +78,7 @@ function ChalkboardBoard({ canPublish = false, connection, onClose, onArchives }
   const snapshotRef = React.useRef(snapshot);
   const editor = useChalkboardEditor();
   const draftWeekRef = React.useRef("");
-  const { viewport, scale, worldWidth, worldHeight, setZoom, onScroll } = useChalkboardViewport(scrollRef);
+  const { viewport, scale, worldWidth, worldHeight, onScroll } = useChalkboardViewport(scrollRef);
   const interacting = editing && editor.tool !== "pan" && !busy && !maintenanceMode;
   const erasing = editing && editor.tool === "erase";
   const edgeScroll = useChalkboardEdgeScroll({ scrollRef, editor, scale, enabled: interacting });
@@ -291,17 +293,14 @@ function ChalkboardBoard({ canPublish = false, connection, onClose, onArchives }
     setNotice("");
   };
 
-  const placeText = (text) => {
-    if (maintenanceMode) return null;
-    const result = editor.finishTextEntry(text, viewport);
-    if (!result) return null;
-    // Keep the chosen spot visible if the nearest free space was farther away.
-    if (scrollRef.current) {
-      scrollRef.current.scrollLeft = result.position.x * scale - viewport.width / 2;
-      scrollRef.current.scrollTop = result.position.y * scale - viewport.height / 2;
+  const previewText = text => {
+    if (maintenanceMode) return;
+    const first = !editor.elements.some(element => element.id === editor.textEntry?.id);
+    const element = editor.updateTextEntry(text, viewport);
+    if (first && element && scrollRef.current) {
+      scrollRef.current.scrollLeft = element.cx * scale - viewport.width / 2;
+      scrollRef.current.scrollTop = element.cy * scale - Math.min(viewport.height, worldHeight) / 2;
     }
-    if (!result.placementFound) setNotice("Cette zone est bien remplie. Place ton texte avant de le publier.");
-    return result;
   };
 
   const publish = async () => {
@@ -347,7 +346,7 @@ function ChalkboardBoard({ canPublish = false, connection, onClose, onArchives }
 
   return (
     <>
-    <main className="chalkboard-app" inert={maintenanceMode ? "" : undefined} aria-hidden={maintenanceMode || undefined}>
+    <main className={`chalkboard-app chalkboard-board${editor.textEntry ? " is-composing" : ""}`} inert={maintenanceMode ? "" : undefined} aria-hidden={maintenanceMode || undefined}>
       <header className="chalkboard-header">
         <button type="button" className="chalkboard-back" onClick={close} disabled={busy} aria-label="Retour à l'accueil"><ChalkboardIcon name="back" /><span>Accueil</span></button>
         <div className="chalkboard-heading">
@@ -378,35 +377,33 @@ function ChalkboardBoard({ canPublish = false, connection, onClose, onArchives }
             <div className="chalkboard-canvas-shell">
               <ChalkboardEraserCursor canvasRef={canvasRef} viewportRef={scrollRef} enabled={interacting && editor.tool === "erase"} size={editor.eraserSize} scale={scale} />
               {moderation.mode && <ChalkboardModerationPreview intervention={moderation.preview} viewport={viewport} scale={scale} />}
-              {loading || rendering ? <div className="chalkboard-loader" role="status"><span className="chalkboard-spinner" aria-hidden="true" />Chargement du tableau…</div> : null}
+              <ChalkboardLoadingIndicator pending={loading || rendering} />
               {!loading && !snapshot.interventions.length && !editing && !moderation.mode ? <div className="chalkboard-empty">
                 <span>À toi la craie !</span>
                 <p>Un bug à signaler, une idée pour le jeu, un dessin…</p>
-                <small>{canPublish ? "Choisis « Écrire » ou « Dessiner » en bas du tableau." : "Connecte-toi depuis l’accueil pour apporter ta contribution."}</small>
+                <small>{canPublish ? "Choisis « Écrire » ou « Dessiner » dans les outils du tableau." : "Connecte-toi depuis l’accueil pour apporter ta contribution."}</small>
               </div> : null}
             </div>
           </div>
         </section>
         <ChalkboardScrollHints scrollRef={scrollRef} enabled={!interacting && !moderation.mode && !loading} viewport={viewport} worldWidth={worldWidth} />
-        <ChalkboardZoom value={viewport.zoom} disabled={busy || maintenanceMode} onChange={zoom => {
-          edgeScroll.stop();
-          editor.pointerUp();
-          moderation.clearHover();
-          setZoom(zoom);
-        }} />
         {notice ? <div className="chalkboard-notice" role="status">{notice}</div> : null}
       </div>
 
       {moderation.mode
         ? <ChalkboardModerationControls moderation={moderation} canUndo={snapshot.canUndoDelete} busy={busy} />
-        : <ChalkboardControls editor={editor} editing={editing} busy={busy || loading || maintenanceMode} canPublish={canPublish} onTool={chooseTool} onCancel={cancelEditing} onPublish={publish} />}
-      {editor.textEntry ? <ChalkboardTextComposer
-        canPublish={canPublish}
+        : editor.textEntry ? <ChalkboardTextComposer
+        text={editor.textEntry.rawText}
+        font={editor.textEntry.font}
+        color={editor.textEntry.color}
+        fonts={editor.loadedFonts}
+        onStyleChange={editor.updateTextStyle}
         onCancel={editor.cancelTextEntry}
-        onPlace={placeText}
-        font={editor.font}
+        onChange={previewText}
+        onFinish={editor.finishTextEntry}
         fontsReady={editor.fontsReady}
-      /> : null}
+      /> : <ChalkboardControls editor={editor} editing={editing} busy={busy || loading || maintenanceMode} canPublish={canPublish} onTool={chooseTool} onCancel={cancelEditing} onPublish={publish}
+        onEditText={() => { const element = editor.elements.find(item => item.id === editor.selectedTextId); if (element) editor.beginTextEntry({ element, viewport, worldX: element.cx, worldY: element.cy }); }} />}
     </main>
     {maintenanceMode ? <ChalkboardMaintenanceDialog hasDraft={editor.hasDraft || !!editor.textEntry} onClose={close} /> : null}
     </>

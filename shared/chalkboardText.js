@@ -1,3 +1,10 @@
+export const DEFAULT_CHALKBOARD_TEXT_COLOR = "#f5f2e8";
+
+export function normalizeChalkboardTextColor(value) {
+  return typeof value === "string" && /^#[0-9a-f]{6}$/i.test(value)
+    ? value.toLowerCase() : DEFAULT_CHALKBOARD_TEXT_COLOR;
+}
+
 export function normalizeChalkboardLineBreaks(text, value) {
   if (!Array.isArray(value) || value.length >= text.length) return [];
   let start = 0;

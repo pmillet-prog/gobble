@@ -1,9 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { getChalkboardTextLines, normalizeChalkboardLineBreaks } from "../../../shared/chalkboardText.js";
-import { layoutChalkboardText, getChalkboardTextPlacementLimits } from "./chalkboardTextLayout.js";
+import { layoutChalkboardText, getChalkboardTextPlacementLimits, reflowChalkboardText } from "./chalkboardTextLayout.js";
+import { normalizeChalkboardMessage, getChalkboardEditableText, resizeChalkboardTextWidth } from "./chalkboardTextDraft.js";
 import { findChalkboardTextPlacement } from "./chalkboardTextPlacement.js";
-import { getElementBounds, getTextHandles, getTextHeight, hitTestIntervention } from "./chalkboardModel.js";
+import { getElementBounds, getTextHandles, getTextHeight, hitTestIntervention, hitTestTextHandle, localToWorld } from "./chalkboardModel.js";
 import { paintChalkboardTextLines } from "./chalkboardPaint.js";
 import { createChalkboardService } from "../../../server/chalkboard/chalkboardService.js";
 
@@ -31,7 +32,7 @@ test("280 characters without spaces and Unicode pairs are preserved across wrapp
     const lines = getChalkboardTextLines(element);
     assert.ok(lines.length > 1);
     assert.equal(lines.join(""), text);
-    assert.ok(lines.every(line => [...line].length <= 32 && !/^[\uDC00-\uDFFF]|[\uD800-\uDBFF]$/.test(line)));
+    assert.ok(lines.every(line => measure(line) <= 1500 && [...line].length > 1 && !/^[\uDC00-\uDFFF]|[\uD800-\uDBFF]$/.test(line)));
   }
 });
 
@@ -52,7 +53,7 @@ test("initial placement keeps the entire paragraph and both handles in the viewp
         assert.ok(bounds.minX * viewScale >= scrollLeft && bounds.maxX * viewScale <= scrollLeft + width);
         const handles = getTextHandles(element);
         const radius = Math.max(8, Math.min(13, 10 * viewScale)) + 1;
-        for (const point of [handles.rotate, handles.scale]) {
+        for (const point of [handles.rotate, handles.scale, handles.width]) {
           const x = point.x * viewScale - scrollLeft, y = point.y * viewScale;
           assert.ok(x >= radius && x <= width - radius && y >= radius && y <= height - radius,
             JSON.stringify({ width, height, x, y, radius }));
@@ -60,6 +61,47 @@ test("initial placement keeps the entire paragraph and both handles in the viewp
       }
     }
   }
+});
+
+test("ordinary long words never lose their final letter to the next line", () => {
+  for (const text of ["ANTICONSTITUTIONNELLEMENT", "BONJOUR EXTRAORDINAIREMENT A TOUS", "LES JOUEURS SE RECONNECTENT"]) {
+    const element = makeElement(text, { width: 320, height: 380 });
+    const narrow = reflowChalkboardText(element, 180, measure);
+    assert.equal(getChalkboardTextLines(element).join(" "), text);
+    assert.equal(getChalkboardTextLines(narrow).join(" "), text);
+  }
+});
+
+test("horizontal resizing reflows whole words in rotated local coordinates without stretching glyphs", () => {
+  const original = { ...makeElement("BONJOUR A TOUS LES JOUEURS DU TABLEAU", { width: 1280, height: 650 }), angle: .7, scale: .8 };
+  const wide = resizeChalkboardTextWidth(original, localToWorld(original, 764, 0), measure);
+  const narrow = resizeChalkboardTextWidth(original, localToWorld(original, 214, 0), measure);
+  assert.ok(getChalkboardTextLines(narrow).length > getChalkboardTextLines(wide).length);
+  for (const value of [wide, narrow]) {
+    for (const key of ["cx", "cy", "fontSize", "font", "scale", "angle"]) assert.equal(value[key], original[key], key);
+    assert.equal(getChalkboardTextLines(value).join(" "), original.text);
+  }
+});
+
+test("small-screen touch targets distinguish width, scale and rotation even when their hit areas overlap", () => {
+  for (const scale of [.3, .5, 1]) for (const angle of [0, .7]) {
+    const element = { ...makeElement("BONJOUR", { width: 320, height: 380 }), scale, angle };
+    const handles = getTextHandles(element);
+    for (const kind of ["rotate", "scale", "width"]) assert.equal(hitTestTextHandle(element, handles[kind], 24 / scale), kind);
+  }
+});
+
+test("typed paragraph breaks survive resizing, publication and re-editing", () => {
+  const raw = "Bonjour à tous\nÀ bientôt sur le tableau !";
+  const message = normalizeChalkboardMessage(raw);
+  const element = reflowChalkboardText({ ...makeElement(message.text, { width: 1280, height: 650 }), ...message }, 500, measure);
+  const service = createChalkboardService();
+  const stored = service.addIntervention("free", { elements: [element] }, { userId: 17 }).intervention.elements[0];
+  assert.deepEqual(stored.lineBreaks, element.lineBreaks);
+  assert.deepEqual(stored.paragraphBreaks, element.paragraphBreaks);
+  const wider = reflowChalkboardText(stored, 1600, measure);
+  assert.deepEqual(getChalkboardTextLines(wider), ["BONJOUR A TOUS", "A BIENTOT SUR LE TABLEAU !"]);
+  assert.equal(getChalkboardEditableText(wider), "BONJOUR A TOUS\nA BIENTOT SUR LE TABLEAU !");
 });
 
 test("publication and deletion undo preserve all lines and their lower-line hit area", () => {

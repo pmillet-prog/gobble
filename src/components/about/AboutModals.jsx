@@ -1,6 +1,7 @@
 import React from "react";
 import AboutCredits from "./AboutCredits.jsx";
 import { SUPPORT_DONORS } from "../../constants/supportDonors";
+import PatchNotes20260922Minor from "./patchNotes/PatchNotes20260922Minor.jsx";
 import PatchNotes20260920 from "./patchNotes/PatchNotes20260920.jsx";
 import PatchNotes20260920Minor from "./patchNotes/PatchNotes20260920Minor.jsx";
 import PatchNotes20260919 from "./patchNotes/PatchNotes20260919.jsx";
@@ -280,6 +281,7 @@ export default function AboutModals({
               </button>
             </div>
             <div className="max-h-[68vh] overflow-y-auto px-4 py-4 text-[13px] leading-6 space-y-4">
+              <PatchNotes20260922Minor menuDarkMode={menuDarkMode} />
               <PatchNotes20260920Minor menuDarkMode={menuDarkMode} />
               <PatchNotes20260920 menuDarkMode={menuDarkMode} />
               <PatchNotes20260919 menuDarkMode={menuDarkMode} />

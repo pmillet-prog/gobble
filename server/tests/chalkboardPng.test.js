@@ -12,7 +12,7 @@ test("export worker produces a complete PNG with fonts, strokes and isolated mas
   let beats = 0;
   const timer = setInterval(() => beats++, 10);
   try {
-    const text = { id: "text", type: "text", seed: 3, font: "chalk", text: "LE GRAND TABLEAU", cx: 450, cy: 180, width: 760, fontSize: 68, scale: 1, angle: 0 };
+    const text = { id: "text", type: "text", seed: 3, font: "chalk", color: "#ff0000", text: "LE GRAND TABLEAU", cx: 450, cy: 180, width: 760, fontSize: 68, scale: 1, angle: 0 };
     const stroke = { id: "stroke", type: "stroke", seed: 2, color: "#f7d154", size: 14, points: [{ x: 200, y: 400 }, { x: 800, y: 400 }] };
     const mask = { id: "erase", type: "erase", size: 100, points: [{ x: 480, y: 400 }, { x: 520, y: 400 }] };
     const snapshot = { weekId: "2026-09-07", interventions: [{ id: "text", bounds: getElementBounds(text), elements: [text] }, { id: "stroke", bounds: getElementBounds(stroke), elements: [stroke, mask] }] };
@@ -30,6 +30,12 @@ test("export worker produces a complete PNG with fonts, strokes and isolated mas
     const erased = context.getImageData(500, 400, 1, 1).data;
     const visible = context.getImageData(300, 400, 1, 1).data;
     assert.ok(visible[0] > erased[0] + 20, "unmasked yellow chalk must remain visible");
+    const textPixels = context.getImageData(50, 110, 800, 140).data;
+    let redPixels = 0;
+    for (let index = 0; index < textPixels.length; index += 4) {
+      if (textPixels[index] > 150 && textPixels[index + 1] < 70 && textPixels[index + 2] < 70) redPixels++;
+    }
+    assert.ok(redPixels > 500, "the exported text must retain its selected red chalk color");
     assert.ok(beats > 1, "the main thread must remain responsive while exporting");
   } finally {
     clearInterval(timer);

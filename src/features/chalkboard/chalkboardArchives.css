@@ -50,7 +50,7 @@
   pointer-events: none;
 }
 .chalkboard-archive-message { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; flex-direction: column; color: #f6f2df; }
-.chalkboard-archive-tools { padding-bottom: max(10px, env(safe-area-inset-bottom)); }
+.chalkboard-archive-tools { padding-bottom: 10px; }
 .chalkboard-archive-zoom { display: flex; align-items: center; gap: 6px; }
 .chalkboard-archive-zoom button { font-size: 24px; width: 44px; padding: 2px; }
 .chalkboard-archive-zoom output { min-width: 60px; text-align: center; font-variant-numeric: tabular-nums; }
@@ -62,6 +62,6 @@
   .chalkboard-archives .chalkboard-heading h1 { font-size: 16px; }
   .chalkboard-archives .chalkboard-heading span { display: none; }
   .chalkboard-archive-tools, .chalkboard-archive-picker { gap: 6px; padding: 8px; }
-  .chalkboard-archive-tools { padding-bottom: max(8px, env(safe-area-inset-bottom)); }
+  .chalkboard-archive-tools { padding-bottom: 8px; }
   .chalkboard-archive-tools button, .chalkboard-archive-tools a { padding-inline: 10px; font-size: 13px; }
 }

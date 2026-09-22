@@ -3,6 +3,7 @@ import { DONOR_AVATAR_REWARD } from "./supportDonors.js";
 import { hasAvatarEyelids } from "./avatarEyes.js";
 import { getWeeklyAvatarAura } from "./avatarWeeklyAuras.js";
 import { AVATAR_COSMETIC_PRICES } from "./avatarCosmetics.js";
+import { getAvatarPartIds } from "./avatarSelections.js";
 const EXPENSIVE_HATS = new Set(["cowboy", "trilby", "fedora", "boater", "bowler", "panama"]);
 const PRICES = { base: 500, eyes: 1000, hair: 1000, brows: 500, nose: 500, mouths: 500, facialhair: 500, clothes: 5000, backdrops: 5000 };
 export const CROWN_WINS_REQUIRED = 100;
@@ -38,14 +39,12 @@ export function isAvatarPartUnlocked(inventory, family, id, part) {
 
 export function getLockedAvatarParts(avatar, catalog, inventory) {
   if (!avatar) return [];
-  return ["base", ...Object.keys(catalog.families)].flatMap(family => {
-    const id = avatar[family];
-    if (!id) return [];
+  return ["base", ...Object.keys(catalog.families)].flatMap(family => [...new Set(getAvatarPartIds(avatar, family))].flatMap(id => {
     const part = family === "base" ? { id, label: id === "femme" ? "Visage femme" : "Visage homme" }
       : catalog.families[family]?.find(item => item.id === id);
     if (family === "lashes" && !hasAvatarEyelids(avatar.eyes)) return [{ family, id, type: "prerequisite", label: "Cils : choisis des yeux avec paupières" }];
     if (!part || isAvatarPartUnlocked(inventory, family, id, part)) return [];
     const rule = getAvatarUnlockRule(family, id, part);
     return [{ ...rule, family, id, label: part.label, description: rule.label }];
-  });
+  }));
 }

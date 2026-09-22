@@ -1,4 +1,5 @@
 import { AVATAR_ADJUSTMENT_RANGES } from "../../../shared/avatarConfiguration.js";
+import { getAvatarPartIds } from "../../../shared/avatarSelections.js";
 export { AVATAR_ADJUSTMENT_DEFAULTS, normalizeAvatarAdjustments } from "../../../shared/avatarConfiguration.js";
 
 const slider = (key, label, percent = false, range = AVATAR_ADJUSTMENT_RANGES[key]) => ({
@@ -20,7 +21,7 @@ export const AVATAR_SLIDERS = {
 export const ALL_AVATAR_SLIDERS = Object.values(AVATAR_SLIDERS).flat();
 // Retain saved hair/hat adjustments for compatibility without exposing sliders.
 export const getAvatarSliders = (category, avatar) => category === "accessories"
-  ? (avatar?.accessories === "scar" ? AVATAR_SLIDERS.scar : [])
+  ? (getAvatarPartIds(avatar, "accessories").includes("scar") ? AVATAR_SLIDERS.scar : [])
   : ["hair", "headwear"].includes(category) ? [] : AVATAR_SLIDERS[category] || [];
 
 export function getAvatarChoices(catalog, family, base) {

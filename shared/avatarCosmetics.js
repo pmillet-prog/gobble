@@ -1,9 +1,10 @@
 import { AVATAR_COSMETIC_IMAGES } from "./avatarCosmeticImages.js";
+import { AVATAR_ADDITION_IMAGES } from "./avatarAdditionImages.js";
 
 const folder = "candidates/accessories/lot_013/2026-09-20-cosmetics";
 const cosmetic = (id, label, price, options) => ({
   id, label, price, file: `${folder}/${id}_v01.png`, layers: {}, masks: {},
-  ...AVATAR_COSMETIC_IMAGES[id], ...options,
+  ...AVATAR_COSMETIC_IMAGES[id], ...AVATAR_ADDITION_IMAGES[id], ...options,
 });
 
 // One catalogue defines the shop price and the anatomical placement on both bases.
@@ -24,6 +25,22 @@ export const AVATAR_COSMETICS = Object.freeze([
   cosmetic("ear_piercing", "Piercing d’oreille", 500, {
     layer: "face",
     placement: { femme: [308, 478, 32], homme: [305, 463, 32] },
+  }),
+  cosmetic("earrings_hoops", "Grandes créoles dorées", 500, {
+    layer: "face", pair: true,
+    placement: { femme: [295, 478, 58], homme: [292, 463, 58] },
+  }),
+  cosmetic("earrings_pearls", "Perles pendantes", 500, {
+    layer: "face", pair: true,
+    placement: { femme: [308, 478, 32], homme: [305, 463, 32] },
+  }),
+  cosmetic("earrings_stars", "Étoiles pendantes", 500, {
+    layer: "face", pair: true,
+    placement: { femme: [302, 478, 44], homme: [299, 463, 44] },
+  }),
+  cosmetic("earrings_gems", "Pendantes émeraude", 500, {
+    layer: "face", pair: true,
+    placement: { femme: [305, 478, 38], homme: [302, 463, 38] },
   }),
   cosmetic("scar", "Balafre", 500, {
     layer: "face", clipToHead: true, repositionable: true,

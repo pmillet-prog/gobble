@@ -66,7 +66,7 @@ export function createAvatarInventoryRepository({ getDb, runWrite, loadCatalog, 
       await ensureDonorEntitlements([userId]);
       await weeklyAuras?.ensure(); // Never reconcile while holding the wallet write transaction.
       const catalog = await loadCatalog();
-      if (!Array.isArray(requestedItems) || !requestedItems.length || requestedItems.length > 16) return { ok: false, error: "avatar_invalid" };
+      if (!Array.isArray(requestedItems) || !requestedItems.length || requestedItems.length > 32) return { ok: false, error: "avatar_invalid" };
       const items = new Map();
       for (const item of requestedItems) {
         const { family, id } = item || {};

@@ -24,7 +24,12 @@ export async function validateAvatarConfiguration(value) {
   if (Object.keys(DEFAULT_AVATAR).some(key => {
     // Older clients do not send the newly introduced scar controls.
     if (value[key] === undefined && Object.hasOwn(SCAR_ADJUSTMENT_RANGES, key)) return false;
-    return (key === "accessories" && value[key] === undefined ? "" : value[key]) !== normalized[key];
+    if (key === "accessories") {
+      const ids = value[key] === undefined || value[key] === "" ? []
+        : typeof value[key] === "string" ? [value[key]] : value[key];
+      return JSON.stringify(ids) !== JSON.stringify(normalized[key]);
+    }
+    return value[key] !== normalized[key];
   })) return null;
   return normalized;
 }

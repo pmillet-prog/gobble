@@ -3,14 +3,15 @@ import { boundsIntersect } from "./chalkboardModel.js";
 
 const sameEntries = (a, b) => a?.length === b?.length && a.every((entry, index) => entry === b[index]);
 
-// Send one visible tile at a time. Scrolling replaces the waiting queue, and
-// stale replies are closed instead of retaining bitmaps from old views.
+// Send one visible tile at a time. Scrolling replaces the waiting queue;
+// unchanged visited tiles remain in the bounded LRU cache for the return trip.
 export class ChalkboardAsyncRaster {
   constructor(cache, worker, onChange) {
     this.cache = cache;
     this.worker = worker;
     this.onChange = onChange;
     this.wanted = new Map();
+    this.index = new Map();
     this.active = null;
     this.sequence = 0;
     this.fonts = [];
@@ -28,18 +29,19 @@ export class ChalkboardAsyncRaster {
   }
 
   update(index, tiles, ratio = 1.35) {
+    this.index = index;
     this.ratio = Math.min(1.35, Math.max(.25, ratio));
     this.wanted = new Map(tiles.map(([x, y]) => [`${x}:${y}`, { x, y, entries: index.get(`${x}:${y}`) }])
       .filter(([, tile]) => tile.entries?.length));
     for (const key of this.cache.entries.keys()) {
-      if (key.startsWith("worker|") && !this.wanted.has(key.slice(7))) this.cache.delete(key);
+      if (key.startsWith("worker|") && !sameEntries(this.cache.entries.get(key).entries, index.get(key.slice(7)))) this.cache.delete(key);
     }
     this.pump();
   }
 
   current(tile) {
     const cached = this.cache.get(`worker|${tile.x}:${tile.y}`);
-    return cached?.ratio === this.ratio && cached.generation === this.generation && sameEntries(cached?.entries, tile.entries) ? cached : null;
+    return cached?.ratio >= this.ratio && cached.generation === this.generation && sameEntries(cached?.entries, tile.entries) ? cached : null;
   }
 
   getTile(x, y) {
@@ -67,8 +69,7 @@ export class ChalkboardAsyncRaster {
     const tile = this.active;
     this.active = null;
     if (error) { bitmap?.close(); this.fail(); return; }
-    const wanted = this.wanted.get(`${tile.x}:${tile.y}`);
-    if (tile.ratio === this.ratio && tile.generation === this.generation && sameEntries(wanted?.entries, tile.entries)) {
+    if (tile.generation === this.generation && sameEntries(this.index.get(`${tile.x}:${tile.y}`), tile.entries)) {
       const key = `worker|${tile.x}:${tile.y}`;
       this.cache.delete(key);
       this.cache.set(key, { canvas: bitmap, entries: tile.entries, ratio: tile.ratio, generation: tile.generation });
@@ -80,6 +81,7 @@ export class ChalkboardAsyncRaster {
   clear() {
     this.generation++;
     this.wanted.clear();
+    this.index = new Map();
     // In-flight responses cannot match these retired entry objects.
     for (const key of this.cache.entries.keys()) if (key.startsWith("worker|")) this.cache.delete(key);
   }

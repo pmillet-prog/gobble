@@ -103,21 +103,23 @@ test("moving a selected text keeps the stroke layers on both sides cached", () =
   renderer.render({ ...view, draftElements: [first, label, last], selectedTextId: label.id });
   arcs = 0;
   renderer.render({ ...view, draftElements: [first, { ...label, cx: 130 }, last], selectedTextId: label.id });
-  // The two circular selection handles are the only arcs drawn.
-  assert.equal(arcs, 2);
+  // The three circular selection handles are the only arcs drawn.
+  assert.equal(arcs, 3);
   arcs = 0;
   renderer.render({ ...view, draftElements: [first, { ...label, cx: 130 }, last] });
   assert.equal(arcs, 0);
   renderer.destroy();
 });
 
-test("a font change cannot reuse a bitmap rendered with another typeface", () => {
+test("a text style change cannot reuse a bitmap rendered with another typeface or color", () => {
   const renderer = new ChalkboardRenderer(canvas());
   const label = { id: "text", type: "text", seed: 8, text: "CRAIE", font: "chalk", cx: 300, cy: 300, fontSize: 68, width: 300, scale: 1, angle: 0 };
   renderer.render({ ...view, draftElements: [label] });
   const captured = renderer.captureDraft([label]);
   assert.equal(renderer.reuseDraftForIntervention(group(label), captured), true);
   assert.equal(renderer.reuseDraftForIntervention(group({ ...label, font: "white-chalk" }), captured), false);
+  assert.equal(renderer.reuseDraftForIntervention(group({ ...label, color: "#81d4fa" }), captured), false);
+  assert.equal(renderer.reuseDraftForIntervention(group({ ...label, color: "#F5F2E8" }), captured), true);
   renderer.destroy();
 });
 

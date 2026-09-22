@@ -1,5 +1,4 @@
 import React from "react";
-import { DEFAULT_CHALKBOARD_TEXT_FONT } from "../../../shared/chalkboardRules.js";
 import { CHALKBOARD_LIMITS, getChalkboardDraftUsage } from "../../../shared/chalkboardLimits.js";
 
 import {
@@ -8,13 +7,12 @@ import {
   createElementId,
   createRandomSeed,
   distance,
-  getTextHandles,
+  hitTestTextHandle,
   hitTestText,
 } from "./chalkboardModel.js";
-import { findChalkboardTextPlacement } from "./chalkboardTextPlacement.js";
-import { pickChalkboardFont, uppercaseChalkboardText } from "./chalkboardFonts.js";
-import { getChalkboardTextPlacementLimits, layoutChalkboardText } from "./chalkboardTextLayout.js";
 import useChalkboardFonts from "./useChalkboardFonts.js";
+import useChalkboardTextEntry from "./useChalkboardTextEntry.js";
+import { resizeChalkboardTextWidth } from "./chalkboardTextDraft.js";
 import { CHALKBOARD_ERASER } from "../../../shared/chalkboardErasure.js";
 import { appendEraserGesture, createEraserGesture } from "./chalkboardEraserGesture.js";
 
@@ -51,8 +49,6 @@ export default function useChalkboardEditor() {
   const [historyCount, setHistoryCount] = React.useState(0);
   const [limitReached, setLimitReached] = React.useState(false);
   const [selectedTextId, setSelectedTextId] = React.useState("");
-  const [textEntry, setTextEntry] = React.useState(null);
-  const [font, setFontState] = React.useState(DEFAULT_CHALKBOARD_TEXT_FONT);
   const fontCatalog = useChalkboardFonts();
   const historyRef = React.useRef([]);
   const renderListenersRef = React.useRef(new Set());
@@ -101,6 +97,9 @@ export default function useChalkboardEditor() {
     [requestRender]
   );
 
+  const composition = useChalkboardTextEntry({ fontCatalog, elementsRef, replaceElements, setSelectedTextId, setLimitReached });
+  const { entry: textEntry, entryRef: textEntryRef, begin: beginTextEntry, cancel: cancelTextEntry, clear: clearTextEntry } = composition;
+
   const reset = React.useCallback(() => {
     setLimitReached(false);
     activeRef.current = null;
@@ -110,9 +109,9 @@ export default function useChalkboardEditor() {
     historyRef.current = [];
     setHistoryCount(0);
     setSelectedTextId("");
-    setTextEntry(null);
+    clearTextEntry();
     requestRender();
-  }, [requestRender]);
+  }, [requestRender, clearTextEntry]);
 
   const undo = React.useCallback(() => {
     setLimitReached(false);
@@ -141,57 +140,8 @@ export default function useChalkboardEditor() {
     setSelectedTextId("");
   }, [replaceElements, selectedTextId]);
 
-  const finishTextEntry = React.useCallback(
-    (rawText, viewport) => {
-      const entry = textEntry;
-      setTextEntry(null);
-      const text = uppercaseChalkboardText(rawText).replace(/\s+/g, " ").trim();
-      if (!entry || !text) return null;
-      if (elementsRef.current.length >= CHALKBOARD_LIMITS.maxElements) {
-        setLimitReached(true);
-        return null;
-      }
-      // Use the narrower available world view, including the size before the
-      // mobile keyboard opened. Its dismissal must not push handles offscreen.
-      const placementViewport = {
-        width: Math.min(viewport.width, entry.viewport?.width || viewport.width),
-        height: Math.max(viewport.height, entry.viewport?.height || viewport.height),
-        scale: Math.max(viewport.scale || 0, entry.viewport?.scale || 0) || undefined,
-      };
-      const element = normalizeTextGeometry({
-        type: "text",
-        id: createElementId("text"),
-        seed: createRandomSeed(),
-        ...layoutChalkboardText(text, font, placementViewport),
-        cx: clamp(entry.worldX, 0, CHALKBOARD_WORLD.width),
-        cy: entry.worldY,
-        angle: 0,
-      });
-      const limits = getChalkboardTextPlacementLimits(element, placementViewport);
-      element.cx = clamp(element.cx, limits.minX, limits.maxX);
-      element.cy = clamp(element.cy, limits.minY, limits.maxY);
-      const placement = entry.autoPlace ? findChalkboardTextPlacement(element, entry.occupied, limits) : element;
-      if (placement) Object.assign(element, normalizeTextGeometry({ ...element, cx: placement.cx, cy: placement.cy }));
-      const next = [...elementsRef.current, element];
-      replaceElements(next);
-      setSelectedTextId(element.id);
-      return { elements: next, placementFound: !!placement, position: { x: element.cx, y: element.cy } };
-    },
-    [font, replaceElements, textEntry]
-  );
-
-  const cancelTextEntry = React.useCallback(() => setTextEntry(null), []);
-  const beginTextEntry = React.useCallback((position) => {
-    if (!fontCatalog.ready) return;
-    // Draw once for each new message; keep that face through placement and publication.
-    setFontState(pickChalkboardFont(fontCatalog.fonts));
-    setSelectedTextId("");
-    setTextEntry(position);
-  }, [fontCatalog.ready, fontCatalog.fonts]);
-
   const pointerDown = React.useCallback(
     ({ worldX, worldY, screenX, screenY, scale = 1, viewport, interventions = [] }) => {
-      setTextEntry(null);
       if (activeRef.current) return false;
       const usage = getChalkboardDraftUsage(elementsRef.current);
       if ((tool === "chalk" || tool === "erase") &&
@@ -225,23 +175,14 @@ export default function useChalkboardEditor() {
       const selected = elementsRef.current.find((element) => element.id === selectedTextId);
       const radius = 24 / Math.max(0.25, scale);
       if (selected?.type === "text") {
-        const handles = getTextHandles(selected);
-        if (distance(handles.rotate, { x: worldX, y: worldY }) <= radius) {
+        const kind = hitTestTextHandle(selected, { x: worldX, y: worldY }, radius);
+        if (kind) {
           activeRef.current = {
-            kind: "rotate",
+            kind,
             id: selected.id,
             baseElements: elementsRef.current,
             original: { ...selected },
             startAngle: Math.atan2(worldY - selected.cy, worldX - selected.cx),
-          };
-          return true;
-        }
-        if (distance(handles.scale, { x: worldX, y: worldY }) <= radius) {
-          activeRef.current = {
-            kind: "scale",
-            id: selected.id,
-            baseElements: elementsRef.current,
-            original: { ...selected },
             startDistance: Math.max(1, distance({ x: selected.cx, y: selected.cy }, { x: worldX, y: worldY })),
           };
           return true;
@@ -250,7 +191,7 @@ export default function useChalkboardEditor() {
 
       const hit = [...elementsRef.current]
         .reverse()
-        .find((element) => element.type === "text" && hitTestText(element, worldX, worldY, radius * 0.35));
+        .find((element) => element.type === "text" && (!textEntryRef.current || element.id === textEntryRef.current.id) && hitTestText(element, worldX, worldY, radius * 0.35));
       if (hit) {
         setSelectedTextId(hit.id);
         activeRef.current = {
@@ -265,6 +206,7 @@ export default function useChalkboardEditor() {
         return true;
       }
 
+      if (textEntryRef.current) return false;
       if (selected?.type === "text") {
         setSelectedTextId("");
         requestRender();
@@ -275,7 +217,7 @@ export default function useChalkboardEditor() {
       requestRender();
       return false;
     },
-    [beginTextEntry, color, requestRender, selectedTextId, size, tool, eraserSize]
+    [beginTextEntry, color, requestRender, selectedTextId, size, tool, eraserSize, textEntryRef]
   );
 
   const pointerMove = React.useCallback(
@@ -330,6 +272,8 @@ export default function useChalkboardEditor() {
           0.3,
           4
         );
+      } else if (active.kind === "width") {
+        next[index] = resizeChalkboardTextWidth(active.original, { x: worldX, y: worldY });
       }
       next[index] = normalizeTextGeometry(next[index]);
       renderElementsRef.current = next;
@@ -351,8 +295,9 @@ export default function useChalkboardEditor() {
       }
       return;
     }
-    replaceElements(renderElementsRef.current);
-  }, [replaceElements, requestRender]);
+    if (textEntryRef.current) textEntryRef.current.adjusted = true;
+    replaceElements(renderElementsRef.current, { remember: !textEntryRef.current });
+  }, [replaceElements, requestRender, textEntryRef]);
 
   const pointerCancel = React.useCallback(() => {
     activeRef.current = null;
@@ -364,6 +309,7 @@ export default function useChalkboardEditor() {
     const handleKeyDown = (event) => {
       const tagName = String(event.target?.tagName || "").toLowerCase();
       if (tagName === "input" || tagName === "textarea") return;
+      if (textEntryRef.current) return;
       if ((event.key === "Delete" || event.key === "Backspace") && selectedTextId) {
         event.preventDefault();
         removeSelected();
@@ -375,7 +321,7 @@ export default function useChalkboardEditor() {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [removeSelected, selectedTextId, undo]);
+  }, [removeSelected, selectedTextId, undo, textEntryRef]);
 
   return {
     beginTextEntry,
@@ -384,8 +330,9 @@ export default function useChalkboardEditor() {
     elements,
     eraserSize,
     setEraserSize,
-    finishTextEntry,
-    font: (!textEntry && elements.find(element => element.id === selectedTextId)?.font) || font,
+    finishTextEntry: composition.finish,
+    updateTextEntry: composition.update,
+    updateTextStyle: composition.updateStyle,
     fontsReady: fontCatalog.ready,
     loadedFonts: fontCatalog.fonts,
     fontsError: fontCatalog.error,

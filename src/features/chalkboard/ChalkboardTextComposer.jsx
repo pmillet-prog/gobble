@@ -1,55 +1,41 @@
 import React from "react";
-import { createPortal } from "react-dom";
 import ChalkboardIcon from "./ChalkboardIcon.jsx";
-import { chalkboardFontFamily, uppercaseChalkboardText } from "./chalkboardFonts.js";
+import { chalkboardFontFamily } from "./chalkboardFonts.js";
+import { DEFAULT_CHALKBOARD_TEXT_COLOR } from "../../../shared/chalkboardText.js";
 
-export default function ChalkboardTextComposer({ canPublish, font, fontsReady, onPlace, onCancel }) {
-  const dialogRef = React.useRef(null);
+const fontLabel = font => font.replace(/-/g, " ").replace(/\b\w/g, letter => letter.toUpperCase());
+
+export default function ChalkboardTextComposer({ text, font, color = DEFAULT_CHALKBOARD_TEXT_COLOR, fonts = [], fontsReady, onChange, onStyleChange, onFinish, onCancel }) {
   const inputRef = React.useRef(null);
-  const [text, setText] = React.useState("");
   React.useLayoutEffect(() => {
-    const dialog = dialogRef.current;
-    dialog.showModal();
-    inputRef.current?.focus();
-    // Mobile keyboards resize the visual viewport without always resizing dvh.
-    const viewport = window.visualViewport;
-    const fit = () => {
-      const height = viewport?.height || window.innerHeight;
-      const inset = window.innerWidth <= 620 ? 16 : Math.min(100, height * .12);
-      dialog.style.top = `${(viewport?.offsetTop || 0) + inset}px`;
-      dialog.style.maxHeight = `${Math.max(120, height - inset - 16)}px`;
-    };
-    fit();
-    viewport?.addEventListener("resize", fit);
-    viewport?.addEventListener("scroll", fit);
-    window.addEventListener("resize", fit);
-    return () => {
-      viewport?.removeEventListener("resize", fit);
-      viewport?.removeEventListener("scroll", fit);
-      window.removeEventListener("resize", fit);
-      dialog.close();
-    };
+    const input = inputRef.current;
+    input.focus({ preventScroll: true });
   }, []);
-  return createPortal(
-    <dialog ref={dialogRef} className="chalkboard-composer" aria-labelledby="chalkboard-composer-title" onCancel={event => { event.preventDefault(); onCancel(); }}>
-      <form onSubmit={event => { event.preventDefault(); if (text.trim() && fontsReady) onPlace(uppercaseChalkboardText(text)); }}>
-        <div className="chalkboard-composer-heading"><h2 id="chalkboard-composer-title">Un mot sur le tableau</h2><button type="button" aria-label="Fermer la saisie" onClick={onCancel}><ChalkboardIcon name="close" /></button></div>
-        <p>Écris ton message, puis place-le sur le tableau avant de publier.</p>
-        <label className="chalkboard-message-label" htmlFor="chalkboard-message">Ton message</label>
-        <input ref={inputRef} id="chalkboard-message" className="chalkboard-text-entry" style={{ fontFamily: chalkboardFontFamily(font) }} type="text" maxLength={280} autoCapitalize="characters" placeholder="A TOI LA CRAIE…" value={text} onChange={event => {
-          const input = event.currentTarget;
-          const start = uppercaseChalkboardText(input.value.slice(0, input.selectionStart)).length;
-          const end = uppercaseChalkboardText(input.value.slice(0, input.selectionEnd)).length;
-          const value = uppercaseChalkboardText(input.value);
-          input.value = value;
-          input.setSelectionRange(start, end);
-          setText(value);
-        }} />
-        <div className="chalkboard-composer-actions">
-          <button type="submit" className="chalkboard-place" disabled={!text.trim() || !fontsReady}><ChalkboardIcon name="write" />{fontsReady ? "Placer sur le tableau" : "Chargement des polices…"}</button>
-        </div>
-        <small>{canPublish ? "Ton texte reste un brouillon jusqu’au clic sur « Publier »." : "Connecte-toi à ton compte pour publier."}</small>
-      </form>
-    </dialog>, document.body
-  );
+  return <form className="chalkboard-composer" aria-label="Écrire sur le tableau" onSubmit={event => {
+    event.preventDefault(); if (text.trim() && fontsReady) onFinish();
+  }}>
+    <label className="chalkboard-message-label" htmlFor="chalkboard-message">Ton message · aperçu en direct sur le tableau</label>
+    <div className="chalkboard-text-style">
+      <label className="chalkboard-text-color"><span>Couleur</span>
+        <input type="color" aria-label="Couleur du texte" value={color} onChange={event => onStyleChange({ color: event.target.value })} />
+      </label>
+      <label className="chalkboard-text-font"><span>Police</span>
+        <select aria-label="Police du texte" value={font || ""} disabled={!fontsReady} style={{ fontFamily: chalkboardFontFamily(font) }}
+          onChange={event => onStyleChange({ font: event.target.value })}>
+          {font && !fonts.some(item => item.id === font) && <option value={font}>Police actuelle</option>}
+          {fonts.map(item => <option key={item.id} value={item.id} style={{ fontFamily: chalkboardFontFamily(item.id) }}>{fontLabel(item.id)}</option>)}
+        </select>
+      </label>
+    </div>
+    <div className="chalkboard-composer-fields">
+      <textarea ref={inputRef} id="chalkboard-message" className="chalkboard-text-entry" rows={2} maxLength={280}
+        lang="fr" spellCheck autoCorrect="on" autoCapitalize="sentences" enterKeyHint="enter"
+        placeholder="À toi la craie…" value={text} onChange={event => onChange(event.target.value)} />
+      <div className="chalkboard-composer-actions">
+        <button type="button" onClick={onCancel}>Annuler</button>
+        <button type="submit" className="chalkboard-place" disabled={!text.trim() || !fontsReady}><ChalkboardIcon name="check" />Terminer</button>
+      </div>
+    </div>
+    <p>Déplace le texte et utilise les poignées : ↻ rotation, ↘ taille, ↔ largeur. Publie ensuite quand c’est prêt.</p>
+  </form>;
 }
