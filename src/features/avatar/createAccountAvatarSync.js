@@ -4,7 +4,7 @@ import { avatarApiError } from "./avatarApi.js";
 const IDLE = Object.freeze({ userId: null, avatar: null, revision: null, ready: false });
 
 // One authenticated account owns requests and listeners; no polling or rendering here.
-export function createAccountAvatarSync({ request, readLocal, cacheLocal, prepareLocal = normalizeAvatar, onAccepted = () => {}, onWeeklyAuras = () => {} }) {
+export function createAccountAvatarSync({ request, requestRefund, readLocal, cacheLocal, prepareLocal = normalizeAvatar, onAccepted = () => {}, onWeeklyAuras = () => {} }) {
   let session = null, snapshot = IDLE;
   const listeners = new Set();
   const rewardListeners = new Set();
@@ -22,7 +22,7 @@ export function createAccountAvatarSync({ request, readLocal, cacheLocal, prepar
     const value = data.avatar ? normalizeAvatar(data.avatar) : null;
     const avatar = JSON.stringify(snapshot.avatar) === JSON.stringify(value) ? snapshot.avatar : value;
     // The account is authoritative even if local storage is full or disabled.
-    if (data.avatar) { try { cacheLocal(active.userId, avatar); } catch { /* Optional cache. */ } }
+    if (data.avatar || data.revision > 0) { try { cacheLocal(active.userId, avatar); } catch { /* Optional cache. */ } }
     publish({ userId: active.userId, avatar, revision: data.revision, ready: true });
     onAccepted(snapshot);
     onWeeklyAuras(data.weeklyAuras);
@@ -78,6 +78,25 @@ export function createAccountAvatarSync({ request, readLocal, cacheLocal, prepar
   }
 
   return {
+    refundPurchases(userId, token) {
+      const active = session;
+      if (!active || active.userId !== Number(userId)) return Promise.reject(avatarApiError("avatar_account_changed"));
+      if (active.write) return Promise.reject(avatarApiError());
+      const read = active.read;
+      const task = (async () => {
+        if (read) await read;
+        assertActive(active);
+        const result = await requestRefund(active.userId, token, { signal: active.controller.signal });
+        accept(active, result.avatarSnapshot);
+        return result;
+      })();
+      // Readers continue to receive an avatar snapshot, even during a refund.
+      const write = task.then(() => snapshot);
+      active.write = write;
+      const clear = () => { if (active.write === write) active.write = null; };
+      write.then(clear, clear);
+      return task;
+    },
     receiveRewards,
     subscribeRewards(listener) { rewardListeners.add(listener); return () => rewardListeners.delete(listener); },
     getSnapshot: () => snapshot,

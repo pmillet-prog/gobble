@@ -8,6 +8,7 @@ import {
 import { useChatUnreadState } from "../../features/chat/useChatUnreadState.js";
 import LiveFeedSatellite from "../../features/live/LiveFeedSatellite.jsx";
 import MobileGrid from "../MobileGrid.jsx";
+import MobileConnectionLabel from "../../features/mobile/MobileConnectionLabel.jsx";
 import { UI_IMAGE_KEYS, getUiImageUrl } from "../../assets/uiAssetManifest.js";
 import { useTraceSnapshot } from "../../features/trace/TraceRuntime.jsx";
 
@@ -177,7 +178,7 @@ function MobileSpecial3Playing(props) {
             }}
           >
             <span className="min-w-0 truncate font-semibold opacity-80 justify-self-start">
-              {`${filledCount}/${DAILY_SPECIAL_WORD_TARGET} mots validés`}
+              <MobileConnectionLabel fallback={`${filledCount}/${DAILY_SPECIAL_WORD_TARGET} mots validés`} />
             </span>
             <div
               className="text-center font-black tabular-nums leading-none justify-self-center"

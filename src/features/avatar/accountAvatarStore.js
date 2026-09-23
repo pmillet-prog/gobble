@@ -6,9 +6,11 @@ import { loadAvatarCatalog } from "./avatarCatalog.js";
 import { normalizeAvatar } from "./avatarState.js";
 import { chatAvatarRevisions } from "./chatAvatarRevisions.js";
 import { weeklyAuraStore } from "./weeklyAuraStore.js";
+import { refundAvatarPurchases } from "./avatarInventoryApi.js";
 
 export const accountAvatarStore = createAccountAvatarSync({
   request: requestAccountAvatar, readLocal: readSavedLocalAvatar, cacheLocal: cacheAccountAvatar,
+  requestRefund: refundAvatarPurchases,
   prepareLocal: async avatar => normalizeAvatar(avatar, await loadAvatarCatalog()),
   onAccepted: chatAvatarRevisions.update,
   onWeeklyAuras: weeklyAuraStore.update,

@@ -14,6 +14,9 @@ import { drawAvatarAccessories, drawAvatarCompanion, loadAvatarMarkerFont } from
 import { createAvatarCosmeticsRenderer } from "./avatarCosmeticsRenderer.js";
 import { createAvatarNoseRasterizer } from "./avatarNoseRasterizer.js";
 import { getAvatarPartIds } from "../../../shared/avatarSelections.js";
+import { avatarSkinFile } from "../../../shared/avatarSkins.js";
+import { createAvatarSkinRenderer } from "./avatarSkinRenderer.js";
+import { applyAvatarSilhouette } from "./avatarSilhouette.js";
 export { loadAvatarCatalog } from "./avatarCatalog.js";
 
 const ROOT = "/avatars/v1/";
@@ -29,6 +32,7 @@ export async function createAvatarRenderer(dependencies = {}) {
   const engine = eyes.create(makeCanvas, manifest("eyes"));
   const cosmetics = createAvatarCosmeticsRenderer(makeCanvas);
   const rasterizeNose = createAvatarNoseRasterizer(makeCanvas);
+  const skinRelief = createAvatarSkinRenderer(makeCanvas);
   engine.setDecorations(decorations.create(makeCanvas, { brows: manifest("brows"), lashes: manifest("lashes") }));
   engine.setHair(hair.create(makeCanvas, manifest("hair")));
   engine.setMouths(mouths.create(makeCanvas, manifest("mouths")));
@@ -51,6 +55,7 @@ export async function createAvatarRenderer(dependencies = {}) {
       const loads = [];
       const add = (key, file) => { if (file) loads.push(load(file).then(image => { assets[key] = image; })); };
       for (const base of catalog.bases) { add(base.id, base.file); if (state.tone === "custom") add(base.id + "_mask", base.mask); }
+      add("skin_relief", avatarSkinFile(state.base, state.skinStyle));
       for (const family of Object.keys(catalog.families)) {
         const selected = getAvatarPartIds(state, family);
         for (const part of catalog.families[family].filter(item => selected.includes(item.id))) {
@@ -62,6 +67,8 @@ export async function createAvatarRenderer(dependencies = {}) {
         }
       }
       await Promise.all(loads);
+      const skinLayer = skinRelief.prepare(assets, state);
+      if (skinLayer) assets[`head_${state.base}`] = skinLayer;
       const nose = catalog.families.nose?.find(part => part.id === state.nose);
       if (nose?.sourceBounds && nose.placement) {
         const { art, mask } = rasterizeNose(assets["nose_" + nose.id], nose);
@@ -75,6 +82,11 @@ export async function createAvatarRenderer(dependencies = {}) {
         engine.draw(canvas, assets, resolved.state, {
           view, background: "transparent",
           drawAccessories: (ctx, layer) => cosmetics.draw(ctx, assets, resolved.state, selectedCosmetics, layer),
+          drawSkin: skinLayer ? ctx => ctx.drawImage(skinLayer, 0, 0) : undefined,
+          transformCharacter: (ctx, viewport) => {
+            viewport.silhouetteWidth = resolved.state.silhouetteWidth;
+            applyAvatarSilhouette(ctx, resolved.state.silhouetteWidth);
+          },
         });
         if (view === "portrait") drawAvatarMedals(ctx, canvas.gobbleViewport, medals);
         if (view === "portrait") drawAvatarAccessories(ctx, canvas.gobbleViewport, assets.accessories_participant_tag, nickname);

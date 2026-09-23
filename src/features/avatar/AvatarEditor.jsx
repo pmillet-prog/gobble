@@ -17,6 +17,8 @@ import AvatarMaintenanceNotice from "./AvatarMaintenanceNotice.jsx";
 import { getAvatarPurchasePlan, getOwnedAvatarAppearance } from "./avatarPurchasePlan.js";
 import { getAvatarPartIds, selectAvatarPart, removeAvatarParts } from "../../../shared/avatarSelections.js";
 import useAvatarDragScroll from "./useAvatarDragScroll.js";
+import AvatarRefundDialog from "./AvatarRefundDialog.jsx";
+import AvatarFaceOptions from "./AvatarFaceOptions.jsx";
 
 const CATEGORIES = [
   ["base", "Visage", "face"], ["eyes", "Regard", "visibility"],
@@ -28,14 +30,14 @@ const CATEGORIES = [
   ["auras", "Auras", "auto_awesome"],
 ];
 const OPTIONAL = new Set(["eyes", "nose", "mouths", "hair", "brows", "lashes", "headwear", "glasses", "facialhair", "clothes", "backdrops", "auras", "accessories"]);
-const BASES = [{ id: "femme", label: "Femme" }, { id: "homme", label: "Homme" }];
 
-export default function AvatarEditor({ initialValue, nickname, onClose, onSave, onReload, inventory = null, onPurchase, initialCategory = "base", maintenanceMode = false }) {
+export default function AvatarEditor({ initialValue, nickname, onClose, onSave, onReload, inventory = null, onPurchase, onRefundQuote, onRefund, initialCategory = "base", maintenanceMode = false }) {
   const [draft, setDraft] = React.useState(() => initialValue ? normalizeAvatar(initialValue) : createBlankAvatar());
   const [baseChosen, setBaseChosen] = React.useState(!!initialValue);
   const [category, setCategory] = React.useState(initialValue ? initialCategory : "base");
   const [selection, setSelection] = React.useState(null);
   const [checkout, setCheckout] = React.useState(false);
+  const [refundOpen, setRefundOpen] = React.useState(false);
   const [catalog, setCatalog] = React.useState(null);
   const [error, setError] = React.useState("");
   const [attempt, setAttempt] = React.useState(0);
@@ -55,7 +57,7 @@ export default function AvatarEditor({ initialValue, nickname, onClose, onSave, 
   }, []);
 
   React.useEffect(() => {
-    if (maintenanceMode) { setSelection(null); setCheckout(false); }
+    if (maintenanceMode) { setSelection(null); setCheckout(false); setRefundOpen(false); }
   }, [maintenanceMode]);
 
   React.useEffect(() => {
@@ -92,6 +94,19 @@ export default function AvatarEditor({ initialValue, nickname, onClose, onSave, 
     setPurchasing(true); setError("");
     try { return await onPurchase(items); }
     finally { savingRef.current = false; if (mountedRef.current) setPurchasing(false); }
+  };
+  const refund = async token => {
+    if (savingRef.current) return;
+    savingRef.current = true;
+    setPurchasing(true); setError("");
+    try {
+      await onRefund(token);
+      if (mountedRef.current) {
+        setDraft(createBlankAvatar()); setBaseChosen(false); setCategory("base");
+        setSelection(null); setCheckout(false); setRefundOpen(false);
+        setResolution(null); setConflict(false);
+      }
+    } finally { savingRef.current = false; if (mountedRef.current) setPurchasing(false); }
   };
   const onResolved = React.useCallback((result, input) => {
     setResolution({ input, limits: result.limits, incompatible: result.incompatible });
@@ -151,13 +166,9 @@ export default function AvatarEditor({ initialValue, nickname, onClose, onSave, 
           {!catalog ? <p role="status">{error || "Ouverture de l’atelier…"}{error ? <button type="button" onClick={() => setAttempt(value => value + 1)}>Réessayer</button> : null}</p> : <>
             <div className="avatar-options-heading"><h3>{baseChosen ? categoryLabel : "Choisis ton visage"}</h3></div>
             {inventory ? <p className="avatar-editor-note">{!baseChosen ? "Homme ou Femme : 500 gobblars. Ajoute ensuite les pièces de ton choix." : "Compose ton aperçu librement. Achète une pièce pour la porter aussitôt, ou utilise Acheter et porter en bas pour valider l’ensemble."}</p> : null}
-            {baseChosen ? <AvatarEditorControls category={category} draft={draft} limits={resolution?.limits} incompatible={resolution?.incompatible} onChange={change} /> : null}
-            {category === "base" ? <div className="avatar-base-choices">
-              {BASES.map(part => <div key={part.id} className="avatar-choice" data-selected={baseChosen && draft.base === part.id}>
-                <button type="button" className="avatar-choice-preview" aria-pressed={baseChosen && draft.base === part.id} onClick={() => selectPart("base", part)}>{part.label}<span aria-hidden="true">{baseChosen && draft.base === part.id ? "✓" : ""}</span></button>
-                <AvatarUnlockBadge inventory={inventory} family="base" id={part.id} part={part} disabled={saving || purchasing} onActivate={() => openUnlock("base", part)} />
-              </div>)}
-            </div> : <>
+            {baseChosen && category !== "base" ? <AvatarEditorControls category={category} draft={draft} limits={resolution?.limits} incompatible={resolution?.incompatible} onChange={change} /> : null}
+            {category === "base" ? <AvatarFaceOptions draft={draft} baseChosen={baseChosen} inventory={inventory} disabled={saving || purchasing}
+              onSelectBase={part => selectPart("base", part)} onUnlock={part => openUnlock("base", part)} onChange={change} /> : <>
               {category === "auras" ? <p className="avatar-editor-note">Or, argent, bronze : le podium de la course hebdo débloque son aura jusqu’au lundi suivant à 00 h, heure de Paris. L’aura des donateurs reste acquise.</p> : null}
               {category === "accessories" ? <p className="avatar-editor-note">Tu peux porter plusieurs accessoires ensemble. Touche un accessoire pour l’ajouter ou le retirer ; « Aucun » les retire tous.</p> : null}
               {category === "lashes" && lashesUnavailable ? <p className="avatar-editor-note">Débloque des yeux, puis choisis un modèle avec paupières pour ajouter des cils.</p> : null}
@@ -180,6 +191,7 @@ export default function AvatarEditor({ initialValue, nickname, onClose, onSave, 
     <footer className="avatar-editor-footer" aria-busy={saving}>
       {error || conflict ? <div>{error && catalog ? <p role="alert">{error}</p> : null}{conflict ? <button type="button" onClick={onReload}>Abandonner ce brouillon et recharger</button> : null}</div> : null}
       {baseChosen && inventory && locked.length ? <p className="avatar-checkout-summary">{plan.purchasable.length} pièce(s) à acheter · {plan.total.toLocaleString("fr-FR")} gobblars{plan.missing > 0 ? ` · Il manque ${plan.missing.toLocaleString("fr-FR")}` : ""}{plan.unavailable.length ? ` · ${plan.unavailable.length} élément(s) soumis à une condition de déblocage` : ""}</p> : null}
+      {inventory && onRefund ? <button type="button" className="avatar-refund" disabled={purchasing || saving} onClick={() => setRefundOpen(true)}>Rembourser tous mes achats…</button> : null}
       <button type="button" className="avatar-cancel" onClick={onClose} disabled={purchasing || saving}>Fermer l’essai</button>
       <button type="button" className="avatar-save" onClick={save} disabled={saving || purchasing || conflict || !catalog || !baseChosen || resolution?.input !== draft || resolution?.incompatible}>{saving ? "Enregistrement…" : locked.length ? "Acheter et porter…" : "Porter cet avatar"} <span aria-hidden="true">✓</span></button>
     </footer>
@@ -189,5 +201,6 @@ export default function AvatarEditor({ initialValue, nickname, onClose, onSave, 
     {checkout ? <AvatarCheckoutDialog plan={plan} inventory={inventory} busy={purchasing || saving}
       onConfirm={() => { if (conflict) throw new Error("Recharge ton avatar avant de réessayer."); return apply(draft, plan.purchasable.map(({ family, id }) => ({ family, id }))); }}
       onRemoveUnavailable={() => change(removeAvatarParts(draft, plan.unavailable))} onClose={() => setCheckout(false)} /> : null}
+    {refundOpen ? <AvatarRefundDialog onQuote={onRefundQuote} onConfirm={refund} busy={purchasing || saving} onClose={() => setRefundOpen(false)} /> : null}
   </div>;
 }

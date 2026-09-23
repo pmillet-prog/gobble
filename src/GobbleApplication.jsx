@@ -86,6 +86,8 @@ import useGameSounds from "./audio/useGameSounds";
 import useElementSize from "./hooks/useElementSize.js";
 import useRealtimeEventBindings from "./hooks/useRealtimeEventBindings.js";
 import useMobileRoundIntro from "./hooks/useMobileRoundIntro.js";
+import useMobileExperience from "./features/mobile/useMobileExperience.js";
+import MobileExitConfirmDialog from "./features/mobile/MobileExitConfirmDialog.jsx";
 import useGridTransitionEffects from "./hooks/useGridTransitionEffects.js";
 import {
   computeDesktopColumnUiScales,
@@ -2121,8 +2123,6 @@ export default function GobbleApplication() {
     !accountSeenMarkers.has(ACCOUNT_SEEN_MARKERS.mainTutorial);
   const isDailyView = appView === "daily" || appView === "daily_play" || appView === "daily_results";
   const isDailyPlay = appView === "daily_play";
-  const shouldProtectMobileLiveExit =
-    isMobileLayout && isLoggedIn && appView === "live" && phase === "playing" && !isDailyPlay;
   const isDailySpecialMode =
     isDailyPlay && (dailyPlayMode === DAILY_SPECIAL_MODE || !dailyPlayMode);
   const isLiveSpecial3WordsMode =
@@ -2359,8 +2359,6 @@ export default function GobbleApplication() {
   const resumeLoginFromSessionRef = useRef(null);
   const previousAppViewRef = useRef(appView);
   const attemptSilentReconnectRef = useRef(null);
-  const mobileExitGuardLeavingRef = useRef(false);
-  const mobileExitGuardActiveRef = useRef(false);
   const deferredTraceUiTasksRef = useRef([]);
   useEffect(() => {
     phaseLoopTestEnabledRef.current = phaseLoopTestEnabled;
@@ -2410,49 +2408,6 @@ export default function GobbleApplication() {
   useEffect(() => {
     phaseRef.current = phase;
   }, [phase]);
-  const pushMobileExitGuardHistoryEntry = React.useCallback(() => {
-    if (typeof window === "undefined" || !window.history?.pushState) return;
-    const marker = "__gobbleMobileExitGuard";
-    const currentState =
-      window.history.state && typeof window.history.state === "object"
-        ? window.history.state
-        : {};
-    if (currentState?.[marker]) return;
-    try {
-      window.history.pushState({ ...currentState, [marker]: true }, "", window.location.href);
-    } catch (_) {}
-  }, []);
-  useEffect(() => {
-    if (!shouldProtectMobileLiveExit) {
-      setMobileExitConfirmOpen(false);
-      mobileExitGuardActiveRef.current = false;
-      mobileExitGuardLeavingRef.current = false;
-      return undefined;
-    }
-
-    mobileExitGuardActiveRef.current = true;
-    mobileExitGuardLeavingRef.current = false;
-    pushMobileExitGuardHistoryEntry();
-
-    const onPopState = () => {
-      if (!mobileExitGuardActiveRef.current || mobileExitGuardLeavingRef.current) return;
-      setMobileExitConfirmOpen(true);
-      window.setTimeout(pushMobileExitGuardHistoryEntry, 0);
-    };
-    const onBeforeUnload = (event) => {
-      if (!mobileExitGuardActiveRef.current || mobileExitGuardLeavingRef.current) return undefined;
-      event.preventDefault();
-      event.returnValue = "";
-      return "";
-    };
-
-    window.addEventListener("popstate", onPopState);
-    window.addEventListener("beforeunload", onBeforeUnload);
-    return () => {
-      window.removeEventListener("popstate", onPopState);
-      window.removeEventListener("beforeunload", onBeforeUnload);
-    };
-  }, [pushMobileExitGuardHistoryEntry, roundId, shouldProtectMobileLiveExit]);
   useEffect(() => {
     inputLockedRef.current = inputLocked;
   }, [inputLocked]);
@@ -2931,7 +2886,6 @@ export default function GobbleApplication() {
         isMobileLayout,
         layoutFeature,
         maxGridWidth: MOBILE_GRID_MAX_WIDTH,
-        allowLandscape: appView === "chalkboard",
         showLiveActionBar: showMobileLiveActionBar,
         adaptiveRanking: showMobileLiveActionBar &&
           !["target_long", "target_score", OCID_TYPE].includes(specialRound?.type),
@@ -11932,54 +11886,11 @@ function handleTouchEnd() {
     selfNick,
     selfInstallId: installId,
   };
-  const mobileExitConfirmLayer = mobileExitConfirmOpen ? (
-    <div
-      className="fixed inset-0 z-[22000] flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Confirmer la sortie"
-      onClick={() => {
-        setMobileExitConfirmOpen(false);
-        if (shouldProtectMobileLiveExit) pushMobileExitGuardHistoryEntry();
-      }}
-    >
-      <div
-        className="w-full max-w-sm rounded-2xl border border-red-300/50 bg-slate-950 px-4 py-4 text-white shadow-2xl"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="text-center text-[11px] font-black uppercase tracking-[0.18em] text-red-300">
-          Quitter la partie ?
-        </div>
-        <div className="mt-3 text-center text-sm font-semibold leading-snug text-slate-100">
-          Tu es en pleine manche. Si tu quittes maintenant, tu abandonnes la manche en cours.
-        </div>
-        <div className="mt-4 grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            className="rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-sm font-black text-white"
-            onClick={() => {
-              setMobileExitConfirmOpen(false);
-              if (shouldProtectMobileLiveExit) pushMobileExitGuardHistoryEntry();
-            }}
-          >
-            Rester
-          </button>
-          <button
-            type="button"
-            className="rounded-xl bg-red-600 px-3 py-2 text-sm font-black text-white shadow-lg shadow-red-950/30"
-            onClick={() => {
-              mobileExitGuardLeavingRef.current = true;
-              mobileExitGuardActiveRef.current = false;
-              setMobileExitConfirmOpen(false);
-              returnToLobby();
-            }}
-          >
-            Quitter
-          </button>
-        </div>
-      </div>
-    </div>
-  ) : null;
+  const mobileExitConfirmLayer = (
+    <MobileExitConfirmDialog open={mobileExitConfirmOpen}
+      onCancel={() => setMobileExitConfirmOpen(false)}
+      onConfirm={() => { setMobileExitConfirmOpen(false); returnToLobby(); }} />
+  );
   const globalChatLayer = (
     <React.Fragment key="global-chat-layer">
       <MobileChatLayer {...mobileChatProps} />
@@ -12232,6 +12143,26 @@ function handleTouchEnd() {
       <NotificationToastLayer darkMode={darkMode} />
     </>
   );
+  useMobileExperience({
+    enabled: isMobileLayout, view: appView, phase, loggedIn: isLoggedIn,
+    features: { overlays: overlaysFeature, preferences: preferencesFeature, chat: chatFeature,
+      daily: dailyFeature, admin: adminFeature, duel: duelFeature },
+    actions: {
+      settingsOpen: closeSettingsMenu, patchNotesOpen: closePatchNotes,
+      soundMenuOpen: closeSoundMenu, visualMenuOpen: closeVisualMenu,
+      keyboardMenuOpen: closeKeyboardMenu, playersOverlayOpen: closePlayersOverlay,
+      playerProfileModal: closePlayerProfileModal, roundPlayerModal: closeRoundPlayerModal,
+      recordModal: closeRecordModal, wordInfoModal: closeWordInfoModal, definitionModal: closeDefinition,
+      auth: closeAuthDialog, theme: closeThemeMenu, homeChat: closeHomeChat,
+      mobileChat: closeChatPanel, chatRules: cancelChatRules, chatUserMenu: closeUserMenu,
+      chatReport: closeReportDialog, dailyLaunch: closeDailyLaunchDialog,
+      dev: closeDevMenu, moderation: closeModerationMenu,
+      duelRecap: closeDuelWeekRecap, duelPopup: closeDuelObjectivesPopup,
+      vaultWord: closeVaultWordOfDayPopup,
+      dailyHome: openDailyHome, goHome: () => setAppView("home"),
+      closeVault: () => setAppView(isLoggedIn ? "live" : "home"), leaveRound: returnToLobby,
+    },
+  });
   const suppressLiveChatMotion = isMobileLayout && (isChatOpenMobile || isChatClosing);
   const savedSessionNick = sessionRef.current?.nick?.trim() || "";
   const canResumeNow = !isLoggedIn && hasSavedSession() && !!resumeSnapshot;

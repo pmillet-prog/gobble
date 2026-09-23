@@ -12,7 +12,15 @@ export default defineConfig({
     port: 3000,
     // Local builds and investigations can contain hundreds of thousands of
     // files. They must not be watched by the game's development server.
-    watch: { ignored: ["**/.tmp/**"] },
+    watch: {
+      ignored: [
+        /(?:^|[/\\])\.tmp(?:[/\\]|$)/i,
+        // The installed emoji pack is static, like a dependency: watching its
+        // 4,500 images costs seconds on Windows. Files are still served normally;
+        // restart Vite after replacing the pack or adding emoji files.
+        "**/public/emojis/**",
+      ],
+    },
     proxy: {
       "/api": "http://127.0.0.1:4000",
       "/socket.io": {

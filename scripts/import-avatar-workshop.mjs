@@ -119,6 +119,12 @@ for (const [name, dependencies] of Object.entries(modules)) {
   // The workshop's nose-only preview supports these adjustments. Apply them to
   // the assembled player too, keeping the same approved nose pivot and limits.
   if (name === "lot_002_renderer") {
+    const headDraw = "ctx.drawImage(skin.tinted(id, assets[id], role, state.tone || 'native', assets[id + '_mask'], state.customColor, state.showMask), 0, 0);";
+    if (!factory.includes(headDraw)) throw Error("Head renderer changed; review the skin relief adapter.");
+    factory = factory.replace(headDraw, "if (role === 'head' && options.drawSkin) { options.drawSkin(ctx); continue; }\n          " + headDraw);
+    const characterStart = "if (!options.authoring) auras.draw(ctx, assets, state);";
+    if (!factory.includes(characterStart)) throw Error("Character renderer changed; review the silhouette adapter.");
+    factory = factory.replace(characterStart, characterStart + "\n        if (!options.authoring) options.transformCharacter?.(ctx, canvas.gobbleViewport);");
     factory = factory.replace("if (!assets['eye_' + part.id]) return;", "if (state.eyes && !assets['eye_' + part.id]) return;")
       .replace("if (view === 'iris') {", "if (view === 'iris') { if (!state.eyes) return;")
       .replace("if (!decorOnly && state.visible !== false)", "if (state.eyes && !decorOnly && state.visible !== false)");
@@ -130,6 +136,9 @@ for (const [name, dependencies] of Object.entries(modules)) {
     factory = factory.replace("function boundaries(assets, eyes) {", "function boundaries(assets, eyes) { if (!eyes || !assets['eye_' + eyes + '_opening']) return [[], []];");
   }
   if (name === "adjustment_limits") {
+    const heads = "['femme', 'homme'].map(base => geometry(assets['head_' + base])).filter(Boolean)";
+    if (!factory.includes(heads)) throw Error("Head constraints changed; review the replacement head adapter.");
+    factory = factory.replace(heads, "(state.skinStyle && state.skinStyle !== 'classic' ? [state.base || 'femme'] : ['femme', 'homme']).map(base => geometry(assets['head_' + base])).filter(Boolean)");
     const original = "const zoneTop = nose ? nose.bounds.bottom + 10 : 481;";
     if (!factory.includes(original)) throw Error("Mouth constraints changed; review the nose adapter.");
     factory = factory.replace(original, "const zoneTop = nose ? 470 + (nose.bounds.bottom - 470) * (state.noseScale ?? 1) + (state.noseDy || 0) + 10 : 481;");

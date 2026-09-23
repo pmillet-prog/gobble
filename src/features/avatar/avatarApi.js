@@ -7,6 +7,8 @@ const MESSAGES = {
   avatar_account_changed: "Le compte connecté a changé. Rouvre le profil du compte actuel.",
   avatar_conflict: "Ton avatar a changé sur un autre appareil. Recharge la version du compte avant de le modifier.",
   avatar_invalid: "Cette combinaison ne peut pas être enregistrée. Recharge l’atelier puis réessaie.",
+  avatar_refund_changed: "La liste de tes achats a changé. Vérifie le nouveau total avant de confirmer à nouveau.",
+  avatar_refund_unavailable: "Impossible de vérifier le remboursement exact de tes achats pour le moment. Aucun remboursement n’a été effectué. Réessaie plus tard.",
 };
 
 export function avatarApiError(code = "avatar_unavailable") {

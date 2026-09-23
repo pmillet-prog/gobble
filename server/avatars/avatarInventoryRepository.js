@@ -2,6 +2,7 @@ import { runSqliteImmediateTransaction } from "../sqliteQueue.js";
 import { avatarUnlockKey, getAvatarUnlockRule, getLockedAvatarParts, isAvatarPartUnlocked } from "../../shared/avatarUnlocks.js";
 import { createAvatarObjectivesRepository } from "./avatarObjectivesRepository.js";
 import { applyWeeklyAuraAppearance } from "../../shared/avatarWeeklyAuras.js";
+import { createAvatarRefundRepository } from "./avatarRefundRepository.js";
 
 export function createAvatarInventoryRepository({ getDb, runWrite, loadCatalog, ensureDonorEntitlements = async () => {}, weeklyAuras = null }) {
   const objectives = createAvatarObjectivesRepository({ getDb, runWrite, loadCatalog });
@@ -19,6 +20,9 @@ export function createAvatarInventoryRepository({ getDb, runWrite, loadCatalog, 
       lepersCorrectAnswers: stats.lepers_correct_answers || 0, objectiveStartedAt: epoch.started_at };
   }
   return {
+    refunds: createAvatarRefundRepository({ getDb, runWrite, readInventory: read,
+      prepare: async userId => { await ensureDonorEntitlements([userId]); await weeklyAuras?.ensure(); },
+    }),
     weeklyAuras,
     objectives: weeklyAuras ? { ...objectives,
       async pending(userId) { return [...await objectives.pending(userId), ...await weeklyAuras.pending(userId)]; },

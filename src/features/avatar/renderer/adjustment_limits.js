@@ -57,8 +57,8 @@ export default (function () {
     function resolve(input, assets) {
       const state = normalize(input), limits = { ...ranges };
       const mouth = geometry(assets['mouths_' + state.mouths]);
-      // Use the intersection of both heads: previews share exactly the same placement.
-      const heads = ['femme', 'homme'].map(base => geometry(assets['head_' + base])).filter(Boolean);
+      // Classic previews share limits. Replacement heads use their actual outline.
+      const heads = (state.skinStyle && state.skinStyle !== 'classic' ? [state.base || 'femme'] : ['femme', 'homme']).map(base => geometry(assets['head_' + base])).filter(Boolean);
       if (!mouth || !heads.length) return { state, limits };
       const nose = geometry(assets['nose_' + state.nose]);
       const zoneTop = nose ? 470 + (nose.bounds.bottom - 470) * (state.noseScale ?? 1) + (state.noseDy || 0) + 10 : 481;

@@ -58,6 +58,35 @@ export function registerAvatarRoutes({ router, getAuthContext, requireAuth, repo
     };
     router.get("/avatar/inventory", inventoryHandler(false));
     router.post("/avatar/purchase", inventoryHandler(true));
+    const refundHandler = confirming => async (req, res) => {
+      res.set("Cache-Control", "no-store");
+      try {
+        assertWritable();
+        const auth = await getAuthContext(req);
+        if (!requireAuth(auth, res, req)) return;
+        assertWritable();
+        const userId = auth.user.id;
+        if (Number(confirming ? req.body?.userId : req.query?.userId) !== userId) {
+          return res.status(409).json({ ok: false, error: "avatar_account_changed" });
+        }
+        if (!confirming) return res.json({ ok: true, userId, quote: await inventory.refunds.quote(userId) });
+        if (typeof req.body?.refundToken !== "string" || !/^[a-f0-9]{64}$/.test(req.body.refundToken)) {
+          return res.status(400).json({ ok: false, error: "avatar_invalid" });
+        }
+        const result = await inventory.refunds.refundAll(userId, req.body.refundToken, { assertWritable });
+        if (result.ok) {
+          try { onPurchase?.(userId); } catch (_) { /* Already committed. */ }
+          try { onSaved?.({ userId, revision: result.avatarSnapshot.revision }); } catch (_) { /* Already committed. */ }
+        }
+        return res.status(result.ok ? 200 : 409).json({ userId, ...result });
+      } catch (error) {
+        if (error?.code === "maintenance_mode") return maintenanceResponse(res);
+        console.error("[avatar] refund unavailable", error?.code || error?.name || "unknown");
+        return res.status(503).json({ ok: false, error: "avatar_refund_unavailable" });
+      }
+    };
+    router.get("/avatar/refund", refundHandler(false));
+    router.post("/avatar/refund", refundHandler(true));
   }
   // Public appearances for a recap, read in one bounded query when it opens.
   router.get("/avatars", async (req, res) => {
@@ -98,12 +127,14 @@ export function registerAvatarRoutes({ router, getAuthContext, requireAuth, repo
       if (!Number.isSafeInteger(revision) || revision < 0) return res.status(400).json({ ok: false, error: "avatar_invalid" });
       const avatar = await validateAvatarConfiguration(req.body?.avatar);
       if (!avatar) return res.status(400).json({ ok: false, error: "avatar_invalid" });
-      if (inventory && !await inventory.canEquip(userId, avatar)) return res.status(403).json({ ok: false, error: "avatar_locked" });
-      // No client-supplied image: the miniature must match the validated, owned pieces.
-      const current = thumbnails ? await repository.get(userId) : null;
-      if (current && current.revision !== revision) {
+      // Read the revision before checking ownership. A refund during validation
+      // or PNG rendering then makes the atomic save fail with a conflict.
+      const current = await repository.get(userId);
+      if (current.revision !== revision) {
         return res.status(409).json({ ok: false, ...current, error: "avatar_conflict" });
       }
+      if (inventory && !await inventory.canEquip(userId, avatar)) return res.status(403).json({ ok: false, error: "avatar_locked" });
+      // No client-supplied image: the miniature must match the validated, owned pieces.
       const thumbnail = thumbnails ? await thumbnails.render(avatar) : null;
       assertWritable();
       const { saved, ...snapshot } = await repository.save(userId, avatar, revision, thumbnail, { assertWritable });

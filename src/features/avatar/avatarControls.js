@@ -8,6 +8,7 @@ const slider = (key, label, percent = false, range = AVATAR_ADJUSTMENT_RANGES[ke
 });
 
 export const AVATAR_SLIDERS = {
+  silhouette: [slider("silhouetteWidth", "Minceur / embonpoint", true)],
   eyes: [slider("irisScale", "Taille de l’iris", true), slider("openness", "Ouverture des yeux", true), slider("spacing", "Écartement"), slider("dx", "Position horizontale"), slider("dy", "Position verticale")],
   brows: [slider("browWidth", "Largeur", true), slider("browThickness", "Épaisseur", true), slider("browDy", "Hauteur")],
   nose: [slider("noseScale", "Taille", true), slider("noseDx", "Position horizontale"), slider("noseDy", "Position verticale")],

@@ -2,7 +2,7 @@ import React from "react";
 import AvatarEditor from "./AvatarEditor.jsx";
 import { accountAvatarStore } from "./accountAvatarStore.js";
 import { avatarApiError } from "./avatarApi.js";
-import { requestAvatarInventory, purchaseAvatarItems } from "./avatarInventoryApi.js";
+import { requestAvatarInventory, purchaseAvatarItems, requestAvatarRefundQuote } from "./avatarInventoryApi.js";
 import { showGobblarsSpent } from "../notifications/showGobblarsSpent.js";
 import { useFeatureRuntime } from "../../app/react/useFeatureRuntime.js";
 import { AVATAR_OBJECTIVES } from "../../../shared/avatarObjectives.js";
@@ -64,6 +64,14 @@ export default function AccountAvatarEditor({ userId, nickname, onClose, mainten
     }
     catch (reason) { if (reason.inventory?.userId === Number(userId)) acceptInventory(reason.inventory); throw reason; }
   };
+  const refund = async token => {
+    const result = await accountAvatarStore.refundPurchases(Number(userId), token);
+    acceptInventory(result.inventory);
+    if (mounted.current) setLoaded(result.avatarSnapshot);
+    notifications.show("", 0, { gobblarsReward: { amount: result.refunded,
+      balance: result.inventory.balance, label: "Achats d’avatar remboursés" } });
+    return result;
+  };
   const reload = () => { setLoaded(null); setAttempt(value => value + 1); };
   if (maintenanceMode && !loaded) return <AvatarMaintenanceNotice onClose={onClose} />;
   if (!loaded || loaded.userId !== Number(userId)) return <div className="profile-editor-loading">
@@ -73,5 +81,6 @@ export default function AccountAvatarEditor({ userId, nickname, onClose, mainten
   </div>;
   return <AvatarEditor key={`${userId}:${attempt}`} initialValue={loaded.avatar} nickname={nickname} onClose={onClose}
     inventory={inventory} onPurchase={purchase} maintenanceMode={maintenanceMode}
+    onRefundQuote={options => requestAvatarRefundQuote(userId, options)} onRefund={refund}
     onReload={reload} onSave={avatar => accountAvatarStore.save(Number(userId), avatar, loaded.revision)} />;
 }

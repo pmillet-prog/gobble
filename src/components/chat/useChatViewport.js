@@ -12,6 +12,7 @@ import {
   writeStoredChatDrawerCalibration,
 } from "../../app/adapters/chatDrawerCalibration.js";
 import { clampValue } from "../../utils/numbers.js";
+import { computeIsIosStandalone } from "../../app/adapters/deviceCapabilities.js";
 
 const CHAT_DRAWER_FIXED_HEIGHT_RATIO = 0.58;
 const CHAT_VIEWPORT_SETTLE_DELAYS_MS = Object.freeze([60, 180, 360]);
@@ -83,6 +84,7 @@ export function computeChatViewportLayout({
   offsetLeft = 0,
   offsetTop = 0,
   topInsetPx = 0,
+  safeAreaTopPx = 0,
   viewportHeight,
   viewportWidth,
 }) {
@@ -92,6 +94,11 @@ export function computeChatViewportLayout({
   const safeOffsetLeft = Math.max(0, Math.round(Number(offsetLeft) || 0));
   const safeOffsetTop = Math.max(0, Math.round(Number(offsetTop) || 0));
   const safeTopInset = Math.max(0, Math.round(Number(topInsetPx) || 0));
+  const safeAreaTop = Math.max(0, Math.round(Number(safeAreaTopPx) || 0));
+  // The page can extend behind the iOS status bar without entering the
+  // Fullscreen API. A panned visual viewport may already clear part of it.
+  const visibleTopInset = Math.max(safeTopInset, safeAreaTop - safeOffsetTop);
+  const nominalTopInset = Math.max(safeTopInset, safeAreaTop);
   const visibleBottom = safeOffsetTop + safeViewportHeight;
   const keyboardInsetPx = Math.max(0, safeBaselineHeight - visibleBottom);
   const keyboardThresholdPx = Math.max(
@@ -100,7 +107,7 @@ export function computeChatViewportLayout({
   );
   const keyboardVisible = keyboardInsetPx >= keyboardThresholdPx;
   const keyboardOpen = keyboardFocused && keyboardVisible;
-  const availableVisibleHeight = Math.max(0, safeViewportHeight - safeTopInset);
+  const availableVisibleHeight = Math.max(0, safeViewportHeight - visibleTopInset);
   const orientation = getChatDrawerOrientationKey(
     safeViewportWidth,
     safeBaselineHeight
@@ -110,7 +117,7 @@ export function computeChatViewportLayout({
     String(calibration.orientation || "portrait") === orientation;
   const nominalCeiling = Math.max(
     0,
-    safeBaselineHeight - safeTopInset - CHAT_DRAWER_TOP_GAP_PX
+    safeBaselineHeight - nominalTopInset - CHAT_DRAWER_TOP_GAP_PX
   );
   const nominalHeight = nominalCeiling
     ? calibrationMatchesOrientation
@@ -152,6 +159,7 @@ export function computeChatViewportLayout({
       right: "auto",
       top: `${safeOffsetTop}px`,
       width: `${safeViewportWidth}px`,
+      paddingTop: `${visibleTopInset}px`,
     },
     sheetStyle: sheetHeightPx
       ? {
@@ -190,6 +198,7 @@ function areLayoutsEqual(left, right) {
     left?.overlayStyle?.left === right?.overlayStyle?.left &&
     left?.overlayStyle?.width === right?.overlayStyle?.width &&
     left?.overlayStyle?.height === right?.overlayStyle?.height &&
+    left?.overlayStyle?.paddingTop === right?.overlayStyle?.paddingTop &&
     left?.sheetStyle?.height === right?.sheetStyle?.height
   );
 }
@@ -226,12 +235,21 @@ export default function useChatViewport({
     }
 
     const visualViewport = window.visualViewport;
+    const safeAreaProbe = computeIsIosStandalone() ? document.createElement("div") : null;
+    if (safeAreaProbe) {
+      safeAreaProbe.style.cssText = "position:fixed;top:0;left:0;width:0;height:0;padding-top:env(safe-area-inset-top,0px);visibility:hidden;pointer-events:none";
+      safeAreaProbe.setAttribute("aria-hidden", "true");
+      document.body.appendChild(safeAreaProbe);
+    }
     let frameId = null;
     const settleTimerIds = new Set();
 
     const update = () => {
       frameId = null;
       const snapshot = readChatViewportSnapshot(window, document);
+      const safeAreaTopPx = safeAreaProbe
+        ? Math.max(0, parseFloat(window.getComputedStyle(safeAreaProbe).paddingTop) || 0)
+        : 0;
       const previousBaseline = baselineRef.current;
       const widthChanged =
         previousBaseline.width > 0 &&
@@ -267,7 +285,7 @@ export default function useChatViewport({
       ) {
         const availableHeight = Math.max(
           1,
-          snapshot.viewportHeight - Math.max(0, Number(topInsetPx) || 0)
+          snapshot.viewportHeight - Math.max(0, Number(topInsetPx) || 0, safeAreaTopPx - snapshot.offsetTop)
         );
         const observedHeightPx = clampValue(
           Math.round(availableHeight),
@@ -296,6 +314,7 @@ export default function useChatViewport({
         baselineHeight,
         calibration: sessionCalibrationRef.current,
         topInsetPx,
+        safeAreaTopPx,
       });
       setLayout((previous) =>
         areLayoutsEqual(previous, nextLayout) ? previous : nextLayout
@@ -333,6 +352,7 @@ export default function useChatViewport({
     visualViewport?.addEventListener("scroll", handleViewportChange, { passive: true });
 
     return () => {
+      safeAreaProbe?.remove();
       window.removeEventListener("resize", handleViewportChange);
       window.removeEventListener("orientationchange", handleViewportChange);
       window.removeEventListener("focusin", handleViewportChange, true);

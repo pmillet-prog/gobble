@@ -66,5 +66,8 @@ test("account cache keeps the original device avatar as a backup and avoids unch
     assert.equal(writes, before);
     cacheAccountAvatar(12, { ...DEFAULT_AVATAR, hairColor: "#abcdef" });
     assert.equal(values.get("gobble:avatar:before-account-sync:12"), old);
+    cacheAccountAvatar(12, null);
+    assert.equal(readSavedLocalAvatar(12), null, "refunded avatars are also removed from the active device cache");
+    assert.equal(values.get("gobble:avatar:before-account-sync:12"), old, "the original backup remains intact");
   } finally { delete globalThis.window; }
 });

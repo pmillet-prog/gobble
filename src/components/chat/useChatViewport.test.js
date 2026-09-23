@@ -167,3 +167,45 @@ test("keeps the existing nominal drawer height while the keyboard is closed", ()
   assert.equal(layout.keyboardInsetPx, 0);
   assert.equal(layout.sheetStyle.height, "490px");
 });
+
+test("keeps the home chat below the iPhone status bar without fullscreen", () => {
+  const layout = computeChatViewportLayout({
+    baselineHeight: 844, viewportHeight: 797, viewportWidth: 390,
+    safeAreaTopPx: 47, topInsetPx: 0,
+  });
+  assert.equal(layout.overlayStyle.paddingTop, "47px");
+  assert.equal(layout.sheetStyle.height, "490px");
+  assert.equal(layout.keyboardVisible, false, "a status-bar-sized gap is not a keyboard");
+});
+
+test("safe areas and the game header overlap instead of adding two top margins", () => {
+  const layout = computeChatViewportLayout({
+    baselineHeight: 844, viewportHeight: 844, viewportWidth: 390,
+    safeAreaTopPx: 47, topInsetPx: 103,
+  });
+  assert.equal(layout.overlayStyle.paddingTop, "103px");
+});
+
+test("safe-area protection keeps the input above the keyboard throughout viewport panning", () => {
+  for (const offsetTop of [0, 24, 47, 80]) {
+    for (const viewportHeight of [700, 478, 320]) {
+      const layout = computeChatViewportLayout({
+        baselineHeight: 844, viewportHeight, viewportWidth: 390,
+        keyboardFocused: true, safeAreaTopPx: 47, offsetTop,
+      });
+      const inset = Number.parseInt(layout.overlayStyle.paddingTop, 10);
+      const height = Number.parseInt(layout.sheetStyle.height, 10);
+      assert.ok(offsetTop + inset >= 47, "the header stays below the status bar");
+      assert.ok(inset + height <= viewportHeight, "the input stays in the visible viewport");
+      assert.ok(height <= 490, "keyboard animation never expands the drawer");
+    }
+  }
+});
+
+test("a browser that already reserves the status bar gets no additional top margin", () => {
+  const layout = computeChatViewportLayout({
+    baselineHeight: 797, viewportHeight: 797, viewportWidth: 390,
+    safeAreaTopPx: 0,
+  });
+  assert.equal(layout.overlayStyle.paddingTop, "0px");
+});

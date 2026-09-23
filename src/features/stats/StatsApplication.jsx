@@ -1,5 +1,6 @@
 import React from "react";
 import useOverlayViewport from "../../hooks/useOverlayViewport.js";
+import useMobileBackTarget from "../mobile/useMobileBackTarget.js";
 import "./statsOverlay.css";
 import { createPortal } from "react-dom";
 
@@ -176,6 +177,7 @@ export default function StatsApplication({
   installIdRef.current = installId;
   selfNickRef.current = selfNick;
   const closeStats = useStableEvent(onClose);
+  useMobileBackTarget(closeStats, !keyboardBlocked);
   const loadWeeklyStats = useStableEvent(fetchWeeklyStats);
   const loadTrophyStatus = useStableEvent(requestTrophyStatus);
   const playSwipe = useStableEvent(playSwipeSound);

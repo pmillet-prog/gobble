@@ -1,8 +1,10 @@
 import { useEffect, useRef } from "react";
+import useMobileBackTarget from "../../features/mobile/useMobileBackTarget.js";
 
 export default function useProfileDialog(ref, onClose, active = true, focusKey = "profile") {
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
+  useMobileBackTarget(onClose, active);
   useEffect(() => {
     if (!active) return undefined;
     const previous = document.activeElement;

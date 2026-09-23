@@ -2,7 +2,6 @@ import React from "react";
 
 import { clampValue } from "../../utils/numbers.js";
 import { VIEWPORT_EVENTS } from "./createViewportEventHub.js";
-import useScreenOrientation from "./useScreenOrientation.js";
 
 export function areMobileLayoutSizingsEqual(left, right) {
   if (!left || !right) return false;
@@ -235,7 +234,6 @@ export default function useMobileLayoutController({
     isFullscreen,
     isMobileLayout,
     layoutFeature,
-    allowLandscape = false,
     maxGridWidth,
     adaptiveRanking = false,
     showLiveActionBar = false,
@@ -248,8 +246,6 @@ export default function useMobileLayoutController({
   const safeAreaProbeRef = React.useRef(null);
   const safeAreaTopProbeRef = React.useRef(null);
   const documentScrollLockRef = React.useRef(0);
-
-  useScreenOrientation({ isMobileLayout, allowLandscape });
 
   React.useEffect(() => {
     if (typeof window === "undefined") return;

@@ -1,12 +1,12 @@
 import React from "react";
-import { watchScreenOrientation } from "./screenOrientation.js";
+import { createScreenOrientationController, isOrientationMobileDevice, resolveScreenOrientationMode } from "./screenOrientation.js";
 
 export default function useScreenOrientation({ isMobileLayout, allowLandscape }) {
-  React.useEffect(() => {
-    if (typeof screen === "undefined") return;
-    return watchScreenOrientation({
-      orientation: screen.orientation, document,
-      mode: allowLandscape ? "any" : isMobileLayout ? "portrait" : null,
-    });
-  }, [isMobileLayout, allowLandscape]);
+  const controller = React.useMemo(() => createScreenOrientationController({
+    orientation: globalThis.screen?.orientation, document: globalThis.document, window: globalThis.window,
+  }), []);
+  React.useLayoutEffect(() => {
+    controller.setMode(resolveScreenOrientationMode({ isMobileLayout, allowLandscape, isMobileDevice: isOrientationMobileDevice() }));
+  }, [controller, isMobileLayout, allowLandscape]);
+  React.useLayoutEffect(() => { controller.start(); return () => controller.stop(); }, [controller]);
 }

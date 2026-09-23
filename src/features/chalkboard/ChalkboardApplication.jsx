@@ -1,4 +1,5 @@
 import React from "react";
+import useMobileBackTarget from "../mobile/useMobileBackTarget.js";
 import { CHALKBOARD_BOARD } from "../../../shared/chalkboardRules.js";
 
 import {
@@ -34,6 +35,7 @@ const ChalkboardArchives = React.lazy(() => import("./ChalkboardArchives.jsx"));
 
 export default function ChalkboardApplication(props) {
   const [archives, setArchives] = React.useState(false);
+  useMobileBackTarget(() => setArchives(false), archives);
   const viewportRef = useOverlayViewport();
   return <div ref={viewportRef} className="chalkboard-viewport">{archives
     ? <React.Suspense fallback={<main className="chalkboard-app"><button className="chalkboard-back" onClick={() => setArchives(false)}>Retour au tableau</button><p role="status">Chargement des archives…</p></main>}>
@@ -343,6 +345,7 @@ function ChalkboardBoard({ canPublish = false, connection, onClose, onArchives }
     if ((editor.hasDraft || editor.textEntry) && !window.confirm("Quitter et abandonner ton brouillon ?")) return;
     onClose?.();
   };
+  useMobileBackTarget(() => { if (!busy) close(); });
 
   return (
     <>

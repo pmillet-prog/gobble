@@ -3,6 +3,7 @@ import "./mobileGameViewport.css";
 
 import { RoundClockSeconds } from "../../features/clock/RoundClockDisplay.jsx";
 import MobileGrid from "../MobileGrid.jsx";
+import MobileConnectionLabel from "../../features/mobile/MobileConnectionLabel.jsx";
 
 function MobileUltraCompactPlaying({
   chatOverlays = null,
@@ -25,7 +26,7 @@ function MobileUltraCompactPlaying({
       >
         <div className="px-3 pt-0.5 pb-0 text-[10px] font-semibold flex items-center justify-between gap-2">
           <span className="truncate">
-            {compactRankingLabel}
+            <MobileConnectionLabel fallback={compactRankingLabel} />
           </span>
           <div className="flex items-center gap-1">
             <button

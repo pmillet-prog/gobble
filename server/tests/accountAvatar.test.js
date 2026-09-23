@@ -79,6 +79,22 @@ test("persisted adjustment limits agree with the workshop renderer", () => {
   }
 });
 
+test("skin relief is validated, saved across devices and remains compatible with older clients", async t => {
+  const { request, repository } = await harness(t);
+  for (const [index, skinStyle] of ["chubby", "defined", "wrinkled", "classic"].entries()) {
+    const value = avatar({ base: index % 2 ? "femme" : "homme", skinStyle, tone: "custom", customColor: "#503427" });
+    const result = await request("put", 1, { userId: 1, avatar: value, expectedRevision: index });
+    assert.equal(result.statusCode, 200);
+    assert.equal((await repository.get(1)).avatar.skinStyle, skinStyle);
+    assert.equal((await request("get", 1, { userId: 1 })).body.avatar.skinStyle, skinStyle);
+  }
+  const { skinStyle, ...older } = avatar({});
+  assert.equal((await request("put", 1, { userId: 1, avatar: older, expectedRevision: 4 })).body.avatar.skinStyle, "classic");
+  for (const invalid of ["unknown", "../../file", null, []]) {
+    assert.equal((await request("put", 1, { userId: 1, avatar: { ...older, skinStyle: invalid }, expectedRevision: 5 })).statusCode, 400);
+  }
+});
+
 test("recap portraits read only requested appearances and refresh after an edit", async t => {
   const { request, repository } = await harness(t);
   await repository.save(1, desktopFace, 0);
@@ -90,6 +106,18 @@ test("recap portraits read only requested appearances and refresh after an edit"
   assert.deepEqual(selected.body, { ok: true, avatars: { 1: desktopFace } });
   await repository.save(1, phoneFace, 1);
   assert.deepEqual((await read("1,2")).body.avatars, { 1: phoneFace, 2: phoneFace });
+});
+
+test("silhouette is saved across devices, defaults for older clients and rejects invalid widths", async t => {
+  const { request } = await harness(t);
+  const value = avatar({ silhouetteWidth: 1.12, skinStyle: "chubby", accessories: ["earrings_hoops"] });
+  assert.equal((await request("put", 1, { userId: 1, avatar: value, expectedRevision: 0 })).statusCode, 200);
+  assert.equal((await request("get", 1, { userId: 1 })).body.avatar.silhouetteWidth, 1.12);
+  const { silhouetteWidth, ...older } = value;
+  assert.equal((await request("put", 1, { userId: 1, avatar: older, expectedRevision: 1 })).body.avatar.silhouetteWidth, 1);
+  for (const invalid of [.79, 1.16, null, "1.1", 1.001]) {
+    assert.equal((await request("put", 1, { userId: 1, avatar: { ...value, silhouetteWidth: invalid }, expectedRevision: 2 })).statusCode, 400);
+  }
 });
 
 test("recap portrait batches require authentication and bounded valid account ids", async t => {

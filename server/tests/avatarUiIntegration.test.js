@@ -46,6 +46,23 @@ test("ranking avatars, loading indicators, chat buttons and expense toast render
         assert.doesNotMatch(failed, /<img|<canvas|Chargement de l’avatar/);
       }
     });
+    await t.test("a refunded own avatar overrides an old profile portrait with the confirmed empty appearance", async () => {
+      const { accountAvatarStore } = await vite.ssrLoadModule("/src/features/avatar/accountAvatarStore.js");
+      const originalFetch = globalThis.fetch;
+      let response = { ok: true, userId: 42, avatar: { version: 1, base: "homme" }, revision: 1, unlocksRequired: true };
+      globalThis.fetch = async () => ({ ok: true, json: async () => response });
+      const disconnect = accountAvatarStore.connect(42);
+      try {
+        await accountAvatarStore.refresh();
+        const render = () => renderToString(React.createElement(ProfileAvatar, { own: true, userId: 42,
+          nickname: "Paul", avatar: { base: "homme" } }));
+        assert.match(render(), /<canvas/);
+        response = { ...response, avatar: null, revision: 2 };
+        await accountAvatarStore.refresh();
+        assert.match(render(), /\/avatars\/default.png/);
+        assert.doesNotMatch(render(), /<canvas/);
+      } finally { disconnect(); globalThis.fetch = originalFetch; }
+    });
     await t.test("rankings show lazy avatars with a loading circle, while season keeps vocabulary ranks", () => {
       const opened = [], entry = { nick: "Paul", userId: 42, playerKey: "install:42", totalScore: 1234, vocabCount: 1200 };
       let swiped = false;

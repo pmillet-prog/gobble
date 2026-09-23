@@ -3,7 +3,10 @@ const CACHE_PREFIX = "gobble-cache";
 const MEDIA_CACHE = `${CACHE_PREFIX}-media-${SW_VERSION}`;
 const SHELL_CACHE = `${CACHE_PREFIX}-shell-${SW_VERSION}`;
 const UI_CACHE = `${CACHE_PREFIX}-ui-${SW_VERSION}`;
-const CACHE_NAMES = new Set([MEDIA_CACHE, SHELL_CACHE, UI_CACHE]);
+const OFFLINE_CACHE = `${CACHE_PREFIX}-offline-v1`;
+const CACHE_NAMES = new Set([MEDIA_CACHE, SHELL_CACHE, UI_CACHE, OFFLINE_CACHE]);
+const OFFLINE_URLS = ["/offline.html", "/offline-retry.js"];
+const NAVIGATION_TIMEOUT_MS = 8000;
 const MEDIA_CACHE_MAX_ENTRIES = 180;
 
 const SHELL_URLS = ["/", "/index.html", "/manifest.webmanifest", "/favicon.png", "/icon.svg"];
@@ -155,15 +158,35 @@ async function chalkboardTextureCache(request, url) {
 }
 
 async function navigationNetworkFirst(request) {
-  const cache = await caches.open(SHELL_CACHE);
+  const controller = new AbortController();
+  let timeoutId;
   try {
-    const network = await fetch(request);
-    await putInCache(SHELL_CACHE, "/index.html", network);
+    const timeout = new Promise((_, reject) => {
+      timeoutId = setTimeout(() => {
+        controller.abort();
+        reject(new Error("navigation_timeout"));
+      }, NAVIGATION_TIMEOUT_MS);
+    });
+    const network = await Promise.race([fetch(request, { signal: controller.signal }), timeout]);
+    clearTimeout(timeoutId);
+    if (network.status >= 500) throw new Error("server_unavailable");
+    // Storage failures must never replace a successful online navigation.
+    if (network.ok && /text\/html/i.test(network.headers.get("content-type") || "")) {
+      try { await putInCache(SHELL_CACHE, "/index.html", network); } catch (_) {}
+    }
     return network;
   } catch (_) {
-    const cached = await cache.match("/index.html");
-    if (cached) return cached;
-    throw _;
+    try {
+      const cache = await caches.open(OFFLINE_CACHE);
+      const cached = await cache.match("/offline.html");
+      if (cached) return cached;
+    } catch (_) {}
+    // Self-contained last resort, including when storage is full or unavailable.
+    return new Response('<!doctype html><html lang="fr"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Gobble — Connexion indisponible</title><h1>Connexion indisponible</h1><p>Vérifie ta connexion puis réessaie.</p><a href="/">Revenir à Gobble</a></html>', {
+      status: 503, headers: { "content-type": "text/html; charset=utf-8" },
+    });
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 
@@ -190,11 +213,14 @@ async function avatarResource(request, url) {
 self.addEventListener("install", (event) => {
   event.waitUntil(
     (async () => {
-      const [shellCache, uiCache] = await Promise.all([
+      const [shellCache, uiCache, offlineCache] = await Promise.all([
         caches.open(SHELL_CACHE),
         caches.open(UI_CACHE),
+        caches.open(OFFLINE_CACHE),
       ]);
-      await Promise.all([shellCache.addAll(SHELL_URLS), uiCache.addAll(UI_URLS)]);
+      // The fallback is essential; an unavailable decorative image isn't.
+      await offlineCache.addAll(OFFLINE_URLS);
+      await Promise.allSettled([shellCache.addAll(SHELL_URLS), uiCache.addAll(UI_URLS)]);
       await self.skipWaiting();
     })()
   );
@@ -224,6 +250,17 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
   if (!isSameOrigin(url)) return;
   if (isApiRequest(url.pathname)) return;
+
+  if (OFFLINE_URLS.includes(url.pathname)) {
+    event.respondWith((async () => {
+      try {
+        const cached = await (await caches.open(OFFLINE_CACHE)).match(url.pathname);
+        if (cached) return cached;
+      } catch (_) {}
+      return fetch(request);
+    })());
+    return;
+  }
 
   if (url.pathname.startsWith("/avatars/")) {
     event.respondWith(avatarResource(request, url));

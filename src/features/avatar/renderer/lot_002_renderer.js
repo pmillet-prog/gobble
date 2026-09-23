@@ -125,10 +125,12 @@ export default (function (skinRenderer, adjustments, backgrounds, auras) {
       ctx.translate(0, avatarDy);
       if (!isolated) {
         if (!options.authoring) auras.draw(ctx, assets, state);
+        if (!options.authoring) options.transformCharacter?.(ctx, canvas.gobbleViewport);
         if (headwear) headwear.draw(ctx, assets, state, 'back');
         if (headwear) headwear.drawHair(ctx, assets, state, hair, 'back'); else if (hair) hair.draw(ctx, assets, state, 'back');
         for (const role of ['bust', 'head']) {
           if (role === 'head') options.drawAccessories?.(ctx, 'neck');
+          if (role === 'head' && options.drawSkin) { options.drawSkin(ctx); continue; }
           if(role==='bust'&&clothes&&clothes.draw(ctx,assets,state))continue;
           const id = role + '_' + (state.base || 'femme');
           ctx.drawImage(skin.tinted(id, assets[id], role, state.tone || 'native', assets[id + '_mask'], state.customColor, state.showMask), 0, 0);

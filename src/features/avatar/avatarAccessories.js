@@ -1,3 +1,5 @@
+import { applyAvatarViewport } from "./avatarSilhouette.js";
+
 let markerFont;
 export function loadAvatarMarkerFont() {
   if (typeof FontFace === "undefined" || !document.fonts) return Promise.resolve();
@@ -24,9 +26,8 @@ export function drawParticipantTag(ctx, image, nickname = "Joueur") {
 
 export function drawAvatarAccessories(ctx, viewport, image, nickname) {
   if (!viewport || !image) return;
-  const { crop, ratio, ox, oy } = viewport;
   ctx.save();
-  ctx.translate(ox, oy); ctx.scale(ratio, ratio); ctx.translate(-crop[0], -crop[1]);
+  applyAvatarViewport(ctx, viewport);
   // Viewer's left chest, opposite daily medals. Same portrait camera as the outfit.
   ctx.translate(218, 736); ctx.scale(230 / 320, 230 / 320);
   drawParticipantTag(ctx, image, nickname);
@@ -35,9 +36,9 @@ export function drawAvatarAccessories(ctx, viewport, image, nickname) {
 
 export function drawAvatarCompanion(ctx, viewport, image) {
   if (!viewport || !image) return;
-  const { crop, ratio, ox, oy } = viewport;
+  const { crop, ratio, oy } = viewport;
   ctx.save();
-  ctx.translate(ox, oy); ctx.scale(ratio, ratio); ctx.translate(-crop[0], -crop[1]);
+  applyAvatarViewport(ctx, viewport);
   // Anchor the paws to the frame, including portraits reframed for a tall hat.
   // The source's visible lower edge is at 1240 / 1254 (transparent padding).
   const bottom = crop[1] + (ctx.canvas.height - oy) / ratio;

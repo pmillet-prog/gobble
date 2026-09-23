@@ -2,6 +2,7 @@ import React from "react";
 
 import GobbleApplication from "../GobbleApplication.jsx";
 import StatsOverlaySatellite from "../features/stats/StatsOverlaySatellite.jsx";
+import ScreenOrientationSatellite from "../features/layout/ScreenOrientationSatellite.jsx";
 import { AMBIENT_MUSIC_TRACKS_DEFAULT } from "../audio/audioAssets.js";
 import AppBootOverlay from "../components/boot/AppBootOverlay.jsx";
 import socketClient from "../socket.js";
@@ -35,6 +36,7 @@ function ApplicationRuntime() {
 
   return (
     <>
+      <ScreenOrientationSatellite />
       {bootReady ? <GobbleApplication /> : null}
       {bootReady ? <StatsOverlaySatellite /> : null}
       <AppBootOverlay

@@ -112,6 +112,23 @@ test("all requested prices include paid faces, premium hats and the objective-on
   assert.equal(isAvatarPartUnlocked({ owned: {} }, "base", "homme"), false);
 });
 
+test("all skin variants are included in the purchased face and never bypass its lock", async t => {
+  const { inventory, request } = await setup(t, 2000);
+  let revision = 0;
+  for (const base of ["homme", "femme"]) {
+    const value = { ...createBlankAvatar(base), skinStyle: "wrinkled" };
+    assert.equal((await request("put", "/avatar", 1, { userId: 1, avatar: value, expectedRevision: revision })).body.error, "avatar_locked");
+    assert.equal((await inventory.purchase(1, [{ family: "base", id: base }])).spent, 500);
+    for (const skinStyle of ["classic", "chubby", "defined", "wrinkled"]) {
+      const result = await request("put", "/avatar", 1, { userId: 1, avatar: { ...value, skinStyle }, expectedRevision: revision });
+      assert.equal(result.statusCode, 200);
+      assert.equal(result.body.avatar.skinStyle, skinStyle);
+      revision++;
+    }
+  }
+  assert.equal((await inventory.get(1)).balance, 1000, "skin changes do not debit the wallet");
+});
+
 test("checkout itemizes unpaid selections and objectives, shows the shortfall and equips the entire purchase", async t => {
   const { request, inventory } = await setup(t, 3000);
   const avatar = { ...createBlankAvatar(), eyes: "open", hair: "quiff", headwear: "cap" };

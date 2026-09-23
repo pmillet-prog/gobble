@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#0b172a">
+  <title>Gobble — Connexion indisponible</title>
+  <style>
+    :root { color-scheme: dark; font-family: system-ui, sans-serif; background: #0b172a; color: #f1f5f9; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; min-height: 100dvh; display: grid; place-items: center;
+      padding: max(24px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left)); }
+    main { width: min(100%, 380px); text-align: center; }
+    .brand { color: #38bdf8; font-weight: 900; letter-spacing: .18em; font-size: 20px; }
+    h1 { font-size: clamp(25px, 7vw, 32px); line-height: 1.2; margin-top: 30px; }
+    p { color: #cbd5e1; line-height: 1.65; }
+    a { display: block; margin-top: 28px; padding: 15px 22px; border-radius: 14px; color: #082f49; background: #38bdf8;
+      font-weight: 800; text-decoration: none; touch-action: manipulation; }
+    a:focus-visible { outline: 3px solid white; outline-offset: 5px; }
+    small { display: block; margin-top: 24px; color: #94a3b8; line-height: 1.5; }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="brand">GOBBLE</div>
+    <h1>La connexion se fait attendre</h1>
+    <p>Impossible de joindre Gobble pour le moment. Vérifie ta connexion Wi-Fi ou mobile, puis réessaie.</p>
+    <a href="/" id="retry">Réessayer</a>
+    <small id="status" role="status">Les parties en ligne nécessitent une connexion.</small>
+  </main>
+  <script src="/offline-retry.js"></script>
+</body>
+</html>

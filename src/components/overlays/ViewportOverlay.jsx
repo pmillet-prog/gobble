@@ -1,9 +1,11 @@
 import React from "react";
 import { createPortal } from "react-dom";
 import useOverlayViewport from "../../hooks/useOverlayViewport.js";
+import useMobileBackTarget from "../../features/mobile/useMobileBackTarget.js";
 
 export default function ViewportOverlay({ children, label, onClose, className = "" }) {
   const viewportRef = useOverlayViewport();
+  useMobileBackTarget(onClose);
 
   React.useEffect(() => {
     const previousFocus = document.activeElement;

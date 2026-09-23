@@ -20,11 +20,15 @@ export function cacheAccountAvatar(userId, avatar) {
   if (!key || typeof window === "undefined") return;
   try {
     const old = window.localStorage.getItem(key);
-    if (old === JSON.stringify(normalizeAvatar(avatar))) return;
+    if (old === JSON.stringify(avatar === null ? null : normalizeAvatar(avatar))) return;
     const backupKey = `gobble:avatar:before-account-sync:${Number(userId)}`;
     if (old && !window.localStorage.getItem(backupKey)) window.localStorage.setItem(backupKey, old);
   } catch { /* Backup is best effort, as is this device's cache. */ }
-  saveLocalAvatar(userId, avatar);
+  if (avatar === null) {
+    window.localStorage.setItem(key, "null");
+    cache.delete(key);
+    notify();
+  } else saveLocalAvatar(userId, avatar);
 }
 export function getLocalAvatar(userId) {
   const key = keyFor(userId);

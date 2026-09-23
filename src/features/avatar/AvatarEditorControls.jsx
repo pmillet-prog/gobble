@@ -42,13 +42,13 @@ export default function AvatarEditorControls({ category, draft, limits, incompat
   return <div className="avatar-controls">
     {palette ? <Palette {...palette} /> : null}
     {sliders.length > 0 && (category !== "backdrops" || draft.backdrops) ? <fieldset className="avatar-adjustments">
-      <legend>Ajuster {category === "mouths" ? "la bouche" : category === "accessories" ? "la balafre" : "les proportions"}</legend>
+      <legend>Ajuster {category === "silhouette" ? "la silhouette" : category === "mouths" ? "la bouche" : category === "accessories" ? "la balafre" : "les proportions"}</legend>
       {sliders.map(control => {
         const { key, label, multiplier, unit, defaultValue } = control;
         const [min, max] = limits?.[key]?.every(Number.isFinite) ? limits[key] : [control.min, control.max];
         return <label className="avatar-slider" key={key}>
           <span>{key === "irisScale" && draft.eyes === "dots" ? "Taille des points" : label}</span>
-          <input type="range" min={Math.round(min * multiplier)} max={Math.round(max * multiplier)} step={control.step * multiplier} value={Math.round((draft[key] ?? defaultValue) * multiplier)} disabled={!draft[category] || (key === "openness" && !hasAvatarEyelids(draft.eyes)) || (category === "mouths" && incompatible) || min === max} onChange={event => onChange({ [key]: Number(event.target.value) / multiplier })} />
+          <input aria-label={label} type="range" min={Math.round(min * multiplier)} max={Math.round(max * multiplier)} step={control.step * multiplier} value={Math.round((draft[key] ?? defaultValue) * multiplier)} disabled={!(category === "silhouette" ? draft.base : draft[category]) || (key === "openness" && !hasAvatarEyelids(draft.eyes)) || (category === "mouths" && incompatible) || min === max} onChange={event => onChange({ [key]: Number(event.target.value) / multiplier })} />
           <output>{Math.round((draft[key] ?? defaultValue) * multiplier)} {unit}</output>
         </label>;
       })}

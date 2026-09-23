@@ -24,6 +24,8 @@ export async function validateAvatarConfiguration(value) {
   if (Object.keys(DEFAULT_AVATAR).some(key => {
     // Older clients do not send the newly introduced scar controls.
     if (value[key] === undefined && Object.hasOwn(SCAR_ADJUSTMENT_RANGES, key)) return false;
+    if (key === "skinStyle" && value[key] === undefined) return false; // Existing accounts/older clients keep the classic face.
+    if (key === "silhouetteWidth" && value[key] === undefined) return false; // Existing silhouettes stay at 100%.
     if (key === "accessories") {
       const ids = value[key] === undefined || value[key] === "" ? []
         : typeof value[key] === "string" ? [value[key]] : value[key];

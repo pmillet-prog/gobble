@@ -1,4 +1,5 @@
 import { getMedalPins } from "../../../shared/dailyMedals.js";
+import { applyAvatarViewport } from "./avatarSilhouette.js";
 
 const METALS = {
   gold: { light: "#fff4bb", mid: "#efb83e", dark: "#92531d", edge: "#603914" },
@@ -60,9 +61,8 @@ export function drawAvatarMedal(ctx, color) {
 export function drawAvatarMedals(ctx, viewport, counts) {
   const pins = getMedalPins(counts);
   if (!pins.length || !viewport) return;
-  const { crop, ratio, ox, oy } = viewport;
   ctx.save();
-  ctx.translate(ox, oy); ctx.scale(ratio, ratio); ctx.translate(-crop[0], -crop[1]);
+  applyAvatarViewport(ctx, viewport);
   // Wearer's left chest. All overlays use the same camera as the assembled
   // head, outfit and hat, including the editor's downward portrait offset.
   const spacing = 112, width = 90;

@@ -446,6 +446,8 @@ export async function initGobblarsService({ applyGlobalGrant = true } = {}) {
             reason TEXT NOT NULL,
             meta TEXT
           );
+          CREATE INDEX IF NOT EXISTS idx_gobblar_ledger_account_reason
+            ON gobblar_ledger (installId, reason);
           CREATE TABLE IF NOT EXISTS gobblar_week_rewards (
             installId TEXT NOT NULL,
             weekId TEXT NOT NULL,

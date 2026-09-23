@@ -1,4 +1,5 @@
 import React from "react";
+import { computeIsIosStandalone } from "../../app/adapters/deviceCapabilities.js";
 import {
   UI_IMAGE_KEYS,
   detectWideUiViewport,
@@ -38,6 +39,11 @@ const styles = `
   color: white;
   touch-action: pan-x pan-y;
 }
+/* Installed WebKit can subtract the status bar from svh while drawing the
+   page behind it, leaving an equally tall blank strip at the bottom.
+   Only opt out of svh for installed iOS, leaving Safari tabs and Android alone.
+   https://bugs.webkit.org/show_bug.cgi?id=254868 */
+.home-lobby-screen.home-lobby-ios-standalone { min-height: 100vh; height: 100vh; }
 .home-lobby-backdrop {
   position: absolute;
   z-index: 0;
@@ -833,6 +839,7 @@ function HomeLobby({
   const { homeChatUnreadCount, homeChatUnreadIsBotOnly } =
     useChatUnreadState();
   const [isIosInstallHelpOpen, setIsIosInstallHelpOpen] = React.useState(false);
+  const [isIosStandalone] = React.useState(computeIsIosStandalone);
   const statusText =
     loginError ||
     accountNotice ||
@@ -897,7 +904,7 @@ function HomeLobby({
   });
 
   return (
-    <div className={`home-lobby-screen home-lobby-stage-${introStage}`}>
+    <div className={`home-lobby-screen home-lobby-stage-${introStage}${isIosStandalone ? " home-lobby-ios-standalone" : ""}`}>
       <style>{styles}</style>
       <picture className="home-lobby-backdrop" aria-hidden="true">
         <source media="(min-aspect-ratio: 1/1)" srcSet={resolvedBackgroundDesktop} />

@@ -1,5 +1,6 @@
 import React from "react";
 import { RoundClockSeconds } from "../features/clock/RoundClockDisplay.jsx";
+import MobileConnectionLabel from "../features/mobile/MobileConnectionLabel.jsx";
 
 function MobileHeader({
   activeRoom,
@@ -56,7 +57,7 @@ function MobileHeader({
     >
       <div className="flex items-center justify-between gap-2">
         <div className="flex flex-col">
-          <div className="text-lg font-extrabold tracking-tight leading-none">GOBBLE</div>
+          <div className="h-5 text-lg font-extrabold tracking-tight leading-none"><MobileConnectionLabel /></div>
           <div className={`text-[0.7rem] leading-tight ${metaTextClass}`}>
             {roundTypeLabel ? (
               <>{roundTypeLabel}</>
