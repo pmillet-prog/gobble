@@ -37,7 +37,10 @@ export default function useChalkboardTextEntry({ fontCatalog, elementsRef, repla
       publishEntry(next);
       return;
     }
-    const view = getChalkboardTextViewport(viewport);
+    // A keyboard changes the space available for editing, not the dimensions
+    // of the draft. Keep the board viewport captured before focusing the field.
+    const placementViewport = current.viewport || viewport;
+    const view = getChalkboardTextViewport(placementViewport);
     const width = previous?.width || Math.min(900, Math.max(160, view.width - 2 * view.margin - 28));
     let element = reflowChalkboardText({ type: "text", id: current.id, seed: current.seed,
       fontSize: 68, scale: 1, angle: 0, cx: current.worldX, cy: current.worldY, ...previous, ...message,
@@ -46,7 +49,7 @@ export default function useChalkboardTextEntry({ fontCatalog, elementsRef, repla
       (view.width - 2 * view.margin) / (element.width + 28),
       (view.height - 2 * view.margin) / (getTextHeight(element) + 92)) * 1000) / 1000);
     if (!previous || !current.adjusted) {
-      const limits = getChalkboardTextPlacementLimits(element, viewport);
+      const limits = getChalkboardTextPlacementLimits(element, placementViewport);
       element.cx = Math.max(limits.minX, Math.min(limits.maxX, element.cx));
       element.cy = Math.max(limits.minY, Math.min(limits.maxY, element.cy));
       const placement = !previous && current.autoPlace ? findChalkboardTextPlacement(element, current.occupied, limits) : element;

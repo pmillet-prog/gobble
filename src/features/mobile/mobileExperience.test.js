@@ -3,9 +3,14 @@ import assert from "node:assert/strict";
 import { createScreenWakeLock } from "./createScreenWakeLock.js";
 import { createMobileNavigation, MOBILE_HISTORY_KEY } from "./createMobileNavigation.js";
 import { createMobileBackRegistry } from "./mobileBackRegistry.js";
-import { isMobileRoundActive, getMobileBackTargets } from "./mobileExperiencePolicy.js";
+import { isMobileExperienceEnabled, isMobileRoundActive, getMobileBackTargets } from "./mobileExperiencePolicy.js";
 
 const flush = () => new Promise(resolve => setImmediate(resolve));
+test("mobile back and wake protection survive selecting a desktop presentation on a phone", () => {
+  assert.equal(isMobileExperienceEnabled({ enabled: false, mobileDevice: true }), true);
+  assert.equal(isMobileExperienceEnabled({ enabled: true, mobileDevice: false }), true);
+  assert.equal(isMobileExperienceEnabled({ enabled: false, mobileDevice: false }), false);
+});
 function eventTarget(extra = {}) {
   const listeners = new Map();
   return Object.assign({

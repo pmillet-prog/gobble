@@ -12,12 +12,17 @@ export default function PatchNotes20260923Minor({ menuDarkMode = false }) {
         <li>
           <strong>Des visages avec plus de relief</strong> : dans l’éditeur d’avatar,
           choisissez un visage joufflu, ridé ou aux traits marqués, en plus du classique.
-          Ces variantes sont incluses avec le modèle homme ou femme choisi.
+          Tout le premier onglet est désormais <strong>gratuit</strong> : homme ou femme,
+          visage, silhouette et couleur de peau.
         </li>
         <li>
           Dans <strong>Visage</strong>, retrouvez les boutons <strong>♂ Homme / ♀ Femme</strong>,
           puis un curseur pour <strong>affiner ou élargir tout l’avatar</strong>,
           les visages et la couleur de peau.
+        </li>
+        <li>
+          <strong>500 gobblars offerts</strong> à tous les comptes existants, même sans achat
+          d’avatar. Ce cadeau unique est annoncé par un toast.
         </li>
         <li>
           <strong>Rembourser tous mes achats…</strong> permet de récupérer le montant exact

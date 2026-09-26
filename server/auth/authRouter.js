@@ -27,7 +27,7 @@ import {
   userAvatars,
   avatarInventory,
   avatarThumbnails,
-  avatarStarterGrant,
+  avatarGobblarGrants,
 } from "./authService.js";
 
 const SESSION_COOKIE_NAME = "gobble_session";
@@ -194,7 +194,7 @@ export function createAuthRouter({
     await initAuthService();
     next();
   });
-  registerStarterGrantRoutes({ router, getAuthContext, requireAuth, grants: avatarStarterGrant });
+  registerStarterGrantRoutes({ router, getAuthContext, requireAuth, grants: avatarGobblarGrants });
 
   router.post("/status", async (req, res) => {
     res.set("Cache-Control", "no-store");

@@ -18,6 +18,7 @@ import { createAvatarThumbnailRenderer } from "../avatars/avatarThumbnailRendere
 import { loadCatalog } from "../avatars/avatarValidation.js";
 import { initGobblarsService } from "../stats/gobblarsService.js";
 import { createAvatarStarterGrant, recordStarterGrant } from "../stats/avatarStarterGrant.js";
+import { createAvatarFaceGrant } from "../stats/avatarFaceGrant.js";
 import {
   runSerializedSqliteWrite,
   runSqliteImmediateTransaction,
@@ -490,6 +491,16 @@ export const avatarStarterGrant = createAvatarStarterGrant({
   },
 });
 
+export const avatarFaceGrant = createAvatarFaceGrant({
+  getDb: async () => { const ready = await ensureDb(); await initGobblarsService({ applyGlobalGrant: false }); return ready; },
+  runWrite: runAuthWrite,
+});
+
+export const avatarGobblarGrants = {
+  pending: async userId => (await avatarFaceGrant.pending(userId)) || avatarStarterGrant.pending(userId),
+  acknowledge: async (userId, key) => (await avatarFaceGrant.acknowledge(userId, key)) || avatarStarterGrant.acknowledge(userId, key),
+};
+
 export const userAvatars = createAvatarRepository({ getDb: ensureDb, runWrite: runAuthWrite });
 const donorAvatars = createDonorAvatarRepository({ getDb: ensureDb, runWrite: runAuthWrite });
 export const weeklyAvatarAuras = createWeeklyAvatarAuras({ getDb: ensureDb, runWrite: runAuthWrite, loadCatalog });
@@ -819,6 +830,7 @@ export async function createUser({
   allowShortUsername = false,
 }) {
   const ready = await ensureDb();
+  await avatarFaceGrant.initialize();
   await avatarStarterGrant.initialize();
   const displayResult = sanitizeUsernameDisplay(usernameDisplay, {
     allowShort: allowShortUsername,

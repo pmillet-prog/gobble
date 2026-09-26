@@ -234,6 +234,7 @@
 }
 .chalkboard-composer-fields { display: flex; gap: 10px; align-items: center; }
 .chalkboard-composer p { margin: 6px 0 0; color: #7a7865; font-size: 11px; }
+.chalkboard-composer-focus-hint { display: none; }
 .chalkboard-message-label { display: block; margin-bottom: 5px; font-size: 12px; font-weight: 700; }
 .chalkboard-text-style { display: flex; align-items: center; gap: 18px; margin-bottom: 7px; }
 .chalkboard-text-style label { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 12px; font-weight: 700; }
@@ -346,16 +347,41 @@
   .chalkboard-board .chalkboard-composer-actions button { min-height: 32px; padding: 5px 8px; font-size: 12px; }
 }
 
-/* Query the visible frame, including keyboard shrinkage, not the layout
-   viewport whose media-query height can stay unchanged on mobile. */
+/* With too little visible height, typing gets its own surface. Keep the same
+   textarea mounted (focus/selection/IME) and preserve the board underneath. */
 @container chalkboard (max-height: 320px) {
-  .chalkboard-app.is-composing .chalkboard-header { display: none; }
-  .chalkboard-board.is-composing > .chalkboard-composer { grid-column: 1 / -1; }
-  .chalkboard-composer { max-height: 65%; }
-  .chalkboard-composer > .chalkboard-message-label, .chalkboard-composer > p { display: none; }
+  .chalkboard-board.is-composing { position: relative; }
+  .chalkboard-board.is-composing > .chalkboard-header,
+  .chalkboard-board.is-composing > .chalkboard-frame { visibility: hidden; }
+  .chalkboard-board.is-composing > .chalkboard-composer {
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    grid-area: auto;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    align-items: stretch;
+    gap: 8px;
+    height: 100%;
+    max-height: none;
+    padding: 8px;
+    border: 0;
+    background: #f4eddc;
+  }
+  .chalkboard-board .chalkboard-composer > .chalkboard-message-label,
+  .chalkboard-board .chalkboard-text-style label > span { display: none; }
+  .chalkboard-board .chalkboard-text-style { grid-area: 1 / 1; margin: 0; gap: 8px; }
+  .chalkboard-board .chalkboard-text-color input { width: 36px; }
+  .chalkboard-board .chalkboard-composer-fields { display: contents; }
+  .chalkboard-board .chalkboard-composer-actions { grid-area: 1 / 2; flex-direction: row; flex-wrap: nowrap; gap: 4px; }
+  .chalkboard-board .chalkboard-composer-actions button { min-height: 40px; padding: 5px 8px; font-size: 12px; }
+  .chalkboard-board .chalkboard-text-entry { grid-area: 2 / 1 / 3 / -1; height: 100%; min-height: 0; max-height: none; resize: none; }
+  .chalkboard-board .chalkboard-composer > .chalkboard-composer-hint { display: block; grid-area: 3 / 1 / 4 / -1; margin: 0; }
+  .chalkboard-composer-preview-hint { display: none; }
+  .chalkboard-composer-focus-hint { display: inline; }
 }
-@container chalkboard (max-height: 320px) and (min-width: 620px) {
-  .chalkboard-composer { display: grid; grid-template-columns: minmax(260px, 36%) minmax(0, 1fr); align-items: center; gap: 10px; }
-  .chalkboard-text-style { margin: 0; gap: 10px; }
-  .chalkboard-composer-fields { min-width: 0; }
+@container chalkboard (max-height: 160px) {
+  .chalkboard-board.is-composing > .chalkboard-composer { grid-template-rows: auto minmax(0, 1fr); }
+  .chalkboard-board .chalkboard-composer > .chalkboard-composer-hint { display: none; }
 }

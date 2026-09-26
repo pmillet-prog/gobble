@@ -6,7 +6,12 @@ export function extractPersistedDevControls(raw) {
     typeof wrappedControls === "object" &&
     !Array.isArray(wrappedControls)
   ) {
-    return wrappedControls;
+    return { ...wrappedControls, maintenanceMode: false };
   }
-  return raw;
+  // Maintenance belongs to the running process, never to the next deployment.
+  return { ...raw, maintenanceMode: false };
+}
+
+export function buildPersistedDevControls(controls, updatedAt = Date.now()) {
+  return { version: 1, updatedAt, controls: { ...controls, maintenanceMode: false } };
 }

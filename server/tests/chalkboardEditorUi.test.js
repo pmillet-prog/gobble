@@ -44,6 +44,9 @@ test("live text composition preserves native input, previews, transforms and one
     assert.equal(first.color, "#81d4fa");
     assert.equal(first.font, "chalk");
     assert.equal(selected, first.id, "handles are selected as soon as the preview appears");
+    editor.update("Bonjour à tous", { width: 360, height: 90, scale: .09 });
+    const withKeyboard = elementsRef.current.at(-1);
+    for (const key of ["cx", "cy", "width", "scale"]) assert.equal(withKeyboard[key], first[key], `keyboard preserves draft ${key}`);
     editor.update("Bonjour à tous\nÀ bientôt", viewport);
     assert.equal(elementsRef.current.length, 2, "typing changes the same preview instead of appending messages");
     assert.equal(elementsRef.current.at(-1).seed, first.seed);

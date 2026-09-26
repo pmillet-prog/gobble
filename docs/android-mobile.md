@@ -109,7 +109,8 @@ La rotation est désormais gérée par `ScreenOrientationSatellite`, monté dès
 chargement de l'interface, avant la fin de l'introduction. Le téléphone est
 reconnu par son environnement mobile même si le wrapper n'expose pas de referrer
 Android ou si le viewport devient assez large pour une présentation desktop.
-Seule la vue `chalkboard` demande `any` ; les autres vues demandent `portrait`.
+Par défaut, seule la vue `chalkboard` demande `any` ; les autres vues demandent
+`portrait`. Le réglage décrit ci-dessous permet aussi `any` hors tableau.
 La sortie du tableau remplace directement le verrou, sans appeler `unlock()`
 qui rétablirait la rotation libre choisie par le wrapper.
 
@@ -119,6 +120,42 @@ Les réponses tardives d'une ancienne demande ne peuvent pas annuler le portrait
 Cette correction nécessite le déploiement du client web, sans nouvelle version
 Android. Le comportement matériel reste à confirmer sur le téléphone : les tests
 locaux vérifient les demandes et leur cycle de vie, pas l'autorisation du navigateur.
+
+## Affichage ordinateur en paysage et saisie du tableau
+
+Dans Réglages → Apparence, « Affichage ordinateur en paysage » est désactivé
+par défaut et mémorisé sur l'appareil. Un avertissement indique que les textes
+et boutons seront plus petits, avec des risques de lisibilité et de ralentissement.
+L'option active la présentation ordinateur sur mobile en paysage ; le portrait
+garde la présentation mobile. Elle est indépendante des boutons « Tout On/Off »
+des effets visuels et de la rotation du grand tableau.
+
+Le satellite d'orientation configure le service de layout depuis la préférence.
+La détection utilise l'orientation physique disponible et conserve le dernier
+échantillon de rotation/largeur : ouvrir le clavier ou changer le réglage pendant
+la saisie ne transforme pas un portrait en paysage. Les protections de retour
+et le maintien de l'écran actif restent liés à l'appareil mobile, même avec la
+présentation ordinateur.
+
+Sur le grand tableau, lorsque la hauteur visible descend à 320 pixels ou moins,
+la saisie occupe l'espace disponible. Le même champ reste monté pour conserver
+le focus, la sélection et la composition du clavier. « Terminer » ferme la saisie
+et rend le tableau pour placer le brouillon ; « Publier » reste une action séparée.
+Le viewport capturé à l'ouverture sert à dimensionner le texte : le clavier ne
+réduit plus le texte en cours d'écriture. Aucune hauteur de clavier n'est imposée.
+
+Vérifications locales :
+
+```powershell
+node --test src/features/preferences/createPreferencesFeature.test.js src/features/layout/createLayoutFeature.test.js src/features/layout/mobileLandscapeLayout.test.js src/features/layout/screenOrientation.test.js src/features/mobile/mobileExperience.test.js server/tests/chalkboardEditorUi.test.js src/features/chalkboard/chalkboardViewport.test.mjs src/utils/desktopResponsiveLayout.test.mjs
+node server/scripts/check-chalkboard-layout.mjs
+```
+
+Le script navigateur utilise une API de tableau simulée et un profil Chrome
+isolé, sans backend. Il vérifie le réglage réel et les changements de viewport,
+dont les hauteurs réduites par le clavier ; les captures sont dans
+`.Tmp/chalkboard-layout-review`. Il ne remplace pas une validation dans le wrapper
+Android ou sur iPhone avec un clavier réel.
 
 ## Lots suivants proposés
 

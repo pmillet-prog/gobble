@@ -3,6 +3,7 @@ import React from "react";
 import GobbleApplication from "../GobbleApplication.jsx";
 import StatsOverlaySatellite from "../features/stats/StatsOverlaySatellite.jsx";
 import ScreenOrientationSatellite from "../features/layout/ScreenOrientationSatellite.jsx";
+import TournamentAvatarsProvider from "../features/avatar/TournamentAvatarsProvider.jsx";
 import { AMBIENT_MUSIC_TRACKS_DEFAULT } from "../audio/audioAssets.js";
 import AppBootOverlay from "../components/boot/AppBootOverlay.jsx";
 import socketClient from "../socket.js";
@@ -65,7 +66,7 @@ export default function AppShell() {
     <ApplicationRuntimeProvider kernel={kernelRef.current}>
       <TraceRuntimeProvider>
         <CelebrationRuntimeProvider>
-          <ApplicationRuntime />
+          <TournamentAvatarsProvider><ApplicationRuntime /></TournamentAvatarsProvider>
         </CelebrationRuntimeProvider>
       </TraceRuntimeProvider>
     </ApplicationRuntimeProvider>

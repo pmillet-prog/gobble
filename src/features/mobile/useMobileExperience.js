@@ -1,7 +1,7 @@
 import { useLayoutEffect, useMemo } from "react";
 import { createScreenWakeLock } from "./createScreenWakeLock.js";
 import { createMobileNavigation } from "./createMobileNavigation.js";
-import { getMobileBackTargets, isMobileRoundActive } from "./mobileExperiencePolicy.js";
+import { getMobileBackTargets, isMobileExperienceEnabled, isMobileRoundActive } from "./mobileExperiencePolicy.js";
 
 export default function useMobileExperience(config) {
   const runtime = useMemo(() => ({
@@ -9,7 +9,8 @@ export default function useMobileExperience(config) {
     navigation: createMobileNavigation(),
   }), []);
   useLayoutEffect(() => {
-    const playing = isMobileRoundActive(config);
+    const enabled = isMobileExperienceEnabled(config);
+    const playing = isMobileRoundActive({ ...config, enabled });
     const overlays = config.features.overlays;
     const confirming = overlays.store.getState().mobileExitConfirmOpen;
     let onBack = null;
@@ -23,7 +24,7 @@ export default function useMobileExperience(config) {
     else if (config.view === "live" || config.view === "training" || config.view === "daily_play") onBack = config.actions.leaveRound;
     runtime.wake.setEnabled(playing);
     runtime.navigation.configure({
-      enabled: config.enabled,
+      enabled,
       protectExit: playing,
       confirming,
       targets: getMobileBackTargets(config.features, config.actions),

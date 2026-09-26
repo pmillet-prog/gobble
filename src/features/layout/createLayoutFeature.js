@@ -12,8 +12,20 @@ import {
   createViewportEventHub,
 } from "./createViewportEventHub.js";
 
-export function createInitialLayoutState() {
+function readViewportMode() {
   const viewport = getViewportSize();
+  const type = globalThis.screen?.orientation?.type;
+  const angle = globalThis.window?.orientation;
+  return {
+    ...viewport,
+    isMobileLayout: computeIsMobileLayout(),
+    isUltraCompact: computeIsUltraCompact(),
+    landscape: type?.startsWith("landscape") ? true : type?.startsWith("portrait") ? false
+      : typeof angle === "number" ? Math.abs(angle) === 90 : viewport.width > viewport.height,
+  };
+}
+
+export function createInitialLayoutState(viewport = readViewportMode()) {
   return {
     desktopColumnDragId: null,
     desktopColumnFractions: null,
@@ -30,8 +42,8 @@ export function createInitialLayoutState() {
     installSupport: isStandaloneDisplayMode() ? "installed" : "unknown",
     isAndroidWebBrowser: computeIsAndroidWebBrowser(),
     isIosStandalone: computeIsIosStandalone(),
-    isMobileLayout: computeIsMobileLayout(viewport.width),
-    isUltraCompact: computeIsUltraCompact(viewport.width, viewport.height),
+    isMobileLayout: viewport.isMobileLayout,
+    isUltraCompact: viewport.isUltraCompact,
     mobileHeaderOffsetPx: 0,
     mobileLayoutSizing: {
       bodyHeight: 0,
@@ -58,6 +70,7 @@ export function createLayoutFeature(
       globalThis.window?.requestAnimationFrame?.(callback),
     viewportEventsOptions = {},
     windowTarget = globalThis.window,
+    readViewportModeFn = readViewportMode,
   } = {}
 ) {
   const viewportEvents = createViewportEventHub(
@@ -70,24 +83,37 @@ export function createLayoutFeature(
   let foregroundGuardConfig = {};
   let foregroundGridRafId = null;
   let foregroundPageShowUnsubscribe = null;
-  let viewportModeWidth = getViewportSize().width;
-  const refreshViewportMode = () => {
-    if (typeof window === "undefined" || !feature) return;
-    const viewport = getViewportSize();
+  let viewportMode = readViewportModeFn();
+  let mobileLandscapeDesktopEnabled = false;
+  const applyViewportMode = () => {
+    const desktopOverride = mobileLandscapeDesktopEnabled && viewportMode.isMobileLayout && viewportMode.landscape;
+    feature.patch({
+      isMobileLayout: viewportMode.isMobileLayout && !desktopOverride,
+      isUltraCompact: viewportMode.isUltraCompact && !desktopOverride,
+    });
+  };
+  const refreshViewportMode = (event) => {
+    if (!windowTarget || !feature) return;
+    const viewport = readViewportModeFn();
     if (
-      viewportModeWidth > 0 &&
-      Math.abs(viewport.width - viewportModeWidth) <= 64
+      viewportMode.width > 0 &&
+      Math.abs(viewport.width - viewportMode.width) <= 64 &&
+      !event?.types?.includes(VIEWPORT_EVENTS.ORIENTATION_CHANGE)
     ) {
       // Keyboard and browser-chrome height changes must not switch the game
       // between its standard and ultra-compact layouts.
       return;
     }
-    viewportModeWidth = viewport.width;
-    feature.patch({
-      isMobileLayout: computeIsMobileLayout(viewport.width),
-      isUltraCompact: computeIsUltraCompact(viewport.width, viewport.height),
-    });
+    viewportMode = viewport;
+    applyViewportMode();
   };
+  function configureMobileLandscapeDesktop(enabled) {
+    if (mobileLandscapeDesktopEnabled === (enabled === true)) return;
+    mobileLandscapeDesktopEnabled = enabled === true;
+    // Use the last rotation/width sample: an open keyboard must not turn a
+    // portrait phone into a landscape display when changing this preference.
+    applyViewportMode();
+  }
 
   const cancelForegroundGridRestore = () => {
     if (foregroundGridRafId != null) cancelAnimationFrameFn?.(foregroundGridRafId);
@@ -171,7 +197,7 @@ export function createLayoutFeature(
     reconcileForegroundGridGuard();
   }
 
-  feature = createStateFeature(context, createInitialLayoutState, {
+  feature = createStateFeature(context, () => createInitialLayoutState(viewportMode), {
     start: ({ scope, store }) => {
       if (!windowTarget) return;
       let installMessageTimerId = null;
@@ -259,6 +285,7 @@ export function createLayoutFeature(
   return Object.freeze({
     ...feature,
     configureForegroundGridGuard,
+    configureMobileLandscapeDesktop,
     refreshViewportMode,
     subscribeViewport: viewportEvents.subscribe,
   });

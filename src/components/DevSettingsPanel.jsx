@@ -208,6 +208,7 @@ export default function DevSettingsPanel({
                   {controls?.maintenanceMode ? "On" : "Off"}
                 </span>
               </button>
+              <p className="text-[10px] opacity-75">La maintenance se désactive automatiquement au redémarrage du serveur.</p>
               <button
                 type="button"
                 disabled={busy || !canUseTools}

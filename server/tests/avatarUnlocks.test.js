@@ -66,7 +66,7 @@ test("maintenance closes the avatar shop and refuses purchases and saves while p
   assert.equal((await db.get("SELECT COUNT(*) AS n FROM avatar_unlocks")).n, 0);
   assert.equal((await db.get("SELECT COUNT(*) AS n FROM user_avatars")).n, 0);
   setMaintenance(false);
-  assert.equal((await request("post", "/avatar/purchase", 1, { userId: 1, items: [item("base", "homme")] })).body.spent, 500);
+  assert.equal((await request("post", "/avatar/purchase", 1, { userId: 1, items: [item("base", "homme")] })).body.spent, 0);
   assert.equal((await request("put", "/avatar", 1, { userId: 1, avatar: createBlankAvatar(), expectedRevision: 0 })).statusCode, 200);
 });
 
@@ -99,26 +99,28 @@ test("queued avatar transactions recheck availability before debiting or saving"
   assert.equal((await db.get("SELECT COUNT(*) AS n FROM user_avatars")).n, 0);
 });
 
-test("all requested prices include paid faces, premium hats and the objective-only crown", () => {
+test("prices include free faces, premium hats and the objective-only crown", () => {
   for (const part of catalog.families.headwear) {
     const rule = getAvatarUnlockRule("headwear", part.id);
     if (part.id === "crown") { assert.equal(rule.type, "objective"); assert.equal(rule.required, 100); }
     else assert.equal(rule.price, ["cowboy", "trilby", "fedora", "boater", "bowler", "panama"].includes(part.id) ? 2000 : 1000, part.id);
   }
-  for (const [family, price] of Object.entries({ base: 500, eyes: 1000, hair: 1000, brows: 500, nose: 500, mouths: 500, facialhair: 500, clothes: 5000, backdrops: 5000 })) {
+  for (const [family, price] of Object.entries({ eyes: 1000, hair: 1000, brows: 500, nose: 500, mouths: 500, facialhair: 500, clothes: 5000, backdrops: 5000 })) {
     assert.equal(getAvatarUnlockRule(family, family === "base" ? "homme" : catalog.families[family][0].id).price, price);
   }
   for (const part of catalog.families.glasses) assert.equal(getAvatarUnlockRule("glasses", part.id).price, part.id.startsWith("soleil_") ? 2000 : 1000);
-  assert.equal(isAvatarPartUnlocked({ owned: {} }, "base", "homme"), false);
+  for (const base of ["homme", "femme"]) {
+    assert.deepEqual(getAvatarUnlockRule("base", base), { type: "free" });
+    assert.equal(isAvatarPartUnlocked({ owned: {} }, "base", base), true);
+  }
 });
 
-test("all skin variants are included in the purchased face and never bypass its lock", async t => {
-  const { inventory, request } = await setup(t, 2000);
+test("all face styles, skin tones and silhouette adjustments can be saved with no purchases or funds", async t => {
+  const { inventory, request, db } = await setup(t, 0);
   let revision = 0;
   for (const base of ["homme", "femme"]) {
-    const value = { ...createBlankAvatar(base), skinStyle: "wrinkled" };
-    assert.equal((await request("put", "/avatar", 1, { userId: 1, avatar: value, expectedRevision: revision })).body.error, "avatar_locked");
-    assert.equal((await inventory.purchase(1, [{ family: "base", id: base }])).spent, 500);
+    const value = { ...createBlankAvatar(base), skinStyle: "wrinkled", tone: "custom", customColor: "#845431", silhouetteWidth: 1.1 };
+    assert.equal((await inventory.purchase(1, [{ family: "base", id: base }])).spent, 0);
     for (const skinStyle of ["classic", "chubby", "defined", "wrinkled"]) {
       const result = await request("put", "/avatar", 1, { userId: 1, avatar: { ...value, skinStyle }, expectedRevision: revision });
       assert.equal(result.statusCode, 200);
@@ -126,23 +128,25 @@ test("all skin variants are included in the purchased face and never bypass its 
       revision++;
     }
   }
-  assert.equal((await inventory.get(1)).balance, 1000, "skin changes do not debit the wallet");
+  assert.equal((await inventory.get(1)).balance, 0);
+  assert.deepEqual((await inventory.get(1)).owned, {});
+  assert.equal((await db.get("SELECT COUNT(*) AS n FROM gobblar_ledger")).n, 0);
 });
 
 test("checkout itemizes unpaid selections and objectives, shows the shortfall and equips the entire purchase", async t => {
-  const { request, inventory } = await setup(t, 3000);
+  const { request, inventory } = await setup(t, 2500);
   const avatar = { ...createBlankAvatar(), eyes: "open", hair: "quiff", headwear: "cap" };
   const plan = getAvatarPurchasePlan(avatar, catalog, await inventory.get(1));
-  assert.equal(plan.total, 3500); assert.equal(plan.missing, 500);
-  assert.deepEqual(plan.purchasable.map(({ family, price }) => [family, price]), [["base", 500], ["eyes", 1000], ["hair", 1000], ["headwear", 1000]]);
+  assert.equal(plan.total, 3000); assert.equal(plan.missing, 500);
+  assert.deepEqual(plan.purchasable.map(({ family, price }) => [family, price]), [["eyes", 1000], ["hair", 1000], ["headwear", 1000]]);
   const objectivePlan = getAvatarPurchasePlan({ ...avatar, headwear: "crown" }, catalog, await inventory.get(1));
-  assert.equal(objectivePlan.total, 2500); assert.equal(objectivePlan.missing, 0);
+  assert.equal(objectivePlan.total, 2000); assert.equal(objectivePlan.missing, 0);
   assert.equal(objectivePlan.unavailable[0].objective, "mini_tournament_wins");
   assert.ok(objectivePlan.unavailable[0].description);
   const selected = { ...avatar, headwear: "" };
   const purchase = getAvatarPurchasePlan(selected, catalog, await inventory.get(1));
   const bought = await request("post", "/avatar/purchase", 1, { userId: 1, items: purchase.purchasable.map(({ family, id }) => ({ family, id })) });
-  assert.equal(bought.body.spent, 2500); assert.equal(bought.body.inventory.balance, 500);
+  assert.equal(bought.body.spent, 2000); assert.equal(bought.body.inventory.balance, 500);
   assert.equal(getAvatarPurchasePlan(selected, catalog, bought.body.inventory).total, 0);
   const saved = await request("put", "/avatar", 1, { userId: 1, avatar: selected, expectedRevision: 0 });
   assert.equal(saved.statusCode, 200); assert.deepEqual(saved.body.avatar, selected);
@@ -158,11 +162,11 @@ test("wearing an individual purchase preserves owned pieces in place of unpaid t
   assert.deepEqual(getLockedAvatarParts(wearable, catalog, owned), []);
   assert.notEqual(trial.hair, "quiff", "the pending preview is not mutated");
   assert.equal((await request("put", "/avatar", 1, { userId: 1, avatar: wearable, expectedRevision: 0 })).statusCode, 200);
-  assert.equal(getOwnedAvatarAppearance({ ...trial, base: "femme" }, saved, catalog, owned), null);
+  assert.equal(getOwnedAvatarAppearance({ ...trial, base: "femme" }, saved, catalog, owned).base, "femme");
 });
 
 test("new accessories use server prices and persist a purchased repositioned scar", async t => {
-  const { inventory, request } = await setup(t, 5500);
+  const { inventory, request } = await setup(t, 5000);
   const prices = { pirate_eyepatch: 1000, freckles: 500, nose_piercing: 500, ear_piercing: 500, scar: 500, diamond_necklace: 2000 };
   for (const [id, price] of Object.entries(prices)) {
     assert.ok(catalog.families.accessories.some(part => part.id === id), id);
@@ -195,7 +199,7 @@ test("multiple accessories toggle independently, retain scar controls and remove
 });
 
 test("multiple accessories are priced, purchased and saved together without bypassing any lock", async t => {
-  const { inventory, request } = await setup(t, 5000);
+  const { inventory, request } = await setup(t, 4500);
   await inventory.purchase(1, [item("base", "homme"), item("accessories", "scar")]);
   const avatar = { ...createBlankAvatar(), nose: "witch_nose", accessories: ["scar", "earrings_hoops", "diamond_necklace", "freckles"] };
   const plan = getAvatarPurchasePlan(avatar, catalog, await inventory.get(1));
@@ -272,7 +276,7 @@ test("API blocks forged accounts, client prices, objective purchases and equippi
   const { inventory, repository, request } = await setup(t);
   assert.equal((await request("post", "/avatar/purchase", null, { userId: 1, items: [item("base", "homme")] })).statusCode, 401);
   assert.equal((await request("post", "/avatar/purchase", 2, { userId: 1, items: [item("base", "homme")] })).statusCode, 409);
-  const paid = await request("post", "/avatar/purchase", 1, { userId: 1, items: [{ ...item("base", "homme"), price: 0 }] });
+  const paid = await request("post", "/avatar/purchase", 1, { userId: 1, items: [{ ...item("nose", "button_nose"), price: 0 }] });
   assert.equal(paid.body.spent, 500);
   for (const items of [[item("__proto__", "x")], [item("headwear", "unknown")], [item("mouths", "thin_happy")], [item("auras", "weekly_gold")]]) {
     assert.equal((await request("post", "/avatar/purchase", 1, { userId: 1, items })).body.ok, false);
@@ -342,20 +346,19 @@ test("generic objective migration preserves existing crown progress without rese
   assert.equal((await inventory.get(1)).miniTournamentWins, 2);
 });
 
-test("a new player buys only the bare face for 500 and adds features individually", async t => {
+test("a new player saves a free bare face and pays only for added features", async t => {
   const { inventory, request } = await setup(t, 2000);
   const avatar = createBlankAvatar("femme");
-  assert.deepEqual(getLockedAvatarParts(avatar, catalog, await inventory.get(1)).map(({ family, id, price }) => ({ family, id, price })), [{ family: "base", id: "femme", price: 500 }]);
-  assert.equal((await request("put", "/avatar", 1, { userId: 1, avatar, expectedRevision: 0 })).statusCode, 403);
+  assert.deepEqual(getLockedAvatarParts(avatar, catalog, await inventory.get(1)), []);
   const face = await request("post", "/avatar/purchase", 1, { userId: 1, items: [item("base", "femme")] });
-  assert.equal(face.body.spent, 500);
-  assert.deepEqual(face.body.inventory.owned, { "base:femme": true });
+  assert.equal(face.body.spent, 0);
+  assert.deepEqual(face.body.inventory.owned, {});
   assert.equal((await request("put", "/avatar", 1, { userId: 1, avatar, expectedRevision: 0 })).statusCode, 200);
   assert.deepEqual((await request("get", "/avatar", 1, { userId: 1 })).body.avatar, avatar);
   const withEyes = { ...avatar, eyes: "open" };
   assert.equal((await request("put", "/avatar", 1, { userId: 1, avatar: withEyes, expectedRevision: 1 })).statusCode, 403);
   const eyes = await request("post", "/avatar/purchase", 1, { userId: 1, items: [item("eyes", "open")] });
-  assert.equal(eyes.body.spent, 1000); assert.equal(eyes.body.inventory.balance, 500);
+  assert.equal(eyes.body.spent, 1000); assert.equal(eyes.body.inventory.balance, 1000);
   assert.equal((await request("put", "/avatar", 1, { userId: 1, avatar: withEyes, expectedRevision: 1 })).statusCode, 200);
   assert.equal((await request("get", "/avatars", 2, { userIds: "1" })).body.avatars[1].hair, "");
 });

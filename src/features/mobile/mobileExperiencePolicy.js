@@ -1,3 +1,9 @@
+import { isOrientationMobileDevice } from "../layout/screenOrientation.js";
+
+export function isMobileExperienceEnabled({ enabled, mobileDevice = isOrientationMobileDevice() }) {
+  return !!(enabled || mobileDevice);
+}
+
 export function isMobileRoundActive({ enabled, view, phase, loggedIn }) {
   return !!enabled && phase === "playing" &&
     (view === "daily_play" || view === "training" || (view === "live" && loggedIn));

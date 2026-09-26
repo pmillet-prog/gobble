@@ -12,7 +12,8 @@ export default function ChalkboardTextComposer({ text, font, color = DEFAULT_CHA
     input.focus({ preventScroll: true });
   }, []);
   return <form className="chalkboard-composer" aria-label="Écrire sur le tableau" onSubmit={event => {
-    event.preventDefault(); if (text.trim() && fontsReady) onFinish();
+    event.preventDefault();
+    if (text.trim() && fontsReady) { inputRef.current?.blur(); onFinish(); }
   }}>
     <label className="chalkboard-message-label" htmlFor="chalkboard-message">Ton message · aperçu en direct sur le tableau</label>
     <div className="chalkboard-text-style">
@@ -36,6 +37,9 @@ export default function ChalkboardTextComposer({ text, font, color = DEFAULT_CHA
         <button type="submit" className="chalkboard-place" disabled={!text.trim() || !fontsReady}><ChalkboardIcon name="check" />Terminer</button>
       </div>
     </div>
-    <p>Déplace le texte et utilise les poignées : ↻ rotation, ↘ taille, ↔ largeur. Publie ensuite quand c’est prêt.</p>
+    <p className="chalkboard-composer-hint">
+      <span className="chalkboard-composer-preview-hint">Déplace le texte et utilise les poignées : ↻ rotation, ↘ taille, ↔ largeur. Publie ensuite quand c’est prêt.</span>
+      <span className="chalkboard-composer-focus-hint">Termine ta saisie, puis place ton texte sur le tableau avant de le publier.</span>
+    </p>
   </form>;
 }

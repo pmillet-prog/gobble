@@ -13,6 +13,7 @@ function createSubmissionHarness({
   serverSolutionsReady = false,
   solutionWords = [],
   specialRound = null,
+  runtimeOverrides = {},
 }) {
   let accepted = [];
   let lastWords = [];
@@ -143,7 +144,7 @@ function createSubmissionHarness({
   };
 
   return {
-    controller: createWordSubmissionEngine(runtime),
+    controller: createWordSubmissionEngine({ ...runtime, ...runtimeOverrides }),
     getState: () => ({
       accepted,
       errors,
@@ -203,6 +204,26 @@ test("target submissions distinguish an invalid word from a valid non-target wor
 
   assert.deepEqual(invalidHarness.getState().errors, ["Mot invalide"]);
   assert.deepEqual(nonTargetHarness.getState().errors, ["Pas le mot cible"]);
+});
+
+test("a three-word Gobble delegates its celebration without adding another confetti burst", () => {
+  const praise = [], confetti = [];
+  const harness = createSubmissionHarness({
+    inputMode: "touch",
+    mobile: true,
+    runtimeOverrides: {
+      isSpecial3WordsMode: true,
+      dailyWordSlots: [{ id: 0, word: "", display: "", path: [] }],
+      bestGridMaxLenRef: { current: 2 },
+      triggerPraiseFlash: (...args) => praise.push(args),
+      triggerConfettiBurst: (...args) => confetti.push(args),
+    },
+  });
+  harness.controller.submit();
+  assert.deepEqual(harness.getState().errors, []);
+  assert.deepEqual(praise, [["GOBBLE !", { kind: "gobble", shakeGrid: true }]]);
+  assert.deepEqual(confetti, []);
+  assert.deepEqual(harness.getState().selections, ["cleared"]);
 });
 
 test("word submission helpers are exposed through a named runtime contract", () => {

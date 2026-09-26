@@ -10,6 +10,8 @@ import {
   pickLepersTournamentRound,
   pickLepersChallenge,
   pickLepersDefinition,
+  rankLepersChallenges,
+  selectLepersChallenge,
 } from "../bots/lepersChallenge.js";
 
 test("Lepers owns the single odd tournament round selected at tournament creation", () => {
@@ -149,4 +151,62 @@ test("every finder receives the independent Lepers tournament bonus", () => {
   assert.equal(getLepersBonusForNick(challenge, "Alice"), 2);
   assert.equal(getLepersBonusForNick(challenge, "Bob"), 2);
   assert.equal(getLepersBonusForNick(challenge, "Chloé"), 0);
+});
+
+const clue = "Petit objet utilisé pour maintenir ensemble plusieurs pièces de tissu.";
+function questionPool(words, definition = () => clue) {
+  return {
+    solutions: words.map(word => ({ word })),
+    options: {
+      seed: "anti-repeat",
+      rarityMetaMap: new Map(words.map(word => [word, { rarityBucket: "rare", playersFound: 3 }])),
+      loadDefinitionEntry: async word => ({ definition: definition(word), partOfSpeech: ["nom"] }),
+    },
+  };
+}
+
+test("recent words stay excluded even if their definition changes", async () => {
+  const { solutions, options } = questionPool(["agrafe"]);
+  assert.equal(await pickLepersChallenge(solutions, {
+    ...options, recentQuestions: [{ word: "AGRAFE", definition: "Une ancienne définition." }],
+  }), null);
+});
+
+test("a shared definition cannot return under another answer or typography", async () => {
+  const { solutions, options } = questionPool(["epingle"]);
+  assert.equal(await pickLepersChallenge(solutions, {
+    ...options, recentQuestions: [{ word: "agrafe", definition: "PETIT OBJET utilise pour maintenir ensemble plusieurs pieces de tissu !" }],
+  }), null);
+});
+
+test("another eligible sense can replace a recently asked definition", async () => {
+  const { solutions, options } = questionPool(["epingle"]);
+  const alternative = "Objet servant à retenir une coiffure ou à fixer un ornement.";
+  const picked = await pickLepersChallenge(solutions, {
+    ...options,
+    loadDefinitionEntry: async () => ({ definition: clue, definitions: [alternative] }),
+    recentQuestions: [{ word: "agrafe", definition: clue }],
+  });
+  assert.equal(picked?.definition, alternative);
+});
+
+test("recent words do not exhaust the 72 lookups before fresh candidates are inspected", async () => {
+  const words = Array.from({ length: 73 }, (_, i) => `lexeme${String.fromCharCode(97 + Math.floor(i / 26), 97 + i % 26)}`);
+  const { solutions, options } = questionPool(words,
+    word => `Objet utilisé pour garder des pièces ensemble, modèle ${words.indexOf(word)}.`);
+  const initial = await rankLepersChallenges(solutions, options);
+  assert.equal(initial.length, 72);
+  const expected = words.find(word => !initial.some(question => question.word === word));
+  const picked = await pickLepersChallenge(solutions, { ...options, recentQuestions: initial });
+  assert.equal(picked?.word, expected);
+});
+
+test("final selection rechecks the latest history and uses alternatives beyond the first eight", async () => {
+  const words = Array.from({ length: 10 }, (_, i) => `lexeme${String.fromCharCode(97 + i)}`);
+  const { solutions, options } = questionPool(words,
+    word => `Objet utilisé pour garder des pièces ensemble, modèle ${words.indexOf(word)}.`);
+  const prepared = await rankLepersChallenges(solutions, options);
+  const recentQuestions = prepared.slice(0, 9);
+  assert.equal(selectLepersChallenge(prepared, { recentQuestions })?.word, prepared[9].word);
+  assert.equal(selectLepersChallenge(prepared, { recentQuestions: prepared }), null);
 });

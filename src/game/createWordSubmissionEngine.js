@@ -1171,7 +1171,6 @@ export function createWordSubmissionEngine({
         kind: "gobble",
         shakeGrid: true,
       });
-      triggerConfettiBurst("gobble");
     }
     setStatusMessageWithHold(`+${pts} pts`, 700);
     clearSelection();

@@ -165,10 +165,11 @@ export default function AvatarEditor({ initialValue, nickname, onClose, onSave, 
         <section ref={optionsRef} className="avatar-options" aria-label={categoryLabel} tabIndex={0} {...optionsDrag}>
           {!catalog ? <p role="status">{error || "Ouverture de l’atelier…"}{error ? <button type="button" onClick={() => setAttempt(value => value + 1)}>Réessayer</button> : null}</p> : <>
             <div className="avatar-options-heading"><h3>{baseChosen ? categoryLabel : "Choisis ton visage"}</h3></div>
-            {inventory ? <p className="avatar-editor-note">{!baseChosen ? "Homme ou Femme : 500 gobblars. Ajoute ensuite les pièces de ton choix." : "Compose ton aperçu librement. Achète une pièce pour la porter aussitôt, ou utilise Acheter et porter en bas pour valider l’ensemble."}</p> : null}
+            {inventory && category !== "base" ? <p className="avatar-editor-note">Compose ton aperçu librement. Achète une pièce pour la porter aussitôt, ou utilise Acheter et porter en bas pour valider l’ensemble.</p> : null}
+            {!baseChosen ? <p className="avatar-editor-note">Homme ou Femme : le choix est gratuit. Ajoute ensuite les pièces de ton choix.</p> : null}
             {baseChosen && category !== "base" ? <AvatarEditorControls category={category} draft={draft} limits={resolution?.limits} incompatible={resolution?.incompatible} onChange={change} /> : null}
-            {category === "base" ? <AvatarFaceOptions draft={draft} baseChosen={baseChosen} inventory={inventory} disabled={saving || purchasing}
-              onSelectBase={part => selectPart("base", part)} onUnlock={part => openUnlock("base", part)} onChange={change} /> : <>
+            {category === "base" ? <AvatarFaceOptions draft={draft} baseChosen={baseChosen} disabled={saving || purchasing}
+              onSelectBase={part => selectPart("base", part)} onChange={change} /> : <>
               {category === "auras" ? <p className="avatar-editor-note">Or, argent, bronze : le podium de la course hebdo débloque son aura jusqu’au lundi suivant à 00 h, heure de Paris. L’aura des donateurs reste acquise.</p> : null}
               {category === "accessories" ? <p className="avatar-editor-note">Tu peux porter plusieurs accessoires ensemble. Touche un accessoire pour l’ajouter ou le retirer ; « Aucun » les retire tous.</p> : null}
               {category === "lashes" && lashesUnavailable ? <p className="avatar-editor-note">Débloque des yeux, puis choisis un modèle avec paupières pour ajouter des cils.</p> : null}

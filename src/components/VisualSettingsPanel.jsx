@@ -1,4 +1,5 @@
 import React from "react";
+import MobileLandscapeSetting from "./settings/MobileLandscapeSetting.jsx";
 
 export default function VisualSettingsPanel({
   darkMode = false,
@@ -103,6 +104,7 @@ export default function VisualSettingsPanel({
               {Math.max(0, Number(themeBalance) || 0)}
             </span>
           </button>
+          <MobileLandscapeSetting darkMode={darkMode} />
           <button
             type="button"
             onClick={onToggleAll}

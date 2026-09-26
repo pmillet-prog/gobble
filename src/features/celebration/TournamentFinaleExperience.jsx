@@ -1,45 +1,50 @@
 import React, { Suspense } from "react";
 import { useFeatureRuntime, useFeatureSelector } from "../../app/react/useFeatureRuntime.js";
-import { accountAvatarStore } from "../avatar/accountAvatarStore.js";
+import { useTournamentAvatarResources } from "../avatar/TournamentAvatarsProvider.jsx";
 import { getTournamentPodiumEntries } from "./tournamentPodiumModel.js";
 import TournamentPodium from "./TournamentPodium.jsx";
+import { loadTournamentFinaleRanking } from "./loadTournamentFinale.js";
+import { PODIUM_RANKING_DELAY_MS } from "./celebrationTimeline.js";
 import "./tournamentFinaleExperience.css";
 
-const TournamentFinaleScreen = React.lazy(() => import("../../components/finale/TournamentFinaleScreen.jsx"));
+const TournamentFinaleScreen = React.lazy(loadTournamentFinaleRanking);
 
-function LivePodium({ ranking, identity, sound, onOpenProfile }) {
+function LivePodium({ tournamentKey, ranking, identity, sound, onOpenProfile, onComplete }) {
   // Freeze the ceremony's entrants: duplicate snapshots must not reload canvases
   // or restart the animation. The surrounding component is keyed by tournament.
   const [entrants] = React.useState(() => getTournamentPodiumEntries(ranking, { userId: identity.userId, nick: identity.selfNick, knownPlayers: identity.knownPlayers }));
+  const resources = useTournamentAvatarResources();
   const [ready, setReady] = React.useState(null);
+  const [error, setError] = React.useState(false);
+  const [attempt, setAttempt] = React.useState(0);
   React.useEffect(() => {
-    const controller = new AbortController();
-    const participants = [...entrants.players, ...(entrants.self ? [entrants.self] : [])];
-    const ids = [...new Set(participants.filter(entry => !entry.isBot && !entry.avatar).map(entry => entry.userId).filter(Boolean))];
-    const timer = setTimeout(() => controller.abort(), 5000);
     let active = true;
-    const fetchAvatars = ids.length ? fetch(`/api/auth/avatars?userIds=${ids.join(",")}`, {
-      credentials: "include", cache: "no-store", signal: controller.signal,
-    }).then(response => response.ok ? response.json() : null).then(data => data?.avatars || {}).catch(() => ({})) : Promise.resolve({});
-    fetchAvatars.then(avatars => {
-      if (!active) return;
-      const local = accountAvatarStore.getSnapshot();
-      const decorate = entry => entry && ({ ...entry, avatar: entry.userId && entry.userId === local.userId
-        ? local.avatar || avatars[entry.userId] || entry.avatar : avatars[entry.userId] || entry.avatar });
-      setReady({ players: entrants.players.map(decorate), self: decorate(entrants.self) });
-    }).finally(() => clearTimeout(timer));
-    return () => { active = false; clearTimeout(timer); controller.abort(); };
-  }, [entrants]);
-  return ready ? <TournamentPodium {...ready} sound={sound} onOpenProfile={onOpenProfile} />
-    : <div className="tournament-celebration-loading" role="status">Les joueurs rejoignent le podium…</div>;
+    setError(false);
+    const preparation = resources.preparePodium(tournamentKey, entrants, { retry: attempt > 0 });
+    const accept = value => { if (active && value) setReady(value); };
+    if (preparation?.value) accept(preparation.value);
+    else preparation?.promise?.then(accept).catch(() => { if (active) setError(true); });
+    return () => { active = false; };
+  }, [resources, tournamentKey, entrants, attempt]);
+  return ready ? <TournamentPodium {...ready} preparedActors={ready.actors} sound={sound} onOpenProfile={onOpenProfile} onComplete={onComplete} />
+    : <div className="tournament-celebration-loading" role={error ? "alert" : "status"}>{error ? <>Les avatars n’ont pas pu rejoindre le podium. <button type="button" onClick={() => setAttempt(value => value + 1)}>Réessayer</button></> : "Les joueurs rejoignent le podium…"}</div>;
 }
 
 export default function TournamentFinaleExperience(props) {
   const { tournamentKey, finale, identity, overlays, sound } = props;
   const ui = useFeatureRuntime("liveUi");
+  const resources = useTournamentAvatarResources();
   const dismissed = useFeatureSelector(ui, state => state.podiumDismissedKey === tournamentKey);
+  const [completedKey, setCompletedKey] = React.useState(null);
   const closeRef = React.useRef(null);
-  const dismiss = () => ui.set("podiumDismissedKey", tournamentKey);
+  const dismiss = React.useCallback(() => ui.set("podiumDismissedKey", tournamentKey), [ui, tournamentKey]);
+  const onComplete = React.useCallback(() => setCompletedKey(tournamentKey), [tournamentKey]);
+  React.useEffect(() => {
+    if (dismissed) { resources?.releasePodium(tournamentKey); return; }
+    if (completedKey !== tournamentKey) return;
+    const timer = setTimeout(dismiss, PODIUM_RANKING_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [completedKey, dismissed, dismiss, resources, tournamentKey]);
   React.useEffect(() => { if (!dismissed) closeRef.current?.focus({ preventScroll: true }); }, [dismissed]);
   if (dismissed) return <Suspense fallback={null}><TournamentFinaleScreen {...props} /></Suspense>;
   return <>
@@ -52,7 +57,7 @@ export default function TournamentFinaleExperience(props) {
         </button>
       </div>
       <LivePodium key={tournamentKey} ranking={finale.tournamentFinaleSummary.ranking}
-        identity={identity} sound={sound} onOpenProfile={finale.stableOpenPlayerProfile} />
+        tournamentKey={tournamentKey} identity={identity} sound={sound} onOpenProfile={finale.stableOpenPlayerProfile} onComplete={onComplete} />
     </main>
     {overlays.chatOverlays}
     {overlays.settingsMenuView}

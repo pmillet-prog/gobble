@@ -97,3 +97,11 @@ test("home broadcast popup requires an active eligible unseen audience", () => {
     false
   );
 });
+
+test("live maintenance off reopens home despite a cached daily maintenance response", () => {
+  const dailyStatus = { maintenanceMode: true };
+  assert.equal(isHomeMaintenanceActive({ dailyStatus }), true);
+  assert.equal(isHomeMaintenanceActive({ dailyStatus, tournamentLobby: { maintenanceMode: false } }), false);
+  assert.equal(isHomeMaintenanceActive({ dailyStatus, tournamentLobby: { maintenanceMode: true } }), true);
+  assert.equal(isHomeMaintenanceActive(), false);
+});

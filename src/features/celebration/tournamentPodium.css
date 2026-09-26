@@ -44,7 +44,7 @@
 .podium-personal-avatar{flex-shrink:0;width:48px;height:48px;overflow:hidden;border-radius:50%;border:1px solid #d9ba7470;background:#254843}.podium-personal-avatar canvas{width:130%;height:130%;display:block;margin:-2px -15%}
 .podium-personal-result{min-height:75px;display:flex;align-items:center;gap:17px;padding:12px 18px;border:1px solid #d5b47735;border-radius:15px;background:linear-gradient(120deg,#c6a46712,#07223055);box-shadow:inset 0 1px 0 #fff5ce08}
 .podium-personal-result>p{font-size:12px;letter-spacing:.04em;color:#8daaa6;margin:auto}.podium-personal-rank{font-size:32px;font-weight:900;color:#f7d798;min-width:38px;letter-spacing:-.06em}.podium-personal-rank small{font-size:14px;vertical-align:super;margin-left:2px}.podium-personal-result strong{font-size:15px;color:#f6e7c6}.podium-personal-result p{font-size:12px;color:#a7bcb6;margin:5px 0 0}.podium-personal-result p span{color:#819b98}.podium-personal-star{margin-left:auto;font-size:29px;color:#f3d18b;opacity:.65}
-.podium-playback{min-height:55px;display:flex;align-items:center;gap:19px;justify-content:center;margin:17px auto 0}.podium-replay{display:inline-flex;align-items:center;gap:9px;border-radius:12px;border:1px solid #d3b87e70;background:linear-gradient(#f6dca1,#d9b36b);color:#3f321b;padding:9px 19px;font-size:13px;font-weight:800;box-shadow:0 3px 0 #866739,0 5px 14px #0003}.podium-replay>span{font-size:24px;line-height:1}.podium-replay:hover{filter:brightness(1.08)}.podium-replay:active{transform:translateY(2px);box-shadow:0 1px 0 #866739}.podium-skip{border:0;background:none;color:#b8c9c2;font-size:12px;padding:10px}.podium-skip>span{margin-left:8px}.podium-final-caption{font-size:11px;line-height:1.5;color:#8eaaa3;max-width:240px}
+.podium-playback{min-height:55px;display:flex;align-items:center;gap:19px;justify-content:center;margin:17px auto 0}.podium-skip{border:0;background:none;color:#b8c9c2;font-size:12px;padding:10px}.podium-skip>span{margin-left:8px}.podium-final-caption{font-size:11px;line-height:1.5;color:#8eaaa3;max-width:240px}
 .is-playing .podium-plinth{animation:podium-rise 700ms cubic-bezier(.2,.8,.25,1.15) var(--arrival) both}
 .is-playing .podium-avatar-entrance{animation:podium-arrive 1050ms cubic-bezier(.2,.7,.3,1) calc(var(--arrival) + 80ms) both}
 .is-playing .podium-avatar-motion{animation:podium-delight 1300ms ease-in-out calc(var(--arrival) + 1100ms) 1 both}
@@ -89,7 +89,7 @@
   .podium-confetti{inset:-70px -12px -35px}
   .podium-halo{width:420px;height:420px}
 }
-@media(max-width:380px){.podium-heading h1{font-size:30px}.podium-stage{height:290px}.podium-plaque h2{font-size:14px}.podium-avatar-entrance{width:158%}.podium-personal-star{display:none}.podium-playback{gap:5px}.podium-replay{padding:8px 12px}.podium-skip{font-size:11px}.podium-eyebrow:before,.podium-eyebrow:after{width:20px}}
+@media(max-width:380px){.podium-heading h1{font-size:30px}.podium-stage{height:290px}.podium-plaque h2{font-size:14px}.podium-avatar-entrance{width:158%}.podium-personal-star{display:none}.podium-playback{gap:5px}.podium-skip{font-size:11px}.podium-eyebrow:before,.podium-eyebrow:after{width:20px}}
 @media(min-width:701px) and (max-height:800px){
   .tournament-podium{min-height:610px}
   .podium-performance{padding-top:22px;padding-bottom:16px}

@@ -23,6 +23,7 @@ export const SETTINGS_STORAGE_KEY = "gobble_settings_v1";
 
 const PERSISTED_PREFERENCE_FIELDS = Object.freeze([
   "chatDesktopFontScale",
+  "mobileLandscapeDesktopEnabled",
   "isAmbientMuted",
   "isSfxMuted",
   "isVibrationEnabled",
@@ -149,6 +150,7 @@ export function createInitialPreferencesState(options = {}) {
 
   return Object.freeze({
     canVibrate: false,
+    mobileLandscapeDesktopEnabled: settings.mobileLandscapeDesktopEnabled === true,
     chatDesktopFontScale: normalizeChatDesktopFontScale(
       settings.chatDesktopFontScale,
       CHAT_DESKTOP_FONT_SCALE_DEFAULT
@@ -239,6 +241,7 @@ function getPersistedPreferences(state) {
       CHAT_DESKTOP_FONT_SCALE_DEFAULT
     ),
     darkMode: !!theme.darkMode,
+    mobileLandscapeDesktopEnabled: state.mobileLandscapeDesktopEnabled === true,
     keyboardRecallSubmittedWord: state.keyboardRecallSubmittedWord,
     sfxMuted: state.isSfxMuted,
     soundAmbientEnabled: !state.isAmbientMuted,

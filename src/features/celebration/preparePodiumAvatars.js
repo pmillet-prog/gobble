@@ -45,6 +45,8 @@ export async function preparePodiumAvatars(players, { signal, onProgress } = {})
         const canvas = Object.assign(document.createElement("canvas"), { width: 600, height: 600 });
         actor.frames[pose] = canvas;
         frame.draw(canvas, "portrait");
+        // Preparing during final-round results must still let that screen paint.
+        await new Promise(resolve => setTimeout(resolve, 0));
       }
       onProgress?.(actors.length);
     }

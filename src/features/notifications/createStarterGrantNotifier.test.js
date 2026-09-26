@@ -5,7 +5,7 @@ import { createStarterGrantNotifier } from "./createStarterGrantNotifier.js";
 function setup() {
   const state = { calls: [], shown: [], visible: true, fail: false, pending: true, userId: 1, timer: null };
   const notifier = createStarterGrantNotifier({ userId: 1, visible: () => state.visible,
-    request: async key => { state.calls.push(key || "get"); if (state.fail) throw Error("offline"); return key ? { ok: true } : { userId: state.userId, grant: state.pending ? { key: "starter", amount: 3000, label: "Bienvenue" } : null }; },
+    request: async key => { state.calls.push(key || "get"); if (state.fail) throw Error("offline"); if (key) { state.pending = false; return { ok: true }; } return { userId: state.userId, grant: state.pending ? { key: "starter", amount: 3000, label: "Bienvenue" } : null }; },
     show: (...args) => state.shown.push(args), setTimer: callback => { state.timer = callback; return 1; }, clearTimer: () => { state.timer = null; },
   });
   return { state, notifier };
@@ -20,7 +20,7 @@ test("shows the grant once and acknowledges only after the toast, then stops que
   await state.timer();
   const before = state.calls.length;
   await notifier.refresh(); assert.equal(state.calls.length, before);
-  assert.equal(state.calls.at(-1), "starter"); notifier.dispose();
+  assert.deepEqual(state.calls.slice(-2), ["starter", "get"]); notifier.dispose();
 });
 
 test("hidden or changed accounts cannot consume a pending gift; disposal cancels acknowledgement", async () => {
@@ -45,4 +45,25 @@ test("an account without a pending gift is checked only once per connection life
   const { state, notifier } = setup(); state.pending = false;
   await notifier.refresh(); await notifier.refresh();
   assert.deepEqual(state.calls, ["get"]); assert.equal(state.shown.length, 0); notifier.dispose();
+});
+
+test("distinct pending gifts are announced in sequence without hiding the welcome grant", async () => {
+  const gifts = [{ key: "faces", amount: 500, label: "Visages gratuits" }, { key: "starter", amount: 3000, label: "Bienvenue" }];
+  const shown = [], acknowledged = [];
+  let timer;
+  const notifier = createStarterGrantNotifier({ userId: 1,
+    request: async key => {
+      if (key) { acknowledged.push(key); assert.equal(gifts.shift().key, key); return { ok: true }; }
+      return { userId: 1, grant: gifts[0] || null };
+    }, show: label => shown.push(label), setTimer: callback => { timer = callback; return 1; }, clearTimer() {},
+  });
+  await notifier.refresh();
+  assert.deepEqual(shown, ["Visages gratuits"]);
+  await timer();
+  assert.deepEqual(shown, ["Visages gratuits", "Bienvenue"]);
+  await notifier.refresh();
+  assert.equal(shown.length, 2);
+  await timer();
+  assert.deepEqual(acknowledged, ["faces", "starter"]);
+  notifier.dispose();
 });

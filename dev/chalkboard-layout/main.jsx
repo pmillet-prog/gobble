@@ -3,6 +3,7 @@ import React from "react";
 import { createRoot } from "react-dom/client";
 import ChalkboardApplication from "../../src/features/chalkboard/ChalkboardApplication.jsx";
 import useScreenOrientation from "../../src/features/layout/useScreenOrientation.js";
+const SettingsFixture = React.lazy(() => import("./SettingsFixture.jsx"));
 
 const originalFetch = window.fetch.bind(window);
 window.fetch = (url, options) => {
@@ -36,4 +37,5 @@ function Fixture() {
   useScreenOrientation({ isMobileLayout: true, allowLandscape: open });
   return open ? <ChalkboardApplication canPublish onClose={() => setOpen(false)} /> : <p>Accueil</p>;
 }
-createRoot(document.getElementById("root")).render(<Fixture />);
+createRoot(document.getElementById("root")).render(new URLSearchParams(location.search).has("settings")
+  ? <React.Suspense fallback={null}><SettingsFixture /></React.Suspense> : <Fixture />);

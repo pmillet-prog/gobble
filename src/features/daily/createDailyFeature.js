@@ -67,6 +67,7 @@ export function createDailyFeature(
   let active = false;
   let feature = null;
   let transportConfig = {};
+  let realtimeMaintenance = null;
   const httpRequests = {
     board: null,
     history: null,
@@ -207,8 +208,8 @@ export function createDailyFeature(
           mySpecialResult: data?.mySpecialResult || null,
           myFakeTwinsResult: data?.myFakeTwinsResult || null,
           champion: data?.champion || null,
-          maintenanceMode: !!data?.maintenanceMode,
-          maintenanceMessage: data?.maintenanceMessage || "",
+          maintenanceMode: realtimeMaintenance?.maintenanceMode ?? !!data?.maintenanceMode,
+          maintenanceMessage: realtimeMaintenance?.maintenanceMessage ?? (data?.maintenanceMessage || ""),
           error: "",
         });
         if (data?.duel && typeof data.duel === "object") {
@@ -445,8 +446,26 @@ export function createDailyFeature(
   feature = createStateFeature(context, createInitialDailyState, {
     start: ({ scope, store }) => {
       active = true;
+      const connection = context.ports?.realtime;
+      const onMaintenanceStatus = (payload) => {
+        if (typeof payload?.maintenanceMode !== "boolean") return;
+        realtimeMaintenance = {
+          maintenanceMode: payload.maintenanceMode,
+          maintenanceMessage: payload.maintenanceMode
+            ? payload.maintenanceMessage || "Maintenance en cours"
+            : "",
+        };
+        store.set("status", (previous) => {
+          if (previous.maintenanceMode === realtimeMaintenance.maintenanceMode &&
+              previous.maintenanceMessage === realtimeMaintenance.maintenanceMessage) return previous;
+          return { ...previous, ...realtimeMaintenance };
+        });
+      };
+      connection?.on?.("maintenanceStatus", onMaintenanceStatus);
       scope.add(() => {
         active = false;
+        connection?.off?.("maintenanceStatus", onMaintenanceStatus);
+        realtimeMaintenance = null;
         cancelHttpRequests();
         cancelPendingAckRequests();
         transportConfig = {};

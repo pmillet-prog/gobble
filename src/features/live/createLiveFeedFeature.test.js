@@ -98,7 +98,8 @@ test("live feed owns scoped announcements, effects and socket cleanup", () => {
   });
   assert.equal(feature.store.getState().announcements.length, 1);
   assert.equal(praise.length, 1);
-  assert.deepEqual(confetti, [["gobble"]]);
+  assert.deepEqual(praise[0], ["GOBBLE !", { kind: "gobble", shakeGrid: true }]);
+  assert.deepEqual(confetti, [], "the celebration service already owns the Gobble burst");
 
   socket.fire("announcement", {
     nick: "Tigre",

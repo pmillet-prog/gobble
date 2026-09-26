@@ -1,21 +1,26 @@
 import { IMAGE_KEYS } from "./assetKeys.js";
 import ASSET_MANIFEST_BASE from "./assetManifest.js";
 
+// These images are rendered by <img>; keep the browser's image cache instead
+// of allocating ImageBitmaps that the celebration overlay never consumes.
+const BIGWORD_IMAGE_META = Object.freeze({ browserManaged: true });
+
 const BOOT_ASSET_IMAGES = [
   { key: IMAGE_KEYS.favicon, url: "/favicon.png", priority: "critical" },
   { key: IMAGE_KEYS.gobbleBadge, url: "/g.png", priority: "critical" },
   { key: IMAGE_KEYS.gobblarsBadge, url: "/Gobblars.png", priority: "critical" },
-  { key: IMAGE_KEYS.bigwords.gobble, url: "/bigwords/gobble.webp", priority: "critical" },
+  { key: IMAGE_KEYS.bigwords.gobble, url: "/bigwords/gobble.webp", priority: "critical", meta: BIGWORD_IMAGE_META },
   {
     key: IMAGE_KEYS.bigwords.doubleGobble,
     url: "/bigwords/doublegobble.webp",
     priority: "critical",
+    meta: BIGWORD_IMAGE_META,
   },
-  { key: IMAGE_KEYS.bigwords.epique, url: "/bigwords/epique.webp", priority: "critical" },
-  { key: IMAGE_KEYS.bigwords.enorme, url: "/bigwords/enorme.webp", priority: "high" },
-  { key: IMAGE_KEYS.bigwords.excellent, url: "/bigwords/excellent.webp", priority: "high" },
-  { key: IMAGE_KEYS.bigwords.fabuleux, url: "/bigwords/fabuleux.webp", priority: "high" },
-  { key: IMAGE_KEYS.bigwords.bonus, url: "/bigwords/bonus.webp", priority: "high" },
+  { key: IMAGE_KEYS.bigwords.epique, url: "/bigwords/epique.webp", priority: "critical", meta: BIGWORD_IMAGE_META },
+  { key: IMAGE_KEYS.bigwords.enorme, url: "/bigwords/enorme.webp", priority: "high", meta: BIGWORD_IMAGE_META },
+  { key: IMAGE_KEYS.bigwords.excellent, url: "/bigwords/excellent.webp", priority: "high", meta: BIGWORD_IMAGE_META },
+  { key: IMAGE_KEYS.bigwords.fabuleux, url: "/bigwords/fabuleux.webp", priority: "high", meta: BIGWORD_IMAGE_META },
+  { key: IMAGE_KEYS.bigwords.bonus, url: "/bigwords/bonus.webp", priority: "high", meta: BIGWORD_IMAGE_META },
   { key: IMAGE_KEYS.vocab.creche, url: "/vocab-ranks/creche.png", priority: "low" },
   { key: IMAGE_KEYS.vocab.maternelle, url: "/vocab-ranks/maternelle.png", priority: "low" },
   { key: IMAGE_KEYS.vocab.primaire, url: "/vocab-ranks/primaire.png", priority: "low" },
@@ -74,6 +79,7 @@ function buildImageManifest(items) {
     type: "image",
     candidates: buildImageCandidates(item.url),
     priority: item.priority,
+    ...(item.meta ? { meta: item.meta } : {}),
   }));
 }
 

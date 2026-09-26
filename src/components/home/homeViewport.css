@@ -1,0 +1,17 @@
+/* Browser tabs reserve room for their toolbars. Keep this height stable when
+   the keyboard opens; the chat owns its own visual viewport. */
+.home-lobby-screen {
+  min-height: 100svh;
+  height: 100svh;
+}
+
+/* Installed apps have no browser toolbars. WebKit can nevertheless subtract
+   the system safe area from svh with viewport-fit=cover (bug 254868).
+   Use the full layout height here, without adding offsets or changing the
+   keyboard viewport: https://bugs.webkit.org/show_bug.cgi?id=254868 */
+@media (display-mode: standalone) {
+  .home-lobby-screen {
+    min-height: 100vh;
+    height: 100vh;
+  }
+}

@@ -44,7 +44,8 @@ export function getHomeDailyRemainingCount(dailyStatus) {
 }
 
 export function isHomeMaintenanceActive({ dailyStatus, tournamentLobby } = {}) {
-  return !!(tournamentLobby?.maintenanceMode || dailyStatus?.maintenanceMode);
+  // A live "off" must clear a maintenance status cached by the daily HTTP request.
+  return !!(tournamentLobby?.maintenanceMode ?? dailyStatus?.maintenanceMode);
 }
 
 export function resolveHomeTournamentLobby({

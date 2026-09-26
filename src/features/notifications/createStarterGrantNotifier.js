@@ -2,7 +2,7 @@
 export function createStarterGrantNotifier({ userId, request, show, visible = () => true, setTimer = setTimeout, clearTimer = clearTimeout }) {
   let disposed = false, settled = false, inFlight = null, acknowledgement = null, shownKey = null;
   async function refresh() {
-    if (disposed || settled || !visible()) return;
+    if (disposed || settled || shownKey || !visible()) return;
     if (inFlight) return inFlight;
     inFlight = (async () => {
       try {
@@ -16,7 +16,11 @@ export function createStarterGrantNotifier({ userId, request, show, visible = ()
         acknowledgement = setTimer(async () => {
           acknowledgement = null;
           if (disposed || !visible()) { shownKey = null; return; }
-          try { await request(grant.key); settled = true; }
+          try {
+            await request(grant.key);
+            shownKey = null;
+            await refresh(); // Present the next gift, if another campaign is still pending.
+          }
           catch { shownKey = null; }
         }, 8500);
       } catch { /* Retry on reconnect/focus; never mark an undelivered gift seen. */ }

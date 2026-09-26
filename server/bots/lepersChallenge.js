@@ -126,7 +126,18 @@ export function scoreLepersDefinition(definition, word) {
   return score;
 }
 
-export function pickLepersDefinition(entry, word) {
+export function createLepersExclusions(recentQuestions = []) {
+  const words = new Set(), definitions = new Set();
+  for (const question of recentQuestions) {
+    const word = normalizeWord(question?.word || "");
+    const definition = normalizeForText(question?.definition);
+    if (word) words.add(word);
+    if (definition) definitions.add(definition);
+  }
+  return { words, definitions };
+}
+
+export function pickLepersDefinition(entry, word, excludedDefinitions = new Set()) {
   if (!entry || entry.isFormOf || String(entry.formOf || "").trim()) return null;
   const lexicalMetadata = normalizeForText(
     [
@@ -151,6 +162,7 @@ export function pickLepersDefinition(entry, word) {
     const definition = String(rawDefinition || "").replace(/\s+/g, " ").trim();
     if (!definition || seen.has(definition)) continue;
     seen.add(definition);
+    if (excludedDefinitions.has(normalizeForText(definition))) continue;
     const score = scoreLepersDefinition(definition, word);
     if (!Number.isFinite(score)) continue;
     if (!best || score > best.score) best = { definition, score };
@@ -209,16 +221,18 @@ function scoreCandidate(word, rarityMeta, seed) {
   return (BUCKET_SCORE[bucket] || 0) + lengthScore + foundScore + jitter;
 }
 
-export async function pickLepersChallenge(
+export async function rankLepersChallenges(
   solutions,
-  { loadDefinitionEntry, rarityMetaMap, seed = Date.now() } = {}
+  { loadDefinitionEntry, rarityMetaMap, seed = Date.now(), recentQuestions = [] } = {}
 ) {
-  if (!(rarityMetaMap instanceof Map) || typeof loadDefinitionEntry !== "function") return null;
+  if (!(rarityMetaMap instanceof Map) || typeof loadDefinitionEntry !== "function") return [];
+  const excluded = createLepersExclusions(recentQuestions);
   const candidates = [];
   const seen = new Set();
   for (const solution of Array.isArray(solutions) ? solutions : []) {
     const word = normalizeWord(solution?.word || "");
     if (!word || word.length < LEPERS_MIN_WORD_LENGTH || seen.has(word)) continue;
+    if (excluded.words.has(word)) continue;
     const rarityMeta = rarityMetaMap.get(word);
     if (rarityMeta?.isFormOf) continue;
     if (!LEPERS_RARITY_BUCKETS.has(String(rarityMeta?.rarityBucket || ""))) continue;
@@ -239,7 +253,7 @@ export async function pickLepersChallenge(
     inspected.map(async (candidate) => {
       try {
         const entry = await loadDefinitionEntry(candidate.word);
-        const picked = pickLepersDefinition(entry, candidate.word);
+        const picked = pickLepersDefinition(entry, candidate.word, excluded.definitions);
         if (!picked) return null;
         return {
           ...candidate,
@@ -259,11 +273,9 @@ export async function pickLepersChallenge(
       (stableHash(`${seed}:pick:${left.word}`) % 1000) -
         (stableHash(`${seed}:pick:${right.word}`) % 1000)
   );
-  if (!usable.length) return null;
-
-  const shortlist = usable.slice(0, Math.min(8, usable.length));
-  const picked = shortlist[stableHash(`${seed}:shortlist`) % shortlist.length];
-  return {
+  // Keep ranked alternatives server-side: the history may change between
+  // precomputation and the actual start of the prepared round.
+  return usable.map(picked => ({
     word: picked.word,
     definition: picked.definition,
     text: buildLepersInterventionText(picked.definition, picked.partOfSpeech),
@@ -272,7 +284,23 @@ export async function pickLepersChallenge(
     rarityScore: Number(picked.rarityMeta?.rarityScore) || 0,
     source: picked.source,
     sourceUrl: picked.sourceUrl,
-  };
+  }));
+}
+
+export function selectLepersChallenge(candidates, { seed = Date.now(), recentQuestions = [] } = {}) {
+  const excluded = createLepersExclusions(recentQuestions);
+  const shortlist = (Array.isArray(candidates) ? candidates : []).filter(candidate =>
+    candidate?.word && candidate?.definition && candidate?.text &&
+    !excluded.words.has(normalizeWord(candidate.word)) &&
+    !excluded.definitions.has(normalizeForText(candidate.definition))
+  ).slice(0, 8);
+  if (!shortlist.length) return null;
+  return shortlist[stableHash(`${seed}:shortlist`) % shortlist.length];
+}
+
+export async function pickLepersChallenge(solutions, options = {}) {
+  const selectionOptions = { ...options, seed: options.seed ?? Date.now() };
+  return selectLepersChallenge(await rankLepersChallenges(solutions, selectionOptions), selectionOptions);
 }
 
 export function pickLepersTournamentRound(random = Math.random) {

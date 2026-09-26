@@ -125,16 +125,27 @@ test("ranking avatars, loading indicators, chat buttons and expense toast render
       assert.doesNotMatch(renderToString(React.createElement(RankingWidgetMobile, { fullRanking, expanded: true })), /avatar-thumbnail/);
     });
     await t.test("checkout clearly separates paid pieces, objectives and insufficient funds", () => {
-      const plan = { purchasable: [{ family: "base", id: "homme", label: "Visage homme", price: 500 }, { family: "hair", id: "quiff", label: "Banane", price: 1000 }], unavailable: [], total: 1500, missing: 500 };
+      const plan = { purchasable: [{ family: "nose", id: "button_nose", label: "Nez en bouton", price: 500 }, { family: "hair", id: "quiff", label: "Banane", price: 1000 }], unavailable: [], total: 1500, missing: 500 };
       const render = next => renderToString(React.createElement(AvatarCheckoutDialog, { plan: next, inventory: { balance: 1000 }, busy: false }));
       const markup = render(plan);
-      assert.match(markup, /Visage homme/); assert.match(markup, /Banane/);
+      assert.match(markup, /Nez en bouton/); assert.match(markup, /Banane/);
       assert.match(markup, /Il te manque/); assert.match(markup, /500 gobblars/);
       assert.match(markup, /class="avatar-save" disabled=""/);
       const objective = render({ ...plan, missing: 0, unavailable: [{ family: "headwear", id: "crown", label: "Couronne", description: "Gagner 100 tournois" }] });
       assert.match(objective, /ne s’achètent pas/); assert.match(objective, /Gagner 100 tournois/);
       assert.match(objective, /class="avatar-save" disabled=""/);
       assert.doesNotMatch(render({ ...plan, missing: 0 }), /class="avatar-save" disabled=""/);
+    });
+    await t.test("the face tab offers both sexes and all styles without a purchase action", async () => {
+      const [{ default: FaceOptions }, { createBlankAvatar }] = await Promise.all([
+        vite.ssrLoadModule("/src/features/avatar/AvatarFaceOptions.jsx"),
+        vite.ssrLoadModule("/shared/avatarConfiguration.js"),
+      ]);
+      const markup = renderToString(React.createElement(FaceOptions, {
+        baseChosen: true, draft: createBlankAvatar(), disabled: false, onSelectBase() {}, onChange() {},
+      }));
+      for (const label of ["Homme", "Femme", "Classique", "Joufflu", "Traits marqués", "Ridé", "gratuits"]) assert.ok(markup.includes(label), label);
+      assert.doesNotMatch(markup, /Acheter|gobblars|avatar-unlock-action/);
     });
     await t.test("the account menu marks Voir mon profil as new", () => {
       const markup = renderToString(React.createElement(AccountMenu, { actions: {}, appearance: {}, auth: { authenticated: true }, labels: {} }));

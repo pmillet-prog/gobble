@@ -10,7 +10,7 @@ import { runSerializedSqliteWrite } from "../sqliteQueue.js";
 import { createBlankAvatar } from "../../shared/avatarConfiguration.js";
 
 const catalog = JSON.parse(await readFile(new URL("../../public/avatars/v1/catalog.json", import.meta.url), "utf8"));
-const face = { family: "base", id: "homme" };
+const paidPart = { family: "nose", id: catalog.families.nose[0].id };
 async function setup(t, options = {}) {
   const db = await open({ filename: ":memory:", driver: sqlite3.Database });
   t.after(() => db.close());
@@ -44,7 +44,7 @@ async function setup(t, options = {}) {
 
 test("refunds exact legacy grouped debits, preserves gifts/objectives, clears the saved PNG and broadcasts its new revision", async t => {
   const { db, inventory, repository, request, saved, wallets } = await setup(t);
-  // Historical prices deliberately differ from today's 500 + 1000 catalogue.
+  // Historical prices deliberately differ from today's free face + 1000 hair.
   await db.exec(`UPDATE gobblar_profiles SET balance=18563 WHERE installId='1';
     INSERT INTO avatar_unlocks VALUES (1,'base:homme',1),(1,'hair:quiff',1),
       (1,'headwear:crown',1),(1,'auras:donor_prismatic',1),(1,'accessories:tiger_plush',1);
@@ -71,18 +71,19 @@ test("refunds exact legacy grouped debits, preserves gifts/objectives, clears th
   assert.equal(audit.delta, 1437);
   assert.deepEqual(JSON.parse(audit.meta).purchaseIds, [1]);
   assert.equal((await request("put", "/avatar", { avatar: createBlankAvatar(), expectedRevision: 1 })).body.error, "avatar_conflict");
-  assert.equal((await request("put", "/avatar", { avatar: createBlankAvatar(), expectedRevision: 2 })).body.error, "avatar_locked");
+  assert.equal((await request("put", "/avatar", { avatar: createBlankAvatar(), expectedRevision: 2 })).statusCode, 200);
+  assert.equal((await request("put", "/avatar", { avatar: { ...createBlankAvatar(), hair: "quiff" }, expectedRevision: 3 })).body.error, "avatar_locked");
 });
 
 test("double submits refund only once; a later purchase can be refunded once using its own confirmation", async t => {
   const { inventory, db, repository } = await setup(t);
-  await inventory.purchase(1, [face]);
+  await inventory.purchase(1, [paidPart]);
   const first = await inventory.refunds.quote(1);
   const results = await Promise.all([inventory.refunds.refundAll(1, first.token), inventory.refunds.refundAll(1, first.token)]);
   assert.equal(results.filter(result => result.ok).length, 1);
   assert.equal((await inventory.get(1)).balance, 20000);
   assert.equal((await repository.get(1)).revision, 1, "even a never-saved avatar invalidates pending revision-zero saves");
-  await inventory.purchase(1, [face]);
+  await inventory.purchase(1, [paidPart]);
   assert.equal((await inventory.refunds.refundAll(1, first.token)).error, "avatar_refund_changed");
   const second = await inventory.refunds.quote(1);
   assert.notEqual(second.token, first.token);
@@ -94,9 +95,9 @@ test("double submits refund only once; a later purchase can be refunded once usi
 
 test("a purchase on another device invalidates the confirmation without modifying funds or unlocks", async t => {
   const { inventory } = await setup(t);
-  await inventory.purchase(1, [face]);
+  await inventory.purchase(1, [paidPart]);
   const quote = await inventory.refunds.quote(1);
-  await inventory.purchase(1, [{ family: "base", id: "femme" }]);
+  await inventory.purchase(1, [{ family: "brows", id: catalog.families.brows[0].id }]);
   const result = await inventory.refunds.refundAll(1, quote.token);
   assert.equal(result.error, "avatar_refund_changed");
   assert.equal(result.quote.amount, 1000);
@@ -106,13 +107,13 @@ test("a purchase on another device invalidates the confirmation without modifyin
 
 test("any failure rolls back the credit, relocking, ledger entry and avatar reset together", async t => {
   const { db, inventory, repository } = await setup(t);
-  await inventory.purchase(1, [face]);
+  await inventory.purchase(1, [paidPart]);
   await repository.save(1, createBlankAvatar(), 0, { png: Buffer.from("keep"), renderVersion: 1 });
   await db.exec("CREATE TRIGGER refuse_reset BEFORE UPDATE ON user_avatars BEGIN SELECT RAISE(ABORT,'test failure'); END;");
   const quote = await inventory.refunds.quote(1);
   await assert.rejects(inventory.refunds.refundAll(1, quote.token));
   assert.equal((await inventory.get(1)).balance, 19500);
-  assert.equal((await inventory.get(1)).owned["base:homme"], true);
+  assert.equal((await inventory.get(1)).owned[`nose:${paidPart.id}`], true);
   assert.equal((await inventory.refunds.quote(1)).token, quote.token);
   assert.equal((await repository.get(1)).revision, 1);
   assert.equal((await repository.getThumbnail(1)).png.toString(), "keep");
@@ -120,7 +121,7 @@ test("any failure rolls back the credit, relocking, ledger entry and avatar rese
 
 test("refund routes require the current account, a server quote and an open editor", async t => {
   const { inventory, request, setMaintenance, args } = await setup(t);
-  await inventory.purchase(1, [face]);
+  await inventory.purchase(1, [paidPart]);
   const quote = await inventory.refunds.quote(1);
   for (const method of ["get", "post"]) {
     assert.equal((await request(method, "/avatar/refund", { refundToken: quote.token }, null)).statusCode, 401);
@@ -143,7 +144,7 @@ test("a refund during PNG rendering prevents the old avatar from being saved aga
   const { request, inventory, repository } = await setup(t, { thumbnails: { render: () => {
     started(); return new Promise(resolve => { resolveRender = resolve; });
   } } });
-  await inventory.purchase(1, [face]);
+  await inventory.purchase(1, [paidPart]);
   const save = request("put", "/avatar", { avatar: createBlankAvatar(), expectedRevision: 0 });
   await rendering;
   await inventory.refunds.refundAll(1, (await inventory.refunds.quote(1)).token);
@@ -155,11 +156,11 @@ test("a refund during PNG rendering prevents the old avatar from being saved aga
 
 test("unusable historical receipts fail closed instead of estimating a price", async t => {
   const { db, inventory } = await setup(t);
-  await inventory.purchase(1, [face]);
+  await inventory.purchase(1, [paidPart]);
   const quote = await inventory.refunds.quote(1);
   await db.run("UPDATE gobblar_ledger SET meta='broken' WHERE reason='avatar_unlock'");
   await assert.rejects(inventory.refunds.quote(1), { code: "avatar_refund_unavailable" });
   await assert.rejects(inventory.refunds.refundAll(1, quote.token), { code: "avatar_refund_unavailable" });
   assert.equal((await inventory.get(1)).balance, 19500);
-  assert.equal((await inventory.get(1)).owned["base:homme"], true);
+  assert.equal((await inventory.get(1)).owned[`nose:${paidPart.id}`], true);
 });

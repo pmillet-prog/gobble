@@ -28,12 +28,13 @@ export function createCelebrationEffects(
   visualPraiseEnabledRef,
   visualScoreFlightsEnabledRef,
   visualScreenShakeEnabledRef,
+  { fireConfetti = confetti } = {},
 ) {
 
   function clearCelebrationEffects() {
     confettiBurstTokenRef.current += 1;
     try {
-      confetti.reset?.();
+      fireConfetti.reset?.();
     } catch (_) {}
     celebrationFeature.clearAllCelebrationFlashes?.();
     if (gridShakeTimerRef.current) {
@@ -180,6 +181,7 @@ export function createCelebrationEffects(
     if (isGobbleKind) {
       lastGobbleAtRef.current = now;
       const durationMs = lite ? Math.round(780 + Math.random() * 120) : Math.round(2200 + Math.random() * 400);
+      // Own the whole Gobble celebration; callers must not launch a second burst.
       triggerConfettiBurst("gobble");
       if (visualGobbleEnabledRef.current) {
         celebrationFeature.showCelebrationFlash("gobbleFlash", {
@@ -271,7 +273,7 @@ export function createCelebrationEffects(
 
     const fire = (particleRatio, opts) => {
       if (confettiBurstTokenRef.current !== burstToken) return;
-      confetti({
+      fireConfetti({
         ...base,
         ...opts,
         particleCount: Math.floor(140 * particleRatio),
@@ -349,7 +351,7 @@ export function createCelebrationEffects(
     const end = Date.now() + 2400;
     (function frame() {
       if (confettiBurstTokenRef.current !== burstToken) return;
-      confetti({
+      fireConfetti({
         ...base,
         particleCount: 4,
         angle: 60,
@@ -360,7 +362,7 @@ export function createCelebrationEffects(
         colors: ["#f97316", "#eab308", "#22c55e", "#3b82f6", "#a855f7", "#ef4444"],
         ticks: 260,
       });
-      confetti({
+      fireConfetti({
         ...base,
         particleCount: 4,
         angle: 120,

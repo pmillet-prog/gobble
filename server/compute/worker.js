@@ -36,7 +36,7 @@ import {
 } from "../stats/wordRarityService.js";
 import {
   isLepersChallengeRound,
-  pickLepersChallenge,
+  rankLepersChallenges,
 } from "../bots/lepersChallenge.js";
 import { getLocalDefinitionEntry } from "../definitions/localDefinitionStore.js";
 import {
@@ -1160,10 +1160,11 @@ if (parentPort) {
           const rarityMetaMap = await getRareWordMetaMapForWords(
             result.solutions.map((entry) => entry?.word).filter(Boolean)
           );
-          result.lepersChallenge = await pickLepersChallenge(result.solutions, {
+          result.lepersCandidates = await rankLepersChallenges(result.solutions, {
             loadDefinitionEntry: getLocalDefinitionEntry,
             rarityMetaMap,
             seed: `${nextPayload.roundPlan.roundNumber}:${nextPayload?.roundNumber || ""}`,
+            recentQuestions: nextPayload.lepersRecentQuestions,
           });
         }
         respond({ id, ok: true, result });

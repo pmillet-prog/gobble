@@ -260,6 +260,8 @@ import { useFinaleNavigation, useResultsNavigation } from "./hooks/useResultsNav
 import useDisplayMode from "./hooks/useDisplayMode.js";
 import useAccountSeenMarkers from "./hooks/useAccountSeenMarkers.js";
 import useAccountAvatarSync from "./features/avatar/useAccountAvatarSync.js";
+import useTournamentAvatarPreparation from "./features/celebration/useTournamentAvatarPreparation.js";
+import { loadTournamentFinaleExperience } from "./features/celebration/loadTournamentFinale.js";
 import {
   CHAT_MESSAGES_HISTORY_MAX,
   CHAT_MESSAGES_STORAGE_KEY,
@@ -394,9 +396,7 @@ const ChalkboardApplication = React.lazy(() =>
   import("./features/chalkboard/ChalkboardApplication.jsx")
 );
 const LepersRoundAnnouncementOverlay = React.lazy(loadQuestions3DOverlay);
-const TournamentFinaleScreen = React.lazy(() =>
-  import("./features/celebration/TournamentFinaleExperience.jsx")
-);
+const TournamentFinaleScreen = React.lazy(loadTournamentFinaleExperience);
 const loadDesktopGameScene = () => import("./components/desktop/DesktopGameScene.jsx");
 const DesktopGameScene = React.lazy(loadDesktopGameScene);
 const loadLiveLobbyScreen = () => import("./components/live/LiveLobbyScreen.jsx");
@@ -4612,7 +4612,6 @@ export default function GobbleApplication() {
       showToast,
       socket,
       standaloneTrainingSessionRef,
-      triggerConfettiBurst,
       triggerPraiseFlash,
     });
   });
@@ -8386,7 +8385,6 @@ function handleTouchEnd() {
       try {
         playGobbleVoice();
         triggerPraiseFlash("GOBBLE !", { kind: "gobble", shakeGrid: false });
-        triggerConfettiBurst("gobble");
       } catch (_) {}
     }
     if (validPoints > 0) queue.push(`+${validPoints} points pour mot valide`);
@@ -9838,6 +9836,13 @@ function handleTouchEnd() {
           "current"
       )
     : "";
+
+  useTournamentAvatarPreparation({
+    enabled: isLoggedIn && (appView === "live" || appView === "vault"),
+    tournamentId: tournament?.id || tournamentFinaleDismissKey, roomId: currentRoomId || roomId,
+    userId: authenticatedUserId, nick: selfNick, phase, breakKind,
+    podiumKey: tournamentFinaleDismissKey, summary: tournamentFinaleSummary, knownPlayers: players,
+  });
 
   const tournamentPresenterCelebrationActive =
     phase === "results" &&

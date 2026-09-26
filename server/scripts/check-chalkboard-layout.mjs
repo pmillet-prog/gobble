@@ -11,7 +11,7 @@ import { createServer } from "vite";
 import WebSocket from "ws";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
-const output = path.join(root, "dev/chalkboard-layout/review");
+const output = path.join(root, ".Tmp/chalkboard-layout-review");
 const profile = await mkdtemp(path.join(tmpdir(), "gobble-chalkboard-layout-"));
 const vite = await createServer({ root, configFile: false, logLevel: "error",
   optimizeDeps: { entries: [path.join(root, "dev/chalkboard-layout/index.html")] },
@@ -71,6 +71,8 @@ try {
       return { screen: rect('.chalkboard-viewport'), app: rect('.chalkboard-app'), frame: rect('.chalkboard-frame'),
         header: rect('.chalkboard-header'), footer: rect('.chalkboard-tray, .chalkboard-composer'), world: rect('.chalkboard-world'), boardHeight: scroll.clientHeight,
         compact: getComputedStyle(document.querySelector('.chalkboard-app')).display === 'grid',
+        dedicated: !!document.querySelector('.chalkboard-composer') && getComputedStyle(document.querySelector('.chalkboard-composer')).position === 'absolute',
+        boardVisible: getComputedStyle(document.querySelector('.chalkboard-frame')).visibility === 'visible',
         composing: !!document.querySelector('.chalkboard-composer'),
         viewport: { x: visualViewport.offsetLeft, y: visualViewport.offsetTop, width: visualViewport.width, height: visualViewport.height },
         slider: !!document.querySelector('[aria-label="Zoom du tableau"]') };
@@ -78,9 +80,13 @@ try {
     assert.equal(size.slider, false);
     for (const key of ["x", "y", "width", "height"]) assert.ok(Math.abs(size.screen[key] - size.viewport[key]) < 1, `${name}: viewport ${key}`);
     assert.equal(size.world.height, size.boardHeight, `${name}: board fills height`);
-    assert.ok(size.boardHeight > 50, `${name}: usable canvas`);
+    if (!size.dedicated) assert.ok(size.boardHeight > 50, `${name}: usable canvas`);
     assert.ok(size.footer.bottom <= size.screen.bottom + 1, `${name}: footer in screen`);
-    if (size.compact) {
+    if (size.dedicated) {
+      assert.equal(size.boardVisible, false, `${name}: typing replaces the tiny preview`);
+      assert.ok(Math.abs(size.footer.y - size.app.y) < 1 && Math.abs(size.footer.height - size.app.height) < 1,
+        `${name}: composer owns available height`);
+    } else if (size.compact) {
       assert.ok(size.footer.bottom <= size.frame.y + 1, `${name}: tools above the board`);
       if (size.header.height) {
         assert.ok(Math.abs(size.header.y - size.footer.y) < 1, `${name}: navigation and tools share one row`);
@@ -106,11 +112,12 @@ try {
     } else {
       assert.ok(size.frame.bottom <= size.footer.y + 1, `${name}: no overlap`);
     }
-    if (name.endsWith('-text') || name === 'landscape-keyboard') {
+    if (size.composing) {
       const fields=await evaluate(`['.chalkboard-text-style','textarea','.chalkboard-composer-actions'].map(selector=>{
-        const r=document.querySelector(selector).getBoundingClientRect();return {selector,top:r.top,bottom:r.bottom};
+        const r=document.querySelector(selector).getBoundingClientRect();return {selector,top:r.top,bottom:r.bottom,left:r.left,right:r.right,height:r.height};
       })`);
-      for(const field of fields)assert.ok(field.top>=size.footer.y&&field.bottom<=size.footer.bottom+1,`${name}: ${field.selector} fully visible`);
+      for(const field of fields)assert.ok(field.top>=size.footer.y&&field.bottom<=size.footer.bottom+1&&field.left>=size.footer.x&&field.right<=size.footer.x+size.footer.width+1,`${name}: ${field.selector} fully visible`);
+      if (size.dedicated) assert.ok(fields[1].height >= Math.min(70, size.app.height - 65), `${name}: useful typing height`);
     }
     measurements.push({ name, ...size });
     console.log(`${name}: screen ${size.screen.width}×${size.screen.height}, board ${size.boardHeight}px`);
@@ -154,18 +161,72 @@ try {
     await writeColoredText(); await capture(`${width}x${height}-text`);
   }
   await send("Emulation.setDeviceMetricsOverride", { width: 915, height: 412, deviceScaleFactor: 1, mobile: true });
-  await evaluate("window.setLayoutViewport({ width: 915, height: 212, offsetTop: 40, offsetLeft: 0 })");
-  await capture("landscape-keyboard");
+  await evaluate("window.composingInput = document.querySelector('textarea'); composingInput.focus(); composingInput.setSelectionRange(2,5)");
+  for (const [width, height, offsetTop] of [[915, 212, 40], [915, 140, 20], [568, 160, 0], [393, 200, 0]]) {
+    await evaluate(`window.setLayoutViewport({ width: ${width}, height: ${height}, offsetTop: ${offsetTop}, offsetLeft: 0 })`);
+    await capture(`keyboard-${width}x${height}`);
+    assert.deepEqual(await evaluate("[composingInput === document.querySelector('textarea'), document.activeElement === composingInput, composingInput.selectionStart, composingInput.selectionEnd]"), [true, true, 2, 5], "keyboard resize preserves input, focus and selection");
+  }
+  assert.equal(await evaluate("document.querySelector('textarea').value"), "Bonjour à tous,\nà vous la craie !");
+  await evaluate("document.querySelector('.chalkboard-composer').requestSubmit()");
   await evaluate("window.setLayoutViewport({})");
-  await evaluate("document.querySelector('.chalkboard-composer button[type=button]').click()");
   await capture("landscape-keyboard-closed");
+  assert.equal(await evaluate("!!document.querySelector('.chalkboard-composer')"), false);
+  assert.equal(await evaluate("!!document.querySelector('.chalkboard-publish:not(:disabled)')"), true, "text is a draft ready for placement, not published");
   await evaluate("document.querySelector('.chalkboard-viewport').style.padding = '0px 44px 21px'");
   await capture("landscape-safe-areas");
-  await evaluate("document.querySelector('.chalkboard-back').click()"); await settle();
-  assert.deepEqual(await evaluate("window.layoutOrientationCalls"), ["any", "default", "portrait"]);
+  await evaluate("window.confirm = () => true; document.querySelector('.chalkboard-back').click()"); await settle();
+  const orientationCalls = await evaluate("window.layoutOrientationCalls");
+  assert.equal(orientationCalls.at(-1), "portrait", "leaving the board restores portrait");
+  assert.ok(orientationCalls.length >= 2 && orientationCalls.slice(0, -1).every(mode => mode === "any"),
+    "board keeps landscape allowed, including focus/visibility refreshes");
+
+  // Real settings component, persisted preference and orientation/layout satellite.
+  await send("Emulation.setTouchEmulationEnabled", { enabled: true });
+  await send("Emulation.setUserAgentOverride", { userAgent: "Mozilla/5.0 (Linux; Android 16) AppleWebKit/537.36 Chrome/140.0 Mobile Safari/537.36" });
+  const rotate = async (width, height, type) => {
+    await send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: true,
+      screenOrientation: { type, angle: type.startsWith("landscape") ? 90 : 0 } });
+    await settle();
+  };
+  const settingsUrl = `http://127.0.0.1:${vite.httpServer.address().port}/dev/chalkboard-layout/index.html?settings=1`;
+  const settings = async () => {
+    await evaluate("window.layoutFixture = null");
+    await send("Page.navigate", { url: settingsUrl });
+    await until(() => evaluate("!!window.layoutFixture && !!document.querySelector('[role=switch]')")); await settle();
+  };
+  const toggle = async () => { await evaluate("document.querySelector('[role=switch]').click()"); await settle(); };
+  const mode = () => evaluate("document.querySelector('[data-layout-mode]').dataset.layoutMode");
+  await rotate(915, 412, "landscapePrimary");
+  await settings();
+  assert.equal(await mode(), "mobile");
+  assert.equal(await evaluate("document.querySelector('[role=switch]').getAttribute('aria-checked')"), "false");
+  const warning = await evaluate("document.getElementById(document.querySelector('[role=switch]').getAttribute('aria-describedby')).textContent");
+  assert.match(warning, /plus petits/); assert.match(warning, /ralentir/);
+  await toggle();
+  assert.equal(await mode(), "desktop");
+  assert.equal(await evaluate("window.layoutOrientationCalls.at(-1)"), "any");
+  await settings();
+  assert.equal(await mode(), "desktop", "preference survives reload");
+  await evaluate("document.querySelector('[role=switch]').scrollIntoView({block:'center'})");
+  const settingsShot = await send("Page.captureScreenshot", { format: "png" });
+  await writeFile(path.join(output, "settings-landscape-desktop.png"), Buffer.from(settingsShot.data, "base64"));
+  await rotate(393, 852, "portraitPrimary");
+  assert.equal(await mode(), "mobile");
+  await rotate(393, 210, "portraitPrimary");
+  await toggle(); await toggle();
+  assert.equal(await mode(), "mobile", "portrait with keyboard is still mobile after toggling");
+  await rotate(915, 412, "landscapePrimary");
+  assert.equal(await mode(), "desktop");
+  await toggle();
+  assert.equal(await mode(), "mobile", "disabling the option restores mobile while already in landscape");
+  assert.equal(await evaluate("window.layoutOrientationCalls.at(-1)"), "portrait");
+  await evaluate("window.layoutFixture.commands.navigation.go('chalkboard')"); await settle();
+  assert.equal(await evaluate("window.layoutOrientationCalls.at(-1)"), "any", "board rotation remains independent of the preference");
+  console.log("Landscape setting: default off, warning, persistence, rotation, keyboard and board policies passed.");
   assert.deepEqual(errors, []);
   await writeFile(path.join(output, "measurements.json"), JSON.stringify(measurements, null, 2));
-  console.log(`${measurements.length} viewport/mode checks passed; screenshots in dev/chalkboard-layout/review/`);
+  console.log(`${measurements.length} viewport/mode checks passed; screenshots in .Tmp/chalkboard-layout-review/`);
 } finally {
   if (socket?.readyState === WebSocket.OPEN) await closeBrowser?.();
   socket?.close();

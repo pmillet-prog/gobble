@@ -1,5 +1,22 @@
 # Avatars joueurs — première intégration
 
+## Réutilisation pendant le mini-tournoi
+
+`TournamentAvatarsProvider` possède un cache borné au tournoi et au compte
+courants. `AvatarThumbnail` télécharge et décode chaque miniature une seule fois,
+puis réutilise une URL de blob locale dans les résultats et le chat. Les
+remontages, changements de manche et rafraîchissements des versions du chat ne
+provoquent plus de revalidation pendant ce tournoi. L'arrivée d'un joueur ajoute
+seulement sa miniature ; son départ ne vide pas celles des autres.
+
+Au tournoi suivant ou à la sortie du jeu, les requêtes en cours sont annulées,
+les blobs sont révoqués et les nouvelles apparences peuvent être chargées.
+L'atelier et le profil continuent d'utiliser leur aperçu propre, à jour pendant
+l'édition. Hors tournoi, les miniatures gardent leur chargement habituel.
+Une miniature absente ou indisponible utilise le remplacement existant sans
+retenter à chaque rendu. Les poses du podium sont préparées pendant le bilan
+de la finale : voir `../celebration/README.md`.
+
 Le profil personnel et le bouton de compte de l’accueil utilisent `LocalPlayerAvatar`.
 La fiche utilise `ProfileAvatar` en vue `portrait`, exactement comme l’atelier :
 même zoom, même cadrage et même décalage vertical vers le bas, dans un cadre
@@ -101,7 +118,7 @@ une seule fois ; aucune analyse de pixels de vignette n’est faite chez le joue
 
 L’accueil connecté, le profil personnel et l’atelier affichent le solde du compte
 avec `GobblarsBalance`. Les tarifs sont définis dans `shared/avatarUnlocks.js`.
-Les deux visages sont payants (500 gobblars), sans kit offert. L’image fournie par
+Le premier onglet est gratuit : Homme/Femme, variantes de visage, silhouette et couleurs de peau. L’image fournie par
 Paul, copiée dans `public/avatars/default.png`, est utilisée tant qu’aucun avatar
 entièrement débloqué n’est enregistré. Les couleurs et les cils restent libres ;
 aucun prix n’a encore été demandé pour les cils. Les auras affichent leur objectif
@@ -110,7 +127,13 @@ mais leur attribution reste désactivée.
 Un nouveau joueur commence par le choix Homme/Femme, sans yeux, nez, bouche,
 sourcils ni cheveux présélectionnés. `createBlankAvatar` conserve les pièces
 explicitement vides, y compris après sauvegarde ; les avatars existants gardent
-leurs réglages. La base coûte seule 500 gobblars.
+leurs réglages. Aucun achat ni solde minimum n’est requis pour enregistrer cette base.
+
+Le déploiement du 23 septembre crédite une seule fois 500 gobblars à tous les comptes
+existants, sans condition d’activité ou d’achat. `avatarFaceGrant` enregistre la cohorte,
+les crédits et le journal dans une transaction ; les redémarrages ne redonnent rien.
+Un toast persistant annonce le cadeau, puis laisse apparaître l’éventuel cadeau de bienvenue.
+Les comptes créés ensuite gardent leur cadeau de bienvenue habituel de 3 000 gobblars.
 
 Chaque vignette payante ouvre `AvatarAssetDialog`, une fenêtre native de
 confirmation avec aperçu, prix et solde. L’achat ne porte que sur cette pièce.

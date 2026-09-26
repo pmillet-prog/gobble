@@ -1,4 +1,5 @@
 export const CELEBRATION_DURATION = 6800;
+export const PODIUM_RANKING_DELAY_MS = 5000;
 export const PODIUM_ARRIVAL = Object.freeze({ 3: 1000, 2: 2150, 1: 3450 });
 const BLINK_AT = Object.freeze({ 1: 5230, 2: 4860, 3: 5680 });
 

@@ -60,7 +60,6 @@ export function createLiveFeedFeature(context) {
       kind: "gobble",
       shakeGrid: true,
     });
-    realtimeConfig.triggerConfettiBurst?.("gobble");
   }
 
   function maybeShowDuelToast(entry) {

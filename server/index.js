@@ -64,9 +64,9 @@ import {
   buildLepersResultIntervention,
   buildLepersSolvedIntervention,
   getLepersBonusForNick,
-  isLepersChallengeRound,
   pickLepersTournamentRound,
 } from "./bots/lepersChallenge.js";
+import { createLepersQuestionHistory } from "./bots/lepersQuestionHistory.js";
 import {
   buildTournamentCelebrationPresenterLines,
   createTournamentRecords,
@@ -78,7 +78,7 @@ import { computeSpecial3GobbleAwards } from "./compute/special3GobblePolicy.js";
 import { evaluateLiveSpecial3Word } from "./compute/special3WordVerdict.js";
 import { createPersistenceClient } from "./persistence/persistenceClient.js";
 import { createShortLivedRequestCache } from "./shortLivedRequestCache.js";
-import { extractPersistedDevControls } from "./devControlsPersistence.js";
+import { buildPersistedDevControls, extractPersistedDevControls } from "./devControlsPersistence.js";
 import { getMetrics, resetMetrics } from "./observability/metrics.js";
 import { isScoreRecordEligibleRound } from "./stats/roundRecordPolicy.js";
 import {
@@ -108,6 +108,7 @@ import { registerSpecialRoundHandlers } from "./realtime/registerSpecialRoundHan
 import { registerChatHandlers } from "./realtime/registerChatHandlers.js";
 import { registerModerationHandlers } from "./realtime/registerModerationHandlers.js";
 import { registerDevHandlers } from "./realtime/registerDevHandlers.js";
+import { emitMaintenanceStatus } from "./realtime/emitMaintenanceStatus.js";
 import { registerReportHandlers } from "./realtime/registerReportHandlers.js";
 import { registerPlayerProgressHandlers } from "./realtime/registerPlayerProgressHandlers.js";
 import { registerTrainingHandlers } from "./realtime/registerTrainingHandlers.js";
@@ -223,6 +224,7 @@ import { createAvatarObjectiveBatcher } from "./avatars/avatarObjectiveBatcher.j
 import { getPlayerProfileAppearance } from "./avatars/playerProfileAppearance.js";
 import {
   avatarStarterGrant,
+  avatarFaceGrant,
   consumeSocketTicket,
   findUserById,
   getSessionByToken,
@@ -278,6 +280,9 @@ void initPlayerProfileService().catch((err) =>
 );
 await avatarStarterGrant.initialize().catch((err) =>
   console.warn("Avatar starter grant init failed", err)
+);
+await avatarFaceGrant.initialize().catch((err) =>
+  console.warn("Avatar face gift init failed", err)
 );
 void initWordVaultService().catch((err) =>
   console.warn("Word vault service init failed", err)
@@ -1884,6 +1889,10 @@ const AUTH_SESSION_COOKIE_NAME = "gobble_session";
 const RUNTIME_DATA_DIR = process.env.GOBBLE_DATA_DIR
   ? path.resolve(process.env.GOBBLE_DATA_DIR)
   : path.join(__dirname, "../data");
+const lepersQuestionHistory = createLepersQuestionHistory({
+  filePath: path.join(RUNTIME_DATA_DIR, "lepers-question-history.json"),
+});
+await lepersQuestionHistory.load();
 const trainingPoolStore = new TrainingPoolStore(
   resolveTrainingPoolDir({ serverDir: __dirname })
 );
@@ -2238,7 +2247,7 @@ function persistDevControls() {
     mkdirSync(RUNTIME_DATA_DIR, { recursive: true });
     writeFileSync(
       DEV_CONTROLS_PATH,
-      JSON.stringify({ version: 1, updatedAt: Date.now(), controls: devControls }, null, 2),
+      JSON.stringify(buildPersistedDevControls(devControls), null, 2),
       "utf8"
     );
   } catch (err) {
@@ -8393,7 +8402,7 @@ function applyMaintenanceModeChange(previousControls, nextControls) {
   const wasEnabled = !!previousControls?.maintenanceMode;
   const isEnabled = !!nextControls?.maintenanceMode;
   if (wasEnabled === isEnabled) return;
-  io.emit("chalkboardAvailability", { maintenanceMode: isEnabled });
+  emitMaintenanceStatus(io, isEnabled);
   if (isEnabled) {
     announceMaintenanceModeEnabled();
   }
@@ -9982,6 +9991,7 @@ function ensureBufferedPreparedGrid(room, tournamentRound, plan) {
       roomConfig: room.config,
       roundPlan: preparedPlan,
       roundNumber: targetRoundNumber,
+      lepersRecentQuestions: preparedPlan.lepersChallengeEnabled ? lepersQuestionHistory.snapshot() : [],
     })
     .then((prepared) => {
       const meta = room.bufferedPreparedGridPromiseMeta;
@@ -10186,6 +10196,7 @@ async function prepareNextGrid(room, plan = null, targetRoundNumber = null) {
         roomConfig: room.config,
         roundPlan,
         roundNumber,
+        lepersRecentQuestions: roundPlan.lepersChallengeEnabled ? lepersQuestionHistory.snapshot() : [],
         cultureThemeOptions: cultureThemeGenerationEnabled
           ? getCultureThemeGenerationOptions(room)
           : { disabled: true },
@@ -10355,13 +10366,13 @@ async function runStartRoundForRoom(room, options = {}) {
   const now = Date.now();
   const roundId = now;
   const roundDurationMs = getLiveRoundDurationMs(planUsed?.type, room.config.durationMs);
-  const lepersChallenge = isLepersChallengeRound({
+  const lepersChallenge = hydrateLepersChallenge(lepersQuestionHistory.takeForRound({
     enabled: planUsed?.lepersChallengeEnabled === true,
     tournamentRound,
     training: trainingRound,
-  })
-    ? hydrateLepersChallenge(prepared?.lepersChallenge, roundId)
-    : null;
+    candidates: prepared?.lepersCandidates,
+    seed: `${planUsed?.roundNumber}:${roundNumber}`,
+  }), roundId);
   const roundIntroMs = Math.max(
     0,
     ROUND_INTRO_DURATION_MS +
@@ -11603,6 +11614,7 @@ async function endRoundForRoom(room) {
 
 io.on("connection", (socket) => {
   console.log("Client connecté", socket.id);
+  emitMaintenanceStatus(socket, isMaintenanceModeActive());
   emitRoomsStats();
 
   registerSessionUtilityHandlers(socket, {

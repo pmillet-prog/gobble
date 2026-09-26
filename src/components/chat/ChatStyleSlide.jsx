@@ -103,6 +103,9 @@ export default function ChatStyleSlide(props) {
       style={{
         ...overlayStyle,
         overscrollBehavior: "none",
+        paddingTop: chatTopInsetPx
+          ? `${Math.max(0, chatTopInsetPx)}px`
+          : undefined,
       }}
     >
       <button

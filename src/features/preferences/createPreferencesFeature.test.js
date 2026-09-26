@@ -27,6 +27,7 @@ test("preferences preserve legacy defaults and deliberate stored choices", () =>
   assert.equal(state.tilePointsVisible, false);
   assert.equal(state.isVibrationEnabled, false);
   assert.equal(state.visualPresenterAnimationsEnabled, true);
+  assert.equal(state.mobileLandscapeDesktopEnabled, false);
 
   const presenterAnimationsDisabled = createInitialPreferencesState({
     matchMedia: () => ({ matches: false }),
@@ -71,5 +72,10 @@ test("preferences feature owns persistence and derived mute state", () => {
   assert.equal(writes.at(-1)[1].sfxMuted, true);
   feature.set("visualPresenterAnimationsEnabled", false);
   assert.equal(writes.at(-1)[1].visualPresenterAnimationsEnabled, false);
+  feature.set("mobileLandscapeDesktopEnabled", true);
+  assert.equal(writes.at(-1)[1].mobileLandscapeDesktopEnabled, true);
+  const restored = createInitialPreferencesState({ settings: writes.at(-1)[1] });
+  assert.equal(restored.mobileLandscapeDesktopEnabled, true);
+  assert.equal(createInitialPreferencesState({ settings: { mobileLandscapeDesktopEnabled: "true" } }).mobileLandscapeDesktopEnabled, false);
   scope.dispose();
 });
