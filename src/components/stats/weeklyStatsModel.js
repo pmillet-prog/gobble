@@ -208,7 +208,8 @@ export function createWeeklyStatsRuntimeModel(
       const nb = (b?.nick || "").toLowerCase();
       return na.localeCompare(nb);
     });
-    return deduped.slice(0, limit);
+    // The weekly word race includes every participant, including self-rank calculations.
+    return boardKey === "weeklyVocab" ? deduped : deduped.slice(0, limit);
   }
 
   function getWeeklyVocabRankForCount(countValue, statsSource = weeklyStats) {

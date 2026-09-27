@@ -1,6 +1,6 @@
 import { mkdir, writeFile, readFile } from "node:fs/promises";
 import { createAvatarRenderer } from "../src/features/avatar/avatarRenderer.js";
-import { createCanvas, loadImage, avatarCatalog, avatarAssetRoot } from "../server/tests/helpers/avatarCanvasHarness.js";
+import { createCanvas, loadImage, avatarCatalog, avatarAssetRoot } from "../server/scripts/helpers/avatarCanvasHarness.js";
 import { normalizeAvatar } from "../shared/avatarConfiguration.js";
 
 const output = new URL("../.Tmp/avatar-silhouette-review/", import.meta.url);

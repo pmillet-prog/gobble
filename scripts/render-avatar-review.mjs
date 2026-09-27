@@ -1,5 +1,5 @@
 import { mkdir, writeFile, readFile } from "node:fs/promises";
-import { createNativeAvatarRenderer, createCanvas, loadImage, GlobalFonts, avatarCatalog, avatarAssetRoot } from "../server/tests/helpers/avatarCanvasHarness.js";
+import { createNativeAvatarRenderer, createCanvas, loadImage, GlobalFonts, avatarCatalog, avatarAssetRoot } from "../server/scripts/helpers/avatarCanvasHarness.js";
 import { normalizeAvatar, createBlankAvatar } from "../shared/avatarConfiguration.js";
 import { drawParticipantTag } from "../src/features/avatar/avatarAccessories.js";
 

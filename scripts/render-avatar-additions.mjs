@@ -1,5 +1,5 @@
 import { mkdir, writeFile } from "node:fs/promises";
-import { createCanvas, createNativeAvatarRenderer } from "../server/tests/helpers/avatarCanvasHarness.js";
+import { createCanvas, createNativeAvatarRenderer } from "../server/scripts/helpers/avatarCanvasHarness.js";
 import { AVATAR_ADDITIONAL_NOSES } from "../shared/avatarNoses.js";
 import { normalizeAvatar } from "../shared/avatarConfiguration.js";
 

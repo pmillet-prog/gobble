@@ -28,6 +28,7 @@ tar -czf "%ARCHIVE%" ^
   --exclude=.tmp ^
   --exclude=node_modules ^
   --exclude=server/node_modules ^
+  --exclude=server/tests ^
   --exclude=dist ^
   --exclude=server/data-runtime ^
   --exclude=server/data/gobble.db ^

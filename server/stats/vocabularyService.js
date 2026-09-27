@@ -511,7 +511,8 @@ export async function getVocabularyLeaderboard(limit = 50) {
 export async function getWeeklyVocabularyLeaderboard(atTs = Date.now(), limit = 50) {
   const ready = await ensureDb();
   if (!ready) return [];
-  const safeLimit = Math.min(500, Math.max(1, Math.round(limit || 50)));
+  // null requests the complete weekly race; SQLite LIMIT -1 has no upper bound.
+  const safeLimit = limit === null ? -1 : Math.min(500, Math.max(1, Math.round(limit || 50)));
   const weekStartTs = getWeekStartTs(Number.isFinite(atTs) ? atTs : Date.now());
   try {
     const rows = await runWithBusyRetry(() =>

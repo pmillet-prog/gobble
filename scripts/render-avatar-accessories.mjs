@@ -1,6 +1,6 @@
 // Requested placement review: render the actual game compositor on both bases.
 import { mkdir, writeFile } from "node:fs/promises";
-import { createCanvas, createNativeAvatarRenderer } from "../server/tests/helpers/avatarCanvasHarness.js";
+import { createCanvas, createNativeAvatarRenderer } from "../server/scripts/helpers/avatarCanvasHarness.js";
 import { AVATAR_COSMETICS } from "../shared/avatarCosmetics.js";
 import { normalizeAvatar } from "../shared/avatarConfiguration.js";
 

@@ -1,4 +1,4 @@
-import { createNativeAvatarRenderer, createCanvas, avatarCatalog } from "../server/tests/helpers/avatarCanvasHarness.js";
+import { createNativeAvatarRenderer, createCanvas, avatarCatalog } from "../server/scripts/helpers/avatarCanvasHarness.js";
 import { normalizeAvatar } from "../shared/avatarConfiguration.js";
 const { renderer, restore } = await createNativeAvatarRenderer();
 let checked = 0;

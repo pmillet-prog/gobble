@@ -1,6 +1,7 @@
 .git/
 .tmp/
 node_modules/
+server/tests/
 client/node_modules/
 client/src/
 client/public/

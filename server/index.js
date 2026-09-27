@@ -768,7 +768,7 @@ async function buildWeeklyStatsResponse(topN) {
     }
     const weeklyVocabularyFallback = await getWeeklyVocabularyLeaderboard(
       payload?.weekStartTs || Date.now(),
-      payload?.topN || topN || 50
+      null
     );
     for (const entry of weeklyVocabularyFallback) {
       const key = canonicalizeVocabPlayerKey("", entry?.installId);
@@ -873,7 +873,7 @@ async function buildWeeklyStatsResponse(topN) {
       bestTimeTargetScore: withUserIds(filterBots(boards.bestTimeTargetScore)),
       vocab: withUserIds(filterBots(mergedVocab).slice(0, payload?.topN || topN || 50)),
       weeklyVocab: withUserIds(
-        filterBots(mergedWeeklyVocab).slice(0, payload?.topN || topN || 50)
+        filterBots(mergedWeeklyVocab)
       ),
       mostGobbles: withUserIds(filterBots(boards.mostGobbles)),
     };
@@ -6796,7 +6796,8 @@ function buildRoundEndCuriosityCandidateWords(highlights) {
 function buildGrosRobertCandidateWords(room, highlights) {
   const scored = new Map();
   const add = (word, score) => {
-    const norm = normalizeWord(word);
+    // Preparation runs before player results exist; optional highlights may be absent.
+    const norm = normalizeWord(String(word || ""));
     if (!norm || norm.length < 5) return;
     scored.set(norm, Math.max(Number(scored.get(norm)) || 0, Number(score) || 0));
   };
@@ -6974,7 +6975,8 @@ function preparePivotResultIntervention(room, planUsed = null) {
       round.pivotResultIntervention = intervention?.line ? intervention : null;
       return round.pivotResultIntervention;
     })
-    .catch(() => {
+    .catch((error) => {
+      console.warn(`Pinot result preparation failed room=${room.id} round=${roundId}`, error);
       if (room.currentRound?.id === roundId) {
         round.pivotResultIntervention = null;
       }

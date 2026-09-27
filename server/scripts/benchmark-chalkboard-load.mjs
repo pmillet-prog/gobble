@@ -20,7 +20,7 @@ sync.render(view);
 const synchronousMainMs = performance.now() - syncStart;
 sync.destroy();
 
-const thread = new Worker(new URL("../tests/chalkboardWorkerHarness.mjs", import.meta.url));
+const thread = new Worker(new URL("./helpers/chalkboardWorkerHarness.mjs", import.meta.url));
 const adapter = { postMessage: message => thread.postMessage(message), terminate: () => thread.terminate() };
 let maxMainMs = 0, maxHeartbeatGapMs = 0, ticks = 0, previous = performance.now();
 const heartbeat = setInterval(() => {

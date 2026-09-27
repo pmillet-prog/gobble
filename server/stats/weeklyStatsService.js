@@ -748,7 +748,7 @@ export function getWeeklyStats(topN = TOP_N) {
         Array.from(activeState.weeklyVocab.values()),
         "weeklyVocabCount",
         false
-      ).slice(0, topN),
+      ),
       mostGobbles: sortEntries(Array.from(activeState.mostGobbles.values()), "gobbles", false).slice(0, topN),
     },
   };
