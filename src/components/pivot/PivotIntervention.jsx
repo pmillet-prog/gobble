@@ -2,7 +2,8 @@ import React from "react";
 
 import SpriteIntervention from "../botInterventions/SpriteIntervention.jsx";
 import usePresenterHintsController from "../../features/presenters/usePresenterHintsController.js";
-import { PIVOT_INTERVENTION_CONFIG } from "./pivotAnimation.js";
+import { getResultsPresenter } from "../../features/presenters/resultsPresenter.js";
+import { resolvePresenterKey } from "../../features/presenters/presenterIdentity.js";
 
 function PivotIntervention({
   animated = true,
@@ -15,12 +16,18 @@ function PivotIntervention({
   roundId = null,
 }) {
   const presenterHintsController = usePresenterHintsController();
+  const presenterState = React.useSyncExternalStore(
+    presenterHintsController.subscribe,
+    presenterHintsController.getSnapshot,
+    presenterHintsController.getSnapshot
+  );
+  const presenter = getResultsPresenter(presenterState.entries.pivot);
   const handleManualActivation = React.useCallback(
-    (event) => chatFeature?.recordPresenterActivation?.("pivot", event),
+    (event) => chatFeature?.recordPresenterActivation?.(resolvePresenterKey(event) || "pivot", event),
     [chatFeature]
   );
   const handlePresentationComplete = React.useCallback(
-    (event) => chatFeature?.recordPresenterPresentationComplete?.("pivot", event),
+    (event) => chatFeature?.recordPresenterPresentationComplete?.(resolvePresenterKey(event) || "pivot", event),
     [chatFeature]
   );
   const subscribeInterventions = React.useCallback(
@@ -30,8 +37,9 @@ function PivotIntervention({
   );
   return (
     <SpriteIntervention
+      key={presenter.config.key}
       animated={animated}
-      config={PIVOT_INTERVENTION_CONFIG}
+      config={presenter.config}
       enabled={enabled}
       hostRef={hostRef}
       manualController={manual ? presenterHintsController : null}

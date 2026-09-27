@@ -81,7 +81,7 @@ export function createLiveRoundFeature({ scope }) {
       const eventRoundId = normalizeId(event?.roundId || event?.meta?.roundId);
       return (
         (!eventRoundId || eventRoundId === activeRoundId) &&
-        (!hintsDisabled || event?.meta?.category === "linguist")
+        (!hintsDisabled || event?.meta?.category === "linguist" || event?.meta?.category === "humorist")
       );
     });
     if (allowed.length) {

@@ -23,6 +23,43 @@ function createMemoryStorage(initialValues = {}) {
   };
 }
 
+test("Bafouille uses the results channel and copies his presentation into chat under his own identity", () => {
+  const handlers = new Map();
+  const socket = {
+    bind(next) { Object.entries(next).forEach(([key, value]) => handlers.set(key, value)); return () => handlers.clear(); },
+    fire(key, value) { handlers.get(key)?.(value); },
+  };
+  const scope = createResourceScope("bafouille-chat-test");
+  const chat = createChatFeature({ ports: { realtime: socket }, scope }, { storage: createMemoryStorage() });
+  chat.configureRealtime({ socket });
+  chat.start();
+  const pivot = []; chat.subscribePivotInterventions(event => pivot.push(event));
+  const message = { id: "bafouille-result", roomId: "salon", roundId: "round-2", t: 123,
+    nick: "Laurent Bafouille", installId: "ambient-bot:humorist", isBot: true,
+    text: "On pouvait aussi trouver BUVAIS, forme conjuguée de BOIRE : Activité qui demande un verre.",
+    meta: { kind: "ambient_bot_chat", category: "humorist", highlights: ["BOIRE"], formText: "BUVAIS, forme conjuguée de " },
+  };
+  try {
+    socket.fire("chat:history", [message]);
+    socket.fire("chatMessage", message);
+    socket.fire("chat:history", [message]);
+    assert.equal(chat.store.getState().messages.length, 0);
+    assert.equal(pivot.length, 1);
+    assert.equal(pivot[0].presenterKey, "bafouille");
+    assert.equal(pivot[0].formText, message.meta.formText);
+    assert.equal(chat.recordPresenterPresentationComplete("bafouille", pivot[0]), false);
+    chat.recordPresenterActivation("bafouille", pivot[0]);
+    chat.recordPresenterPresentationComplete("bafouille", pivot[0]);
+    chat.recordPresenterPresentationComplete("bafouille", pivot[0]);
+    const copies = chat.store.getState().messages;
+    assert.equal(copies.length, 1);
+    assert.equal(copies[0].nick, "Laurent Bafouille");
+    assert.equal(copies[0].text, message.text);
+    assert.equal(copies[0].meta.category, "humorist");
+    assert.equal(copies[0].meta.avatarUrl, "/bots/presenters/bafouille/button.webp");
+  } finally { scope.dispose(); }
+});
+
 function createCommandSocket(responses = {}) {
   const emissions = [];
   return {
@@ -327,9 +364,10 @@ test("presented bot interventions leave chat for their overlays", () => {
 
   socket.fire("chat:history", [suffixMessage, linguistMessage, detectiveMessage]);
   assert.equal(chat.store.getState().messages.length, 1);
-  assert.equal(interventions.length, 2);
-  assert.equal(pivotInterventions.length, 2);
-  assert.equal(romejkoInterventions.length, 2);
+  // Reconnecting keeps the last intervention available without replaying it.
+  assert.equal(interventions.length, 1);
+  assert.equal(pivotInterventions.length, 1);
+  assert.equal(romejkoInterventions.length, 1);
   const lateCapelloInterventions = [];
   const latePivotInterventions = [];
   const lateRomejkoInterventions = [];

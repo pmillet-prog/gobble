@@ -9,16 +9,17 @@ export function getInterventionWord(segment, highlights) {
     String(word).trim().toLocaleLowerCase("fr") === text.toLocaleLowerCase("fr")) ? text : null;
 }
 
-export function mountTypedText(container, text, highlights, onOpenWord = null) {
+export function mountTypedText(container, text, highlights, onOpenWord = null, formText = "") {
   const doc = container?.ownerDocument;
   if (!doc) return { units: [], revealAll() {} };
   container.replaceChildren();
   const units = [];
   const writers = [];
-  for (const segment of buildInterventionTextSegments(text, highlights)) {
+  for (const segment of buildInterventionTextSegments(text, highlights, formText)) {
     const word = onOpenWord ? getInterventionWord(segment, highlights) : null;
     const element = doc.createElement(word ? "button" : "span");
     if (segment.highlighted) element.className = "sprite-intervention-highlight";
+    if (segment.form) element.className = "sprite-intervention-form";
     if (word) {
       element.className += " sprite-intervention-word";
       element.type = "button";

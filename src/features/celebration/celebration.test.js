@@ -47,7 +47,7 @@ test("all demo situations and outfits resolve without missing assets or fake pod
   }
 });
 
-test("the four presenter bots use existing images while a human namesake keeps their avatar", () => {
+test("presenter bots use existing images while a human namesake keeps their avatar", () => {
   for (const [key, presenter] of Object.entries(PRESENTER_IDENTITIES)) {
     const portrait = getPresenterPodiumAvatar({ isBot: true, nick: presenter.nick });
     assert.equal(portrait.key, key);
@@ -85,12 +85,18 @@ test("a bot podium prepares only existing poses, shares identical frames and rel
   try {
     const players = Object.values(PRESENTER_IDENTITIES).map(presenter => ({ nick: presenter.nick, isBot: true }));
     const actors = await preparePodiumAvatars(players);
-    assert.equal(decoded.length, 8);
-    assert.equal(draws.length, 8);
+    assert.equal(decoded.length, players.length * 5);
+    assert.equal(draws.length, players.length * 5);
     for (const actor of actors) {
       assert.equal(actor.frames.neutral, actor.frames.happy);
       assert.notEqual(actor.frames.blink, actor.frames.neutral);
       assert.equal(actor.frames.neutral.width, 600);
+      for (const pose of ["hit1", "hit2", "stars"]) assert.equal(actor.frames[pose].width, 600);
+      assert.ok(parseFloat(actor.podiumHitTarget.width) > 0);
+    }
+    for (const args of draws.filter(args => /(?:hit-[12]|stars)\.webp$/.test(args[0].src))) {
+      const [, x, y, width, height] = args;
+      assert.ok(x >= 0 && y >= 0 && x + width <= 600 && height <= 580, "reaction art keeps room above and on both sides");
     }
     assert.ok(draws.every(args => args.slice(1).every(Number.isFinite)));
     releasePodiumAvatars(actors);

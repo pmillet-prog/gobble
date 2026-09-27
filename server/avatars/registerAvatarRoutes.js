@@ -16,7 +16,8 @@ export function registerAvatarRoutes({ router, getAuthContext, requireAuth, repo
       if (!thumbnail) return res.status(204).end();
       const etag = `"avatar-chat-${userId}-${thumbnail.revision}-${thumbnail.renderVersion}"`;
       res.set("ETag", etag);
-      if (String(req.query?.v) === String(thumbnail.revision)) {
+      if (String(req.query?.v) === String(thumbnail.revision)
+        && (!req.query?.r || String(req.query.r) === String(thumbnail.renderVersion))) {
         res.set("Cache-Control", "private, max-age=86400");
       }
       if (req.headers?.["if-none-match"] === etag) return res.status(304).end();

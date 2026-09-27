@@ -94,6 +94,37 @@ test("the tournament culture summary is routed to Lepers", () => {
   assert.equal(controller.getSnapshot().entries.lepers.hasHint, true);
 });
 
+test("Bafouille shares the results slot while identity survives activation, stun and reconnect", () => {
+  const values = new Map();
+  const storage = { getItem: key => values.get(key), setItem: (key, value) => values.set(key, value) };
+  const controller = createPresenterHintsController({ storage });
+  const event = { id: "r2:bafouille", roundId: "r2", text: "On pouvait aussi trouver RARES, pluriel de RARE : Une surprise.", meta: { category: "humorist", formText: "RARES, pluriel de " } };
+  controller.hydrateInterventions([event]);
+  controller.setScope("r2", "results");
+  assert.equal(controller.getSnapshot().entries.pivot.presenterKey, "bafouille");
+  const presentations = [];
+  controller.subscribeInterventions("pivot", event => presentations.push(event));
+  controller.request("pivot");
+  assert.equal(presentations.at(-1).formText, event.meta.formText);
+  controller.markAvailable("pivot", "r2");
+  controller.markStunned("pivot");
+  assert.equal(controller.getSnapshot().entries.pivot.presenterKey, "bafouille");
+  assert.equal(controller.request("pivot"), false);
+  const restored = createPresenterHintsController({ storage });
+  restored.hydrateInterventions([event]); restored.setScope("r2", "results");
+  assert.equal(restored.getSnapshot().entries.pivot.presenterKey, "bafouille");
+  assert.equal(restored.getSnapshot().entries.pivot.stunned, true);
+  controller.setScope("r3", "results");
+  assert.equal(controller.getSnapshot().entries.pivot.hasHint, false);
+  controller.hydrateInterventions([{ id: "r3:pinot", roundId: "r3", text: "Étymologie.", meta: { category: "linguist" } }]);
+  assert.equal(controller.getSnapshot().entries.pivot.presenterKey, "pivot");
+  assert.equal(controller.getSnapshot().entries.pivot.stunned, false);
+  let updates = 0; controller.subscribe(() => updates++);
+  controller.hydrateInterventions([{ ...event, id: "r3:replacement", roundId: "r3" }]);
+  assert.equal(controller.getSnapshot().entries.pivot.presenterKey, "bafouille");
+  assert.equal(updates, 1, "an identity change must notify the button even when the hint flags are unchanged");
+});
+
 test("requesting a presenter interrupts the other active presenter", () => {
   const controller = createPresenterHintsController();
   const interruptions = [];

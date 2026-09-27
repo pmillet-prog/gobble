@@ -107,6 +107,9 @@ const modules = {
   "lot_010_renderer": ["lot_001_renderer"],
 };
 for (const [name, dependencies] of Object.entries(modules)) {
+  // These renderers own overflow-safe world-coordinate layers in the game.
+  // Keep importing their catalogue/fittings, but not the workshop's clipped code.
+  if (["hair-fitting", "lot_005_renderer", "lot_007_renderer"].includes(name)) continue;
   if (selectedFamilies && ![...(selectedFamilies.has("hair") ? ["hair-fitting", "lot_005_renderer"] : []), ...(selectedFamilies.has("headwear") ? ["headwear-fitting", "lot_007_renderer"] : [])].includes(name)) continue;
   const source = await fs.readFile(path.join(root, "editor", name + ".js"), "utf8");
   const factoryMatch = /,\s*(function\s*\([^)]*\)\s*\{)/.exec(source);
@@ -119,6 +122,9 @@ for (const [name, dependencies] of Object.entries(modules)) {
   // The workshop's nose-only preview supports these adjustments. Apply them to
   // the assembled player too, keeping the same approved nose pivot and limits.
   if (name === "lot_002_renderer") {
+    const cropTop = "const top=headwear?.top(state)||0;";
+    if (!factory.includes(cropTop)) throw Error("Portrait framing changed; review the hair overflow adapter.");
+    factory = factory.replace(cropTop, "const hairTop=state.headwear&&state.headwearHair==='hide' ? 0 : hair?.top?.(assets,state,view==='portrait'?128:0)||0;\n      const top=Math.min(headwear?.top(state)||0,hairTop);");
     const headDraw = "ctx.drawImage(skin.tinted(id, assets[id], role, state.tone || 'native', assets[id + '_mask'], state.customColor, state.showMask), 0, 0);";
     if (!factory.includes(headDraw)) throw Error("Head renderer changed; review the skin relief adapter.");
     factory = factory.replace(headDraw, "if (role === 'head' && options.drawSkin) { options.drawSkin(ctx); continue; }\n          " + headDraw);

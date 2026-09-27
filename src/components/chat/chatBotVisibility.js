@@ -9,13 +9,14 @@ export const CHAT_BOT_VISIBILITY_OPTIONS = Object.freeze([
   { key: "narrator", nick: "Oraclettres" },
   { key: "coach", nick: "Maître Gobbello" },
   { key: "record_hunter", nick: "Recordator" },
-  { key: "hidden_word", nick: "MomoMotus" },
+  { key: "humorist", nick: "Laurent Bafouille" },
   { key: "trend", nick: "Webomètre" },
 ]);
 
-const BOT_KEY_BY_NICK = Object.freeze(
-  Object.fromEntries(CHAT_BOT_VISIBILITY_OPTIONS.map((bot) => [bot.nick.toLowerCase(), bot.key]))
-);
+const BOT_KEY_BY_NICK = Object.freeze({
+  ...Object.fromEntries(CHAT_BOT_VISIBILITY_OPTIONS.map((bot) => [bot.nick.toLowerCase(), bot.key])),
+  momomotus: "humorist",
+});
 
 export function isChatBotMessage(message) {
   if (!message || typeof message !== "object") return false;
@@ -33,17 +34,21 @@ export function isChatBotMessage(message) {
 
 export function normalizeChatBotVisibility(source) {
   return Object.fromEntries(
-    CHAT_BOT_VISIBILITY_OPTIONS.map((bot) => [bot.key, source?.[bot.key] !== false])
+    CHAT_BOT_VISIBILITY_OPTIONS.map((bot) => {
+      const value = bot.key === "humorist" ? source?.humorist ?? source?.hidden_word : source?.[bot.key];
+      return [bot.key, value !== false];
+    })
   );
 }
 
 export function getChatBotVisibilityKey(message) {
   if (!message || typeof message !== "object") return "";
   const category = typeof message.meta?.category === "string" ? message.meta.category.trim() : "";
-  if (category) return category;
+  if (category) return category === "hidden_word" ? "humorist" : category;
   const installId = typeof message.installId === "string" ? message.installId : "";
   if (installId.startsWith("ambient-bot:")) {
-    return installId.slice("ambient-bot:".length).trim();
+    const key = installId.slice("ambient-bot:".length).trim();
+    return key === "hidden_word" ? "humorist" : key;
   }
   const nick = String(message.nick || message.author || "").trim().toLowerCase();
   return BOT_KEY_BY_NICK[nick] || "";

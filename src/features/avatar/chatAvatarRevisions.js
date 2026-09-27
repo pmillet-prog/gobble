@@ -1,3 +1,5 @@
+import { AVATAR_THUMBNAIL_RENDER_VERSION } from "../../../shared/avatarRenderVersion.js";
+
 export function createChatAvatarRevisions() {
   const records = new Map(), listeners = new Map();
   let generation = 0;
@@ -33,6 +35,7 @@ export function createChatAvatarRevisions() {
       const params = new URLSearchParams();
       if (entry?.revision) params.set("v", String(entry.revision));
       if (entry?.generation) params.set("sync", String(entry.generation));
+      params.set("r", String(AVATAR_THUMBNAIL_RENDER_VERSION));
       return `/api/auth/avatars/${id}/chat.png${params.size ? `?${params}` : ""}`;
     },
     subscribe(userId, listener) {

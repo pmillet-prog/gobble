@@ -113,7 +113,8 @@ export default (function (skinRenderer, adjustments, backgrounds, auras) {
       }
       const decorOnly = view === 'lashes' || view === 'brows';
       const isolated = decorOnly || view === 'isolated' || view === 'opening';
-      const top=headwear?.top(state)||0;
+      const hairTop=state.headwear&&state.headwearHair==='hide' ? 0 : hair?.top?.(assets,state,view==='portrait'?128:0)||0;
+      const top=Math.min(headwear?.top(state)||0,hairTop);
       let crop = decorOnly ? [290, 185, 444, 360] : isolated ? [316, 242, 392, 288] : view === 'face' ? (state.hair || state.headwear ? [130, top, 764, 764-top] : [230, 100, 564, 564]) : [0, top, 1024, 1024-top];
       if(options.authoring){const size=1024/(options.zoom||1);crop=[512+(options.panX||0)-size/2,212+(options.panY||0)-size/2,size,size];}
       const ratio = Math.min(w / crop[2], h / crop[3]);

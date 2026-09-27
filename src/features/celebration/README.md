@@ -23,8 +23,8 @@ aucune sauvegarde d’avatar. Entrée séparée du jeu, hors du build de product
 `avatar`) et le résultat personnel. Apparitions : bronze à 1 s, argent à 2,15 s,
 or à 3,45 s ; photo finale à 6,8 s. Bouton Photo finale, deux séries de
 tenues, situations vainqueur/deuxième/hors podium, applaudissements facultatifs.
-Le sélecteur « Bot invité » ajoute Bernard Pinot, Laurent Rhum&Co, Julien Lechéper
-ou Maître Gobbello. Le bot prend la première place disponible hors joueur local
+Le sélecteur « Bot invité » ajoute Bernard Pinot, Laurent Bafouille, Laurent Rhum&Co,
+Julien Lechéper ou Maître Gobbello. Le bot prend la première place disponible hors joueur local
 (premier si le joueur est deuxième/hors podium, sinon deuxième).
 Les préférences de réduction des mouvements donnent directement la photo finale.
 
@@ -35,13 +35,24 @@ CSS ; React ne se met à jour qu’aux changements de pose et étapes de la séq
 Il n'y a plus de bouton de replay. Les délais sont annulés à l’arrêt/démontage ; les
 canvases et caches sont libérés au changement de personnages ou au démontage.
 
-Les quatre présentateurs utilisent leurs WebP existants, leurs poses neutres et
+Les cinq présentateurs utilisent leurs WebP existants, leurs poses neutres et
 les indices de clignement des interventions. L’image neutre est conservée pour
 la pose heureuse, sans fabriquer une nouvelle expression. Les dessins sont
 placés dans le même canevas 600 × 600 que les joueurs, avec un cadrage commun
 entre leurs poses. Le statut `isBot: true` est obligatoire pour ce chemin ; un
 homonyme humain garde sa composition. L’identification est partagée avec le chat.
 Un podium uniquement composé de ces bots ne charge pas le catalogue modulaire.
+
+Les bots du podium sont cliquables après leur arrivée. `PodiumBotAvatar` possède
+sa réaction locale : alternance coup 1/coup 2, puis étoiles une seconde après le
+dernier coup. Le bot reste sonné jusqu'à la fermeture du podium. Aucun état des
+indices de manche n'est modifié, et les coups ne repoussent pas le classement.
+Les sons respectent le réglage de la scène. Les trois images de réaction sont
+préparées avec le podium, puis libérées avec ses autres poses. Leurs bords
+inférieurs visibles sont mesurés dans les assets pour les poser sur le socle
+sans déplacer les poses normales. Les zones cliquables suivent les portraits,
+et non toute la surface transparente des canevas. Le fixture complet accepte
+`/dev/avatar-tournament/?bots=pivot,bafouille,romejko` et l'option `&sound`.
 
 Validation de la réutilisation et du cycle de vie :
 

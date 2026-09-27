@@ -203,6 +203,12 @@
   font-weight: 900;
 }
 
+.sprite-intervention-form {
+  font-size: .82em;
+  font-style: italic;
+  font-weight: 400;
+}
+
 .sprite-intervention-character-slot {
   appearance: none;
   position: relative;
@@ -262,7 +268,7 @@
   right: 0;
   bottom: 0;
   height: 100%;
-  aspect-ratio: 1;
+  aspect-ratio: var(--sprite-intervention-reaction-aspect, 1);
   background-position: center bottom;
   background-repeat: no-repeat;
   background-size: contain;

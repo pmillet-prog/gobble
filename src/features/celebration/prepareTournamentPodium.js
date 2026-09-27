@@ -17,10 +17,17 @@ export async function prepareTournamentPodium(entrants, { signal } = {}) {
       const response = await fetch(`/api/auth/avatars?userIds=${ids.join(",")}`, {
         credentials: "include", cache: "no-store", signal: controller.signal,
       });
-      if (response.ok) avatars = (await response.json())?.avatars || {};
+      if (!response.ok) throw new Error("podium_avatars_unavailable");
+      const payload = await response.json();
+      if (payload?.ok === false || !payload?.avatars || typeof payload.avatars !== "object" || Array.isArray(payload.avatars)) {
+        throw new Error("podium_avatars_invalid");
+      }
+      controller.signal.throwIfAborted();
+      avatars = payload.avatars;
     }
-  } catch { /* A missing appearance uses the existing default portrait. */ }
-  finally { clearTimeout(timer); signal?.removeEventListener("abort", abort); }
+  } finally { clearTimeout(timer); signal?.removeEventListener("abort", abort); }
+  // Only a successful response can confirm that a player has no saved avatar.
+  // Failed requests must stay retryable, never become cached default portraits.
   signal?.throwIfAborted();
   const decorate = entry => entry && ({ ...entry, avatar: entry.userId && entry.userId === local.userId
     ? local.avatar || avatars[entry.userId] || entry.avatar : avatars[entry.userId] || entry.avatar });

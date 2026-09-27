@@ -20,10 +20,9 @@ function LivePodium({ tournamentKey, ranking, identity, sound, onOpenProfile, on
   React.useEffect(() => {
     let active = true;
     setError(false);
-    const preparation = resources.preparePodium(tournamentKey, entrants, { retry: attempt > 0 });
+    const preparation = resources.openPodium(tournamentKey, entrants, { retry: attempt > 0 });
     const accept = value => { if (active && value) setReady(value); };
-    if (preparation?.value) accept(preparation.value);
-    else preparation?.promise?.then(accept).catch(() => { if (active) setError(true); });
+    preparation.then(accept).catch(() => { if (active) setError(true); });
     return () => { active = false; };
   }, [resources, tournamentKey, entrants, attempt]);
   return ready ? <TournamentPodium {...ready} preparedActors={ready.actors} sound={sound} onOpenProfile={onOpenProfile} onComplete={onComplete} />
@@ -37,8 +36,17 @@ export default function TournamentFinaleExperience(props) {
   const dismissed = useFeatureSelector(ui, state => state.podiumDismissedKey === tournamentKey);
   const [completedKey, setCompletedKey] = React.useState(null);
   const closeRef = React.useRef(null);
+  const lifetime = React.useRef(0);
   const dismiss = React.useCallback(() => ui.set("podiumDismissedKey", tournamentKey), [ui, tournamentKey]);
   const onComplete = React.useCallback(() => setCompletedKey(tournamentKey), [tournamentKey]);
+  React.useEffect(() => {
+    const generation = ++lifetime.current;
+    // The server can end this screen while loading. Release the pending work;
+    // defer cleanup only to tolerate React's development effect replay.
+    return () => queueMicrotask(() => {
+      if (lifetime.current === generation) resources?.releasePodium(tournamentKey);
+    });
+  }, [resources, tournamentKey]);
   React.useEffect(() => {
     if (dismissed) { resources?.releasePodium(tournamentKey); return; }
     if (completedKey !== tournamentKey) return;

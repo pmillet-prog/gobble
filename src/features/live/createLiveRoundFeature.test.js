@@ -293,10 +293,10 @@ test("joining an ordinary round cannot overwrite its hints with previous results
   } finally { harness.release(); }
 });
 
-test("three-word results retain Pivot without reviving the disabled opening hints", () => {
+for (const category of ["linguist", "humorist"]) test(`three-word results retain ${category} without reviving the disabled opening hints`, () => {
   const harness = createHarness();
   try {
-    const pivot = { id: "three:pivot", roundId: "three", text: "Une etymologie.", meta: { category: "linguist" } };
+    const pivot = { id: `three:${category}`, roundId: "three", text: "Une définition.", meta: { category } };
     harness.live.hydrateSnapshot({
       roomId: "room-4x4", phase: "results", currentRound: null,
       lastRoundResults: {

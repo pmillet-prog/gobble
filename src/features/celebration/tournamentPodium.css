@@ -33,6 +33,8 @@
 .podium-avatar-entrance{position:absolute;left:50%;bottom:calc(100% - 10px);width:118%;aspect-ratio:1;transform:translateX(-50%);opacity:0;transform-origin:50% 100%;pointer-events:none}
 .podium-avatar-motion{width:100%;height:100%;transform-origin:50% 85%;filter:drop-shadow(0 9px 5px #02162355)}
 .podium-avatar-motion canvas{display:block;width:100%;height:100%}
+.podium-bot-avatar{position:relative;width:100%;height:100%}
+.podium-bot-hit-target{position:absolute;appearance:none;border:0;padding:0;margin:0;background:transparent;pointer-events:auto;touch-action:manipulation;-webkit-tap-highlight-color:transparent;border-radius:40%}
 .podium-winner-crown{position:absolute;left:50%;bottom:80%;width:23%;aspect-ratio:100/76;transform:translateX(-50%);opacity:0;z-index:4;filter:drop-shadow(0 0 14px #efc97455)}
 .podium-winner-crown svg{width:100%;height:100%}
 .podium-confetti{position:absolute;inset:-130px -50px -40px;overflow:hidden;pointer-events:none;z-index:5}

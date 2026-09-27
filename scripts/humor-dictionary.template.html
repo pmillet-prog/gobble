@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dictionnaire humoristique · Gobble</title>
+<style>
+:root{color-scheme:light;--paper:#faf8f3;--ink:#223c36;--muted:#586b65;--line:#dce3da;--accent:#21644e}
+*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.5 system-ui,sans-serif}
+main{max-width:1260px;margin:auto;padding:40px 28px 64px}.eyebrow{font-size:12px;letter-spacing:.14em;font-weight:750;text-transform:uppercase;color:var(--accent)}
+h1{font-size:clamp(30px,4vw,46px);line-height:1.15;letter-spacing:-.04em;margin:10px 0 18px}header p{max-width:800px;margin:8px 0;color:var(--muted)}
+.count{display:inline-block;border:1px solid var(--line);border-radius:20px;padding:5px 13px;font-weight:650;margin:12px 0 24px;background:#fff}
+.controls{display:flex;flex-wrap:wrap;gap:14px;align-items:end;margin:10px 0 18px}label{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:650}
+.search{flex:1;min-width:210px}input,select,button{font:inherit;color:var(--ink);background:#fff;border:1px solid #a5b5a9;border-radius:7px;min-height:43px;padding:9px 12px}
+input{width:100%}button{cursor:pointer;font-weight:600}button:hover{background:#eaf0e8}button:disabled{opacity:.4;cursor:default}button.primary{background:var(--accent);color:white;border-color:var(--accent)}
+:focus-visible{outline:3px solid #bc7924;outline-offset:3px}.caption{display:flex;gap:14px;flex-wrap:wrap;justify-content:space-between;align-items:baseline;margin:12px 0;color:var(--muted);font-size:13px}a{color:var(--accent)}
+.table-wrap{overflow:auto;border:1px solid var(--line);border-radius:12px;background:#fff}table{border-collapse:collapse;width:100%;min-width:740px;table-layout:fixed}
+col.word{width:14%}col.definition{width:56%}col.rate{width:10%}th,td{text-align:left;padding:14px 18px;border-bottom:1px solid var(--line);vertical-align:top}th{background:#eef2e9;font-size:12px;text-transform:uppercase;letter-spacing:.04em}
+td.word{font-weight:750;color:#19583f;overflow-wrap:anywhere}td.rate,th.rate{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}td.rate{font-size:14px;color:var(--muted)}tbody tr:last-child td{border-bottom:0}tbody tr:hover{background:#fbfcf8}
+.pager{display:flex;align-items:center;justify-content:center;gap:16px;margin:22px 0}.empty{padding:30px;text-align:center;color:var(--muted)}footer{font-size:13px;color:var(--muted);max-width:920px;border-top:1px solid var(--line);padding-top:18px;margin-top:30px}footer p{margin:8px 0}
+@media(max-width:650px){main{padding:24px 14px}label{flex:1;min-width:145px}.controls button{flex:1}.table-wrap{border-radius:8px}.caption{gap:5px}
+table{min-width:0;display:block}colgroup{display:none}thead{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}tbody{display:block}
+tbody tr{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;padding:16px;border-bottom:1px solid var(--line)}tbody tr:last-child{border-bottom:0}
+td{display:block;border:0;padding:0}td.word,td.definition{grid-column:1/-1}td.definition{padding-bottom:8px}td.rate{text-align:left;font-size:13px;white-space:normal}
+td.rate::before{content:attr(data-label);display:block;font-size:10px;letter-spacing:.03em;text-transform:uppercase;color:var(--muted)}}
+</style>
+</head>
+<body><main>
+<header>
+<div class="eyebrow">Gobble · Atelier d’écriture</div>
+<h1>Le dictionnaire humoristique</h1>
+<p>Des définitions courtes, mordantes et décalées, écrites pour les mots du jeu. Une première version à parcourir par fréquence, par mot ou au hasard.</p>
+<div class="count" id="count"></div>
+</header>
+<div class="controls">
+<label class="search">Rechercher un mot ou une expression<input id="search" type="search" placeholder="Ex. : ami, café, mauvaise idée…" autocomplete="off"></label>
+<label>Trier par<select id="sort"><option value="normal">Fréquence · Classique</option><option value="massive_boggle">Fréquence · Massive Boggle</option><option value="finale">Fréquence · Finale</option><option value="word">Ordre alphabétique</option></select></label>
+<button id="random" class="primary" type="button">20 au hasard</button>
+<button id="all" type="button" hidden>Toute la sélection</button>
+</div>
+<div class="caption"><span id="status" role="status" aria-live="polite"></span><a href="catalog.fr.json" download>Télécharger les données</a></div>
+<div class="table-wrap"><table aria-label="Définitions humoristiques et présence dans les grilles">
+<colgroup><col class="word"><col class="definition"><col class="rate"><col class="rate"><col class="rate"></colgroup>
+<thead><tr><th scope="col">Mot</th><th scope="col">Définition proposée</th><th scope="col" class="rate">Classique</th><th scope="col" class="rate">Massive</th><th scope="col" class="rate">Finale</th></tr></thead><tbody id="rows"></tbody>
+</table><div class="empty" id="empty" hidden>Aucune entrée ne correspond à cette recherche.</div></div>
+<nav class="pager" aria-label="Pages du dictionnaire"><button id="prev" type="button">Précédent</button><span id="page"></span><button id="next" type="button">Suivant</button></nav>
+<footer>
+<p id="sample"></p>
+<p>Les pourcentages mesurent la présence dans les grilles simulées, pas les mots trouvés par les joueurs. Un taux de 0 % signifie « non observé dans cet échantillon ». Les trois types restent distincts ; leurs fréquences ne s’additionnent pas.</p>
+<p>Corpus humoristique de Laurent Bafouille : ces propositions ne remplacent pas les définitions lexicales du jeu.</p>
+</footer>
+</main>
+<script>
+'use strict';
+const catalog = /*__CATALOG__*/;
+const el = id => document.getElementById(id);
+const normalize = value => value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/œ/g,'oe').toLowerCase();
+const formatCount = n => new Intl.NumberFormat('fr-FR').format(n);
+const formatRate = n => new Intl.NumberFormat('fr-FR',{minimumFractionDigits:1,maximumFractionDigits:1}).format(n)+' %';
+const modes = catalog.modes.map(mode=>mode.key);
+const searchable = catalog.entries.map(entry=>({...entry,search:normalize(entry.label+' '+entry.definition)}));
+let page = 0, sample = null, filtered = [], visible = [];
+const size = 40;
+el('count').textContent = formatCount(catalog.count)+' mots distincts · 3 lettres minimum';
+el('sample').textContent = 'Échantillons : '+catalog.modes.map(mode=>formatCount(mode.grids)+' grilles '+mode.label).join(' ; ')+'.';
+function update(reset=true) {
+  if(reset) {page=0;sample=null;}
+  const query = normalize(el('search').value.trim());
+  const sort = el('sort').value;
+  filtered = searchable.filter(entry=>entry.search.includes(query));
+  filtered.sort((a,b)=>(sort==='word'?0:b.frequencies[sort].percent-a.frequencies[sort].percent)||a.label.localeCompare(b.label,'fr'));
+  const totalPages = Math.max(1,Math.ceil(filtered.length/size));
+  page = Math.min(page,totalPages-1);
+  visible = sample || filtered.slice(page*size,(page+1)*size);
+  const body = el('rows'); body.replaceChildren();
+  for(const entry of visible) {
+    const row = document.createElement('tr');
+    for(const [text,className,label] of [[entry.label,'word'],[entry.definition,'definition'],...modes.map(key=>[formatRate(entry.frequencies[key].percent),'rate',{normal:'Classique',massive_boggle:'Massive',finale:'Finale'}[key]])]) {
+      const cell = document.createElement('td');cell.textContent=text;cell.className=className;if(label)cell.dataset.label=label;row.append(cell);
+    }
+    body.append(row);
+  }
+  el('status').textContent = sample ? sample.length+' entrées tirées au hasard parmi '+formatCount(filtered.length) : formatCount(filtered.length)+' entrées · '+(filtered.length?page*size+1:0)+'–'+Math.min((page+1)*size,filtered.length);
+  el('empty').hidden = visible.length!==0;
+  el('page').textContent = sample?'Échantillon':'Page '+(page+1)+' / '+totalPages;
+  el('prev').disabled = Boolean(sample)||page===0;
+  el('next').disabled = Boolean(sample)||page>=totalPages-1;
+  el('random').disabled = filtered.length===0;
+  el('all').hidden = sample===null;
+}
+el('search').addEventListener('input',()=>update());
+el('sort').addEventListener('change',()=>update());
+el('prev').addEventListener('click',()=>{page--;update(false);});
+el('next').addEventListener('click',()=>{page++;update(false);});
+el('all').addEventListener('click',()=>update());
+el('random').addEventListener('click',()=>{
+  const shuffled=[...filtered];
+  for(let i=shuffled.length-1;i>0;i--) {const j=Math.floor(Math.random()*(i+1));[shuffled[i],shuffled[j]]=[shuffled[j],shuffled[i]];}
+  sample=shuffled.slice(0,20);update(false);
+});
+update();
+</script>
+</body>
+</html>

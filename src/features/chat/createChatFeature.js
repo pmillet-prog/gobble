@@ -2,6 +2,7 @@ import { createStateFeature } from "../../app/core/createStateFeature.js";
 import { getDefaultRoomId } from "../../app/adapters/deviceCapabilities.js";
 import { chatAvatarRevisions } from "../avatar/chatAvatarRevisions.js";
 import { playerProfileUserId } from "../overlays/playerProfileTarget.js";
+import { resolvePresenterKey } from "../presenters/presenterIdentity.js";
 import {
   CHAT_BOT_VISIBILITY_STORAGE_KEY,
   CHAT_SHOW_BOT_MESSAGES_STORAGE_KEY,
@@ -41,6 +42,11 @@ const PRESENTER_CHAT_PROFILES = Object.freeze({
     category: "linguist",
     nick: "Bernard Pinot",
   }),
+  bafouille: Object.freeze({
+    avatarUrl: "/bots/presenters/bafouille/button.webp",
+    category: "humorist",
+    nick: "Laurent Bafouille",
+  }),
   romejko: Object.freeze({
     avatarUrl: "/bots/presenters/romejko/button.webp",
     category: "statistician",
@@ -58,7 +64,7 @@ export function isCapelloInterventionMessage(message) {
 export function isPivotInterventionMessage(message) {
   return (
     message?.meta?.kind === "ambient_bot_chat" &&
-    message?.meta?.category === "linguist"
+    (message?.meta?.category === "linguist" || message?.meta?.category === "humorist")
   );
 }
 
@@ -89,6 +95,8 @@ function normalizeIntervention(message) {
     ...(roundId ? { roundId } : null),
     t: message.t ?? message.createdAt ?? Date.now(),
     text: message.text,
+    ...(message?.meta?.formText ? { formText: message.meta.formText } : null),
+    ...(resolvePresenterKey(message) === "bafouille" ? { presenterKey: "bafouille" } : null),
     ...(typeof message?.meta?.chatCopyText === "string" &&
     message.meta.chatCopyText.trim()
       ? { chatCopyText: message.meta.chatCopyText.trim() }

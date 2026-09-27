@@ -9,6 +9,7 @@ data/install-aliases.json
 data/dev-access.json
 data/dev-controls.json
 data/lepers-question-history.json*
+data/bafouille-results-history.json*
 data/chalkboard.sqlite*
 data/chalkboard-exports/
 data/frwiktionary-*.xml

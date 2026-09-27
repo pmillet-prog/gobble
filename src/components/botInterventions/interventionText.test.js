@@ -47,3 +47,18 @@ test("playing-phase text stays noninteractive, and replacing an intervention rem
   assert.ok(host.children.every(node => node.tagName === "span"));
   assert.equal(host.children.map(node => node.children[0].data).join(""), "« CHIEN » ?");
 });
+
+test("the inflected form is subdued and the complete lemma stays highlighted and clickable", () => {
+  const host = container(), opened = [];
+  const text = "On pouvait aussi trouver CHATS, pluriel de CHAT : un colocataire exigeant.";
+  const typed = mountTypedText(host, text, ["CHAT"], word => opened.push(word), "CHATS, pluriel de ");
+  typed.revealAll();
+  const form = host.children.find(node => node.className === "sprite-intervention-form");
+  assert.equal(form.children[0].data, "CHATS, pluriel de ");
+  const buttons = host.children.filter(node => node.tagName === "button");
+  assert.equal(buttons.length, 1);
+  assert.equal(buttons[0].children[0].data, "CHAT");
+  buttons[0].onclick({ stopPropagation() {} });
+  assert.deepEqual(opened, ["CHAT"]);
+  assert.equal(host.children.map(node => node.children[0].data).join(""), text);
+});

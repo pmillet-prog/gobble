@@ -1,3 +1,5 @@
+import { resolvePresenterKey } from "./presenterIdentity.js";
+
 export const PRESENTER_HINT_KEYS = Object.freeze({
   romejko: "romejko",
   lepers: "lepers",
@@ -12,6 +14,7 @@ const PRESENTER_KEY_BY_CATEGORY = Object.freeze({
   culture: PRESENTER_HINT_KEYS.lepers,
   detective: PRESENTER_HINT_KEYS.romejko,
   linguist: PRESENTER_HINT_KEYS.pivot,
+  humorist: PRESENTER_HINT_KEYS.pivot,
   statistician: PRESENTER_HINT_KEYS.romejko,
 });
 
@@ -102,10 +105,12 @@ export function createPresenterHintsController({
 
   const commitEntry = (key, nextEntry) => {
     const current = snapshot.entries[key];
+    nextEntry = { ...current, ...nextEntry };
     if (
       current?.hasHint === nextEntry.hasHint &&
       current?.pending === nextEntry.pending &&
-      current?.stunned === nextEntry.stunned
+      current?.stunned === nextEntry.stunned &&
+      current?.presenterKey === nextEntry.presenterKey
     ) {
       return;
     }
@@ -130,6 +135,7 @@ export function createPresenterHintsController({
         hasHint: true,
         pending: !stunned,
         stunned,
+        ...(key === PRESENTER_HINT_KEYS.pivot ? { presenterKey: resolvePresenterKey(event) || "pivot" } : null),
       });
     }
     return entries;
@@ -144,6 +150,8 @@ export function createPresenterHintsController({
       ...rawEvent,
       text,
       roundId: rawEvent?.roundId || rawEvent?.meta?.roundId || null,
+      ...(rawEvent?.formText || rawEvent?.meta?.formText
+        ? { formText: String(rawEvent.formText || rawEvent.meta.formText) } : null),
       highlights: Array.isArray(rawEvent?.highlights)
         ? rawEvent.highlights
         : Array.isArray(rawEvent?.meta?.highlights)
@@ -160,7 +168,9 @@ export function createPresenterHintsController({
     const eventRoundId = event.roundId == null ? "" : String(event.roundId);
     if (eventRoundId && eventRoundId === snapshot.roundId) {
       const stunned = !!snapshot.entries[key]?.stunned;
-      commitEntry(key, { hasHint: true, pending: !stunned, stunned });
+      commitEntry(key, { hasHint: true, pending: !stunned, stunned,
+        ...(key === PRESENTER_HINT_KEYS.pivot ? { presenterKey: resolvePresenterKey(event) || "pivot" } : null),
+      });
     }
     for (const listener of interventionListeners.get(key) || []) {
       listener(event);

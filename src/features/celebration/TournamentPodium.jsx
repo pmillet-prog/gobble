@@ -1,5 +1,6 @@
 import React from "react";
 import PodiumAvatar from "./PodiumAvatar.jsx";
+import PodiumBotAvatar from "./PodiumBotAvatar.jsx";
 import { PodiumConfetti, PodiumCrown, PodiumLaurels } from "./PodiumDecor.jsx";
 import { preparePodiumAvatars, releasePodiumAvatars } from "./preparePodiumAvatars.js";
 import { CELEBRATION_DURATION, PODIUM_ARRIVAL, getPodiumPose, startCelebration } from "./celebrationTimeline.js";
@@ -86,7 +87,12 @@ export default function TournamentPodium({ players, self, preparedActors = null,
         <div className="podium-floor" aria-hidden="true" />
         {ordered ? <div className="podium-players">
           {ordered.map(actor => <article key={actor.rank} className={`podium-player podium-place-${actor.rank} ${actor.isBot ? "is-bot" : ""} ${actor.userId === self?.userId ? "is-self" : ""}`} style={{ "--arrival": `${PODIUM_ARRIVAL[actor.rank]}ms` }} aria-label={`${actor.rank === 1 ? "Premier" : actor.rank === 2 ? "Deuxième" : "Troisième"} : ${actor.nick}, ${number.format(actor.score)} points`}>
-            <div className="podium-avatar-entrance"><div className="podium-avatar-motion"><PodiumAvatar actor={actor} pose={getPodiumPose(actor.rank, elapsed)} /></div>{actor.rank === 1 ? <div className="podium-winner-crown"><PodiumCrown /></div> : null}</div>
+            <div className="podium-avatar-entrance"><div className="podium-avatar-motion">
+              {actor.isBot && actor.podiumHitTarget
+                ? <PodiumBotAvatar actor={actor} pose={getPodiumPose(actor.rank, elapsed)} sound={sound}
+                    enabled={elapsed >= PODIUM_ARRIVAL[actor.rank] + 700} />
+                : <PodiumAvatar actor={actor} pose={getPodiumPose(actor.rank, elapsed)} />}
+            </div>{actor.rank === 1 ? <div className="podium-winner-crown"><PodiumCrown /></div> : null}</div>
             <div className="podium-plinth"><div className="podium-plinth-top" /><div className="podium-plaque">
               <span className="podium-rank">{actor.rank === 1 ? <PodiumLaurels /> : null}<b>{actor.rank}</b></span>
               <h2>{!actor.isBot && actor.userId && onOpenProfile ? <button type="button" onClick={() => onOpenProfile(actor)} title="Voir le profil">{actor.nick}</button> : actor.nick}</h2><p><strong>{number.format(actor.score)}</strong> pts</p>

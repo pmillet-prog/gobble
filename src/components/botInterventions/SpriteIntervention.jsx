@@ -15,29 +15,12 @@ import {
 } from "./spriteInterventionAnimation.js";
 import { mountTypedText } from "./interventionText.js";
 import { observeInterventionPlacement, updateInterventionPlacement } from "./spriteInterventionPlacement.js";
+import { getPresenterReactionAssets as getReactionAssets, playPresenterPunch } from "./presenterReactions.js";
 import "./SpriteIntervention.css";
 
 const spritePreloadPromises = new Map();
-const PRESENTER_PUNCH_KEYS = Object.freeze([
-  SFX_KEYS.presenterPunch1,
-  SFX_KEYS.presenterPunch2,
-  SFX_KEYS.presenterPunch3,
-  SFX_KEYS.presenterPunch4,
-  SFX_KEYS.presenterPunch5,
-]);
 export { PRESENTER_HIT_IDLE_MS } from "./spriteInterventionAnimation.js";
 export const PRESENTER_HANDOFF_EXIT_MS = 180;
-
-function getReactionAssets(config) {
-  if (config?.reactionUrls) return config.reactionUrls;
-  const key = String(config?.key || "").trim();
-  if (!key) return {};
-  return {
-    hit1: `/bots/${key}-hit-1.webp`,
-    hit2: `/bots/${key}-hit-2.webp`,
-    stars: `/bots/${key}-stars.webp`,
-  };
-}
 
 function getCharacterAssets(config) {
   const frameUrls = Array.isArray(config?.frameUrls)
@@ -233,6 +216,7 @@ function SpriteIntervention({
       const assetUrls = [
         ...getCharacterAssets(config),
         config.buttonUrl,
+        config.launchImageUrl,
         ...Object.values(reactionAssets),
       ].filter(Boolean);
       void Promise.all(assetUrls.map(preloadInterventionSprite)).then(() => {
@@ -255,6 +239,7 @@ function SpriteIntervention({
         activePresentationRef.current = event;
         setIntervention({
           highlights: Array.isArray(event?.highlights) ? event.highlights : [],
+          formText: String(event?.formText || ""),
           id: String(event?.id || `${config.key}-${sequence}`),
           originRect:
             config.buttonUrl &&
@@ -281,6 +266,7 @@ function SpriteIntervention({
     const assetUrls = [
       ...getCharacterAssets(config),
       config.buttonUrl,
+      config.launchImageUrl,
       ...Object.values(reactionAssets),
     ].filter(Boolean);
     void Promise.all(assetUrls.map(preloadInterventionSprite));
@@ -451,7 +437,8 @@ function SpriteIntervention({
       textRef.current,
       intervention.text,
       intervention.highlights,
-      wordsInteractive ? word => onOpenWordRef.current?.(word) : null
+      wordsInteractive ? word => onOpenWordRef.current?.(word) : null,
+      intervention.formText
     );
     setPhase("entering");
 
@@ -589,15 +576,7 @@ function SpriteIntervention({
       nextHitRef.current += 1;
       setReaction(hit);
       setPhase("hit");
-      const punchKey =
-        PRESENTER_PUNCH_KEYS[
-          randomIntegerBetween(0, PRESENTER_PUNCH_KEYS.length - 1)
-        ];
-      AssetManager.playSfx(punchKey, {
-        cooldownKey: "presenterPunch",
-        cooldownMs: 55,
-        eqKey: "presenterPunch",
-      });
+      playPresenterPunch();
       schedulePresenterHitExit({
         schedule,
         showStars: () => {
@@ -642,7 +621,8 @@ function SpriteIntervention({
   const reactionUrl = reaction ? reactionAssets[reaction] : "";
   const measuredSegments = buildInterventionTextSegments(
     intervention.text,
-    intervention.highlights
+    intervention.highlights,
+    intervention.formText
   );
 
   return createPortal(
@@ -664,6 +644,7 @@ function SpriteIntervention({
         "--sprite-intervention-entry-ms": `${config.entryMs}ms`,
         "--sprite-intervention-exit-ms": `${config.exitMs}ms`,
         "--sprite-intervention-frame-aspect": config.frameAspectRatio,
+        "--sprite-intervention-reaction-aspect": config.reactionAspectRatio || 1,
         "--sprite-intervention-sheet-width": `${config.frameCount * 100}%`,
       }}
     >
@@ -687,7 +668,7 @@ function SpriteIntervention({
                 <span
                   key={`${index}-${segment.highlighted ? "highlight" : "plain"}`}
                   className={
-                    segment.highlighted ? "sprite-intervention-highlight" : undefined
+                    segment.form ? "sprite-intervention-form" : segment.highlighted ? "sprite-intervention-highlight" : undefined
                   }
                 >
                   {segment.text}
@@ -720,7 +701,7 @@ function SpriteIntervention({
           {intervention.originRect && config.buttonUrl ? (
             <span
               className="sprite-intervention-launch-head"
-              style={{ backgroundImage: `url("${config.buttonUrl}")` }}
+              style={{ backgroundImage: `url("${config.launchImageUrl || config.buttonUrl}")` }}
               aria-hidden="true"
             />
           ) : null}

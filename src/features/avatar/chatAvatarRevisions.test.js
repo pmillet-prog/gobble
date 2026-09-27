@@ -11,7 +11,7 @@ test("all messages by one player share a URL; only that player's edit refreshes 
   assert.equal(store.url(1), store.url("1"));
   assert.equal(store.url(null), "");
   store.update({ userId: 1, revision: 2 });
-  assert.equal(store.url(1), "/api/auth/avatars/1/chat.png?v=2");
+  assert.equal(store.url(1), "/api/auth/avatars/1/chat.png?v=2&r=2");
   assert.deepEqual([first, duplicate, other], [1, 1, 0]);
   store.update({ userId: 1, revision: 1 });
   store.update({ userId: 1, revision: 2 });

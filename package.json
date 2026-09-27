@@ -14,6 +14,7 @@
     "definitions:semantic-embeddings": "node server/scripts/backfill-game-semantic-themes.mjs",
     "definitions:facts": "node server/scripts/backfill-word-linguistic-facts.mjs",
     "rarity:build": "node server/scripts/build-word-rarity.mjs",
+    "words:frequency": "node server/scripts/measure-word-grid-frequency.mjs",
     "ocid:pool:build": "node server/scripts/build-ocid-target-pool.mjs",
     "target-wait:build": "node server/scripts/build-target-wait-puzzles.mjs",
     "training:pool:build": "node server/scripts/build-training-pools.mjs",

@@ -4,12 +4,12 @@ import { UI_IMAGE_KEYS, getUiImageUrl } from "../../assets/uiAssetManifest.js";
 import { getInterventionFramePosition } from "../../components/botInterventions/spriteInterventionAnimation.js";
 import { CAPELLO_INTERVENTION_CONFIG } from "../../components/capello/capelloAnimation.js";
 import { LEPERS_INTERVENTION_CONFIG } from "../../components/lepers/lepersAnimation.js";
-import { PIVOT_INTERVENTION_CONFIG } from "../../components/pivot/pivotAnimation.js";
 import { ROMEJKO_INTERVENTION_CONFIG } from "../../components/romejko/romejkoAnimation.js";
 import { useChatUnreadState } from "../chat/useChatUnreadState.js";
 import { PRESENTER_HINT_KEYS } from "./createPresenterHintsController.js";
 import usePresenterHintsController from "./usePresenterHintsController.js";
 import { CHAT_BOT_VISIBILITY_OPTIONS } from "../../components/chat/chatBotVisibility.js";
+import { getResultsPresenter } from "./resultsPresenter.js";
 
 const presenterNames = Object.fromEntries(CHAT_BOT_VISIBILITY_OPTIONS.map(({ key, nick }) => [key, nick]));
 
@@ -31,14 +31,6 @@ export const PRESENTERS = Object.freeze([
     buttonScale: 1.12,
   },
 ]);
-
-export const PIVOT_PRESENTER = Object.freeze({
-  key: PRESENTER_HINT_KEYS.pivot,
-  name: presenterNames.linguist,
-  config: PIVOT_INTERVENTION_CONFIG,
-  buttonScale: 1.4,
-  buttonOffsetY: "15%",
-});
 
 export function HomeActionButton({
   imageKey,
@@ -338,7 +330,7 @@ export function ResultsActionBar({
       <PresenterButton
         controller={controller}
         darkMode={darkMode}
-        presenter={PIVOT_PRESENTER}
+        presenter={getResultsPresenter(presenterState.entries[PRESENTER_HINT_KEYS.pivot])}
         size={buttonSize}
         state={presenterState.entries[PRESENTER_HINT_KEYS.pivot]}
       />

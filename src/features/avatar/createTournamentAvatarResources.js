@@ -18,6 +18,7 @@ export function createTournamentAvatarResources({
     entry.value?.release();
     entry.value = null;
     entry.promise = null;
+    entry.openingPromise = null;
   }
 
   function configure(key) {
@@ -66,9 +67,10 @@ export function createTournamentAvatarResources({
   function preparePodium(key, entrants, { retry = false } = {}) {
     const scope = current;
     if (!scope || !key) return null;
-    if (scope.podium?.key === key && !retry) return scope.podium;
+    if (scope.podium?.key === key && (scope.podium.released || !retry || scope.podium.status !== "failed")) return scope.podium;
     releasePodium(scope.podium?.key);
-    const entry = { key, controller: new AbortController(), value: null, released: false, promise: null };
+    const entry = { key, controller: new AbortController(), value: null, released: false,
+      status: "loading", promise: null, openingPromise: null };
     scope.podium = entry;
     entry.promise = loadPodium().then(module => {
       entry.controller.signal.throwIfAborted();
@@ -76,15 +78,37 @@ export function createTournamentAvatarResources({
     }).then(value => {
       if (entry.released || current !== scope) { value.release(); return null; }
       entry.value = value;
+      entry.status = "ready";
       return value;
+    }).catch(error => {
+      entry.status = "failed";
+      throw error;
     });
-    // Warming is optional; the mounted podium handles errors and offers retry.
+    // Warming is optional; opening the podium retries a failure once.
     void entry.promise.catch(() => {});
     return entry;
   }
 
+  function openPodium(key, entrants, { retry = false } = {}) {
+    const scope = current;
+    const entry = preparePodium(key, entrants, { retry });
+    if (!entry || entry.released) return Promise.resolve(null);
+    if (!entry.openingPromise) {
+      // Share both pending work and the single automatic recovery across mounts.
+      // A manual retry makes one further attempt, without restarting ready work.
+      entry.openingPromise = retry ? entry.promise : entry.promise.catch(error => {
+        if (current !== scope || scope.podium !== entry || entry.released) return null;
+        const next = preparePodium(key, entrants, { retry: true });
+        if (next === entry) throw error;
+        next.openingPromise = next.promise;
+        return next.promise;
+      });
+    }
+    return entry.openingPromise;
+  }
+
   return Object.freeze({
-    configure, preparePodium, releasePodium, ensureThumbnail,
+    configure, preparePodium, openPodium, releasePodium, ensureThumbnail,
     dispose: () => configure(""),
     thumbnail: userId => current && userId ? current.thumbnails.get(userId) || current.pending : null,
     subscribeThumbnail(userId, listener) {

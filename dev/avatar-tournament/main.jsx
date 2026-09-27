@@ -12,13 +12,21 @@ import AvatarThumbnail from "../../src/features/avatar/AvatarThumbnail.jsx";
 import useTournamentAvatarPreparation from "../../src/features/celebration/useTournamentAvatarPreparation.js";
 import TournamentFinaleExperience from "../../src/features/celebration/TournamentFinaleExperience.jsx";
 import { createCelebrationFixture } from "../../src/features/celebration/demo/celebrationFixtures.js";
+import { PRESENTER_IDENTITIES } from "../../src/features/presenters/presenterIdentity.js";
+import AssetManager from "../../src/assets/assetManager.js";
 import "../../src/index.css";
 
 const fixture = createCelebrationFixture("other", 0);
+const params = new URLSearchParams(location.search);
+for (const [index, key] of (params.get("bots") || "").split(",").filter(Boolean).slice(0, 3).entries()) {
+  if (PRESENTER_IDENTITIES[key]) fixture.players[index] = { ...fixture.players[index], avatar: null,
+    isBot: true, presenterKey: key, nick: PRESENTER_IDENTITIES[key].nick };
+}
 const entrants = [...fixture.players, fixture.self].map((player, index) => ({ ...player, userId: index + 1 }));
 const avatars = Object.fromEntries(entrants.map(player => [player.userId, player.avatar]));
 const ranking = entrants.map(({ avatar, ...player }) => ({ ...player, points: player.score }));
-const metrics = { requests: [], preparations: [], openedAt: null, playingAt: null, completeAt: null, rankingAt: null };
+const metrics = { requests: [], preparations: [], sounds: [], openedAt: null, playingAt: null, completeAt: null, rankingAt: null };
+AssetManager.playSfx = key => metrics.sounds.push(key);
 const nativeFetch = window.fetch.bind(window);
 window.fetch = async (url, init) => {
   if (String(url).startsWith("/api/")) {
@@ -66,7 +74,7 @@ function Fixture() {
     {showResults ? <div key={round} data-round={round} style={{ display: "flex", gap: 24 }}>{players.map(userId => <div key={userId}>
       <AvatarThumbnail userId={userId} size={48} showPlaceholder /> Joueur {userId}
     </div>)}</div> : <p>Manche en cours</p>}</main>;
-  return <TournamentFinaleExperience tournamentKey={key} sound={false} identity={identity} overlays={{}}
+  return <TournamentFinaleExperience tournamentKey={key} sound={params.has("sound")} identity={identity} overlays={{}}
     appearance={{ isMobileLayout: innerWidth < 700, chatDesktopFontScale: 1 }}
     chat={{ chatInputRef: { current: null }, getLiveNickClassName: () => "", safeChatTab: "messages", setChatDesktopFontScale: noop,
       renderBlockedListPanel: () => null }}

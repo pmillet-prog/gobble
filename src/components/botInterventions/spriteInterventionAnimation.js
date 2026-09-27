@@ -33,7 +33,7 @@ function addHighlightRange(ranges, start, end, textLength) {
   if (safeEnd > safeStart) ranges.push([safeStart, safeEnd]);
 }
 
-export function buildInterventionTextSegments(text, explicitHighlights = []) {
+export function buildInterventionTextSegments(text, explicitHighlights = [], formText = "") {
   const value = String(text || "");
   if (!value) return [];
   const ranges = [];
@@ -77,6 +77,8 @@ export function buildInterventionTextSegments(text, explicitHighlights = []) {
   for (const [start, end] of ranges) {
     highlighted.fill(1, start, end);
   }
+  const formStart = formText ? value.indexOf(formText) : -1;
+  if (formStart >= 0) highlighted.fill(2, formStart, formStart + formText.length);
   const segments = [];
   let start = 0;
   for (let index = 1; index <= value.length; index += 1) {
@@ -84,6 +86,7 @@ export function buildInterventionTextSegments(text, explicitHighlights = []) {
     segments.push({
       text: value.slice(start, index),
       highlighted: highlighted[start] === 1,
+      ...(highlighted[start] === 2 ? { form: true } : null),
     });
     start = index;
   }

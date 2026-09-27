@@ -129,3 +129,94 @@ test("a failed podium can retry without restarting successful preparations", asy
   assert.equal(resources.preparePodium("tour-1", {}), next);
   resources.dispose();
 });
+
+test("opening waits for an unfinished preparation and never restarts pending or ready work", async () => {
+  const pending = deferred();
+  let calls = 0;
+  const value = { actors: ["real avatar"], release() {} };
+  const { resources } = fixture({ loadPodium: async () => ({ prepareTournamentPodium: async () => {
+    calls++;
+    return pending.promise;
+  } }) });
+  const warm = resources.preparePodium("tour-1", {});
+  const opening = resources.openPodium("tour-1", {});
+  assert.equal(resources.openPodium("tour-1", {}), opening);
+  assert.equal(resources.preparePodium("tour-1", {}, { retry: true }), warm);
+  await drain();
+  assert.equal(warm.value, null);
+  assert.equal(calls, 1);
+  pending.resolve(value);
+  assert.equal(await opening, value);
+  assert.equal(await resources.openPodium("tour-1", {}, { retry: true }), value);
+  assert.equal(calls, 1);
+  resources.dispose();
+});
+
+for (const failBeforeOpening of [true, false]) {
+  test(`opening recovers a warmup failure ${failBeforeOpening ? "before" : "during"} the loading screen exactly once`, async () => {
+    let fail, calls = 0;
+    const firstRequest = new Promise((_, reject) => { fail = reject; });
+    const value = { actors: ["real avatar"], release() {} };
+    const { resources } = fixture({ loadPodium: async () => ({ prepareTournamentPodium: async () => {
+      if (++calls === 1) return firstRequest;
+      return value;
+    } }) });
+    const warm = resources.preparePodium("tour-1", {});
+    if (failBeforeOpening) {
+      fail(new Error("timeout"));
+      await assert.rejects(warm.promise, /timeout/);
+      assert.equal(warm.value, null);
+      assert.equal(warm.status, "failed");
+      assert.equal(resources.preparePodium("tour-1", {}), warm, "duplicate result snapshots cannot retry");
+    }
+    const opening = resources.openPodium("tour-1", {});
+    assert.equal(resources.openPodium("tour-1", {}), opening, "duplicate mounts share recovery");
+    if (!failBeforeOpening) fail(new Error("timeout"));
+    assert.equal(await opening, value);
+    assert.equal(await resources.openPodium("tour-1", {}), value);
+    assert.equal(calls, 2);
+    resources.dispose();
+  });
+}
+
+test("a persistent failure stops after one automatic retry and remains manually retryable", async () => {
+  let calls = 0, available = false;
+  const value = { actors: ["real avatar"], release() {} };
+  const { resources } = fixture({ loadPodium: async () => ({ prepareTournamentPodium: async () => {
+    calls++;
+    if (!available) throw new Error("offline");
+    return value;
+  } }) });
+  await assert.rejects(resources.openPodium("tour-1", {}), /offline/);
+  for (let duplicate = 0; duplicate < 5; duplicate++) {
+    await assert.rejects(resources.openPodium("tour-1", {}), /offline/);
+  }
+  assert.equal(calls, 2);
+  available = true;
+  assert.equal(await resources.openPodium("tour-1", {}, { retry: true }), value);
+  assert.equal(calls, 3);
+  resources.dispose();
+});
+
+for (const exit of ["dismiss", "next tournament"]) {
+  test(`${exit} cancels loading without retrying an obsolete podium`, async () => {
+    let calls = 0, signal;
+    const { resources } = fixture({ loadPodium: async () => ({ prepareTournamentPodium: (_, options) => {
+      calls++;
+      signal = options.signal;
+      return new Promise((_, reject) => signal.addEventListener("abort", () => reject(signal.reason), { once: true }));
+    } }) });
+    const opening = resources.openPodium("tour-1", {});
+    await drain();
+    if (exit === "dismiss") resources.releasePodium("tour-1");
+    else resources.configure("account:tour-2");
+    assert.equal(signal.aborted, true);
+    assert.equal(await opening, null);
+    assert.equal(calls, 1);
+    if (exit === "dismiss") {
+      assert.equal(await resources.openPodium("tour-1", {}, { retry: true }), null);
+      assert.equal(calls, 1);
+    }
+    resources.dispose();
+  });
+}

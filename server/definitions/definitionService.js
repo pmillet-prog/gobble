@@ -444,7 +444,7 @@ function extractConjugationHint(normalized, rawBase) {
   return { base, label, kind: "lemma" };
 }
 
-function extractFormOfHint(extract) {
+export function extractFormOfHint(extract) {
   const normalized = normalizeForFormOf(extract);
   if (!normalized) return null;
   const prefixRe =

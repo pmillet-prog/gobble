@@ -9,6 +9,8 @@ import { registerAvatarRoutes } from "../avatars/registerAvatarRoutes.js";
 import { runSerializedSqliteWrite } from "../sqliteQueue.js";
 import { normalizeAvatar } from "../../shared/avatarConfiguration.js";
 import { loadImage } from "@napi-rs/canvas";
+import { rebuildAvatarThumbnails } from "../avatars/rebuildAvatarThumbnails.js";
+import { AVATAR_THUMBNAIL_RENDER_VERSION } from "../../shared/avatarRenderVersion.js";
 
 const avatar = normalizeAvatar({});
 async function harness(t) {
@@ -75,6 +77,8 @@ test("thumbnail routes enforce identity, validate ownership and notify only comm
   const image = await request(endpoint, 1, { userId: 1, v: "1" });
   assert.equal(image.contentType, "png");
   assert.equal(image.headers["Cache-Control"], "private, max-age=86400");
+  assert.equal((await request(endpoint, 1, { v: "1", r: "2" })).headers["Cache-Control"], "private, no-cache",
+    "an old miniature must not be cached under the corrected renderer's URL");
   assert.equal((await request(endpoint, 1, { userId: 1 }, { "if-none-match": image.headers.ETag })).statusCode, 304);
   const missing = await request(endpoint, 1, { userId: 2 });
   assert.equal(missing.statusCode, 204);
@@ -92,6 +96,7 @@ test("the isolated renderer produces small, distinct 64px PNGs from real approve
   const first = await renderer.render(avatar);
   const second = await renderer.render(normalizeAvatar({ headwear: "newsboy", hairColor: "#bb4422" }));
   for (const result of [first, second]) {
+    assert.equal(result.renderVersion, AVATAR_THUMBNAIL_RENDER_VERSION);
     assert.deepEqual([...result.png.subarray(0, 8)], [137, 80, 78, 71, 13, 10, 26, 10]);
     const image = await loadImage(result.png);
     assert.equal(image.width, 64);
@@ -113,4 +118,25 @@ test("the isolated renderer produces small, distinct 64px PNGs from real approve
   assert.ok(!combined.png.equals(earrings.png), "the chat thumbnail includes the nose and all facial accessories");
   const withPortraitOnly = await renderer.render({ ...avatar, nose: "witch_nose", accessories: ["earrings_hoops", "freckles", "scar", "participant_tag", "tiger_plush"] });
   assert.deepEqual(withPortraitOnly.png, combined.png, "portrait-only extras do not suppress facial accessories in the PNG worker");
+});
+
+test("thumbnail rebuild is resumable and preserves configurations, revisions and concurrent edits", async t => {
+  const { db, repository } = await harness(t);
+  const old = { png: Buffer.from("old"), renderVersion: 1 };
+  await repository.save(1, avatar, 0, old);
+  await repository.save(2, avatar, 0, old);
+  const before = await repository.get(1);
+  assert.deepEqual(await rebuildAvatarThumbnails({ db }), { selected: 2, rebuilt: 0, skipped: 0, failed: 0 });
+  assert.equal((await repository.getThumbnail(1)).renderVersion, 1);
+  let calls = 0;
+  const renderer = { render: async () => {
+    if (++calls === 2) await repository.save(2, { ...avatar, hair: "bun" }, 1, old);
+    return { png: Buffer.from("corrected"), renderVersion: AVATAR_THUMBNAIL_RENDER_VERSION };
+  } };
+  assert.deepEqual(await rebuildAvatarThumbnails({ db, renderer, apply: true }), { selected: 2, rebuilt: 1, skipped: 1, failed: 0 });
+  assert.deepEqual(await repository.get(1), before);
+  assert.equal((await repository.getThumbnail(1)).renderVersion, 2);
+  assert.equal((await repository.getThumbnail(2)).renderVersion, 1);
+  assert.deepEqual(await rebuildAvatarThumbnails({ db, renderer, apply: true }), { selected: 1, rebuilt: 1, skipped: 0, failed: 0 });
+  assert.deepEqual(await rebuildAvatarThumbnails({ db, renderer, apply: true }), { selected: 0, rebuilt: 0, skipped: 0, failed: 0 });
 });

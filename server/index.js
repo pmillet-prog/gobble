@@ -67,6 +67,8 @@ import {
   pickLepersTournamentRound,
 } from "./bots/lepersChallenge.js";
 import { createLepersQuestionHistory } from "./bots/lepersQuestionHistory.js";
+import { createResultsWordPresenter, loadHumorDictionary } from "./bots/resultsWordPresenter.js";
+import { getResultsWordIntro, getResultsWordFormText } from "./bots/resultsWordText.js";
 import {
   buildTournamentCelebrationPresenterLines,
   createTournamentRecords,
@@ -1683,9 +1685,10 @@ const CHAT_REACTION_MAX_USERS_PER_EMOJI = 200;
 const AMBIENT_CHAT_BOTS_ENABLED =
   !/^(0|false|off|no)$/i.test(String(process.env.GOBBLE_AMBIENT_CHAT_BOTS_ENABLED || "1"));
 const AMBIENT_CHAT_BOT_ENABLED_KEYS = new Set(
-  String(process.env.GOBBLE_AMBIENT_CHAT_BOT_KEYS || "coach,linguist,detective,trend")
+  String(process.env.GOBBLE_AMBIENT_CHAT_BOT_KEYS || "coach,linguist,humorist,detective,trend")
     .split(",")
     .map((key) => key.trim())
+    .map((key) => key === "hiddenWord" || key === "hidden_word" ? "humorist" : key)
     .filter(Boolean)
 );
 const AMBIENT_CHAT_BOT_GLOBAL_COOLDOWN_MS = 18 * 1000;
@@ -1893,6 +1896,11 @@ const lepersQuestionHistory = createLepersQuestionHistory({
   filePath: path.join(RUNTIME_DATA_DIR, "lepers-question-history.json"),
 });
 await lepersQuestionHistory.load();
+const resultsWordPresenter = createResultsWordPresenter({
+  catalog: await loadHumorDictionary(),
+  filePath: path.join(RUNTIME_DATA_DIR, "bafouille-results-history.json"),
+});
+await resultsWordPresenter.load();
 const trainingPoolStore = new TrainingPoolStore(
   resolveTrainingPoolDir({ serverDir: __dirname })
 );
@@ -5765,9 +5773,9 @@ const AMBIENT_CHAT_BOTS = Object.freeze({
     nick: "Recordator",
     category: "record_hunter",
   },
-  hiddenWord: {
-    nick: "MomoMotus",
-    category: "hidden_word",
+  humorist: {
+    nick: "Laurent Bafouille",
+    category: "humorist",
   },
   trend: {
     nick: "Webomètre",
@@ -6064,6 +6072,8 @@ function buildPresenterInterventionMessage(room, botKey, text, opts = {}) {
       category: bot.category,
       roundId,
       ...(highlights.length ? { highlights } : null),
+      ...(typeof opts.formText === "string" && opts.formText && trimmed.includes(opts.formText)
+        ? { formText: opts.formText } : null),
       ...(typeof opts.chatCopyText === "string" && opts.chatCopyText.trim()
         ? {
             chatCopyText: opts.chatCopyText
@@ -6613,8 +6623,14 @@ function prepareRoundPresenterInterventions(room, planUsed = null) {
   round.presenterInterventions = {};
   round.pivotResultIntervention = null;
   round.pivotResultInterventionPromise = null;
+  round.resultWordPresentation = null;
+  const resultsPresenter = resultsWordPresenter.planRound(round, {
+    enabled: AMBIENT_CHAT_BOTS_ENABLED,
+    pinotEnabled: AMBIENT_CHAT_BOT_ENABLED_KEYS.has("linguist"),
+    bafouilleEnabled: AMBIENT_CHAT_BOT_ENABLED_KEYS.has("humorist"),
+  });
   if (!AMBIENT_CHAT_BOTS_ENABLED) return;
-  preparePivotResultIntervention(room, planUsed);
+  if (resultsPresenter === "linguist") preparePivotResultIntervention(room, planUsed);
   if (areGameplayPresenterHintsDisabled(round.special, planUsed)) return;
   if (AMBIENT_CHAT_BOT_ENABLED_KEYS.has("coach")) {
     const coachLine = buildCoachRoundLine(room, planUsed);
@@ -6740,19 +6756,19 @@ async function pickHiddenRemarkableWordWithFact(round, foundWords) {
   return null;
 }
 
-function buildDetailedHiddenWordFactLine(details) {
+function buildDetailedHiddenWordFactLine(details, introSeed = "") {
   if (!details?.definition || !details?.etymology) return "";
   const word = String(details.displayWord || details.lookupWord || "").trim().toUpperCase();
   if (!word) return "";
   const base = String(details.baseWord || "").trim().toUpperCase();
   const prefix = details.isForm && base && base !== word
-    ? `${word}, forme de ${base}`
+    ? `${getResultsWordFormText(word, base)}${base}`
     : word;
   const definition = String(details.definition || "").trim();
   const etymology = String(details.etymology || "").trim();
   const definitionEnd = /[.!?…]$/u.test(definition) ? "" : ".";
   const etymologyEnd = /[.!?…]$/u.test(etymology) ? "" : ".";
-  return `On pouvait aussi trouver ${prefix}. ${definition}${definitionEnd} Étymologie : ${etymology}${etymologyEnd}`;
+  return `${getResultsWordIntro(introSeed)} ${prefix}. ${definition}${definitionEnd} Étymologie : ${etymology}${etymologyEnd}`;
 }
 
 function buildRoundEndCuriosityCandidateWords(highlights) {
@@ -6887,13 +6903,14 @@ async function pickGrosRobertRoundEndLine(room, highlights) {
       const candidates = await Promise.all(
         orderedWords.slice(start, start + batchSize).map(async (word) => {
           const details = await getOfflineWordFactDetails(word, { minLen: 6 });
-          const line = buildDetailedHiddenWordFactLine(details);
+          const line = buildDetailedHiddenWordFactLine(details, roundId);
           if (!line) return null;
-          const highlightedWord = String(details?.displayWord || word)
+          const highlightedWord = String((details?.isForm && details.baseWord) || details?.displayWord || word)
             .trim()
             .toUpperCase();
           return {
             highlights: highlightedWord ? [highlightedWord] : [],
+            formText: details.isForm ? getResultsWordFormText(String(details.displayWord || word).toUpperCase(), highlightedWord) : "",
             line,
             word,
           };
@@ -6968,7 +6985,7 @@ function preparePivotResultIntervention(room, planUsed = null) {
 
 function commitPreparedPivotResultIntervention(room) {
   const round = room?.currentRound;
-  if (!round) return null;
+  if (!round || round.resultWordPresentation?.botKey !== "linguist") return null;
   const existing = round.presenterInterventions?.linguist;
   if (existing) return existing;
   const intervention = round.pivotResultIntervention;
@@ -6977,7 +6994,29 @@ function commitPreparedPivotResultIntervention(room) {
   return rememberRoundPresenterIntervention(room, "linguist", intervention.line, {
     chatCopyText: intervention.chatCopyText,
     highlights: intervention.highlights,
+    formText: intervention.formText,
   });
+}
+
+async function prepareResultsWordPresentation(room) {
+  const round = room.currentRound;
+  const presentation = await resultsWordPresenter.takeForRound(round, {
+    preparePinot: () => round.pivotResultInterventionPromise || preparePivotResultIntervention(room),
+    isCurrent: () => room.currentRound === round,
+  });
+  if (room.currentRound !== round) return;
+  round.resultWordPresentation = presentation;
+  if (round.resultWordPresentation?.botKey === "humorist") {
+    if (!round.presenterInterventions?.humorist) {
+      rememberRoundPresenterIntervention(room, "humorist", round.resultWordPresentation.line, {
+        highlights: round.resultWordPresentation.highlights,
+        formText: round.resultWordPresentation.formText,
+      });
+    }
+    return;
+  }
+  if (round.resultWordPresentation?.botKey !== "linguist") return;
+  commitPreparedPivotResultIntervention(room);
 }
 
 async function pickRoundEndWordCuriosity(room, highlights) {
@@ -7397,6 +7436,16 @@ async function applyCultureThemeChallengeBonus(room, results) {
 function scheduleAmbientRoundEndBots(room, results, targetSummary = null) {
   if (!AMBIENT_CHAT_BOTS_ENABLED || !room?.currentRound) return;
   const round = room.currentRound;
+  if (round.resultWordPresentation?.botKey === "humorist") {
+    if (!round.presenterInterventions?.humorist) {
+      emitRoundPresenterIntervention(room, "humorist", round.resultWordPresentation.line, {
+        highlights: round.resultWordPresentation.highlights,
+        formText: round.resultWordPresentation.formText,
+      });
+    }
+    return;
+  }
+  if (round.resultWordPresentation?.botKey !== "linguist") return;
   const roundId = room.currentRound.id;
   const specialType = String(room.currentRound.special?.type || "");
   if (
@@ -7448,6 +7497,7 @@ function scheduleAmbientRoundEndBots(room, results, targetSummary = null) {
         intervention.line,
         {
           highlights: intervention.highlights,
+          formText: intervention.formText,
         }
       );
     })
@@ -11471,10 +11521,7 @@ async function endRoundForRoom(room) {
   const nextPlan =
     breakKind === "training_end" ? null : getTournamentRoundPlan(room, nextTournamentRoundForBreak);
   const nextSpecialForBreak = nextPlanForBreak?.isSpecial ? nextPlanForBreak : null;
-  if (room.currentRound.pivotResultInterventionPromise) {
-    await room.currentRound.pivotResultInterventionPromise;
-  }
-  commitPreparedPivotResultIntervention(room);
+  await prepareResultsWordPresentation(room);
   const lepersResult = buildLepersRoundResult(room.currentRound);
   const roundEndedPayload = {
     roomId: room.id,

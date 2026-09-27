@@ -1,4 +1,5 @@
 import { Worker } from "node:worker_threads";
+import { AVATAR_THUMBNAIL_RENDER_VERSION } from "../../shared/avatarRenderVersion.js";
 
 // One bounded queue keeps recoloring and PNG encoding off the game event loop.
 export function createAvatarThumbnailRenderer() {
@@ -36,7 +37,7 @@ export function createAvatarThumbnailRenderer() {
           clearTimeout(timeout);
           const job = current;
           current = null;
-          if (result.png) job.resolve({ png: Buffer.from(result.png), renderVersion: 1 });
+          if (result.png) job.resolve({ png: Buffer.from(result.png), renderVersion: AVATAR_THUMBNAIL_RENDER_VERSION });
           else job.reject(new Error(result.error || "thumbnail_failed"));
           dispatch();
         });

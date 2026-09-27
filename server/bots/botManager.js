@@ -136,7 +136,7 @@ export const BOT_ANIMATOR_ROSTER = [
   { nick: "Laurent Rhum&Co", skill: 0.3, maxWordsPerRound: 27, minWordsPerRound: 9, pointBias: 0.38, rarityBias: 0.05, pace: 1, alwaysPresent: true, animator: true },
   { nick: "Julien Lechéper", skill: 0.43, maxWordsPerRound: 34, minWordsPerRound: 13, pointBias: 0.56, rarityBias: 0.16, pace: 0.94, alwaysPresent: true, animator: true },
   { nick: "Maître Gobbello", skill: 0.57, maxWordsPerRound: 44, minWordsPerRound: 18, pointBias: 0.64, rarityBias: 0.28, pace: 1, alwaysPresent: true, animator: true },
-  { nick: "MomoMotus", skill: 0.37, maxWordsPerRound: 31, minWordsPerRound: 11, pointBias: 0.55, rarityBias: 0.35, pace: 0.88, alwaysPresent: true, animator: true },
+  { nick: "Laurent Bafouille", skill: 0.37, maxWordsPerRound: 31, minWordsPerRound: 11, pointBias: 0.55, rarityBias: 0.35, pace: 0.88, alwaysPresent: true, animator: true },
 ];
 
 const BOT_ROSTERS_BY_SIZE = {
