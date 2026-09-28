@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
+import PasswordRecoveryForm from "../features/auth/recovery/PasswordRecoveryForm.jsx";
 
 function fieldClass(darkMode) {
   return `mt-1 w-full rounded-lg border px-3 py-2 text-sm outline-none transition ${
@@ -49,7 +50,7 @@ function renderLead(mode, mustResetPassword) {
     case "claim-legacy":
       return "Ton profil a été reconnu. Choisis un mot de passe pour le sécuriser.";
     case "forgot-password":
-      return "La récupération de mot de passe se fait manuellement pour le moment. Contacte l’administrateur du jeu.";
+      return "Retrouve ton compte par email ou demande de l’aide à l’administrateur.";
     case "change-password":
       return mustResetPassword
         ? "Choisis un nouveau mot de passe pour continuer."
@@ -77,7 +78,6 @@ export default function AuthDialog({
   const usernameInputRef = useRef(null);
   const currentPasswordInputRef = useRef(null);
   const passwordInputRef = useRef(null);
-  const forgotPasswordButtonRef = useRef(null);
   const canRender = !!open && typeof document !== "undefined";
 
   const title = renderTitle(mode, mustResetPassword);
@@ -92,11 +92,9 @@ export default function AuthDialog({
     mode === "register" || mode === "claim-legacy";
 
   useEffect(() => {
-    if (!canRender) return;
+    if (!canRender || mode === "forgot-password") return;
     const target =
-      mode === "forgot-password"
-        ? forgotPasswordButtonRef.current
-        : showUsername && !usernameLocked
+      showUsername && !usernameLocked
         ? usernameInputRef.current
         : showCurrentPassword
         ? currentPasswordInputRef.current
@@ -119,7 +117,7 @@ export default function AuthDialog({
         role="dialog"
         aria-modal="true"
         data-auth-dialog="true"
-        className={`relative w-full max-w-md rounded-2xl border p-5 shadow-2xl ${panelClass(darkMode)}`}
+        className={`relative max-h-[calc(100dvh-3rem)] w-full max-w-md overflow-y-auto rounded-2xl border p-5 shadow-2xl ${panelClass(darkMode)}`}
       >
         <div className="flex items-start justify-between gap-3">
           <div>
@@ -168,19 +166,7 @@ export default function AuthDialog({
         ) : null}
 
         {mode === "forgot-password" ? (
-          <div className="mt-5 flex items-center justify-between gap-2">
-            <button
-              type="button"
-              className={actionClass(false, darkMode)}
-              onClick={() => onModeChange?.("login")}
-              ref={forgotPasswordButtonRef}
-            >
-              Retour
-            </button>
-            <button type="button" className={actionClass(true, darkMode)} onClick={onClose}>
-              Fermer
-            </button>
-          </div>
+          <PasswordRecoveryForm initialUsername={form.username} darkMode={darkMode} onBack={() => onModeChange?.("login")} />
         ) : (
           <form
             className="mt-4 space-y-3"
@@ -268,7 +254,7 @@ export default function AuthDialog({
                   autoComplete="email"
                 />
                 <div className={`mt-1 text-xs ${darkMode ? "text-slate-400" : "text-slate-500"}`}>
-                  Adresse email facultative.
+                  Facultative, mais nécessaire pour récupérer ton mot de passe par email.
                 </div>
               </label>
             ) : null}

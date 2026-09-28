@@ -5,6 +5,7 @@ import { normalizeWord } from "../../shared/gameLogic.js";
 import { createLepersExclusions } from "./lepersChallenge.js";
 import { LEPERS_QUESTION_HISTORY_LIMIT } from "./lepersQuestionHistory.js";
 import { getResultsWordIntro, getResultsWordFormText } from "./resultsWordText.js";
+import { contentExclusions } from "../admin/contentExclusions.js";
 
 export const BAFOUILLE_HISTORY_LIMIT = LEPERS_QUESTION_HISTORY_LIMIT;
 const MODES = ["normal", "massive_boggle", "finale"];
@@ -51,6 +52,7 @@ export function createHumorWordPicker(catalog) {
   }
 
   return function pick(round, recentQuestions = []) {
+    contentExclusions.refresh();
     const excluded = createLepersExclusions(recentQuestions);
     const mode = getHumorFrequencyMode(round);
     const solutionWords = new Set((Array.isArray(round?.solutions) ? round.solutions : [])
@@ -59,6 +61,7 @@ export function createHumorWordPicker(catalog) {
     for (const word of solutionWords) {
       const entry = entries.get(word);
       if (!entry || excluded.words.has(word) || excluded.words.has(entry.lemma)) continue;
+      if (contentExclusions.has("humorist", word) || contentExclusions.has("humorist", entry.lemma)) continue;
       // Use the lemma directly whenever it is playable. A simple extension
       // such as CHATS always contains the full CHAT path, even in a partial list.
       if (entry.lemma && (solutionWords.has(entry.lemma) || word.startsWith(entry.lemma))) continue;
@@ -70,6 +73,7 @@ export function createHumorWordPicker(catalog) {
     const formText = getResultsWordFormText(best.word.toUpperCase(), best.lemma ? best.label : "", best.formLabel);
     return {
       botKey: "humorist", word: best.word, definition: best.definition,
+      moderation: { scope: "humorist", word: best.lemma || best.word },
       ...(best.lemma ? { lemma: best.lemma, formText } : null),
       line: `${getResultsWordIntro(round?.id)} ${formText}${best.label} : ${best.definition}`, highlights: [best.label],
       frequency: { mode, hits: best.hits[mode], grids: grids.get(mode) },
@@ -135,6 +139,8 @@ export function createResultsWordPresenter({ catalog, filePath,
       const pickPinot = async () => {
         if (!plan.pinot) return null;
         const intervention = await preparePinot();
+        contentExclusions.refresh();
+        if (intervention?.moderation && contentExclusions.has("linguist", intervention.moderation.word)) return null;
         return intervention?.line ? { ...intervention, botKey: "linguist" } : null;
       };
       let result = null;

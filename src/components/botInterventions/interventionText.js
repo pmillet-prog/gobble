@@ -1,12 +1,13 @@
 import { buildInterventionTextSegments, splitInterventionText } from "./spriteInterventionAnimation.js";
+import { isPresenterWord, presenterWordKey } from "../../../shared/presenterWords.js";
 
 export function getInterventionWord(segment, highlights) {
   const text = segment.text.trim();
   // Only explicit answer/definition highlights are words. Automatic emphasis
   // also includes scores, shouted phrases and punctuation.
-  if (!segment.highlighted || !/^[\p{L}\p{M}]+(?:[-’'][\p{L}\p{M}]+)*$/u.test(text)) return null;
+  if ((!segment.highlighted && !segment.form) || !isPresenterWord(text)) return null;
   return (highlights || []).find(word =>
-    String(word).trim().toLocaleLowerCase("fr") === text.toLocaleLowerCase("fr")) ? text : null;
+    presenterWordKey(word) === presenterWordKey(text)) ? text : null;
 }
 
 export function mountTypedText(container, text, highlights, onOpenWord = null, formText = "") {

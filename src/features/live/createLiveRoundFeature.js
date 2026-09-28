@@ -136,6 +136,7 @@ export function createLiveRoundFeature({ scope }) {
         roomId: payload.roomId,
         roundId: payload.roundId,
         id: lepersChallenge.id,
+        ...(lepersChallenge.moderation ? { moderation: lepersChallenge.moderation } : null),
         kind: "challenge",
         text: lepersChallenge.text,
         highlights: lepersChallenge.highlights,
@@ -361,6 +362,7 @@ export function createLiveRoundFeature({ scope }) {
           snapshot?.lastRoundResults?.payload?.roundId ||
           snapshot?.lastRoundResults?.round?.id,
         id: lepersResult.id,
+        ...(lepersResult.moderation ? { moderation: lepersResult.moderation } : null),
         kind: "answer",
         text: lepersResult.text,
         chatCopyText: lepersResult.chatCopyText,
@@ -378,6 +380,7 @@ export function createLiveRoundFeature({ scope }) {
         roomId: snapshot.roomId,
         roundId: snapshot.currentRound?.roundId,
         id: lepersChallenge.id,
+        ...(lepersChallenge.moderation ? { moderation: lepersChallenge.moderation } : null),
         kind: "challenge",
         text: lepersChallenge.text,
         highlights: lepersChallenge.highlights,

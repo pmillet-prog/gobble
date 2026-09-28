@@ -62,3 +62,34 @@ test("the inflected form is subdued and the complete lemma stays highlighted and
   assert.deepEqual(opened, ["CHAT"]);
   assert.equal(host.children.map(node => node.children[0].data).join(""), text);
 });
+
+test("Pinot links the played form, its lemma and a verified related word without changing the text", () => {
+  const host = container(), opened = [];
+  const text = "On pouvait aussi trouver PARSIS, forme de PARSI. Adepte du parsisme.";
+  const typed = mountTypedText(host, text, ["PARSIS", "PARSI", "parsisme"], word => opened.push(word), "PARSIS, forme de ");
+  const buttons = host.children.filter(node => node.tagName === "button");
+  assert.equal(buttons.length, 3);
+  assert.ok(buttons.every(button => button.disabled));
+  for (const { unit, writer } of typed.units) writer.write(writer.node.data + unit);
+  assert.ok(buttons[0].className.includes("sprite-intervention-form"), "the played form stays small and italic");
+  assert.ok(buttons[1].className.includes("sprite-intervention-highlight"));
+  for (const button of buttons) button.onclick({ stopPropagation() {} });
+  assert.deepEqual(opened, ["PARSIS", "PARSI", "parsisme"]);
+  assert.equal(host.children.map(node => node.children[0].data).join(""), text);
+});
+
+test("an explicit lemma never creates a link from a fragment of an unverified word", () => {
+  const host = container();
+  const text = "PARSI : du parsisme, des parsis et du parsi-inconnu.";
+  mountTypedText(host, text, ["PARSI"], () => {}).revealAll();
+  assert.deepEqual(host.children.filter(node => node.tagName === "button").map(node => node.children[0].data), ["PARSI"]);
+  assert.equal(host.children.map(node => node.children[0].data).join(""), text);
+});
+
+test("word matching preserves accented spellings and compounds as complete link targets", () => {
+  const host = container(), opened = [];
+  const text = "On pouvait trouver ÉTÉ ou ARC-EN-CIEL.";
+  mountTypedText(host, text, ["e\u0301te\u0301", "arc-en-ciel"], word => opened.push(word)).revealAll();
+  for (const button of host.children.filter(node => node.tagName === "button")) button.onclick({ stopPropagation() {} });
+  assert.deepEqual(opened, ["ÉTÉ", "ARC-EN-CIEL"]);
+});

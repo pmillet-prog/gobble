@@ -95,6 +95,7 @@ function normalizeIntervention(message) {
     ...(roundId ? { roundId } : null),
     t: message.t ?? message.createdAt ?? Date.now(),
     text: message.text,
+    ...(message.moderation || message.meta?.moderation ? { moderation: message.moderation || message.meta.moderation } : null),
     ...(message?.meta?.formText ? { formText: message.meta.formText } : null),
     ...(resolvePresenterKey(message) === "bafouille" ? { presenterKey: "bafouille" } : null),
     ...(typeof message?.meta?.chatCopyText === "string" &&
@@ -294,6 +295,7 @@ export function createChatFeature(context, options = {}) {
             presenterKey: key,
             roundId,
             sourceInterventionId,
+            ...(event.moderation || event.meta?.moderation ? { moderation: event.moderation || event.meta.moderation } : null),
             silent: true,
           },
         },

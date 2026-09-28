@@ -1,0 +1,35 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { mkdtemp, writeFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
+
+test("durable exclusions reach loaded OCID pools, humor inflections and precomputed Lechéper candidates", async t => {
+  const directory = await mkdtemp(path.join(tmpdir(), "gobble-content-admin-"));
+  t.after(async () => { if (path.dirname(directory) === path.resolve(tmpdir()) && path.basename(directory).startsWith("gobble-content-admin-")) await rm(directory, { recursive: true, force: true }); });
+  process.env.GOBBLE_DATA_DIR = directory;
+  process.env.GOBBLE_OCID_TARGET_POOL = path.join(directory, "pool.json");
+  await writeFile(process.env.GOBBLE_OCID_TARGET_POOL, JSON.stringify({ entries: [{ word: "rare", definition: "Une définition" }, { word: "autre", definition: "Une autre" }] }));
+  const { contentExclusions, createContentExclusions, registerContentReference, resolveContentReference } = await import("../admin/contentExclusions.js");
+  const { getOcidTargetCandidates } = await import("../stats/wordRarityService.js");
+  const { createHumorWordPicker } = await import("../bots/resultsWordPresenter.js");
+  const { selectLepersChallenge } = await import("../bots/lepersChallenge.js");
+  assert.equal((await getOcidTargetCandidates()).length, 2);
+  contentExclusions.exclude("ocid", "RARE", { id: 99 });
+  assert.deepEqual((await getOcidTargetCandidates()).map(value => value.word), ["autre"]);
+  const restarted = createContentExclusions(path.join(directory, "content-exclusions.json"));
+  restarted.refresh(); assert.equal(restarted.has("ocid", "rare"), true);
+  assert.equal(restarted.has("humorist", "rare"), false);
+  const hits = { normal: 1, massive_boggle: 1, finale: 1 };
+  const pick = createHumorWordPicker({ schemaVersion: 1, modes: Object.keys(hits).map(key => ({ key, grids: 10 })), entries: [{ word: "aller", label: "ALLER", definition: "Une promenade.", hits }], forms: [{ word: "irons", lemma: "aller", hits }] });
+  assert.equal(pick({ solutions: ["irons"] }).word, "irons");
+  contentExclusions.exclude("humorist", "aller", { id: 99 });
+  assert.equal(pick({ solutions: ["irons"] }), null);
+  const candidates = [{ word: "secret", definition: "Une définition.", text: "Une énigme." }];
+  assert.ok(selectLepersChallenge(candidates));
+  contentExclusions.exclude("lepers", "secret", { id: 99 });
+  assert.equal(selectLepersChallenge(candidates), null);
+  const reference = registerContentReference("lepers", "secret", "round-1");
+  assert.equal(JSON.stringify(reference).includes("secret"), false);
+  assert.equal(resolveContentReference(reference.reference).word, "secret");
+});

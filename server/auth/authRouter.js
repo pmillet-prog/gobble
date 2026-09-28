@@ -1,6 +1,7 @@
 import express from "express";
 import { registerAvatarRoutes } from "../avatars/registerAvatarRoutes.js";
 import { registerStarterGrantRoutes } from "../stats/registerStarterGrantRoutes.js";
+import { registerAccountRecoveryRoutes } from "./recovery/registerAccountRecoveryRoutes.js";
 import {
   AUTH_SESSION_TTL_MS,
   authenticateUser,
@@ -28,6 +29,7 @@ import {
   avatarInventory,
   avatarThumbnails,
   avatarGobblarGrants,
+  accountRecovery,
 } from "./authService.js";
 
 const SESSION_COOKIE_NAME = "gobble_session";
@@ -187,6 +189,7 @@ export function createAuthRouter({
   onAvatarPurchase,
   onAvatarSaved,
   isMaintenanceModeActive,
+  onPasswordReset,
 }) {
   const router = express.Router();
 
@@ -195,6 +198,7 @@ export function createAuthRouter({
     next();
   });
   registerStarterGrantRoutes({ router, getAuthContext, requireAuth, grants: avatarGobblarGrants });
+  registerAccountRecoveryRoutes(router, { recovery: accountRecovery, onPasswordReset });
 
   router.post("/status", async (req, res) => {
     res.set("Cache-Control", "no-store");
@@ -440,7 +444,13 @@ export function createAuthRouter({
       resolvedInstallId,
     });
 
-    const session = await createSession(attached.user.id);
+    let session;
+    try {
+      session = await createSession(attached.user.id, { expectedPasswordHash: loginResult.passwordHash });
+    } catch (error) {
+      if (!["credentials_changed", "account_busy"].includes(error.message)) throw error;
+      return res.status(401).json({ ok: false, error: "invalid_credentials" });
+    }
     res.setHeader("Set-Cookie", serializeCookie(SESSION_COOKIE_NAME, session.token, req));
     return res.json({
       ok: true,
@@ -527,15 +537,6 @@ export function createAuthRouter({
     return res.json({
       ok: true,
       user: sessionPayload(refreshedUser),
-    });
-  });
-
-  router.post("/request-password-reset", (_req, res) => {
-    res.set("Cache-Control", "no-store");
-    return res.json({
-      ok: true,
-      message:
-        "La récupération de mot de passe se fait manuellement pour le moment. Contacte l’administrateur du jeu.",
     });
   });
 

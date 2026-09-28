@@ -2,6 +2,7 @@ import path from "path";
 import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
 import { parentPort } from "worker_threads";
+import { contentExclusions } from "../admin/contentExclusions.js";
 
 import {
   applySeededBonuses,
@@ -412,6 +413,7 @@ function shuffleArray(values) {
 
 function prepareAnchoredOcid({ roundPlan, roundNumber, size, maxAttemptsTotal, effectiveMinWords }) {
   if (!dictionary || roundPlan?.type !== OCID_TYPE) return null;
+  contentExclusions.refresh();
   const excludedTargets = new Set(
     Array.isArray(roundPlan?.ocidExcludedTargets)
       ? roundPlan.ocidExcludedTargets.map((word) => normalizeWord(word || "")).filter(Boolean)
@@ -423,7 +425,7 @@ function prepareAnchoredOcid({ roundPlan, roundNumber, size, maxAttemptsTotal, e
   let bestCandidate = null;
   for (const target of candidates) {
     const word = normalizeWord(target?.word || "");
-    if (excludedTargets.has(word)) continue;
+    if (excludedTargets.has(word) || contentExclusions.has("ocid", word)) continue;
     const tokens = tokenizeBoggleWord(word);
     if (!word || word.length > 13 || !tokens || tokens.length > size * size) continue;
     for (let attempt = 0; attempt < attemptsPerWord; attempt += 1) {

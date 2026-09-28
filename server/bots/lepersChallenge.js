@@ -1,4 +1,5 @@
 import { normalizeWord } from "../../shared/gameLogic.js";
+import { contentExclusions } from "../admin/contentExclusions.js";
 
 export const LEPERS_BONUS_POINTS = 2;
 export const LEPERS_MIN_WORD_LENGTH = 5;
@@ -288,9 +289,11 @@ export async function rankLepersChallenges(
 }
 
 export function selectLepersChallenge(candidates, { seed = Date.now(), recentQuestions = [] } = {}) {
+  contentExclusions.refresh();
   const excluded = createLepersExclusions(recentQuestions);
   const shortlist = (Array.isArray(candidates) ? candidates : []).filter(candidate =>
     candidate?.word && candidate?.definition && candidate?.text &&
+    !contentExclusions.has("lepers", candidate.word) &&
     !excluded.words.has(normalizeWord(candidate.word)) &&
     !excluded.definitions.has(normalizeForText(candidate.definition))
   ).slice(0, 8);

@@ -4,6 +4,7 @@ import fs from "fs/promises";
 import sqlite3 from "sqlite3";
 import { open } from "sqlite";
 import { normalizeWord } from "../../shared/gameLogic.js";
+import { contentExclusions } from "../admin/contentExclusions.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -263,7 +264,8 @@ export async function getOcidTargetCandidates({
   limit = OCID_TARGET_CANDIDATE_LIMIT,
 } = {}) {
   const pool = await loadOcidTargetPool();
+  contentExclusions.refresh();
   const usablePool =
-    dictionary instanceof Set ? pool.filter((entry) => dictionary.has(entry.word)) : pool;
+    pool.filter(entry => !contentExclusions.has("ocid", entry.word) && (!(dictionary instanceof Set) || dictionary.has(entry.word)));
   return sampleEntries(usablePool, limit);
 }

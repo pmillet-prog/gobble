@@ -1,4 +1,5 @@
 import { createAdminFeature } from "../features/admin/createAdminFeature.js";
+import { createAccountAdminFeature } from "../features/admin/createAccountAdminFeature.js";
 import { createPlayerActivityFeature } from "../features/activity/createPlayerActivityFeature.js";
 import { createChatFeature } from "../features/chat/createChatFeature.js";
 import { createRoundClockFeature } from "../features/clock/createRoundClockFeature.js";
@@ -35,6 +36,7 @@ import { createTraceFeature } from "../features/trace/createTraceFeature.js";
 const FEATURE_FACTORIES = Object.freeze({
   activity: createPlayerActivityFeature,
   admin: createAdminFeature,
+  accountAdmin: createAccountAdminFeature,
   chat: createChatFeature,
   clock: createRoundClockFeature,
   celebration: createCelebrationFeature,

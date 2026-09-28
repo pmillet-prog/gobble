@@ -1,3 +1,5 @@
+import { getPresenterWordRanges, isPresenterWord, presenterWordKey } from "../../../shared/presenterWords.js";
+
 const SHORT_PUNCTUATION_PAUSE_MS = 90;
 const LONG_PUNCTUATION_PAUSE_MS = 190;
 
@@ -37,10 +39,22 @@ export function buildInterventionTextSegments(text, explicitHighlights = [], for
   const value = String(text || "");
   if (!value) return [];
   const ranges = [];
+  const wordRanges = getPresenterWordRanges(value);
+  const wordBoundaries = new Set();
   const lowered = value.toLocaleLowerCase("fr");
   for (const rawHighlight of Array.isArray(explicitHighlights) ? explicitHighlights : []) {
     const highlight = String(rawHighlight || "").trim();
     if (!highlight) continue;
+    if (isPresenterWord(highlight)) {
+      const key = presenterWordKey(highlight);
+      for (const range of wordRanges) {
+        if (presenterWordKey(range.word) !== key) continue;
+        addHighlightRange(ranges, range.start, range.end, value.length);
+        wordBoundaries.add(range.start);
+        wordBoundaries.add(range.end);
+      }
+      continue;
+    }
     const loweredHighlight = highlight.toLocaleLowerCase("fr");
     let fromIndex = 0;
     while (fromIndex < lowered.length) {
@@ -82,7 +96,7 @@ export function buildInterventionTextSegments(text, explicitHighlights = [], for
   const segments = [];
   let start = 0;
   for (let index = 1; index <= value.length; index += 1) {
-    if (index < value.length && highlighted[index] === highlighted[start]) continue;
+    if (index < value.length && highlighted[index] === highlighted[start] && !wordBoundaries.has(index)) continue;
     segments.push({
       text: value.slice(start, index),
       highlighted: highlighted[start] === 1,

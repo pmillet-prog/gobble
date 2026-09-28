@@ -8,6 +8,7 @@ import NotebookReactionEmoji from "./NotebookReactionEmoji.jsx";
 import PresenterChatAvatar from "./PresenterChatAvatar.jsx";
 import PlayerChatAvatar from "./PlayerChatAvatar.jsx";
 import PlayerProfileLink from "../profile/PlayerProfileLink.jsx";
+import ContentExcludeButton from "../../features/admin/ContentExcludeButton.jsx";
 
 const LONG_PRESS_MS = 420;
 const SWIPE_REPLY_TRIGGER_PX = 72;
@@ -1029,6 +1030,7 @@ export default function ChatContent({
                           </span>
                         ) : null}
                         <span className="chat-message-text" style={NON_SELECTABLE_TOUCH_STYLE}>{msg.text}</span>
+                        {msg.isBot && msg.meta?.moderation ? <ContentExcludeButton content={msg.meta.moderation} /> : null}
                         {!isAmbientBot && !isOwn ? (
                           <button
                             type="button"

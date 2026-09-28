@@ -3,6 +3,7 @@ import PlayerProfileLink from "../profile/PlayerProfileLink.jsx";
 import IntermissionTenSecondOverlay from "../../features/intermission/IntermissionTenSecondOverlay.jsx";
 import { MASSIVE_BOGGLE_TYPE } from "../../game/specialRoundTypes.js";
 import { pickDefinitionList, sanitizeDefinitionText } from "../../utils/definitionPayload.js";
+import ContentExcludeButton from "../../features/admin/ContentExcludeButton.jsx";
 import { clampValue, formatNumber } from "../../utils/numbers.js";
 import AutoScaleInline from "../AutoScaleInline.jsx";
 import DefinitionDetails from "../DefinitionDetails.jsx";
@@ -541,6 +542,10 @@ export default function useDesktopResultsPresentation(runtime) {
     ? pickDefinitionList(targetDefinition)
     : [];
   const renderTargetDefinitionBody = ({ compact = false } = {}) => {
+    if (targetSummary?.ocid?.definition) return <>
+      <span>{targetSummary.ocid.definition}</span>
+      {phase === "results" ? <ContentExcludeButton content={{ scope: "ocid", word: targetSummary.word }} /> : null}
+    </>;
     if (targetDefinition.loading && !targetDefinition.definition) {
       return <span>Définition en cours...</span>;
     }

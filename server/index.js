@@ -69,6 +69,7 @@ import {
 import { createLepersQuestionHistory } from "./bots/lepersQuestionHistory.js";
 import { createResultsWordPresenter, loadHumorDictionary } from "./bots/resultsWordPresenter.js";
 import { getResultsWordIntro, getResultsWordFormText } from "./bots/resultsWordText.js";
+import { getPinotWordHighlights } from "./bots/pinotWordLinks.js";
 import {
   buildTournamentCelebrationPresenterLines,
   createTournamentRecords,
@@ -222,10 +223,15 @@ import {
   setBroadcastMessage,
 } from "./admin/broadcastService.js";
 import { createAuthRouter } from "./auth/authRouter.js";
+import { registerAccountAdminRoutes } from "./admin/registerAccountAdminRoutes.js";
+import { isAdminAccount } from "./admin/adminAccess.js";
+import { isAccountUnderMaintenance } from "./admin/accountMaintenance.js";
+import { contentExclusions, registerContentReference } from "./admin/contentExclusions.js";
 import { createAvatarObjectiveBatcher } from "./avatars/avatarObjectiveBatcher.js";
 import { getPlayerProfileAppearance } from "./avatars/playerProfileAppearance.js";
 import {
   avatarStarterGrant,
+  accountAdministration,
   avatarFaceGrant,
   consumeSocketTicket,
   findUserById,
@@ -347,9 +353,30 @@ app.use(
     resolveCanonicalInstallId,
     onAvatarPurchase: userId => clearThemeProfileResponseCache(String(userId)),
     onAvatarSaved: update => io.emit("avatar:updated", update),
+    onPasswordReset: userId => {
+      for (const client of io.sockets.sockets.values()) {
+        if (Number(client.data?.authUser?.id) === userId) client.disconnect(true);
+      }
+    },
     isMaintenanceModeActive,
   })
 );
+
+registerAccountAdminRoutes(app, {
+  getAuth: req => getAuthFromCookieHeader(req.headers.cookie),
+  isAdmin: user => isAdminAccount(user, getDevAccessConfig()),
+  accounts: accountAdministration,
+  assertOffline: ids => {
+    for (const client of io.sockets.sockets.values()) {
+      if (ids.includes(Number(client.data?.authUser?.id))) throw new Error("account_online");
+    }
+    // Disconnected players may still have a round waiting to be persisted.
+    for (const room of rooms.values()) for (const player of room.players.values()) {
+      if (ids.includes(Number(player.userId))) throw new Error("account_online");
+    }
+  },
+  onChanged: () => playerProfileResponseCache.clear(),
+});
 
 app.post("/api/client-crash", async (req, res) => {
   try {
@@ -1649,6 +1676,9 @@ io.use(async (socket, next) => {
   socket.data.authSession = authSession;
   if (authUser) {
     await ensureUserIdentityMigration(authUser);
+    if (isAccountUnderMaintenance(authUser.id) || !(await findUserById(authUser.id))) {
+      return next(new Error("account_busy"));
+    }
   }
   next();
 });
@@ -2079,6 +2109,8 @@ function getDevAccessConfig() {
   return {
     devAccountNames,
     devAccountIds,
+    adminAccounts: fileConfig.adminAccounts,
+    adminUserIds: fileConfig.adminUserIds,
     moderationAccountNames,
     moderationAccountIds,
     password,
@@ -6053,6 +6085,8 @@ function buildPresenterInterventionMessage(room, botKey, text, opts = {}) {
   const trimmed = String(text || "").replace(/\s+/g, " ").trim();
   const roundId = String(opts.roundId || room?.currentRound?.id || "").trim();
   if (!room || !bot || !trimmed || !roundId) return null;
+  const moderation = opts.moderation || null;
+  if (moderation && contentExclusions.has(moderation.scope, moderation.word)) return null;
   const id = randomUUID();
   const highlights = Array.isArray(opts.highlights)
     ? opts.highlights.map((value) => String(value || "").trim()).filter(Boolean)
@@ -6071,6 +6105,7 @@ function buildPresenterInterventionMessage(room, botKey, text, opts = {}) {
       kind: "ambient_bot_chat",
       category: bot.category,
       roundId,
+      ...(moderation ? { moderation } : null),
       ...(highlights.length ? { highlights } : null),
       ...(typeof opts.formText === "string" && opts.formText && trimmed.includes(opts.formText)
         ? { formText: opts.formText } : null),
@@ -6419,6 +6454,7 @@ function serializeLepersChallenge(challenge) {
   if (!challenge?.id || !challenge?.text) return null;
   return {
     id: challenge.id,
+    moderation: registerContentReference("lepers", challenge.word, challenge.id),
     text: challenge.text,
     highlights: Array.isArray(challenge.highlights) ? challenge.highlights : [],
     bonusPoints: LEPERS_BONUS_POINTS,
@@ -6438,6 +6474,7 @@ function emitLepersIntervention(room, payload, recipient = null) {
   const event = {
     roomId: room.id,
     roundId: room.currentRound.id,
+    moderation: registerContentReference("lepers", room.currentRound.lepersChallenge?.word, `${room.currentRound.id}:lepers`),
     id: String(payload.id || `${room.currentRound.id}:lepers:${Date.now()}`),
     kind: String(payload.kind || "challenge"),
     text: String(payload.text),
@@ -6500,6 +6537,7 @@ function buildLepersRoundResult(round) {
   return {
     id: `${challenge.id}:answer`,
     kind: "answer",
+    moderation: registerContentReference("lepers", challenge.word, challenge.id),
     text: result.text,
     chatCopyText: `La réponse était « ${answer} ».${congratulations}`,
     highlights: result.highlights,
@@ -6881,6 +6919,7 @@ function shouldAttemptGrosRobertRoundEnd(room) {
 
 async function pickGrosRobertRoundEndLine(room, highlights) {
   if (!shouldAttemptGrosRobertRoundEnd(room)) return null;
+  contentExclusions.refresh();
   const words = buildGrosRobertCandidateWords(room, highlights);
   if (!words.length) return null;
   const roundId = room?.currentRound?.id || "";
@@ -6903,22 +6942,26 @@ async function pickGrosRobertRoundEndLine(room, highlights) {
     for (let start = 0; start < orderedWords.length; start += batchSize) {
       const candidates = await Promise.all(
         orderedWords.slice(start, start + batchSize).map(async (word) => {
+          if (contentExclusions.has("linguist", word)) return null;
           const details = await getOfflineWordFactDetails(word, { minLen: 6 });
+          if (contentExclusions.has("linguist", details?.baseWord)) return null;
           const line = buildDetailedHiddenWordFactLine(details, roundId);
           if (!line) return null;
-          const highlightedWord = String((details?.isForm && details.baseWord) || details?.displayWord || word)
+          const displayWord = String(details.displayWord || word).trim().toUpperCase();
+          const highlightedWord = String((details?.isForm && details.baseWord) || displayWord)
             .trim()
             .toUpperCase();
           return {
-            highlights: highlightedWord ? [highlightedWord] : [],
-            formText: details.isForm ? getResultsWordFormText(String(details.displayWord || word).toUpperCase(), highlightedWord) : "",
+            highlights: [...new Set([displayWord, highlightedWord].filter(Boolean))],
+            formText: details.isForm ? getResultsWordFormText(displayWord, highlightedWord) : "",
             line,
             word,
+            moderation: { scope: "linguist", word: normalizeWord(details?.isForm ? details.baseWord || word : word) },
           };
         })
       );
       const selected = candidates.find(Boolean);
-      if (selected) return selected;
+      if (selected) return { ...selected, highlights: await getPinotWordHighlights(selected.line, selected.highlights) };
     }
   }
 
@@ -6929,7 +6972,10 @@ async function pickTargetRoundEtymologyLine(room, targetSummary) {
   if (!AMBIENT_CHAT_BOT_ENABLED_KEYS.has("linguist")) return null;
   const word = normalizeWord(targetSummary?.word || room?.currentRound?.targetWord);
   if (!word) return null;
+  contentExclusions.refresh();
+  if (contentExclusions.has("linguist", word)) return null;
   const details = await getOfflineWordFactDetails(word, { minLen: 1 });
+  if (contentExclusions.has("linguist", details?.baseWord)) return null;
   const etymology = String(details?.etymology || "").trim();
   if (!etymology) return null;
   const displayWord = String(details?.displayWord || word).trim().toUpperCase();
@@ -6953,9 +6999,12 @@ async function pickTargetRoundEtymologyLine(room, targetSummary) {
       ? definitions.map((definition, index) => `${index + 1}) ${definition}`).join(" ")
       : definitions[0] || "";
   const definitionEnd = /[.!?…]$/u.test(definitionText) ? "" : ".";
+  const line = `${displayWord} — Étymologie : ${etymology}${end}`;
   return {
-    highlights: displayWord ? [displayWord] : [],
-    line: `${displayWord} — Étymologie : ${etymology}${end}`,
+    word,
+    moderation: { scope: "linguist", word: normalizeWord(details?.isForm ? details.baseWord || word : word) },
+    highlights: await getPinotWordHighlights(line, [displayWord, details?.isForm ? details.baseWord : ""]),
+    line,
     chatCopyText: `${displayWord} — ${definitionText}${definitionEnd} Étymologie : ${etymology}${end}`,
   };
 }
@@ -6994,6 +7043,7 @@ function commitPreparedPivotResultIntervention(room) {
   if (!intervention?.line) return null;
   if (intervention.word) rememberPivotWord(room, intervention.word);
   return rememberRoundPresenterIntervention(room, "linguist", intervention.line, {
+    moderation: intervention.moderation,
     chatCopyText: intervention.chatCopyText,
     highlights: intervention.highlights,
     formText: intervention.formText,
@@ -7011,6 +7061,7 @@ async function prepareResultsWordPresentation(room) {
   if (round.resultWordPresentation?.botKey === "humorist") {
     if (!round.presenterInterventions?.humorist) {
       rememberRoundPresenterIntervention(room, "humorist", round.resultWordPresentation.line, {
+        moderation: round.resultWordPresentation.moderation,
         highlights: round.resultWordPresentation.highlights,
         formText: round.resultWordPresentation.formText,
       });
@@ -7441,6 +7492,7 @@ function scheduleAmbientRoundEndBots(room, results, targetSummary = null) {
   if (round.resultWordPresentation?.botKey === "humorist") {
     if (!round.presenterInterventions?.humorist) {
       emitRoundPresenterIntervention(room, "humorist", round.resultWordPresentation.line, {
+        moderation: round.resultWordPresentation.moderation,
         highlights: round.resultWordPresentation.highlights,
         formText: round.resultWordPresentation.formText,
       });
@@ -7466,6 +7518,7 @@ function scheduleAmbientRoundEndBots(room, results, targetSummary = null) {
         if (room.currentRound.presenterInterventions?.linguist) return;
         if (!intervention?.line) return;
         emitRoundPresenterIntervention(room, "linguist", intervention.line, {
+          moderation: intervention.moderation,
           chatCopyText: intervention.chatCopyText,
           highlights: intervention.highlights,
         });
@@ -7498,6 +7551,7 @@ function scheduleAmbientRoundEndBots(room, results, targetSummary = null) {
         "linguist",
         intervention.line,
         {
+          moderation: intervention.moderation,
           highlights: intervention.highlights,
           formText: intervention.formText,
         }
@@ -10371,7 +10425,8 @@ async function runStartRoundForRoom(room, options = {}) {
   }
   let prepared = cached;
   let planUsed = prepared?.plan || tournamentPlan;
-  if (prepared?.plan?.type === OCID_TYPE && isRecentOcidTarget(room, prepared.targetWord)) {
+  contentExclusions.refresh();
+  if (prepared?.plan?.type === OCID_TYPE && (isRecentOcidTarget(room, prepared.targetWord) || contentExclusions.has("ocid", prepared.targetWord))) {
     prepared = null;
     planUsed = tournamentPlan;
   }
@@ -10386,7 +10441,7 @@ async function runStartRoundForRoom(room, options = {}) {
     if (prepared?.plan) {
       planUsed = prepared.plan;
     }
-    if (prepared?.plan?.type === OCID_TYPE && isRecentOcidTarget(room, prepared.targetWord)) {
+    if (prepared?.plan?.type === OCID_TYPE && (isRecentOcidTarget(room, prepared.targetWord) || contentExclusions.has("ocid", prepared.targetWord))) {
       prepared = null;
       planUsed = tournamentPlan;
     }
@@ -10404,6 +10459,9 @@ async function runStartRoundForRoom(room, options = {}) {
       planUsed = prepared.plan;
     }
   }
+  // Exclusions may change while the compute worker is preparing the grid.
+  contentExclusions.refresh();
+  if (prepared?.plan?.type === OCID_TYPE && contentExclusions.has("ocid", prepared.targetWord)) prepared = null;
   if (!prepared && planNeedsPreparedGrid(planUsed)) {
     console.warn(
       `[${room.id}] Prepared grid missing for ${planUsed.type}; falling back to base plan.`

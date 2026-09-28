@@ -1,3 +1,4 @@
+import { passwordResetLink } from "./features/auth/recovery/passwordResetLink.js";
 import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
@@ -11,6 +12,8 @@ import {
 import { maybeRecoverFromStaleChunk } from "./utils/staleChunkRecovery.js";
 import { initializePodiumTypographySettings } from "./utils/podiumTypographySettings.js";
 import "./index.css";
+
+const PasswordResetPage = React.lazy(() => import("./features/auth/recovery/PasswordResetPage.jsx"));
 
 initializePodiumTypographySettings();
 
@@ -109,7 +112,11 @@ if (typeof window !== "undefined") {
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <AppCrashBoundary>
-      <App />
+      {passwordResetLink.active ? (
+        <React.Suspense fallback={<p role="status">Chargement…</p>}>
+          <PasswordResetPage token={passwordResetLink.token} />
+        </React.Suspense>
+      ) : <App />}
     </AppCrashBoundary>
   </React.StrictMode>
 );

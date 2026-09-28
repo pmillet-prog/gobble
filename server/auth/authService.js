@@ -19,6 +19,11 @@ import { loadCatalog } from "../avatars/avatarValidation.js";
 import { initGobblarsService } from "../stats/gobblarsService.js";
 import { createAvatarStarterGrant, recordStarterGrant } from "../stats/avatarStarterGrant.js";
 import { createAvatarFaceGrant } from "../stats/avatarFaceGrant.js";
+import { createAccountAdminService } from "../admin/accountAdminService.js";
+import { isAccountUnderMaintenance } from "../admin/accountMaintenance.js";
+import { getWeeklyPlayerSnapshot } from "../stats/weeklyStatsService.js";
+import { createAccountRecoveryService } from "./recovery/accountRecoveryService.js";
+import { insertAuthSession } from "./insertAuthSession.js";
 import {
   runSerializedSqliteWrite,
   runSqliteImmediateTransaction,
@@ -481,6 +486,23 @@ export async function syncLegacyReservations() {
 export async function initAuthService() {
   await ensureDb();
 }
+
+export const accountRecovery = createAccountRecoveryService({
+  getDb: ensureDb, runWrite: runAuthWrite, hashPassword, validatePassword, normalizeUsername,
+  clearAuthCache: ({ userId }) => {
+    clearSessionLookupCache({ userId });
+    for (const [ticket, entry] of socketTickets) if (entry.userId === userId) socketTickets.delete(ticket);
+  },
+});
+
+export const accountAdministration = createAccountAdminService({
+  getDb: ensureDb, runWrite: runAuthWrite, hashPassword,
+  getWeeklySnapshot: getWeeklyPlayerSnapshot,
+  clearAuthCache: ({ userId }) => {
+    clearSessionLookupCache({ userId });
+    for (const [ticket, entry] of socketTickets) if (entry.userId === userId) socketTickets.delete(ticket);
+  },
+});
 
 export const avatarStarterGrant = createAvatarStarterGrant({
   getDb: async () => { const ready = await ensureDb(); await initGobblarsService({ applyGlobalGrant: false }); return ready; },
@@ -1025,6 +1047,7 @@ function pruneExpiredSocketTickets() {
 
 export async function issueSocketTicket(userId) {
   const safeUserId = Number(userId);
+  if (isAccountUnderMaintenance(safeUserId)) return "";
   if (!Number.isInteger(safeUserId) || safeUserId <= 0) return "";
   pruneExpiredSocketTickets();
   const ticket = randomBytes(24).toString("hex");
@@ -1042,28 +1065,21 @@ export async function consumeSocketTicket(rawTicket) {
   const entry = socketTickets.get(ticket);
   socketTickets.delete(ticket);
   if (!entry || Number(entry.expiresAt) <= nowTs()) return null;
-  return await findUserById(entry.userId);
+  const user = await findUserById(entry.userId);
+  return isAccountUnderMaintenance(entry.userId) ? null : user;
 }
 
-export async function createSession(userId) {
+export async function createSession(userId, { expectedPasswordHash = null } = {}) {
   const ready = await ensureDb();
   const token = randomBytes(32).toString("hex");
   const sessionId = randomBytes(16).toString("hex");
   const tokenHash = sha256Hex(token);
   const timestamp = nowTs();
   const expiresAt = timestamp + SESSION_TTL_MS;
-  await runAuthStatement(
-    ready,
-    `INSERT INTO user_sessions
-     (id, user_id, token_hash, created_at, last_seen_at, expires_at, invalidated_at)
-     VALUES (?, ?, ?, ?, ?, ?, NULL)`,
-    sessionId,
-    Number(userId),
-    tokenHash,
-    timestamp,
-    timestamp,
-    expiresAt
-  );
+  await runAuthWrite(() => {
+    if (isAccountUnderMaintenance(userId)) throw new Error("account_busy");
+    return insertAuthSession(ready, { sessionId, userId, tokenHash, timestamp, expiresAt, expectedPasswordHash });
+  });
   return { sessionId, token, expiresAt };
 }
 
@@ -1078,6 +1094,7 @@ export async function getSessionByToken(token) {
     Number(cached.expiresAt) > timestamp &&
     Number(cached.auth?.session?.expiresAt) > timestamp
   ) {
+    if (isAccountUnderMaintenance(cached.auth.user?.id)) return null;
     if (db) {
       scheduleSessionTouch(
         db,
@@ -1123,7 +1140,7 @@ export async function getSessionByToken(token) {
       tokenHash,
       timestamp
     );
-    if (!row) return null;
+    if (!row || isAccountUnderMaintenance(row.user_id)) return null;
     scheduleSessionTouch(ready, row.session_id, Number(row.session_last_seen_at) || 0, timestamp);
     const auth = {
       session: {
@@ -1215,7 +1232,7 @@ export async function authenticateUser(rawUsername, password) {
   if (!valid) return { ok: false, error: "invalid_credentials" };
   const user = serializeUser(row);
   await touchUserLastLogin(user.id);
-  return { ok: true, user: await findUserById(user.id) };
+  return { ok: true, user: await findUserById(user.id), passwordHash: row.password_hash };
 }
 
 export async function verifyUserPassword(userId, password) {

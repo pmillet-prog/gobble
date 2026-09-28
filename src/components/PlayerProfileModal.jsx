@@ -2,6 +2,7 @@ import React, { Suspense } from "react";
 import { createPortal } from "react-dom";
 import { getVocabLevelMeta, getVocabRankImageUrl, VOCAB_LEVELS } from "../vocabRanks.js";
 import ProfileAvatar from "./profile/ProfileAvatar.jsx";
+import ProfileAdminMenu from "../features/admin/ProfileAdminMenu.jsx";
 import ProfileMedalCaption from "./profile/ProfileMedalCaption.jsx";
 import ProfileJulienChallenge from "./profile/ProfileJulienChallenge.jsx";
 import useProfileMedals from "./profile/useProfileMedals.js";
@@ -62,6 +63,7 @@ export default function PlayerProfileModal({ open = false, darkMode = false, loa
             <ProfileAvatar own={own} userId={viewerUserId} avatar={profile?.avatar} loading={loading || (!profile && !error)} error={error} medals={dailyMedals} nickname={nick} onEdit={own && !loading && !error && !maintenanceMode ? () => setEditing(true) : null} />
             <div className="profile-identity"><span className="profile-eyebrow">{trophies?.league || "Prêt à jouer"}</span><h1 id="player-profile-title">{nick}</h1><div className="profile-identity-badges">{trophies ? <span className="profile-trophies"><Icon>emoji_events</Icon>{formatNumber(trophies.trophies)} trophées</span> : null}{duel.team ? <span className={`profile-team profile-team-${duel.team === "red" ? "red" : "blue"}`}>Équipe {duel.team === "red" ? "rouge" : "bleue"}</span> : null}</div><ProfileMedalCaption medals={dailyMedals} /></div>
           </section>
+          {!loading && !error ? <ProfileAdminMenu userId={profile?.userId} nickname={nick} viewerUserId={viewerUserId} /> : null}
           {own ? <div className="profile-wallet"><span>Mon trésor</span><GobblarsBalance balance={gobblarsBalance} /></div> : null}
           {own && maintenanceMode ? <p className="profile-state" role="status">L’éditeur d’avatar est indisponible pendant la mise à jour.</p> : null}
           {loading ? <div className="profile-state" role="status">La carte du joueur arrive…</div> : error ? <div className="profile-state profile-error" role="alert">{error}</div> : <div className="profile-content">

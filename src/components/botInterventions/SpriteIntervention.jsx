@@ -1,5 +1,6 @@
 import React from "react";
 import { createPortal } from "react-dom";
+import ContentExcludeButton from "../../features/admin/ContentExcludeButton.jsx";
 
 import AssetManager from "../../assets/assetManager.js";
 import { SFX_KEYS } from "../../assets/assetKeys.js";
@@ -658,9 +659,10 @@ function SpriteIntervention({
         data-phase={phase}
         data-intervention-id={intervention.id}
       >
-        <div className="sprite-intervention-bubble-slot" aria-hidden={wordsInteractive ? undefined : true}>
+        <div className="sprite-intervention-bubble-slot" aria-hidden={wordsInteractive || intervention.moderation || intervention.meta?.moderation ? undefined : true}>
           <div className="sprite-intervention-bubble">
             <span ref={textRef} className="sprite-intervention-text" />
+            {(intervention.moderation || intervention.meta?.moderation) ? <ContentExcludeButton key={intervention.id} content={intervention.moderation || intervention.meta.moderation} /> : null}
           </div>
           <div className="sprite-intervention-bubble-measure" aria-hidden="true">
             <span className="sprite-intervention-text">

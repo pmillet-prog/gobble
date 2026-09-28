@@ -395,6 +395,7 @@ test("presenter chat copies are silent, opt-in and deduplicated", () => {
     t: 123,
     text: "CIBLE — Étymologie : du latin.",
     chatCopyText: "CIBLE — Une définition complète. Étymologie : du latin.",
+    meta: { moderation: { scope: "linguist", word: "cible" } },
   };
   assert.equal(chat.recordPresenterActivation("pivot", pivotEvent), true);
   assert.equal(chat.recordPresenterActivation("pivot", pivotEvent), false);
@@ -406,6 +407,7 @@ test("presenter chat copies are silent, opt-in and deduplicated", () => {
   );
   assert.equal(chat.store.getState().messages.length, 1);
   assert.equal(chat.store.getState().messages[0].nick, "Bernard Pinot");
+  assert.deepEqual(chat.store.getState().messages[0].meta.moderation, pivotEvent.meta.moderation);
   assert.equal(
     chat.store.getState().messages[0].text,
     pivotEvent.chatCopyText
@@ -416,6 +418,7 @@ test("presenter chat copies are silent, opt-in and deduplicated", () => {
     kind: "challenge",
     roundId: "round-lepers",
     text: "TOP ! Je suis une définition.",
+    moderation: { scope: "lepers", reference: "opaque-test-reference" },
   };
   const lepersAnswer = {
     id: "round-lepers:answer",
@@ -429,6 +432,7 @@ test("presenter chat copies are silent, opt-in and deduplicated", () => {
   chat.recordPresenterPresentationComplete("lepers", lepersChallenge);
   chat.recordPresenterPresentationComplete("lepers", lepersAnswer);
   chat.recordPresenterPresentationComplete("lepers", lepersAnswer);
+  assert.deepEqual(chat.store.getState().messages[1].meta.moderation, lepersChallenge.moderation);
   assert.deepEqual(
     chat.store
       .getState()

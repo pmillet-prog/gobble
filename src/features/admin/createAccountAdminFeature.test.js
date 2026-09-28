@@ -1,0 +1,32 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { createApplicationKernel } from "../../app/core/createApplicationKernel.js";
+import { createAccountAdminFeature } from "./createAccountAdminFeature.js";
+
+test("permissions load once, disappear on logout, and a late response cannot restore them", async t => {
+  const original = globalThis.fetch;
+  t.after(() => { globalThis.fetch = original; });
+  const pending = [];
+  globalThis.fetch = (url, options) => new Promise(resolve => pending.push({ url, options, resolve }));
+  const kernel = createApplicationKernel();
+  kernel.features.define("accountAdmin", createAccountAdminFeature);
+  const lease = kernel.features.acquire("accountAdmin");
+  t.after(() => kernel.dispose());
+  const feature = lease.feature;
+  const login = () => kernel.commands.session.setAuthState({ status: "authenticated", user: { id: 99 } });
+  const response = () => new Response(JSON.stringify({ ok: true, accountAdmin: true, contentAdmin: true }), { headers: { "Content-Type": "application/json" } });
+  const flush = () => new Promise(resolve => setImmediate(resolve));
+  assert.equal(pending.length, 0);
+  login(); assert.equal(pending.length, 1);
+  pending[0].resolve(response()); await flush();
+  assert.equal(feature.store.getState().allowed, true);
+  kernel.commands.game.patch({ phase: "results" });
+  assert.equal(pending.length, 1);
+  kernel.commands.session.setAuthState({ status: "no_account", user: null });
+  assert.equal(feature.store.getState().allowed, false);
+  login(); assert.equal(pending.length, 2);
+  kernel.commands.session.setAuthState({ status: "no_account", user: null });
+  pending[1].resolve(response()); await flush();
+  assert.equal(feature.store.getState().allowed, false);
+  assert.equal(pending[1].options.signal.aborted, true);
+});

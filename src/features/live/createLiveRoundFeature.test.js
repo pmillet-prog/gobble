@@ -176,6 +176,7 @@ test("a Lepers round exposes its challenge as soon as the intro starts", () => {
     status: "intro",
     lepersChallenge: {
       id: "lepers-intro:lepers",
+      moderation: { scope: "lepers", reference: "opaque-intro-reference" },
       text: "TOP ! Je suis... une définition.",
       highlights: ["TOP !"],
     },
@@ -187,6 +188,7 @@ test("a Lepers round exposes its challenge as soon as the intro starts", () => {
       roundId: "lepers-intro",
       id: "lepers-intro:lepers",
       kind: "challenge",
+      moderation: { scope: "lepers", reference: "opaque-intro-reference" },
       text: "TOP ! Je suis... une définition.",
       highlights: ["TOP !"],
     },

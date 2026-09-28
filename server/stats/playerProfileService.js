@@ -13,6 +13,7 @@ import { getWeeklyNickForInstallId, getWeeklyPlayerSnapshot } from "./weeklyStat
 import { getVocabularySnapshot } from "./vocabularyService.js";
 import { getTrophyStatus } from "./trophyService.js";
 import { getWeeklyDuelRecap, getDuelNickForInstallId } from "./teamDuelService.js";
+import { mergeAbsoluteRecords } from "../admin/accountRecords.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -522,7 +523,11 @@ export async function getPublicPlayerProfileByUserId(
     normalizeNick(getDuelNickForInstallId(safeUserId)) ||
     "Joueur";
   const currentWeek = weekly?.currentWeek || {};
-  const weeklyAllTime = weekly?.allTime || {};
+  const recovered = db ? await db.get("SELECT records_json FROM account_absolute_records WHERE user_id=?", Number(safeUserId)).catch(error => {
+    if (String(error?.message).includes("no such table")) return null;
+    throw error;
+  }) : null;
+  const weeklyAllTime = { ...(weekly?.allTime || {}), ...mergeAbsoluteRecords(weekly?.allTime, recovered ? JSON.parse(recovered.records_json) : null) };
   const duelContribution = duelRecap?.myContribution || null;
 
   return {
