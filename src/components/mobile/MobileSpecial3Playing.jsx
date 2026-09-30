@@ -38,7 +38,6 @@ function MobileSpecial3Playing(props) {
     mobileChatUnreadIsBotOnly: mobileChatUnreadIsBotOnlyProp = false,
     mobileChatUnreadCount: mobileChatUnreadCountProp = 0,
     mobileGridProps = {},
-    mobileResultsPhaseFadeOverlay = null,
     mobileRoundIntroOverlay = null,
     mobileSpecial3BonusTrayRef = null,
     mobileSpecial3FirstSlotRef = null,
@@ -551,7 +550,6 @@ function MobileSpecial3Playing(props) {
         {special3DragGhost}
         {special3InGameTutorialCard}
       </div>
-      {mobileResultsPhaseFadeOverlay}
       {mobileRoundIntroOverlay}
       {chatOverlays}
     </>

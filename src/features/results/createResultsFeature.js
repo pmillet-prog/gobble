@@ -13,6 +13,7 @@ export function createInitialResultsState() {
     pathPreview: null,
     rankingMode: "round",
     reorderTick: 0,
+    roundStartDelayed: false,
     roundStartDelayTick: 0,
     wordInfoModal: {
       foundBy: [],
@@ -87,14 +88,18 @@ export function createResultsFeature(
 ) {
   let feature = null;
   let fadeTimerId = null;
+  let mobileOutroFadeStarted = false;
   let pathPreviewCache = null;
   let pathPreviewObserver = null;
   let pathPreviewRafId = null;
   let pathPreviewRuntime = null;
   let pathPreviewViewportUnsubscribe = null;
   let preparationTimerId = null;
+  let timingGeneration = 0;
+  let timingRoundId = null;
 
   function clearTiming() {
+    timingGeneration += 1;
     if (fadeTimerId != null) clearTimeoutFn(fadeTimerId);
     if (preparationTimerId != null) clearTimeoutFn(preparationTimerId);
     fadeTimerId = null;
@@ -109,12 +114,20 @@ export function createResultsFeature(
     nowServerMs,
     phase,
     preparationGraceMs,
+    roundId,
   }) {
     clearTiming();
+    feature.set("roundStartDelayed", false);
+    const generation = timingGeneration;
     const isResults = phase === "results" && breakKind !== "tournament_end";
     const hasNextStart = Number.isFinite(nextStartAt);
+    const nextTimingRoundId = roundId ?? null;
+    if (!isResults || !isMobileLayout || timingRoundId !== nextTimingRoundId) {
+      mobileOutroFadeStarted = false;
+    }
+    timingRoundId = isResults && isMobileLayout ? nextTimingRoundId : null;
     if (!isResults || !hasNextStart) {
-      feature.set("mobileOutroFadeActive", false);
+      feature.set("mobileOutroFadeActive", mobileOutroFadeStarted);
       return;
     }
 
@@ -125,23 +138,32 @@ export function createResultsFeature(
       Number(nextStartAt) + Math.max(0, Number(preparationGraceMs) || 0) + 10 - safeNow
     );
     preparationTimerId = setTimeoutFn(() => {
+      if (generation !== timingGeneration) return;
       preparationTimerId = null;
-      feature.set("roundStartDelayTick", wallNow());
+      feature.patch({ roundStartDelayed: true, roundStartDelayTick: wallNow() });
     }, preparationDelayMs);
 
     if (!isMobileLayout) {
       feature.set("mobileOutroFadeActive", false);
       return;
     }
+    // A corrected deadline must not reveal the same results after their fade began.
+    if (mobileOutroFadeStarted) {
+      feature.set("mobileOutroFadeActive", true);
+      return;
+    }
     const safeFadeDurationMs = Math.max(0, Number(fadeDurationMs) || 0);
     const msUntilStart = Math.max(0, Number(nextStartAt) - safeNow);
     if (msUntilStart <= safeFadeDurationMs + 20) {
+      mobileOutroFadeStarted = true;
       feature.set("mobileOutroFadeActive", true);
       return;
     }
     feature.set("mobileOutroFadeActive", false);
     fadeTimerId = setTimeoutFn(() => {
+      if (generation !== timingGeneration) return;
       fadeTimerId = null;
+      mobileOutroFadeStarted = true;
       feature.set("mobileOutroFadeActive", true);
     }, Math.max(0, msUntilStart - safeFadeDurationMs));
   }
@@ -284,6 +306,8 @@ export function createResultsFeature(
     start: ({ scope, store }) => {
       scope.add(() => {
         clearTiming();
+        mobileOutroFadeStarted = false;
+        timingRoundId = null;
         clearPathPreviewResources();
         pathPreviewCache = null;
         store.patch(createInitialResultsState());

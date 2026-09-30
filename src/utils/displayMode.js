@@ -101,10 +101,11 @@ export function getDisplayModeSnapshot({
   const isIphoneBrowser = /iPhone|iPod/i.test(userAgent) && !isStandalone && !isWrapper;
   const canFullscreen = !isIphoneBrowser && canRequestDocumentFullscreen(doc);
   const isIosBrowser = isAppleMobileUserAgent(userAgent) && !isStandalone && !isWrapper;
+  const hasFullscreenDisplay = !!win?.matchMedia?.("(display-mode: fullscreen)")?.matches;
   let homeAction = HOME_DISPLAY_ACTIONS.none;
   if (!isStandalone && !isWrapper) {
     if (isFullscreen) homeAction = HOME_DISPLAY_ACTIONS.exitFullscreen;
-    else if (canFullscreen) homeAction = HOME_DISPLAY_ACTIONS.enterFullscreen;
+    else if (canFullscreen && !hasFullscreenDisplay) homeAction = HOME_DISPLAY_ACTIONS.enterFullscreen;
     else if (isIosBrowser) homeAction = HOME_DISPLAY_ACTIONS.iosInstall;
   }
   return {

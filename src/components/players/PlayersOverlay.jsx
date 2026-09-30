@@ -7,6 +7,7 @@ import {
 } from "../../app/react/useFeatureRuntime.js";
 import FantasyPanelShell from "../home/FantasyPanelShell.jsx";
 import TrainingPlayerBadge from "../training/TrainingPlayerBadge.jsx";
+import LepersBonusBadge from "../results/LepersBonusBadge.jsx";
 import {
   formatApproximateMinutes,
   getCompactLiveRoundLabel,
@@ -129,7 +130,7 @@ export default function PlayersOverlay({ actions, appearance, directory, rendere
   const intermissionCountdown = useIntermissionCountdown();
   const roster = useFeatureRuntime("roster");
   const livePlayers = useFeatureSelector(roster, (state) =>
-    directory.open && round.isLoggedIn
+    directory.open && round.isLoggedIn && directory.mode === "alpha"
       ? state.livePlayers
       : EMPTY_PLAYERS
   );
@@ -165,8 +166,8 @@ export default function PlayersOverlay({ actions, appearance, directory, rendere
         title={`Liste des joueurs${entries.length ? ` (${entries.length})` : ""}`}
         subtitle={[
           directory.mode === "snapshot"
-            ? "Photo du classement en cours (figee)"
-            : "Liste alphabetique (sans score)",
+            ? "Photo du classement en cours (figée)"
+            : "Liste alphabétique (sans score)",
           context.currentRoundInfoLine,
           context.tournamentInfoLine,
           context.tournamentEtaLine,
@@ -245,8 +246,11 @@ export default function PlayersOverlay({ actions, appearance, directory, rendere
                             PRÊT
                           </span>
                         ) : null}
-                        {renderers.humanDot(nick)}
+                        {renderers.humanDot(nick, entry)}
                         {gobbleAwards}
+                        {directory.mode === "snapshot" ? (
+                          <LepersBonusBadge bonus={entry.lepersBonus} showPoints={false} />
+                        ) : null}
                       </div>
                     </div>
                     {directory.mode === "snapshot" ? (

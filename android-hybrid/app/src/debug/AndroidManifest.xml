@@ -1,0 +1,4 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- adb reverse fixture only; release builds retain usesCleartextTraffic=false. -->
+    <application android:networkSecurityConfig="@xml/debug_network_security" />
+</manifest>

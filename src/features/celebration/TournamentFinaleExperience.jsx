@@ -1,5 +1,6 @@
 import React, { Suspense } from "react";
 import { useFeatureRuntime, useFeatureSelector } from "../../app/react/useFeatureRuntime.js";
+import { useApplicationSelector } from "../../app/react/ApplicationRuntimeProvider.jsx";
 import { useTournamentAvatarResources } from "../avatar/TournamentAvatarsProvider.jsx";
 import { getTournamentPodiumEntries } from "./tournamentPodiumModel.js";
 import TournamentPodium from "./TournamentPodium.jsx";
@@ -10,6 +11,8 @@ import "./tournamentFinaleExperience.css";
 const TournamentFinaleScreen = React.lazy(loadTournamentFinaleRanking);
 
 function LivePodium({ tournamentKey, ranking, identity, sound, onOpenProfile, onComplete }) {
+  // Awards arrive at the start of the ceremony, after the portraits were warmed.
+  const medals = useApplicationSelector(state => state.realtime.medals);
   // Freeze the ceremony's entrants: duplicate snapshots must not reload canvases
   // or restart the animation. The surrounding component is keyed by tournament.
   const [entrants] = React.useState(() => getTournamentPodiumEntries(ranking, { userId: identity.userId, nick: identity.selfNick, knownPlayers: identity.knownPlayers }));
@@ -25,7 +28,7 @@ function LivePodium({ tournamentKey, ranking, identity, sound, onOpenProfile, on
     preparation.then(accept).catch(() => { if (active) setError(true); });
     return () => { active = false; };
   }, [resources, tournamentKey, entrants, attempt]);
-  return ready ? <TournamentPodium {...ready} preparedActors={ready.actors} sound={sound} onOpenProfile={onOpenProfile} onComplete={onComplete} />
+  return ready ? <TournamentPodium {...ready} preparedActors={ready.actors} medals={medals} sound={sound} onOpenProfile={onOpenProfile} onComplete={onComplete} />
     : <div className="tournament-celebration-loading" role={error ? "alert" : "status"}>{error ? <>Les avatars n’ont pas pu rejoindre le podium. <button type="button" onClick={() => setAttempt(value => value + 1)}>Réessayer</button></> : "Les joueurs rejoignent le podium…"}</div>;
 }
 

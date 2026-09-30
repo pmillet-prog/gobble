@@ -80,7 +80,7 @@ export async function createAvatarRenderer(dependencies = {}) {
       return { ...resolved, draw(canvas, view, medals, nickname = options.nickname) {
         const ctx = canvas.getContext("2d");
         engine.draw(canvas, assets, resolved.state, {
-          view, background: "transparent",
+          view, background: "transparent", portraitOffsetY: options.portraitOffsetY,
           drawAccessories: (ctx, layer) => cosmetics.draw(ctx, assets, resolved.state, selectedCosmetics, layer),
           drawSkin: skinLayer ? ctx => ctx.drawImage(skinLayer, 0, 0) : undefined,
           transformCharacter: (ctx, viewport) => {

@@ -1,0 +1,34 @@
+plugins { id 'com.android.application' }
+
+android {
+    namespace 'fr.gobble.hybrid'
+    compileSdk = 37
+    defaultConfig {
+        // Separate install and data: never replaces the published TWA.
+        applicationId 'fr.gobble.hybrid.prototype'
+        minSdk = 24
+        targetSdk = 37
+        versionCode = 4
+        versionName '0.4-prototype'
+    }
+    sourceSets.main.assets.srcDir('build/generated/web-assets')
+    buildFeatures { buildConfig = true }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+tasks.register('checkWebBundle') {
+    doLast {
+        if (!layout.buildDirectory.file('generated/web-assets/bundle-manifest.json').get().asFile.exists()) {
+            throw new GradleException('Run node scripts/android/prepare-hybrid.mjs before building.')
+        }
+    }
+}
+tasks.named('preBuild').configure { dependsOn('checkWebBundle') }
+
+dependencies {
+    implementation 'androidx.webkit:webkit:1.17.1'
+    implementation 'androidx.activity:activity:1.9.0'
+}

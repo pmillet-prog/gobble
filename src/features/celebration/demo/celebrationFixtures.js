@@ -20,6 +20,7 @@ export function createCelebrationFixture(position = "winner", look = 0, botKey =
   const players = names.map((nick, index) => ({
     userId: nick === "Tigre" ? "demo-self" : `demo-${nick}`, nick, rank: index + 1, score: scores[index],
     avatar: normalizeAvatar(LOOKS[look % LOOKS.length][index]),
+    medals: [{ gold: 4, silver: 2, bronze: 1 }, { silver: 1 }, { gold: 1, silver: 1, bronze: 1 }][index],
   }));
   if (Object.hasOwn(PRESENTER_IDENTITIES, botKey)) {
     const index = position === "winner" ? 1 : 0;

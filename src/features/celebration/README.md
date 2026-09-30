@@ -15,6 +15,13 @@ pendant la célébration lance la même préparation à la demande. Les tâches 
 canvases sont annulés/libérés à la fermeture, au changement de tournoi ou à la
 sortie du jeu. Les doublons de snapshots ne relancent pas la préparation.
 
+Les bustes du podium ont leur propre cadrage : le décalage vertical des profils
+ne s'y applique pas, afin de laisser les médailles au-dessus du socle. Les
+médailles du salon sont dessinées sur le canvas affiché et suivent les mises à
+jour du serveur, y compris l'attribution à l'ouverture de la cérémonie. Elles
+restent séparées des poses préchargées : une attribution ou une remise à zéro
+ne recharge pas les avatars et ne relance pas l'animation.
+
 Ouvrir `/dev/avatar-celebration/` sur le serveur Vite local. La scène utilise des
 joueurs fictifs et ne contacte ni serveur de jeu ni API de compte. Elle ne modifie
 aucune sauvegarde d’avatar. Entrée séparée du jeu, hors du build de production.

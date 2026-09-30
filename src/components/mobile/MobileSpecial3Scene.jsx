@@ -43,7 +43,6 @@ export default function MobileSpecial3Scene({ state, refs, actions, content, con
     mobileChatUnreadCount,
     mobileChatUnreadIsBotOnly,
     mobileLayoutSizing,
-    mobileResultsPhaseFadeOverlay,
     mobileRoundIntroHideTiles,
     mobileRoundIntroOverlay,
     phase,
@@ -603,9 +602,6 @@ export default function MobileSpecial3Scene({ state, refs, actions, content, con
           usedSet,
           specialStartTileSet: special3LockedStartTileSet,
         }}
-          mobileResultsPhaseFadeOverlay={
-            suppressLiveChatMotion ? null : mobileResultsPhaseFadeOverlay
-          }
           mobileRoundIntroOverlay={suppressLiveChatMotion ? null : mobileRoundIntroOverlay}
           mobileSpecial3BonusTrayRef={mobileSpecial3BonusTrayRef}
           mobileSpecial3FirstSlotRef={mobileSpecial3FirstSlotRef}

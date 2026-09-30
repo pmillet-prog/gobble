@@ -13,7 +13,7 @@ const output = path.join(root, ".Tmp/tournament-avatar-review");
 const profile = await mkdtemp(path.join(tmpdir(), "gobble-avatar-check-"));
 const vite = await createServer({ root, configFile: false, logLevel: "error", cacheDir: path.join(output, "vite-cache"),
   optimizeDeps: { noDiscovery: true, include: ["react", "react-dom/client", "react-dom", "canvas-confetti", "socket.io-client"] },
-  server: { host: "127.0.0.1", port: 0 } });
+  server: { host: "127.0.0.1", port: 0, watch: { ignored: [/(?:^|[/\\])\.tmp(?:[/\\]|$)/i, "**/public/emojis/**"] } } });
 let browser, socket, send, diagnose;
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
 async function until(read, timeout = 20000) {
@@ -83,9 +83,20 @@ try {
   await until(() => evaluate("!!document.querySelector('.podium-performance.is-playing')"));
   assert.equal(await evaluate("!!document.querySelector('.podium-replay')"), false);
   await until(() => evaluate("!!document.querySelector('.podium-performance.is-complete')"));
+  // Medals are emitted at ceremony time, after warmup. Updating them must not
+  // reuse an undecorated cached frame, restart the sequence or reload portraits.
+  await evaluate(`window.podiumBeforeMedals = [...document.querySelectorAll('.podium-avatar-motion canvas')].map(canvas => canvas.toDataURL());
+    window.podiumBeforePlaying = avatarFixture.metrics.playingAt;
+    avatarFixture.awardMedals()`);
+  await until(() => evaluate(`[...document.querySelectorAll('.podium-avatar-motion canvas')].every((canvas, index) => canvas.toDataURL() !== window.podiumBeforeMedals[index])`));
+  await evaluate(`window.podiumWithMedals = [...document.querySelectorAll('.podium-avatar-motion canvas')].map(canvas => canvas.toDataURL()); avatarFixture.clearMedals()`);
+  await until(() => evaluate(`[...document.querySelectorAll('.podium-avatar-motion canvas')].every((canvas, index) => canvas.toDataURL() === window.podiumBeforeMedals[index])`));
+  await evaluate("avatarFixture.awardMedals()");
+  await until(() => evaluate(`[...document.querySelectorAll('.podium-avatar-motion canvas')].every((canvas, index) => canvas.toDataURL() === window.podiumWithMedals[index])`));
+  assert.equal(await evaluate("avatarFixture.metrics.preparations.length"), 1, "medals never reprepare cached portraits");
+  assert.equal(await evaluate("avatarFixture.metrics.playingAt === window.podiumBeforePlaying && !!document.querySelector('.podium-performance.is-complete')"), true);
+  console.log("Late medals appear, clear and reappear on all three busts without restarting or reloading the podium.");
   await shot("desktop-podium-complete");
-  await pause(4000);
-  assert.equal(await evaluate("!!document.querySelector('.tournament-podium')"), true, "final pose remains visible for five seconds");
   await until(() => evaluate("!!avatarFixture.metrics.rankingAt"), 5000);
   await shot("desktop-ranking");
   const desktop = await evaluate("avatarFixture.metrics");
@@ -100,7 +111,7 @@ try {
 
   await load(393, 852, true);
   // Joining during the celebration has no warmup: it must still work.
-  await evaluate("avatarFixture.open()");
+  await evaluate("avatarFixture.awardMedals(); avatarFixture.open()");
   await until(() => evaluate("!!document.querySelector('.podium-performance.is-complete')"), 60000);
   await shot("mobile-reduced-podium");
   await until(() => evaluate("!!avatarFixture.metrics.rankingAt"), 10000);

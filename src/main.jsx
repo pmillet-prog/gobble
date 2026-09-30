@@ -1,4 +1,5 @@
 import { passwordResetLink } from "./features/auth/recovery/passwordResetLink.js";
+import { getNativeHost } from "./features/mobile/nativeHost.js";
 import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
@@ -121,7 +122,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
   </React.StrictMode>
 );
 
-if ("serviceWorker" in navigator) {
+if ("serviceWorker" in navigator && !getNativeHost()) {
   navigator.serviceWorker.register("/sw.js").catch(() => {
     /* ignore registration errors */
   });

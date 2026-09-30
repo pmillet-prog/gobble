@@ -4,10 +4,10 @@ import { readFile } from "node:fs/promises";
 import vm from "node:vm";
 
 const source = await readFile(new URL("../../../public/sw.js", import.meta.url), "utf8");
-function setup(fetchImpl, { storageFails = false, optionalAssetsFail = false } = {}) {
+function setup(fetchImpl, { storageFails = false, optionalAssetsFail = false, badOfflinePage = false } = {}) {
   const handlers = new Map(), stores = new Map(), timers = new Map();
   let nextTimer = 1, skipped = false;
-  const offlinePage = "<html>Gobble offline — Réessayer</html>";
+  const offlinePage = '<html><meta name="gobble-page" content="offline">Gobble offline — Réessayer</html>';
   const caches = {
     keys: async () => [...stores.keys()],
     delete: async key => stores.delete(key),
@@ -29,7 +29,14 @@ function setup(fetchImpl, { storageFails = false, optionalAssetsFail = false } =
     },
   };
   vm.runInNewContext(source, {
-    URL, Response, AbortController, Promise, fetch: fetchImpl, caches,
+    URL, Response, AbortController, Promise, caches,
+    fetch: (request, options) => {
+      if (request === "/offline.html") {
+        assert.equal(options.redirect, "error");
+        return Promise.resolve(new Response(badOfflinePage ? "<html>the game</html>" : offlinePage, { headers: { "content-type": "text/html" } }));
+      }
+      return fetchImpl(request, options);
+    },
     setTimeout(fn) { const id = nextTimer++; timers.set(id, fn); return id; },
     clearTimeout(id) { timers.delete(id); },
     self: {
@@ -95,4 +102,47 @@ test("server errors get the fallback; auth errors and API requests stay untouche
   assert.equal(h.request("/socket.io/"), undefined);
   const forbidden = setup(async () => new Response("denied", { status: 403 }));
   assert.equal((await forbidden.request()).status, 403);
+});
+
+test("Caddy's maintenance document is displayed with its 502/503 status and never cached as the game", async () => {
+  const page = await readFile(new URL("../../../ops/maintenance/index.html", import.meta.url), "utf8");
+  for (const status of [502, 503]) {
+    const h = setup(async () => new Response(page, { status, headers: { "content-type": "text/html", "cache-control": "no-store" } }));
+    await h.install();
+    const previousShell = h.stores.get("gobble-cache-shell-v6").get("/index.html");
+    const response = await h.request();
+    assert.equal(response.status, status);
+    assert.equal(await response.text(), page);
+    assert.equal(response.headers.get("cache-control"), "no-store");
+    assert.equal(h.stores.get("gobble-cache-shell-v6").get("/index.html"), previousShell);
+  }
+});
+
+test("the already installed maintenance page is recognized without the new marker", async () => {
+  const page = '<html><title>Gobble · Maintenance en cours</title>Gobble se refait une beauté.</html>';
+  const h = setup(async () => new Response(page, { status: 502, headers: { "content-type": "text/html" } }));
+  const response = await h.request();
+  assert.equal(response.status, 502);
+  assert.equal(await response.text(), page);
+});
+
+test("a stale redirected cached fallback is reconstructed before a navigation response", async () => {
+  const h = setup(async () => { throw new Error("offline"); });
+  await h.install();
+  h.stores.get("gobble-cache-offline-v2").set("/offline.html", {
+    clone: () => ({ ok: true, redirected: true, type: "basic", text: async () => h.offlinePage }),
+  });
+  const response = await h.request();
+  assert.equal(response.redirected, false);
+  assert.equal(await response.text(), h.offlinePage);
+});
+
+test("a SPA response at the offline URL is rejected and cannot break worker installation", async () => {
+  const h = setup(async () => { throw new Error("offline"); }, { badOfflinePage: true });
+  await h.install();
+  assert.equal(h.skipped(), true);
+  assert.equal(h.stores.get("gobble-cache-offline-v2").has("/offline.html"), false);
+  assert.match(await (await h.request()).text(), /Connexion indisponible/);
+  h.stores.get("gobble-cache-offline-v2").set("/offline.html", new Response("<html>the game</html>"));
+  assert.match(await (await h.request()).text(), /Connexion indisponible/);
 });

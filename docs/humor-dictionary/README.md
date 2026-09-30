@@ -1,15 +1,18 @@
-# Dictionnaire humoristique — corpus étendu
+# Dictionnaire humoristique — Laurent Bafouille
 
-**5 043 propositions pour 5 043 mots distincts**, de 3 à 10 lettres.
-Les 1 620 textes initiaux sont conservés à l’identique ; 3 423 entrées ont été ajoutées.
+**10 000 définitions pour 10 000 mots distincts**, de 3 à 15 lettres.
+Le corpus conserve les 5 043 entrées relues et ajoute 4 957 nouveaux mots.
+L’ensemble a fait l’objet d’une relecture éditoriale pour renforcer les chutes,
+les scènes concrètes et la variété des ressorts comiques, en conservant les
+formules qui fonctionnaient déjà.
 
 - [Parcourir le dictionnaire](index.html) : recherche, tri par fréquence de chaque
   type de manche, lecture alphabétique et tirage de 20 entrées au hasard.
 - [Corpus avec les fréquences](catalog.fr.json) : export structuré, autonome.
 - [Source éditable](../../data/humor/definitions.fr.txt) : une ligne `MOT|Définition`.
 
-Les textes ont été rédigés pour ce corpus. Ils constituent une première version
-éditoriale humoristique, pas des définitions lexicales de remplacement. Le serveur
+Les textes ont été rédigés pour ce corpus. Ce sont des définitions
+humoristiques, pas des définitions lexicales de remplacement. Le serveur
 utilise l’[export compact](../../data/humor/runtime.fr.json) pour Laurent Bafouille ;
 le client ne reçoit que l’intervention choisie.
 
@@ -29,8 +32,8 @@ La préférence de visibilité de MomoMotus est conservée pour son remplaçant.
 Les candidats sont les mots présents dans les solutions de la grille, qu’ils
 aient été trouvés ou non par les joueurs, disposant d’une définition humoristique
 directe ou rattachés à l’une d’elles par le dictionnaire lexical local. L’export
-contient **20 728 formes supplémentaires**, soit **25 771 mots potentiellement admissibles** pour
-les 5 043 définitions. Les mots de deux lettres restent exclus.
+contient **29 130 formes supplémentaires**, soit **39 130 mots potentiellement admissibles** pour
+les 10 000 définitions. Les mots de deux lettres restent exclus.
 Une définition humoristique directe reste prioritaire sur un rattachement.
 Les 100 derniers lemmes et définitions de Bafouille sont exclus avant de choisir
 le moins fréquent : changer de pluriel ou de conjugaison ne contourne pas ce filtre.
@@ -86,11 +89,13 @@ pixels reprend l’échelle du portrait de Pinot ; les images sources restent in
 La sélection prolonge les [premiers candidats](../humor-dictionary-candidates.md)
 en élargissant aux noms, adjectifs, infinitifs et quelques mots grammaticaux qui
 offrent un angle comique. Les 69 candidats précédemment détaillés sont présents.
-Les mots retenus sont admis par le dictionnaire du jeu et ont tous été observés
-dans au moins un des trois échantillons de 1 000 grilles.
+Les mots retenus sont admis par le dictionnaire du jeu. Parmi eux, **6 064** ont
+été observés dans au moins un des trois échantillons de 1 000 grilles ; les
+**3 936** autres conservent des effectifs nuls. L’extension inclut des mots plus
+longs et familiers, même lorsqu’ils n’apparaissent pas dans ces échantillons.
 
-Parmi ces entrées, **926** apparaissent dans au moins 1 % des grilles classiques ;
-**1 530** atteignent 1 % dans au moins un des trois types. Ce sont des constats sur
+Parmi ces entrées, **947** apparaissent dans au moins 1 % des grilles classiques ;
+**1 568** atteignent 1 % dans au moins un des trois types. Ce sont des constats sur
 les échantillons, pas des garanties de fréquence réelle ni de couverture cumulée.
 Les mots moins observés sont conservés pour varier les sujets.
 
@@ -121,8 +126,10 @@ La construction vérifie : au moins 5 000 entrées, clés uniques après la
 normalisation du jeu, trois lettres minimum, mots admis, couverture des longueurs
 par le rapport, calcul des pourcentages, textes distincts, format et ponctuation.
 Un futur ajout absent des trois échantillons est accepté avec trois effectifs nuls.
-Les textes de cette version ont entre 32 et 104 caractères. Aucun texte identique
-ni aucune suite identique de sept mots n’a été relevé entre deux définitions.
+Chaque texte doit rester entre 15 et 200 caractères, avec une ponctuation finale.
+La relecture privilégie une surprise liée au mot et une chute immédiatement
+compréhensible ; elle évite les observations interchangeables, les mêmes gags
+répétés et les explications qui prolongent inutilement la chute.
 
 La recherche sans accents, les tris, la pagination, l'échantillonnage sans
 doublons et l'affichage sur ordinateur et petit écran ont été vérifiés dans

@@ -62,7 +62,6 @@ export default function MobileStandardScene({ state, refs, actions, content, con
     mobileLayoutSizing,
     mobileResultPages,
     mobileResultsPage,
-    mobileResultsPhaseFadeOverlay,
     mobileRoundIntroHideTiles,
     mobileRoundIntroOverlay,
     nextHintLabel,
@@ -145,6 +144,7 @@ export default function MobileStandardScene({ state, refs, actions, content, con
     normalizeLetterKey,
     openDefinition,
     openPlayersOverlayAlpha,
+    openPlayersOverlaySnapshot,
     openLiveStatsOverlay,
     openRoundPlayerModal,
     openSettingsPanel,
@@ -512,9 +512,6 @@ export default function MobileStandardScene({ state, refs, actions, content, con
             mobileBodyHeightStyle={mobileBodyHeightStyle}
             mobileBodyPaddingTop={mobileBodyPaddingTop}
             mobileHeaderRef={mobileHeaderRef}
-            mobileResultsPhaseFadeOverlay={
-              suppressLiveChatMotion ? null : mobileResultsPhaseFadeOverlay
-            }
             mobileResultsSummaryStyle={mobileResultsSummaryStyle}
             mobileViewportContainerStyle={mobileViewportContainerStyle}
             onAnalyzeWord={analyzeWord}
@@ -717,9 +714,6 @@ export default function MobileStandardScene({ state, refs, actions, content, con
         mobileHeaderRef={mobileHeaderRef}
         mobileLayoutSizing={mobileLayoutSizing}
         mobileRankingRef={mobileRankingRef}
-        mobileResultsPhaseFadeOverlay={
-          suppressLiveChatMotion ? null : mobileResultsPhaseFadeOverlay
-        }
         mobileRoundIntroHideTiles={mobileRoundIntroHideTiles}
         mobileRoundIntroOverlay={suppressLiveChatMotion ? null : mobileRoundIntroOverlay}
         mobileTileFontPx={mobileTileFontPx}
@@ -735,7 +729,11 @@ export default function MobileStandardScene({ state, refs, actions, content, con
         onOpenChat={requestOpenChat}
         onOpenDefinition={openDefinition}
         onOpenPlayerProfile={stableOpenPlayerProfile}
-        onOpenPlayers={openPlayersOverlayAlpha}
+        onOpenPlayers={
+          isDailyPlay || standaloneTrainingSession
+            ? openPlayersOverlayAlpha
+            : openPlayersOverlaySnapshot
+        }
         onOcidProposalChange={handleOcidProposalChange}
         onClearOcidProposal={handleClearOcidProposal}
         onSubmitOcidProposal={submitOcidProposal}

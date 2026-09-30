@@ -43,13 +43,11 @@ export default function useDisplayMode() {
 
   const toggleFullscreen = useCallback(async () => {
     try {
-      if (snapshot.isFullscreen) {
-        await exitDocumentFullscreen();
-      } else {
-        await requestDocumentFullscreen();
-      }
+      const changed = snapshot.isFullscreen
+        ? await exitDocumentFullscreen()
+        : await requestDocumentFullscreen();
       refresh();
-      return true;
+      return changed;
     } catch (_) {
       refresh();
       return false;

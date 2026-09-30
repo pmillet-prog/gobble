@@ -14,7 +14,10 @@ export class ChalkboardSpongeLayer {
         if (tile) {
           context.save();
           context.setTransform(1, 0, 0, 1, 0, 0);
-          context.drawImage(tile, 0, 0);
+          // Worker tiles follow screen resolution; this editable tile uses a
+          // fixed raster ratio. Both cover the same world area, so fit the
+          // whole bitmap instead of shrinking each fragment independently.
+          context.drawImage(tile, 0, 0, context.canvas.width, context.canvas.height);
           context.restore();
         }
       } else drawChalkElement(context, element, bounds.minX, bounds.minY, bounds, start);

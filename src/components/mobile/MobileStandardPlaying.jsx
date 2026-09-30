@@ -65,7 +65,6 @@ function MobileStandardPlaying(props) {
     mobileHeaderRef = null,
     mobileLayoutSizing = {},
     mobileRankingRef = null,
-    mobileResultsPhaseFadeOverlay = null,
     mobileRoundIntroHideTiles = false,
     mobileRoundIntroOverlay = null,
     mobileTileFontPx = 18,
@@ -420,7 +419,6 @@ function MobileStandardPlaying(props) {
           ) : null}
         </div>
       </div>
-      {mobileResultsPhaseFadeOverlay}
       {mobileRoundIntroOverlay}
       {chatOverlays}
     </>

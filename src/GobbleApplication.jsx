@@ -88,6 +88,7 @@ import useRealtimeEventBindings from "./hooks/useRealtimeEventBindings.js";
 import useMobileRoundIntro from "./hooks/useMobileRoundIntro.js";
 import useMobileExperience from "./features/mobile/useMobileExperience.js";
 import MobileExitConfirmDialog from "./features/mobile/MobileExitConfirmDialog.jsx";
+import { capturePlayersOverlaySnapshot } from "./features/overlays/playersOverlaySnapshot.js";
 import useGridTransitionEffects from "./hooks/useGridTransitionEffects.js";
 import {
   computeDesktopColumnUiScales,
@@ -1837,7 +1838,6 @@ export default function GobbleApplication() {
     dismissedTournamentFinaleKey,
     highlightPlayers,
     hoveredNick: hoveredResultsNick,
-    mobileOutroFadeActive: mobileResultsOutroFadeActive,
     pathPreview: resultsPathPreview,
     rankingMode: resultsRankingMode,
     reorderTick: resultsReorderTick,
@@ -5484,51 +5484,14 @@ export default function GobbleApplication() {
     fetchWeeklyStats();
   }, [phase, players.length, weeklyStats?.topN, !!weeklyStats]);
 
-  function buildPlayersSnapshot(list) {
-    const safe = Array.isArray(list) ? list : [];
-    const seen = new Set();
-    const snapshot = [];
-    safe.forEach((entry, idx) => {
-      const nick = entry?.nick ? String(entry.nick) : "";
-      if (!nick || seen.has(nick)) return;
-      seen.add(nick);
-      const liveAwards = gobbleAwardsForLive?.get?.(nick) || null;
-      const gobbleAwardCount =
-        (liveAwards?.bestWord ? 1 : 0) + (liveAwards?.longestWord ? 1 : 0);
-      const userId = normalizeUserIdForProfile(entry?.userId);
-      const installId = entry?.installId != null ? String(entry.installId) : "";
-      const playerKey = entry?.playerKey
-        ? String(entry.playerKey)
-        : userId
-        ? `install:${userId}`
-        : "";
-      snapshot.push({
-        nick,
-        userId,
-        installId,
-        playerKey,
-        team: entry?.team || null,
-        isBot: !!entry?.isBot,
-        inTraining: !!entry?.inTraining,
-        trainingMode: entry?.trainingMode || null,
-        isDailyChampion: !!entry?.isDailyChampion,
-        weeklyVocabPodiumRank: Number(entry?.weeklyVocabPodiumRank) || 0,
-        isWeeklyVocabChampion: !!entry?.isWeeklyVocabChampion,
-        rank: Number.isFinite(entry?.rank) ? entry.rank : idx + 1,
-        score: typeof entry?.score === "number" ? entry.score : null,
-        gobbleAwardCount,
-      });
-    });
-    snapshot.sort((a, b) => {
-      const ra = Number.isFinite(a.rank) ? a.rank : Infinity;
-      const rb = Number.isFinite(b.rank) ? b.rank : Infinity;
-      return ra - rb;
-    });
-    return snapshot;
-  }
-
   function openPlayersOverlaySnapshot(list) {
-    setPlayersOverlaySnapshot(buildPlayersSnapshot(list));
+    setPlayersOverlaySnapshot(capturePlayersOverlaySnapshot({
+      roster: rosterFeature,
+      progress: progressFeature,
+      rankingConfig: liveRosterConfig,
+      gobbleAwards: gobbleAwardsForLive,
+      ranking: list,
+    }));
     setPlayersOverlayMode("snapshot");
     setIsPlayersOverlayOpen(true);
   }
@@ -5720,6 +5683,7 @@ export default function GobbleApplication() {
       nowServerMs: getNowServerMs,
       phase,
       preparationGraceMs: ROUND_PREPARATION_FALLBACK_GRACE_MS,
+      roundId,
     });
   }, [breakKind, isMobileLayout, nextStartAt, phase, resultsFeature, roundId]);
 
@@ -9249,8 +9213,8 @@ function handleTouchEnd() {
     const resolvedNick = nick ? String(nick).trim() : "";
     const liveAwards = resolvedNick ? gobbleAwardsForLive?.get?.(resolvedNick) || null : null;
     const count =
-      Number.isFinite(countOverride) && countOverride > 0
-        ? Math.trunc(countOverride)
+      Number.isFinite(countOverride)
+        ? Math.max(0, Math.trunc(countOverride))
         : (liveAwards?.bestWord ? 1 : 0) + (liveAwards?.longestWord ? 1 : 0);
     if (count <= 0) return null;
     const badgeUrl = getImageUrl(IMAGE_KEYS.gobbleBadge);
@@ -9767,8 +9731,6 @@ function handleTouchEnd() {
       void loadLiveLobbyScreen();
     }
   }, [isAccountAuthenticated]);
-  const roundPreparationPending =
-    !standaloneTrainingSession && (!!roundPreparing || roundStartDelayed);
   const showRoundPreparationWaiting = shouldShowRoundPreparationOverlay({
     phase,
     preparationAnnounced: !!roundPreparing,
@@ -9791,15 +9753,6 @@ function handleTouchEnd() {
       visible={showRoundPreparationWaiting}
     />
   );
-  const mobileResultsPhaseFadeOverlay =
-    isMobileLayout &&
-    phase === "results" &&
-    mobileResultsOutroFadeActive &&
-    !roundPreparationPending ? (
-      <div className="fixed inset-0 z-[121] pointer-events-none select-none">
-        <div className="absolute inset-0 bg-black mobile-round-intro-fade-to-black" />
-      </div>
-    ) : null;
   const mobileRoundIntroOverlay = (
     <MobileRoundIntroOverlay
       darkMode={darkMode}
@@ -9807,6 +9760,7 @@ function handleTouchEnd() {
       gridRef={gridRef}
       isMobileLayout={isMobileLayout}
       roundLabel={mobileRoundIntroRoundLabel}
+      renderBackdrop={false}
       roundDescription={mobileRoundIntroRoundDescription}
       roundTypeLabel={mobileRoundIntroRoundTypeLabel}
       stage={mobileRoundIntroStage}
@@ -12647,7 +12601,6 @@ function handleTouchEnd() {
             implodeActive,
             isMobileLayout,
             mobileLayoutSizing,
-            mobileResultsPhaseFadeOverlay,
             mobileRoundIntroHideTiles,
             mobileRoundIntroOverlay,
             phase,
@@ -12727,7 +12680,6 @@ function handleTouchEnd() {
             mobileChatUnreadCount,
             mobileChatUnreadIsBotOnly,
             mobileLayoutSizing,
-            mobileResultsPhaseFadeOverlay,
             mobileRoundIntroHideTiles,
             mobileRoundIntroOverlay,
             phase,
@@ -12849,7 +12801,6 @@ function handleTouchEnd() {
             mobileLayoutSizing,
             mobileResultPages,
             mobileResultsPage,
-            mobileResultsPhaseFadeOverlay,
             mobileRoundIntroHideTiles,
             mobileRoundIntroOverlay,
             nextHintLabel,
@@ -12932,6 +12883,7 @@ function handleTouchEnd() {
             normalizeLetterKey,
             openDefinition,
             openPlayersOverlayAlpha: stableOpenPlayersOverlayAlpha,
+            openPlayersOverlaySnapshot: stableOpenPlayersOverlaySnapshot,
             openLiveStatsOverlay,
             openRoundPlayerModal,
             openSettingsPanel,

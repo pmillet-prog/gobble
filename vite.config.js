@@ -1,8 +1,9 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import { nativeMediaManifestPlugin } from "./scripts/android/mediaManifestPlugin.mjs";
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), nativeMediaManifestPlugin()],
   optimizeDeps: {
     entries: ["index.html"],
     include: ["@react-three/fiber", "three"],

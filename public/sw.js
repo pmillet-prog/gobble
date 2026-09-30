@@ -3,9 +3,11 @@ const CACHE_PREFIX = "gobble-cache";
 const MEDIA_CACHE = `${CACHE_PREFIX}-media-${SW_VERSION}`;
 const SHELL_CACHE = `${CACHE_PREFIX}-shell-${SW_VERSION}`;
 const UI_CACHE = `${CACHE_PREFIX}-ui-${SW_VERSION}`;
-const OFFLINE_CACHE = `${CACHE_PREFIX}-offline-v1`;
+const OFFLINE_CACHE = `${CACHE_PREFIX}-offline-v2`;
 const CACHE_NAMES = new Set([MEDIA_CACHE, SHELL_CACHE, UI_CACHE, OFFLINE_CACHE]);
 const OFFLINE_URLS = ["/offline.html", "/offline-retry.js"];
+const OFFLINE_PAGE_MARKER = '<meta name="gobble-page" content="offline">';
+const MAINTENANCE_PAGE_MARKER = '<meta name="gobble-page" content="maintenance">';
 const NAVIGATION_TIMEOUT_MS = 8000;
 const MEDIA_CACHE_MAX_ENTRIES = 180;
 
@@ -157,6 +159,28 @@ async function chalkboardTextureCache(request, url) {
   }
 }
 
+async function cacheOfflinePage(cache) {
+  // serve's automatic clean-URL redirect used to cache the SPA at /offline.html.
+  // Validate the document, and never keep a redirected Response for navigation.
+  const response = await fetch("/offline.html", { cache: "reload", redirect: "error" });
+  if (!response.ok || !/text\/html/i.test(response.headers.get("content-type") || "")) return;
+  const html = await response.text();
+  if (!html.includes(OFFLINE_PAGE_MARKER)) return;
+  await cache.put("/offline.html", new Response(html, { headers: { "content-type": "text/html; charset=utf-8" } }));
+}
+
+async function cachedOfflinePage() {
+  try {
+    const cached = await (await caches.open(OFFLINE_CACHE)).match("/offline.html");
+    if (!cached?.ok) return null;
+    const html = await cached.text();
+    if (!html.includes(OFFLINE_PAGE_MARKER)) return null;
+    // A cached response may have followed a redirect when it was downloaded.
+    // Navigation requests use redirect=manual: return a fresh, non-redirected body.
+    return new Response(html, { headers: { "content-type": "text/html; charset=utf-8" } });
+  } catch (_) { return null; }
+}
+
 async function navigationNetworkFirst(request) {
   const controller = new AbortController();
   let timeoutId;
@@ -169,18 +193,23 @@ async function navigationNetworkFirst(request) {
     });
     const network = await Promise.race([fetch(request, { signal: controller.signal }), timeout]);
     clearTimeout(timeoutId);
-    if (network.status >= 500) throw new Error("server_unavailable");
+    if (network.status >= 500) {
+      if (/text\/html/i.test(network.headers.get("content-type") || "")) {
+        const html = await network.clone().text();
+        // Caddy deliberately retains its 502/503 status on the maintenance page.
+        // Support the previously deployed page as well as the explicit marker.
+        if (html.includes(MAINTENANCE_PAGE_MARKER) || html.includes("<title>Gobble · Maintenance en cours</title>")) return network;
+      }
+      throw new Error("server_unavailable");
+    }
     // Storage failures must never replace a successful online navigation.
     if (network.ok && /text\/html/i.test(network.headers.get("content-type") || "")) {
       try { await putInCache(SHELL_CACHE, "/index.html", network); } catch (_) {}
     }
     return network;
   } catch (_) {
-    try {
-      const cache = await caches.open(OFFLINE_CACHE);
-      const cached = await cache.match("/offline.html");
-      if (cached) return cached;
-    } catch (_) {}
+    const cached = await cachedOfflinePage();
+    if (cached) return cached;
     // Self-contained last resort, including when storage is full or unavailable.
     return new Response('<!doctype html><html lang="fr"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Gobble — Connexion indisponible</title><h1>Connexion indisponible</h1><p>Vérifie ta connexion puis réessaie.</p><a href="/">Revenir à Gobble</a></html>', {
       status: 503, headers: { "content-type": "text/html; charset=utf-8" },
@@ -218,9 +247,11 @@ self.addEventListener("install", (event) => {
         caches.open(UI_CACHE),
         caches.open(OFFLINE_CACHE),
       ]);
-      // The fallback is essential; an unavailable decorative image isn't.
-      await offlineCache.addAll(OFFLINE_URLS);
-      await Promise.allSettled([shellCache.addAll(SHELL_URLS), uiCache.addAll(UI_URLS)]);
+      // A built-in fallback still works if installation races a deployment.
+      await Promise.allSettled([
+        cacheOfflinePage(offlineCache), offlineCache.addAll(["/offline-retry.js"]),
+        shellCache.addAll(SHELL_URLS), uiCache.addAll(UI_URLS),
+      ]);
       await self.skipWaiting();
     })()
   );
@@ -253,6 +284,9 @@ self.addEventListener("fetch", (event) => {
 
   if (OFFLINE_URLS.includes(url.pathname)) {
     event.respondWith((async () => {
+      if (url.pathname === "/offline.html") {
+        return await cachedOfflinePage() || navigationNetworkFirst(request);
+      }
       try {
         const cached = await (await caches.open(OFFLINE_CACHE)).match(url.pathname);
         if (cached) return cached;

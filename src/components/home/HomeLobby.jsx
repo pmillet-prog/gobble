@@ -832,6 +832,7 @@ function HomeLobby({
   const { homeChatUnreadCount, homeChatUnreadIsBotOnly } =
     useChatUnreadState();
   const [isIosInstallHelpOpen, setIsIosInstallHelpOpen] = React.useState(false);
+  const [displayModeError, setDisplayModeError] = React.useState("");
   const statusText =
     loginError ||
     accountNotice ||
@@ -858,11 +859,14 @@ function HomeLobby({
       ? "add_to_home_screen"
       : "fullscreen";
   const handleDisplayModeAction = async () => {
+    setDisplayModeError("");
     if (displayModeAction === HOME_DISPLAY_ACTIONS.iosInstall) {
       setIsIosInstallHelpOpen(true);
       return;
     }
-    await onToggleFullscreen?.();
+    if (!(await onToggleFullscreen?.())) {
+      setDisplayModeError("Le plein écran n'a pas pu être activé. Réessaie depuis ce bouton.");
+    }
   };
   const resolvedBackgroundDesktop =
     backgroundDesktop || getUiImageUrl(getHomeBackgroundKey(playerTeam, "wide"));
@@ -999,6 +1003,7 @@ function HomeLobby({
               <span>{displayModeLabel}</span>
             </button>
           ) : null}
+          {displayModeError ? <span role="status">{displayModeError}</span> : null}
         </div>
 
         <div className="home-play-row home-lobby-secondary">

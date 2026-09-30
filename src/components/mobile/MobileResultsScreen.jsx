@@ -42,7 +42,6 @@ function MobileResultsScreen(props) {
     mobileBodyHeightStyle = undefined,
     mobileBodyPaddingTop = undefined,
     mobileHeaderRef = null,
-    mobileResultsPhaseFadeOverlay = null,
     mobileResultsSummaryStyle = undefined,
     mobileViewportContainerStyle = undefined,
     onAnalyzeWord = null,
@@ -525,7 +524,6 @@ function MobileResultsScreen(props) {
           ) : null}
         </div>
       </div>
-      {mobileResultsPhaseFadeOverlay}
       {praiseOverlay}
       {chatOverlays}
     </>

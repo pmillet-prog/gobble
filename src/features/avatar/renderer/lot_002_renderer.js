@@ -113,14 +113,15 @@ export default (function (skinRenderer, adjustments, backgrounds, auras) {
       }
       const decorOnly = view === 'lashes' || view === 'brows';
       const isolated = decorOnly || view === 'isolated' || view === 'opening';
-      const hairTop=state.headwear&&state.headwearHair==='hide' ? 0 : hair?.top?.(assets,state,view==='portrait'?128:0)||0;
+      const portraitOffsetY = options.portraitOffsetY ?? 128;
+      const hairTop=state.headwear&&state.headwearHair==='hide' ? 0 : hair?.top?.(assets,state,view==='portrait'?portraitOffsetY:0)||0;
       const top=Math.min(headwear?.top(state)||0,hairTop);
       let crop = decorOnly ? [290, 185, 444, 360] : isolated ? [316, 242, 392, 288] : view === 'face' ? (state.hair || state.headwear ? [130, top, 764, 764-top] : [230, 100, 564, 564]) : [0, top, 1024, 1024-top];
       if(options.authoring){const size=1024/(options.zoom||1);crop=[512+(options.panX||0)-size/2,212+(options.panY||0)-size/2,size,size];}
       const ratio = Math.min(w / crop[2], h / crop[3]);
-      // Frame the whole assembled bust lower; every part and its masks share this translation.
+      // Profiles sit lower; podium portraits keep the full bust. All parts share this translation.
       // Authoring and isolated views retain their original coordinate system.
-      const avatarDy = view === 'portrait' && !options.authoring ? 128 : 0;
+      const avatarDy = view === 'portrait' && !options.authoring ? portraitOffsetY : 0;
       canvas.gobbleViewport={crop,ratio,ox:(w-crop[2]*ratio)/2,oy:(h-crop[3]*ratio)/2+avatarDy*ratio};
       ctx.save(); ctx.translate((w - crop[2] * ratio) / 2, (h - crop[3] * ratio) / 2); ctx.scale(ratio, ratio); ctx.translate(-crop[0], -crop[1]);
       ctx.translate(0, avatarDy);

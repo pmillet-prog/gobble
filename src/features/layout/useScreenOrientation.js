@@ -1,9 +1,10 @@
 import React from "react";
+import { getOrientationPort } from "../mobile/nativeHost.js";
 import { createScreenOrientationController, isOrientationMobileDevice, resolveScreenOrientationMode } from "./screenOrientation.js";
 
 export default function useScreenOrientation({ isMobileLayout, allowLandscape }) {
   const controller = React.useMemo(() => createScreenOrientationController({
-    orientation: globalThis.screen?.orientation, document: globalThis.document, window: globalThis.window,
+    orientation: getOrientationPort(), document: globalThis.document, window: globalThis.window,
   }), []);
   React.useLayoutEffect(() => {
     controller.setMode(resolveScreenOrientationMode({ isMobileLayout, allowLandscape, isMobileDevice: isOrientationMobileDevice() }));

@@ -19,7 +19,7 @@ function useReducedMotion() {
   return reduced;
 }
 
-export default function TournamentPodium({ players, self, preparedActors = null, roundLabel = "Mini-tournoi", sound = false, onOpenProfile, onComplete }) {
+export default function TournamentPodium({ players, self, preparedActors = null, medals = null, roundLabel = "Mini-tournoi", sound = false, onOpenProfile, onComplete }) {
   const [actors, setActors] = React.useState(preparedActors);
   const [progress, setProgress] = React.useState(0);
   const [error, setError] = React.useState("");
@@ -91,7 +91,7 @@ export default function TournamentPodium({ players, self, preparedActors = null,
               {actor.isBot && actor.podiumHitTarget
                 ? <PodiumBotAvatar actor={actor} pose={getPodiumPose(actor.rank, elapsed)} sound={sound}
                     enabled={elapsed >= PODIUM_ARRIVAL[actor.rank] + 700} />
-                : <PodiumAvatar actor={actor} pose={getPodiumPose(actor.rank, elapsed)} />}
+                : <PodiumAvatar actor={actor} pose={getPodiumPose(actor.rank, elapsed)} medals={medals ? medals[actor.nick] : actor.medals} />}
             </div>{actor.rank === 1 ? <div className="podium-winner-crown"><PodiumCrown /></div> : null}</div>
             <div className="podium-plinth"><div className="podium-plinth-top" /><div className="podium-plaque">
               <span className="podium-rank">{actor.rank === 1 ? <PodiumLaurels /> : null}<b>{actor.rank}</b></span>

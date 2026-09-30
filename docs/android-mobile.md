@@ -117,9 +117,11 @@ qui rétablirait la rotation libre choisie par le wrapper.
 Le contrôleur réapplique la politique après reprise, changement de plein écran
 ou rotation inattendue, et retente un refus initial à la prochaine interaction.
 Les réponses tardives d'une ancienne demande ne peuvent pas annuler le portrait.
-Cette correction nécessite le déploiement du client web, sans nouvelle version
-Android. Le comportement matériel reste à confirmer sur le téléphone : les tests
-locaux vérifient les demandes et leur cycle de vie, pas l'autorisation du navigateur.
+La conclusion initiale selon laquelle le déploiement web suffisait sans autre
+condition est invalidée par le retour de Paul. Voir les deux sections du
+28 septembre ci-dessous : correction du repli natif et contournement web en
+plein écran. Les tests unitaires vérifient les demandes et leur cycle de vie,
+pas l'autorisation du navigateur.
 
 ## Affichage ordinateur en paysage et saisie du tableau
 
@@ -157,7 +159,87 @@ dont les hauteurs réduites par le clavier ; les captures sont dans
 `.Tmp/chalkboard-layout-review`. Il ne remplace pas une validation dans le wrapper
 Android ou sur iPhone avec un clavier réel.
 
+## Diagnostic et correction du wrapper — 28 septembre 2026
+
+Le retour de Paul invalide la conclusion selon laquelle les correctifs web
+précédents suffisaient : l'application tourne encore hors tableau, quelle que
+soit la phase. Le contrôleur d'orientation et le réglage ont été retrouvés dans
+le code effectivement déployé, et l'APK 1.16 préparé dans `.tmp/wrapp` contient
+bien la ressource native `orientation = any`. Le portrait dépendait donc d'une
+demande JavaScript dont les refus étaient masqués ; les tests simulant une
+API acceptant le verrou ne validaient pas le comportement de l'application.
+
+La copie de travail `.tmp/wrapp` prépare maintenant **1.17, code 117**, avec
+`portrait` dans `twa-manifest.json` et `app/build.gradle`. L'activité de lancement
+revient également au portrait sur les versions Android compatibles, en gardant
+l'exception Android 8.0 pour les activités translucides. Le portrait devient
+la valeur de repli fournie à Chrome. Le site peut toujours demander `any` pour
+le tableau ou le réglage volontaire du paysage lorsque le navigateur l'autorise.
+
+Ce correctif exige un nouvel APK/AAB ; un déploiement du site ne modifie pas
+la valeur native déjà installée. Les anciens APK/AAB présents à la racine du
+wrapper ne sont pas les sorties de cette compilation. Les nouvelles sorties
+sont dans `app/build/outputs/apk/release` et `app/build/outputs/bundle/release`.
+Elles doivent être signées avec la clé habituelle avant distribution.
+
+Compilation locale terminée : `bundleRelease`, `assembleRelease` et `lintRelease`
+réussis. L'inspection de l'APK produit confirme la version **1.17 / 117** et la
+ressource `orientation = portrait`. Lint signale 0 erreur et 12 avertissements,
+dont l'avertissement attendu sur le verrouillage d'orientation. L'AAB produit
+est non signé, vérifié avec `jarsigner -verify`.
+
+`ops/android/verify-wrapper-orientation.ps1` vérifie les deux configurations et
+l'alignement des codes de version. L'inspection du binaire est distincte de la
+validation réelle du téléphone : la stabilité du portrait et la rotation
+volontaire ne sont pas déclarées validées sur appareil.
+
+Le mécanisme de repli est confirmé dans le
+[contrôleur d'orientation de Chrome](https://raw.githubusercontent.com/chromium/chromium/main/chrome/android/java/src/org/chromium/chrome/browser/customtabs/CustomTabOrientationController.java) :
+il fournit l'orientation de l'intent TWA comme orientation par défaut avant de
+relâcher le verrou courant. `any` autorisait alors la rotation ; `portrait`
+est le repli prévu par le jeu.
+
+## Contournement plein écran étudié le 28 septembre, écarté le 29 septembre 2026
+
+Paul refuse le bouton plein écran dans le wrapper. Son exposition dans les
+wrappers et applications installées a été retirée le 29 septembre ; le bouton
+reste réservé au navigateur. Le contournement décrit ci-dessous est conservé
+comme résultat de diagnostic, pas comme comportement à livrer dans l'application.
+La version native 1.17 reste locale et non publiée.
+
+L'essai consistait à demander le plein écran du document depuis un clic
+explicite. Le contrôleur existant réappliquait ensuite le portrait lors de
+`fullscreenchange`. Cette approche ne répond pas à l'expérience souhaitée
+pour le wrapper.
+
+Le test a été réalisé dans Chrome 134 sur l'émulateur Android
+`Medium_Phone_API_36.1`, avec le module d'orientation réel servi localement,
+sans remplacer l'API d'orientation ni émuler sa réussite via DevTools :
+
+- Hors plein écran : `SecurityError`, « The page needs to be fullscreen in
+  order to call screen.orientation.lock(). »
+- Après un geste d'entrée en plein écran : verrou `portrait` accepté.
+- Accéléromètre simulant un téléphone tenu en paysage : écran toujours portrait.
+- Mode `any` du tableau : écran paysage ; retour à `portrait` : écran portrait.
+- Sortie du plein écran : nouveau refus et retour au paysage.
+
+Cette vérification porte sur Chrome dans l'émulateur, pas sur le wrapper
+installé sur le téléphone de Paul. Le contournement exige de rester en plein
+écran et ne promet pas un portrait verrouillé dès le lancement. Les 9 tests
+ciblés (`displayMode.test.js` et `screenOrientation.test.js`) et la compilation
+Vite passent. Aucun déploiement ni redémarrage serveur n'a été effectué.
+
+La condition de plein écran est visible dans le
+[fournisseur d'orientation Chromium](https://raw.githubusercontent.com/chromium/chromium/main/content/browser/screen_orientation/screen_orientation_provider.cc)
+et son
+[délégué Android](https://raw.githubusercontent.com/chromium/chromium/main/content/browser/screen_orientation/screen_orientation_delegate_android.cc).
+
 ## Lots suivants proposés
+
+Un [prototype Android hybride séparé](android-hybrid-prototype.md) est maintenant
+disponible pour évaluer les assets embarqués et l'orientation native. Il n'est
+pas publié et ne remplace pas encore la TWA. Son périmètre et ses mesures sont
+distincts des essais d'orientation web décrits plus haut.
 
 Les raccourcis de l'icône Android, le partage des résultats et les notifications
 push restent à implémenter. Leurs propositions initiales sont dans

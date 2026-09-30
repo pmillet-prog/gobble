@@ -3,6 +3,11 @@ import assert from "node:assert/strict";
 
 import { createResourceScope } from "../../app/core/createResourceScope.js";
 import { createResultsFeature } from "./createResultsFeature.js";
+import {
+  createServerClockState,
+  readServerClockMs,
+  updateServerClockFromSample,
+} from "../../utils/realtimeClock.js";
 
 test("results satellite owns preparation and mobile fade timers with exact delays", () => {
   const timers = new Map();
@@ -43,10 +48,12 @@ test("results satellite owns preparation and mobile fade timers with exact delay
     [700, 1160]
   );
   assert.equal(feature.store.getState().mobileOutroFadeActive, false);
+  assert.equal(feature.store.getState().roundStartDelayed, false);
   scheduled[0].callback();
   assert.equal(feature.store.getState().mobileOutroFadeActive, true);
   scheduled[1].callback();
   assert.equal(feature.store.getState().roundStartDelayTick, 77);
+  assert.equal(feature.store.getState().roundStartDelayed, true);
 
   feature.configureTiming({
     breakKind: null,
@@ -58,8 +65,144 @@ test("results satellite owns preparation and mobile fade timers with exact delay
     preparationGraceMs: 150,
   });
   assert.equal(feature.store.getState().mobileOutroFadeActive, false);
+  assert.equal(feature.store.getState().roundStartDelayed, false);
   assert.equal(timers.size, 0);
   scope.dispose();
+});
+
+function createTimingHarness() {
+  const timers = new Map();
+  let nextTimerId = 1;
+  const scope = createResourceScope("test:results-fade-lifecycle");
+  const feature = createResultsFeature({ scope }, {
+    clearTimeoutFn: (id) => timers.delete(id),
+    setTimeoutFn: (callback, delayMs) => {
+      const id = nextTimerId++;
+      timers.set(id, { callback, delayMs });
+      return id;
+    },
+    wallNow: () => 77,
+  });
+  feature.start();
+  const fadeTransitions = [feature.store.getState().mobileOutroFadeActive];
+  feature.store.subscribe(() => {
+    const active = feature.store.getState().mobileOutroFadeActive;
+    if (active !== fadeTransitions.at(-1)) fadeTransitions.push(active);
+  });
+
+  return {
+    feature,
+    timers,
+    scope,
+    fadeTransitions,
+    configure(overrides = {}) {
+      feature.configureTiming({
+        breakKind: "round_end",
+        fadeDurationMs: 300,
+        isMobileLayout: true,
+        nextStartAt: 2000,
+        nowServerMs: () => 1000,
+        phase: "results",
+        preparationGraceMs: 150,
+        roundId: "round-1",
+        ...overrides,
+      });
+    },
+    fireTimerWithDelay(delayMs) {
+      const match = [...timers].find(([, timer]) => timer.delayMs === delayMs);
+      assert.ok(match, `expected timer after ${delayMs}ms`);
+      const [id, timer] = match;
+      timers.delete(id);
+      timer.callback();
+    },
+  };
+}
+
+test("a later deadline preserves the started fade while rescheduling preparation", () => {
+  const runtime = createTimingHarness();
+  runtime.configure();
+  runtime.fireTimerWithDelay(700);
+  runtime.configure({ nextStartAt: 2200, nowServerMs: () => 1710 });
+
+  assert.deepEqual(runtime.fadeTransitions, [false, true]);
+  assert.deepEqual([...runtime.timers.values()].map((timer) => timer.delayMs), [650]);
+  assert.equal(runtime.feature.store.getState().roundStartDelayed, false);
+  runtime.fireTimerWithDelay(650);
+  assert.equal(runtime.feature.store.getState().roundStartDelayed, true);
+  assert.equal(runtime.feature.store.getState().roundStartDelayTick, 77);
+
+  runtime.configure({ nextStartAt: 2500, nowServerMs: () => 2300 });
+  assert.equal(runtime.feature.store.getState().roundStartDelayed, false);
+  assert.deepEqual(runtime.fadeTransitions, [false, true]);
+  assert.deepEqual([...runtime.timers.values()].map((timer) => timer.delayMs), [360]);
+  runtime.scope.dispose();
+});
+
+test("an 80ms backward server-clock correction cannot replay the same intermission fade", () => {
+  const runtime = createTimingHarness();
+  runtime.configure();
+  runtime.fireTimerWithDelay(700);
+  const clock = updateServerClockFromSample(
+    createServerClockState({
+      monotonicNowMs: 1000,
+      serverNowMs: 1000,
+      synchronized: true,
+    }),
+    { monotonicNowMs: 1700, sampledServerNowMs: 1380 },
+  );
+  const correctedNow = readServerClockMs(clock, 1700);
+  assert.equal(correctedNow, 1620);
+  runtime.configure({ nowServerMs: () => correctedNow });
+
+  assert.deepEqual(runtime.fadeTransitions, [false, true]);
+  assert.deepEqual([...runtime.timers.values()].map((timer) => timer.delayMs), [540]);
+  runtime.scope.dispose();
+});
+
+test("callbacks dispatched before timing cancellation cannot affect a newer phase or generation", () => {
+  const runtime = createTimingHarness();
+  runtime.configure();
+  const firstCallbacks = [...runtime.timers.values()].map((timer) => timer.callback);
+  runtime.configure({ nextStartAt: 3000 });
+  const activeTimers = [...runtime.timers.keys()];
+  for (const callback of firstCallbacks) callback();
+  assert.deepEqual(runtime.fadeTransitions, [false]);
+  assert.equal(runtime.feature.store.getState().roundStartDelayed, false);
+  assert.equal(runtime.feature.store.getState().roundStartDelayTick, 0);
+  assert.deepEqual([...runtime.timers.keys()], activeTimers);
+
+  const secondCallbacks = [...runtime.timers.values()].map((timer) => timer.callback);
+  runtime.configure({ phase: "playing", nextStartAt: null });
+  for (const callback of secondCallbacks) callback();
+  assert.deepEqual(runtime.fadeTransitions, [false]);
+  assert.equal(runtime.feature.store.getState().roundStartDelayed, false);
+  assert.equal(runtime.feature.store.getState().roundStartDelayTick, 0);
+  assert.equal(runtime.timers.size, 0);
+  runtime.scope.dispose();
+});
+
+test("a new round, results exit, tournament end or desktop layout resets the fade latch", () => {
+  for (const reset of [
+    { roundId: "round-2" },
+    { phase: "playing" },
+    { breakKind: "tournament_end" },
+    { isMobileLayout: false },
+  ]) {
+    const runtime = createTimingHarness();
+    runtime.configure();
+    runtime.fireTimerWithDelay(700);
+    runtime.configure({ nextStartAt: 4000, nowServerMs: () => 2000, ...reset });
+    assert.equal(runtime.feature.store.getState().mobileOutroFadeActive, false);
+
+    runtime.configure({
+      roundId: "round-2",
+      nextStartAt: 4000,
+      nowServerMs: () => 2000,
+    });
+    runtime.fireTimerWithDelay(1700);
+    assert.deepEqual(runtime.fadeTransitions, [false, true, false, true]);
+    runtime.scope.dispose();
+  }
 });
 
 test("results satellite owns path preview observation and animation frames", () => {

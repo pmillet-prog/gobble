@@ -19,7 +19,6 @@ export default function MobileUltraCompactScene({ state, refs, actions, content,
     implodeActive,
     isMobileLayout,
     mobileLayoutSizing,
-    mobileResultsPhaseFadeOverlay,
     mobileRoundIntroHideTiles,
     mobileRoundIntroOverlay,
     phase,
@@ -175,9 +174,6 @@ export default function MobileUltraCompactScene({ state, refs, actions, content,
           usedSet,
           specialStartTileSet: special3LockedStartTileSet,
         }}
-          mobileResultsPhaseFadeOverlay={
-            suppressLiveChatMotion ? null : mobileResultsPhaseFadeOverlay
-          }
           mobileRoundIntroOverlay={suppressLiveChatMotion ? null : mobileRoundIntroOverlay}
           mobileViewportContainerStyle={mobileViewportContainerStyle}
           onOpenSettings={openSettingsPanel}

@@ -40,6 +40,8 @@ export async function preparePodiumAvatars(players, { signal, onProgress } = {})
         signal?.throwIfAborted();
         const frame = await renderer.prepare(player.avatar, {
           transparent: true, expression: pose === "neutral" ? "neutral" : "happy", blink: pose === "blink", nickname: player.nick,
+          // Keep the full chest above the plinth, unlike the lower profile crop.
+          portraitOffsetY: 0,
         });
         signal?.throwIfAborted();
         const canvas = Object.assign(document.createElement("canvas"), { width: 600, height: 600 });

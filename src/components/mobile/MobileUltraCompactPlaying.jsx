@@ -10,7 +10,6 @@ function MobileUltraCompactPlaying({
   compactRankingLabel = null,
   darkMode = false,
   mobileGridProps = {},
-  mobileResultsPhaseFadeOverlay = null,
   mobileRoundIntroOverlay = null,
   mobileViewportContainerStyle = undefined,
   onOpenSettings = null,
@@ -48,7 +47,6 @@ function MobileUltraCompactPlaying({
           <MobileGrid {...mobileGridProps} celebrationOverlay={praiseOverlay} />
         </div>
       </div>
-      {mobileResultsPhaseFadeOverlay}
       {mobileRoundIntroOverlay}
       {chatOverlays}
     </>

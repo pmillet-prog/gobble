@@ -1,5 +1,6 @@
 import { OCID_TYPE, normalizeWord, solveGrid } from "../../shared/gameLogic.js";
 import { createBotWordDiscovery } from "./botWordDiscovery.js";
+import { planBotSpecial3Words } from "./botSpecial3Words.js";
 
 const SOLVE_CACHE_MAX = 8;
 const solveCache = new Map();
@@ -1258,34 +1259,13 @@ class BotManager {
     if (typeof this.submitSpecial3WordsState !== "function") return;
 
     const round = room.currentRound;
-    const desiredSlots = clampInt(
-      Math.round(1 + clamp01(bot?.skill, 0.4) * 2 + rand() * 0.8),
-      1,
-      3
-    );
-    const selected = [];
-    const usedStartTiles = new Set();
-
-    for (const word of words) {
-      const path = solutions?.get(word)?.path;
-      if (!Array.isArray(path) || path.length === 0) continue;
-      const startTile = Number(path[0]);
-      if (!Number.isInteger(startTile) || usedStartTiles.has(startTile)) continue;
-      usedStartTiles.add(startTile);
-      selected.push({
-        id: selected.length,
-        word,
-        display: word.toUpperCase(),
-        path: [...path],
-      });
-      if (selected.length >= desiredSlots) break;
+    const plan = planBotSpecial3Words({ grid: round.grid, words, solutions, bot, timeBudget, rand });
+    for (const { delay, wordSlots, specialPlacements } of plan) {
+      const timer = setTimeout(() => this.playSpecial3Words(room, bot, {
+        roundId: round.id, wordSlots, specialPlacements,
+      }), delay);
+      this.registerTimer(room.id, timer);
     }
-
-    if (!selected.length) return;
-
-    const warmupDelay = 1800 + rand() * 2600;
-    const timer = setTimeout(() => this.playSpecial3Words(room, bot, selected), Math.max(0, Math.min(timeBudget, warmupDelay)));
-    this.registerTimer(room.id, timer);
   }
 
   playWord(room, bot, word) {
@@ -1310,9 +1290,9 @@ class BotManager {
     }
   }
 
-  playSpecial3Words(room, bot, wordSlots) {
+  playSpecial3Words(room, bot, { roundId, wordSlots, specialPlacements }) {
     const round = room.currentRound;
-    if (!round || Date.now() >= round.endsAt) return;
+    if (!round || round.id !== roundId || round.status !== "running" || Date.now() >= round.endsAt) return;
     if (round?.special?.type !== "self_specials_3_words") return;
     if (typeof this.submitSpecial3WordsState !== "function") return;
     if (!room.players.has(this.botKey(bot))) return;
@@ -1322,7 +1302,7 @@ class BotManager {
       roundId: round.id,
       nick: bot.nick,
       wordSlots,
-      specialPlacements: {},
+      specialPlacements,
     });
 
     if (!res?.ok) {

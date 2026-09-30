@@ -66,6 +66,8 @@ function Fixture() {
   useTournamentAvatarPreparation({ enabled: true, tournamentId: key, roomId: "fixture", userId: 4, nick: identity.selfNick,
     phase: final ? "results" : "playing", breakKind: final ? "tournament_end" : null, podiumKey: key, summary, knownPlayers: ranking });
   React.useEffect(() => { window.avatarFixture = { metrics, resources, kernel,
+    awardMedals: () => kernel.commands.realtime.setMedals(Object.fromEntries(entrants.filter(player => !player.isBot).map(player => [player.nick, player.medals || {}]))),
+    clearMedals: () => kernel.commands.realtime.setMedals({}),
     nextRound: () => setRound(value => value + 1), join: () => setPlayers([1, 2, 3]), results: setShowResults,
     final: () => setFinal(true), open: () => { metrics.openedAt = performance.now(); setOpen(true); },
     nextTournament: () => { setOpen(false); setFinal(false); setTour(value => value + 1); },

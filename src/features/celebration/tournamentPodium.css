@@ -14,7 +14,7 @@
 .podium-eyebrow:before,.podium-eyebrow:after{content:"";width:35px;height:1px;background:linear-gradient(90deg,transparent,#c6a263)}.podium-eyebrow:after{transform:rotate(180deg)}
 .podium-heading h1{font-size:clamp(30px,4.5vw,54px);font-weight:900;letter-spacing:-.045em;line-height:1.07;margin:15px 0 11px;text-shadow:0 3px 0 #03101960}
 .podium-heading h1 em{font-style:normal;color:#f9d893}.podium-heading p{font-size:13px;color:#b1c3bc;margin:0}
-.podium-stage{position:relative;height:405px;max-width:940px;margin:22px auto 0}
+.podium-stage{position:relative;height:425px;max-width:940px;margin:22px auto 0}
 .podium-halo{position:absolute;left:50%;bottom:22px;width:550px;height:550px;transform:translateX(-50%);border-radius:50%;opacity:0;background:repeating-conic-gradient(from 0deg,#f8d99416 0 9deg,transparent 9deg 25deg);mask-image:radial-gradient(circle,#000 0,transparent 68%);pointer-events:none}
 .podium-floor{position:absolute;bottom:-23px;left:-3%;width:106%;height:95px;border-radius:50%;background:radial-gradient(ellipse,#051216d9 5%,#9b79321a 45%,transparent 70%);border-top:1px solid #f4cf7714}
 .podium-players{position:absolute;inset:0 10%;display:grid;grid-template-columns:1fr 1fr 1fr;align-items:end;gap:12px}
@@ -31,6 +31,7 @@
 .podium-plaque p{margin:0;font-size:11px;color:#d3c6af}.podium-plaque p strong{font-size:16px;font-weight:850;color:var(--metal);font-variant-numeric:tabular-nums}
 .podium-you{position:absolute;bottom:-11px;padding:3px 12px;border-radius:20px;border:1px solid #edd095;background:#193b3e;color:#ffe6b0;box-shadow:0 3px 9px #0004;font-size:10px;font-weight:800;white-space:nowrap}
 .podium-avatar-entrance{position:absolute;left:50%;bottom:calc(100% - 10px);width:118%;aspect-ratio:1;transform:translateX(-50%);opacity:0;transform-origin:50% 100%;pointer-events:none}
+.podium-player:not(.is-bot) .podium-avatar-entrance{bottom:calc(100% - 5px)}
 .podium-avatar-motion{width:100%;height:100%;transform-origin:50% 85%;filter:drop-shadow(0 9px 5px #02162355)}
 .podium-avatar-motion canvas{display:block;width:100%;height:100%}
 .podium-bot-avatar{position:relative;width:100%;height:100%}
@@ -97,7 +98,7 @@
   .podium-performance{padding-top:22px;padding-bottom:16px}
   .podium-heading{min-height:112px}
   .podium-heading h1{font-size:42px}
-  .podium-stage{height:345px;max-width:760px}
+  .podium-stage{height:365px;max-width:760px}
   .podium-player{--plinth-height:117px}
   .podium-place-1{--plinth-height:152px}
   .podium-place-3{--plinth-height:100px}

@@ -124,7 +124,10 @@ for (const [name, dependencies] of Object.entries(modules)) {
   if (name === "lot_002_renderer") {
     const cropTop = "const top=headwear?.top(state)||0;";
     if (!factory.includes(cropTop)) throw Error("Portrait framing changed; review the hair overflow adapter.");
-    factory = factory.replace(cropTop, "const hairTop=state.headwear&&state.headwearHair==='hide' ? 0 : hair?.top?.(assets,state,view==='portrait'?128:0)||0;\n      const top=Math.min(headwear?.top(state)||0,hairTop);");
+    factory = factory.replace(cropTop, "const portraitOffsetY = options.portraitOffsetY ?? 128;\n      const hairTop=state.headwear&&state.headwearHair==='hide' ? 0 : hair?.top?.(assets,state,view==='portrait'?portraitOffsetY:0)||0;\n      const top=Math.min(headwear?.top(state)||0,hairTop);");
+    const portraitOffset = "const avatarDy = view === 'portrait' && !options.authoring ? 128 : 0;";
+    if (!factory.includes(portraitOffset)) throw Error("Portrait offset changed; review the podium framing adapter.");
+    factory = factory.replace(portraitOffset, "const avatarDy = view === 'portrait' && !options.authoring ? portraitOffsetY : 0;");
     const headDraw = "ctx.drawImage(skin.tinted(id, assets[id], role, state.tone || 'native', assets[id + '_mask'], state.customColor, state.showMask), 0, 0);";
     if (!factory.includes(headDraw)) throw Error("Head renderer changed; review the skin relief adapter.");
     factory = factory.replace(headDraw, "if (role === 'head' && options.drawSkin) { options.drawSkin(ctx); continue; }\n          " + headDraw);

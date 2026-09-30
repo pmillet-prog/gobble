@@ -15,6 +15,7 @@ function MobileRoundIntroOverlay({
   goLabel = "PARTEZ !",
   gridRef = null,
   isMobileLayout = false,
+  renderBackdrop = true,
   roundLabel = "",
   roundDescription = "",
   roundTypeLabel = "",
@@ -106,7 +107,7 @@ function MobileRoundIntroOverlay({
     opacity: 1,
   };
   const showsBackdrop =
-    isMobileLayout && (stage === "results_fade_out" || stage === "intro_fade_in");
+    renderBackdrop && isMobileLayout && (stage === "results_fade_out" || stage === "intro_fade_in");
   const backdropClass =
     stage === "results_fade_out"
       ? "mobile-round-intro-fade-to-black"
