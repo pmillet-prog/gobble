@@ -7352,20 +7352,6 @@ function handleTouchEnd() {
   const showSolvedTargetLoupe = Boolean(solvedTargetWord);
         // Mot en cours d'écriture : on prend l'état, et si jamais
   // il est vide on tombe sur la ref (utile pour certains cas tactile)
-  const livePreviewPath =
-    Array.isArray(highlightPath) && highlightPath.length > 0
-      ? highlightPath
-      : Array.isArray(highlightPathRef.current)
-      ? highlightPathRef.current
-      : [];
-  const liveWordTiles =
-    livePreviewPath.length > 0
-      ? livePreviewPath
-          .map((idx) => getLivePreviewLabelForCell(board?.[idx]))
-          .filter((chunk) => String(chunk || "").trim())
-      : currentTiles.length > 0
-      ? currentTiles
-      : currentTilesRef.current;
   const liveWord =
     currentTiles.length > 0
       ? currentTiles.join("")
@@ -12797,7 +12783,6 @@ function handleTouchEnd() {
             isSpeedRound,
             isTargetRound,
             liveWord,
-            liveWordTiles,
             mobileLayoutSizing,
             mobileResultPages,
             mobileResultsPage,

@@ -58,7 +58,6 @@ export default function MobileStandardScene({ state, refs, actions, content, con
     isSpeedRound,
     isTargetRound,
     liveWord,
-    liveWordTiles,
     mobileLayoutSizing,
     mobileResultPages,
     mobileResultsPage,
@@ -705,8 +704,6 @@ export default function MobileStandardScene({ state, refs, actions, content, con
         isTargetRound={isTargetRound || targetWaitDevActive}
         lightGridSurfaceStyle={lightGridSurfaceStyle}
         showMobileLiveFeed={showMobileLiveFeed}
-        liveWord={liveWord}
-        liveWordTiles={liveWordTiles}
         mobileBodyHeightStyle={mobileBodyHeightStyle}
         mobileBodyPaddingTop={mobileBodyPaddingTop}
         mobileGapPx={mobileGapPx}

@@ -5,6 +5,7 @@ import {
   computeChatKeyboardSessionTransition,
   computeChatViewportLayout,
   readChatViewportSnapshot,
+  updateChatViewportSession,
 } from "./useChatViewport.js";
 
 test("closes the chat instead of expanding it after keyboard dismissal", () => {
@@ -149,6 +150,71 @@ test("never expands the drawer during the first frames of keyboard animation", (
   assert.equal(layout.keyboardVisible, true);
   assert.equal(layout.keyboardConstrained, false);
   assert.equal(layout.sheetStyle.height, "490px");
+});
+
+test("learns the settled keyboard height for the next opening, not animation frames", () => {
+  const snapshot = {
+    layoutHeight: 844,
+    keyboardFocused: false,
+    offsetLeft: 0,
+    offsetTop: 0,
+    viewportHeight: 844,
+    viewportWidth: 390,
+  };
+  let session = updateChatViewportSession({}, snapshot);
+  assert.equal(session.layout.sheetStyle.height, "490px");
+
+  for (const viewportHeight of [760, 700, 600, 478]) {
+    session = updateChatViewportSession(session, {
+      ...snapshot, keyboardFocused: true, viewportHeight,
+    });
+    assert.equal(session.calibration, null);
+    assert.equal(session.layout.sheetStyle.height, `${Math.min(490, viewportHeight)}px`);
+  }
+
+  session = updateChatViewportSession(session, {
+    ...snapshot, keyboardFocused: true, viewportHeight: 478,
+  }, { settled: true });
+  assert.equal(session.calibration.heightPx, 478);
+  assert.equal(session.layout.sheetStyle.height, "478px");
+
+  const dismissed = updateChatViewportSession(session, snapshot);
+  assert.equal(dismissed.layout.sheetStyle.height, "490px");
+  const reopened = updateChatViewportSession({
+    ...dismissed, baseline: { height: 0, width: 0 },
+  }, snapshot);
+  assert.equal(reopened.layout.sheetStyle.height, "478px");
+  assert.equal(reopened.calibration, session.calibration);
+});
+
+test("even a settled shorter keyboard cannot expand the current drawer", () => {
+  const snapshot = {
+    layoutHeight: 844, keyboardFocused: false, offsetTop: 0,
+    viewportHeight: 844, viewportWidth: 390,
+  };
+  const initial = updateChatViewportSession({}, snapshot);
+  const settled = updateChatViewportSession(initial, {
+    ...snapshot, keyboardFocused: true, viewportHeight: 700,
+  }, { settled: true });
+
+  assert.equal(initial.layout.sheetStyle.height, "490px");
+  assert.equal(settled.calibration.heightPx, 560);
+  assert.equal(settled.layout.sheetStyle.height, "490px");
+});
+
+test("dismissing the keyboard before it settles does not save a calibration", () => {
+  const snapshot = {
+    layoutHeight: 844, keyboardFocused: false, offsetTop: 0,
+    viewportHeight: 844, viewportWidth: 390,
+  };
+  const initial = updateChatViewportSession({}, snapshot);
+  const opening = updateChatViewportSession(initial, {
+    ...snapshot, keyboardFocused: true, viewportHeight: 700,
+  });
+  const dismissed = updateChatViewportSession(opening, snapshot, { settled: true });
+
+  assert.equal(dismissed.calibration, null);
+  assert.equal(dismissed.layout.sheetStyle.height, "490px");
 });
 
 test("keeps the existing nominal drawer height while the keyboard is closed", () => {

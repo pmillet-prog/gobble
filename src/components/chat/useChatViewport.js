@@ -179,6 +179,77 @@ export function computeChatKeyboardSessionTransition({
   };
 }
 
+export function updateChatViewportSession(previous, snapshot, {
+  topInsetPx = 0,
+  settled = false,
+} = {}) {
+  let baseline = previous.baseline || { height: 0, width: 0 };
+  let calibration = previous.calibration || null;
+  let sessionCalibration = previous.sessionCalibration || null;
+  const widthChanged =
+    baseline.width > 0 && Math.abs(snapshot.viewportWidth - baseline.width) > 64;
+  const visibleBottom = snapshot.offsetTop + snapshot.viewportHeight;
+
+  if (!(baseline.height > 0) || widthChanged) {
+    baseline = {
+      height: Math.max(snapshot.layoutHeight, visibleBottom),
+      width: snapshot.viewportWidth,
+    };
+    sessionCalibration = calibration;
+  } else if (!snapshot.keyboardFocused && visibleBottom >= baseline.height - 48) {
+    baseline = {
+      height: Math.max(baseline.height, snapshot.layoutHeight, visibleBottom),
+      width: snapshot.viewportWidth,
+    };
+  }
+
+  const keyboardInsetPx = Math.max(0, baseline.height - visibleBottom);
+  const calibrationThreshold = Math.max(
+    CHAT_DRAWER_CALIBRATION_MIN_KEYBOARD_PX,
+    Math.round(baseline.height * 0.12)
+  );
+  if (
+    settled &&
+    !calibration &&
+    snapshot.keyboardFocused &&
+    keyboardInsetPx >= calibrationThreshold &&
+    baseline.height > 0
+  ) {
+    const availableHeight = Math.max(
+      1,
+      snapshot.viewportHeight - Math.max(0, Number(topInsetPx) || 0)
+    );
+    const observedHeightPx = clampValue(
+      Math.round(availableHeight),
+      Math.min(CHAT_DRAWER_MIN_HEIGHT_PX, availableHeight),
+      Math.min(CHAT_DRAWER_MAX_HEIGHT_PX, availableHeight)
+    );
+    calibration = {
+      ratio: clampValue(
+        observedHeightPx / baseline.height,
+        CHAT_DRAWER_CALIBRATION_MIN_RATIO,
+        CHAT_DRAWER_CALIBRATION_MAX_RATIO
+      ),
+      heightPx: observedHeightPx,
+      orientation: getChatDrawerOrientationKey(snapshot.viewportWidth, baseline.height),
+    };
+    // Learn for the next opening. Changing the nominal height during this
+    // opening can grow the drawer just as the keyboard is taking up space.
+  }
+
+  return {
+    baseline,
+    calibration,
+    sessionCalibration,
+    layout: computeChatViewportLayout({
+      ...snapshot,
+      baselineHeight: baseline.height,
+      calibration: sessionCalibration,
+      topInsetPx,
+    }),
+  };
+}
+
 function areLayoutsEqual(left, right) {
   return (
     left?.keyboardConstrained === right?.keyboardConstrained &&
@@ -221,84 +292,27 @@ export default function useChatViewport({
     if (calibrationRef.current === null) {
       calibrationRef.current = readStoredChatDrawerCalibration();
     }
-    if (baselineRef.current.height <= 0) {
-      sessionCalibrationRef.current = calibrationRef.current;
-    }
-
     const visualViewport = window.visualViewport;
     let frameId = null;
+    let settled = false;
     const settleTimerIds = new Set();
 
     const update = () => {
       frameId = null;
       const snapshot = readChatViewportSnapshot(window, document);
-      const previousBaseline = baselineRef.current;
-      const widthChanged =
-        previousBaseline.width > 0 &&
-        Math.abs(snapshot.viewportWidth - previousBaseline.width) > 64;
-      const visibleBottom = snapshot.offsetTop + snapshot.viewportHeight;
-      let baselineHeight = previousBaseline.height;
-
-      if (!(baselineHeight > 0) || widthChanged) {
-        baselineHeight = Math.max(snapshot.layoutHeight, visibleBottom);
-        baselineRef.current = {
-          height: baselineHeight,
-          width: snapshot.viewportWidth,
-        };
-        sessionCalibrationRef.current = calibrationRef.current;
-      } else if (!snapshot.keyboardFocused && visibleBottom >= baselineHeight - 48) {
-        baselineHeight = Math.max(baselineHeight, snapshot.layoutHeight, visibleBottom);
-        baselineRef.current = {
-          height: baselineHeight,
-          width: snapshot.viewportWidth,
-        };
+      const next = updateChatViewportSession({
+        baseline: baselineRef.current,
+        calibration: calibrationRef.current,
+        sessionCalibration: sessionCalibrationRef.current,
+      }, snapshot, { topInsetPx, settled });
+      baselineRef.current = next.baseline;
+      sessionCalibrationRef.current = next.sessionCalibration;
+      if (next.calibration !== calibrationRef.current) {
+        calibrationRef.current = next.calibration;
+        writeStoredChatDrawerCalibration(next.calibration);
       }
-
-      const keyboardInsetPx = Math.max(0, baselineHeight - visibleBottom);
-      const calibrationThreshold = Math.max(
-        CHAT_DRAWER_CALIBRATION_MIN_KEYBOARD_PX,
-        Math.round(baselineHeight * 0.12)
-      );
-      if (
-        !calibrationRef.current &&
-        snapshot.keyboardFocused &&
-        keyboardInsetPx >= calibrationThreshold &&
-        baselineHeight > 0
-      ) {
-        const availableHeight = Math.max(
-          1,
-          snapshot.viewportHeight - Math.max(0, Number(topInsetPx) || 0)
-        );
-        const observedHeightPx = clampValue(
-          Math.round(availableHeight),
-          Math.min(CHAT_DRAWER_MIN_HEIGHT_PX, availableHeight),
-          Math.min(CHAT_DRAWER_MAX_HEIGHT_PX, availableHeight)
-        );
-        const nextCalibration = {
-          ratio: clampValue(
-            observedHeightPx / baselineHeight,
-            CHAT_DRAWER_CALIBRATION_MIN_RATIO,
-            CHAT_DRAWER_CALIBRATION_MAX_RATIO
-          ),
-          heightPx: observedHeightPx,
-          orientation: getChatDrawerOrientationKey(
-            snapshot.viewportWidth,
-            baselineHeight
-          ),
-        };
-        calibrationRef.current = nextCalibration;
-        sessionCalibrationRef.current = nextCalibration;
-        writeStoredChatDrawerCalibration(nextCalibration);
-      }
-
-      const nextLayout = computeChatViewportLayout({
-        ...snapshot,
-        baselineHeight,
-        calibration: sessionCalibrationRef.current,
-        topInsetPx,
-      });
       setLayout((previous) =>
-        areLayoutsEqual(previous, nextLayout) ? previous : nextLayout
+        areLayoutsEqual(previous, next.layout) ? previous : next.layout
       );
     };
 
@@ -313,6 +327,7 @@ export default function useChatViewport({
       for (const delayMs of CHAT_VIEWPORT_SETTLE_DELAYS_MS) {
         const timerId = window.setTimeout(() => {
           settleTimerIds.delete(timerId);
+          if (settleTimerIds.size === 0) settled = true;
           scheduleUpdate();
         }, delayMs);
         settleTimerIds.add(timerId);
@@ -320,11 +335,13 @@ export default function useChatViewport({
     };
 
     const handleViewportChange = () => {
+      settled = false;
       scheduleUpdate();
       scheduleSettledUpdates();
     };
 
     update();
+    scheduleSettledUpdates();
     window.addEventListener("resize", handleViewportChange, { passive: true });
     window.addEventListener("orientationchange", handleViewportChange, { passive: true });
     window.addEventListener("focusin", handleViewportChange, true);

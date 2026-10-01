@@ -15,8 +15,6 @@ function MobileWordPreview({
   countdownLines,
   darkMode,
   getTraceCellLabel = null,
-  liveWord,
-  liveWordTiles = [],
   onRotateGrid,
   phase,
   previewBlockHeight,
@@ -47,7 +45,9 @@ function MobileWordPreview({
     12,
     Math.max(9, Math.round(previewHeight * 0.26))
   );
-  const traceChunks =
+  // An empty trace is authoritative after submission. Falling back to a parent
+  // render's letters here resurrects a rejected word until that parent rerenders.
+  const previewChunks =
     phase === "playing"
       ? Array.isArray(traceSnapshot.highlightPath) && traceSnapshot.highlightPath.length
         ? traceSnapshot.highlightPath
@@ -61,14 +61,6 @@ function MobileWordPreview({
         : Array.isArray(traceSnapshot.currentTiles)
         ? traceSnapshot.currentTiles
         : []
-      : [];
-  const previewChunks =
-    traceChunks.length
-      ? traceChunks
-      : Array.isArray(liveWordTiles) && liveWordTiles.length
-      ? liveWordTiles
-      : liveWord
-      ? liveWord.split("")
       : [];
   const previewScale = previewChunks.length
     ? Math.min(1, Math.max(0.6, 11 / Math.max(1, previewChunks.join("").length)))

@@ -56,8 +56,6 @@ function MobileStandardPlaying(props) {
     isTargetRound = false,
     lightGridSurfaceStyle = undefined,
     showMobileLiveFeed = false,
-    liveWord = "",
-    liveWordTiles = [],
     mobileBodyHeightStyle = undefined,
     mobileBodyPaddingTop = undefined,
     mobileGapPx = "8px",
@@ -324,8 +322,6 @@ function MobileStandardPlaying(props) {
               countdownLines={countdownLines}
               darkMode={darkMode}
               getTraceCellLabel={getTraceCellLabel}
-              liveWord={liveWord}
-              liveWordTiles={liveWordTiles}
               onRotateGrid={onRotateGrid}
               phase={phase}
               previewBlockHeight={previewBlockHeight}

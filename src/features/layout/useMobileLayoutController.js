@@ -2,6 +2,12 @@ import React from "react";
 
 import { clampValue } from "../../utils/numbers.js";
 import { VIEWPORT_EVENTS } from "./createViewportEventHub.js";
+import {
+  createMobileGameViewportTracker,
+  lockMobileGameDocument,
+} from "./mobileGameViewport.js";
+
+export { resolveMobileGameViewportLock } from "./mobileGameViewport.js";
 
 export function areMobileLayoutSizingsEqual(left, right) {
   if (!left || !right) return false;
@@ -18,24 +24,6 @@ export function areMobileLayoutSizingsEqual(left, right) {
     left.targetHintHeight === right.targetHintHeight &&
     left.bodyHeight === right.bodyHeight
   );
-}
-
-export function resolveMobileGameViewportLock(previous, measured) {
-  const measuredWidth = Math.max(0, Math.round(Number(measured?.width) || 0));
-  const measuredHeight = Math.max(0, Math.round(Number(measured?.height) || 0));
-  const previousWidth = Math.max(0, Math.round(Number(previous?.width) || 0));
-  const previousHeight = Math.max(0, Math.round(Number(previous?.height) || 0));
-  if (!(measuredWidth > 0) || !(measuredHeight > 0)) {
-    return { width: previousWidth, height: previousHeight };
-  }
-  if (
-    !(previousWidth > 0) ||
-    !(previousHeight > 0) ||
-    measuredWidth !== previousWidth
-  ) {
-    return { width: measuredWidth, height: measuredHeight };
-  }
-  return { width: previousWidth, height: previousHeight };
 }
 
 export function computeMobileGameLayoutSizing({
@@ -243,51 +231,33 @@ export default function useMobileLayoutController({
   const mobileHeaderRef = React.useRef(null);
   const mobileHelpRef = React.useRef(null);
   const mobileGameViewportLockRef = React.useRef({ width: 0, height: 0 });
+  const mobileGameViewportTrackerRef = React.useRef(null);
   const safeAreaProbeRef = React.useRef(null);
   const safeAreaTopProbeRef = React.useRef(null);
-  const documentScrollLockRef = React.useRef(0);
 
   React.useEffect(() => {
     if (typeof window === "undefined") return;
-    const shouldLockViewport =
-      isMobileLayout && (phase === "playing" || phase === "results");
-    if (!shouldLockViewport) {
+    if (!isMobileLayout) {
       mobileGameViewportLockRef.current = { width: 0, height: 0 };
       return;
     }
-
-    const updateViewportLock = () => {
-      const widthCandidates = [
-        window.innerWidth,
-        document.documentElement?.clientWidth,
-      ].filter((value) => Number.isFinite(value) && value > 0);
-      const heightCandidates = [
-        window.innerHeight,
-        document.documentElement?.clientHeight,
-      ].filter((value) => Number.isFinite(value) && value > 0);
-      const measuredWidth = widthCandidates.length
-        ? Math.min(...widthCandidates)
-        : 0;
-      const measuredHeight = heightCandidates.length
-        ? Math.min(...heightCandidates)
-        : 0;
-      if (!(measuredWidth > 0) || !(measuredHeight > 0)) return;
-
-      mobileGameViewportLockRef.current = resolveMobileGameViewportLock(
-        mobileGameViewportLockRef.current,
-        { width: measuredWidth, height: measuredHeight },
-      );
+    // Observe the lobby as well: entering the first round can unmount its
+    // focused chat before the keyboard has finished closing.
+    const tracker = createMobileGameViewportTracker({
+      subscribeViewport: layoutFeature.subscribeViewport,
+    });
+    mobileGameViewportTrackerRef.current = tracker;
+    mobileGameViewportLockRef.current = tracker.getSnapshot();
+    tracker.subscribe((viewport) => {
+      mobileGameViewportLockRef.current = viewport;
+    });
+    return () => {
+      tracker.dispose();
+      mobileGameViewportTrackerRef.current = null;
     };
-
-    updateViewportLock();
-    return layoutFeature.subscribeViewport(updateViewportLock, [
-      VIEWPORT_EVENTS.WINDOW_RESIZE,
-      VIEWPORT_EVENTS.ORIENTATION_CHANGE,
-    ]);
   }, [
     isMobileLayout,
     layoutFeature,
-    phase,
   ]);
 
   const measureSafeAreaTopPx = React.useCallback(() => {
@@ -427,6 +397,8 @@ export default function useMobileLayoutController({
     };
 
     scheduleComputeMobileLayout();
+    const unsubscribeGameViewport = mobileGameViewportTrackerRef.current
+      ?.subscribe(scheduleComputeMobileLayout);
     const headerObserver = typeof ResizeObserver === "undefined"
       ? null : new ResizeObserver(scheduleComputeMobileLayout);
     if (mobileHeaderRef.current) headerObserver?.observe(mobileHeaderRef.current);
@@ -443,6 +415,7 @@ export default function useMobileLayoutController({
       if (frameId) window.cancelAnimationFrame(frameId);
       if (timeoutId) window.clearTimeout(timeoutId);
       unsubscribeViewport();
+      unsubscribeGameViewport?.();
       headerObserver?.disconnect();
       document.removeEventListener(
         "visibilitychange",
@@ -495,79 +468,12 @@ export default function useMobileLayoutController({
       isMobileLayout && (phase === "playing" || phase === "results");
     if (!shouldLock) return;
 
-    const bodyStyle = document.body.style;
-    const rootStyle = document.documentElement.style;
-    const previous = {
-      body: {
-        height: bodyStyle.height,
-        left: bodyStyle.left,
-        overflow: bodyStyle.overflow,
-        overscrollBehavior: bodyStyle.overscrollBehavior,
-        position: bodyStyle.position,
-        right: bodyStyle.right,
-        top: bodyStyle.top,
-        touchAction: bodyStyle.touchAction,
-        width: bodyStyle.width,
-      },
-      root: {
-        height: rootStyle.height,
-        left: rootStyle.left,
-        overflow: rootStyle.overflow,
-        overscrollBehavior: rootStyle.overscrollBehavior,
-        position: rootStyle.position,
-        right: rootStyle.right,
-        width: rootStyle.width,
-      },
-    };
-
-    bodyStyle.overflow = "hidden";
-    rootStyle.overflow = "hidden";
-    bodyStyle.overscrollBehavior = "none";
-    rootStyle.overscrollBehavior = "none";
-    rootStyle.position = "fixed";
-    rootStyle.width = "100%";
-    rootStyle.left = "0";
-    rootStyle.right = "0";
-    bodyStyle.position = "fixed";
-    bodyStyle.width = "100%";
-    bodyStyle.left = "0";
-    bodyStyle.right = "0";
-    bodyStyle.touchAction = "none";
-    if (!documentScrollLockRef.current) {
-      documentScrollLockRef.current = window.scrollY || 0;
-    }
-    bodyStyle.top = `-${documentScrollLockRef.current}px`;
-    window.scrollTo(0, 0);
-
-    const applyLockedHeight = () => {
-      const lockedGameHeight =
-        Number(mobileGameViewportLockRef.current?.height) || 0;
-      const candidates = lockedGameHeight
-        ? [lockedGameHeight]
-        : [window.innerHeight, document.documentElement?.clientHeight];
-      const validCandidates = candidates.filter(
-        (value) => Number.isFinite(value) && value > 0,
-      );
-      const height = validCandidates.length
-        ? Math.min(...validCandidates)
-        : 0;
-      if (height > 0) {
-        const pixels = `${Math.round(height)}px`;
-        bodyStyle.height = pixels;
-        rootStyle.height = pixels;
-      }
-    };
-    applyLockedHeight();
-    return () => {
-      Object.assign(bodyStyle, previous.body);
-      Object.assign(rootStyle, previous.root);
-      if (documentScrollLockRef.current) {
-        window.scrollTo(0, documentScrollLockRef.current);
-        documentScrollLockRef.current = 0;
-      }
-    };
+    const tracker = mobileGameViewportTrackerRef.current;
+    if (!tracker) return;
+    return lockMobileGameDocument({ tracker });
   }, [
     isMobileLayout,
+    layoutFeature,
     phase,
   ]);
 
