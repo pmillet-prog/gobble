@@ -9,7 +9,7 @@ import { getChalkboardCanvasWindow } from "./chalkboardCanvasWindow.js";
 import { ChalkboardAsyncRaster } from "./chalkboardAsyncRaster.js";
 import { normalizeChalkboardTextColor } from "../../../shared/chalkboardText.js";
 import {
-  ChalkboardTileCache, ChalkboardTileLayer, createChalkboardTile, TILE_RASTER_RATIO,
+  ChalkboardTileCache, ChalkboardTileLayer, createChalkboardTile, getTileBounds, TILE_RASTER_RATIO,
 } from "./chalkboardTileLayer.js";
 
 // Only rendering data matters when reusing a draft confirmed by the server.
@@ -275,11 +275,15 @@ export class ChalkboardRenderer {
   }
 
   invalidateText() {
-    this.asyncRaster?.clear();
-    this.sponge.clear();
+    this.asyncRaster?.invalidateText();
     for (const [key, tile] of this.tileCache.entries) {
-      if (tile.entries.some(({ element }) => element.type === "text" ||
-        element.items?.some(item => item.element.type === "text"))) this.tileCache.delete(key);
+      const coordinate = key.slice(key.indexOf("|") + 1).split("@")[0];
+      const bounds = getTileBounds(...coordinate.split(":").map(Number));
+      // Sponge tiles contain an anchor to the frozen contribution layer rather
+      // than its elements. Rebuild only anchors whose base contains text here.
+      const entries = key.startsWith("sponge-live|") ? this.sponge.base.index.get(coordinate) || [] : tile.entries;
+      if (entries.some(({ element }) => element.type === "text" ||
+        element.items?.some(item => item.element.type === "text" && boundsIntersect(item.bounds, bounds)))) this.tileCache.delete(key);
     }
   }
 

@@ -1,14 +1,23 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { getNativeHost, getOrientationPort } from "./nativeHost.js";
+import { getNativeHost, getNativeReload, getOrientationPort } from "./nativeHost.js";
 import { createScreenOrientationController } from "../layout/screenOrientation.js";
 
 test("ordinary web and TWA clients keep the browser orientation API", () => {
   const orientation = {};
   for (const windowObject of [{}, { GobbleNative: {} }, { GobbleNative: { protocol: 2, ownsAssets: true } }]) {
     assert.equal(getNativeHost(windowObject), null);
+    assert.equal(getNativeReload(windowObject), null);
     assert.equal(getOrientationPort({ windowObject, orientation }), orientation);
   }
+});
+
+test("only a hybrid host advertising reload enables pull-to-refresh", async () => {
+  assert.equal(getNativeReload({ GobbleNative: { protocol: 1, ownsAssets: true } }), null);
+  let reloads = 0;
+  const windowObject = { GobbleNative: { protocol: 1, ownsAssets: true, reload: async () => { reloads += 1; } } };
+  await getNativeReload(windowObject)();
+  assert.equal(reloads, 1);
 });
 
 test("hybrid delegates orientation to Android without requesting fullscreen or browser locks", async () => {

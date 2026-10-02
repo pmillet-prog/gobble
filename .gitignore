@@ -12,6 +12,7 @@ data/dev-controls.json
 data/lepers-question-history.json*
 data/bafouille-results-history.json*
 data/chalkboard.sqlite*
+data/chat-audit.sqlite*
 data/chalkboard-exports/
 data/frwiktionary-*.xml
 data/frwiktionary-*.bz2

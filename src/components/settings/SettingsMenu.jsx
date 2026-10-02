@@ -219,6 +219,7 @@ function SettingsMenu(props) {
     visualScoreFlightsEnabled,
     visualScreenShakeEnabled,
   } = props;
+  const [moderationInitialTab, setModerationInitialTab] = React.useState("players");
 
   const settingsShellClass = menuDarkMode
     ? "border-amber-300/70 bg-[linear-gradient(180deg,rgba(18,47,103,0.96),rgba(7,22,55,0.98))] text-amber-50"
@@ -459,7 +460,7 @@ function SettingsMenu(props) {
           onAbout={() => { setIsSettingsOpen(false); setIsAboutOpen(true); }}
           onHome={returnToLobby}
           onDev={openDevMenu}
-          onModeration={openModerationMenu}
+          onModeration={() => { setModerationInitialTab("players"); openModerationMenu(); }}
         />}
       </div>
       <div
@@ -710,6 +711,10 @@ function SettingsMenu(props) {
             onSetAllBotsActive: setAllDevBotsActive,
             onReturnToLiveLobby: returnToLiveLobbyDev,
             onOpenTargetWaitPlayground: openTargetWaitDevPlayground,
+            onOpenChatAudit: moderationAvailable ? () => {
+              setModerationInitialTab("chat");
+              openModerationMenu();
+            } : null,
             targetWaitDevActive,
             targetWaitDevArmed,
           },
@@ -717,6 +722,7 @@ function SettingsMenu(props) {
         moderation={{
           isOpen: isModerationMenuOpen,
           props: {
+            initialTab: moderationInitialTab,
             darkMode: menuDarkMode,
             isOpen: isModerationMenuOpen,
             available: moderationAvailable,

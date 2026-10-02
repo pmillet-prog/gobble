@@ -3,6 +3,7 @@ import React from "react";
 import GobbleApplication from "../GobbleApplication.jsx";
 import StatsOverlaySatellite from "../features/stats/StatsOverlaySatellite.jsx";
 import MobileRoundBackdropSatellite from "../features/round/MobileRoundBackdropSatellite.jsx";
+import NativePullToRefreshSatellite from "../features/mobile/NativePullToRefreshSatellite.jsx";
 import ScreenOrientationSatellite from "../features/layout/ScreenOrientationSatellite.jsx";
 import TournamentAvatarsProvider from "../features/avatar/TournamentAvatarsProvider.jsx";
 import { AMBIENT_MUSIC_TRACKS_DEFAULT } from "../audio/audioAssets.js";
@@ -41,6 +42,7 @@ function ApplicationRuntime() {
       <ScreenOrientationSatellite />
       {bootReady ? <GobbleApplication /> : null}
       {bootReady ? <MobileRoundBackdropSatellite /> : null}
+      {bootReady ? <NativePullToRefreshSatellite /> : null}
       {bootReady ? <StatsOverlaySatellite /> : null}
       <AppBootOverlay
         onAmbientTracksResolved={handleAmbientTracksResolved}

@@ -14,9 +14,19 @@ sur le Store. Une nouvelle version native reste nécessaire pour modifier le wra
 
 `npm run build` produit aussi `dist/native-assets.json`, à déployer avec le reste
 de `dist`. Aucune commande serveur ni étape manuelle supplémentaire. Ce manifeste
-décrit les médias sélectionnés, leur taille et leur SHA-256 : images critiques,
-polices, dictionnaire et sons de démarrage. Le build Android embarque uniquement
-ces médias comme réserve initiale (40 fichiers, environ 13,3 Mo avant compression).
+décrit les médias utilisés, leur taille et leur SHA-256 : 867 fichiers. Depuis la
+version 0.6, la réserve APK est un sous-ensemble distinct, limité à 30 Mio : boutons
+de tous les écrans, fonds, polices UI et Grand Tableau, dictionnaire, petits visuels
+et sons UI. Les calques d'avatars, musiques, sons de jeu, textures décoratives et
+animations des présentateurs sont téléchargés puis mis en cache à leur première
+utilisation. Ils restent tous décrits par le manifeste web et disponibles dans
+l'application. Les fichiers sont lus à la demande, sans être tous chargés en mémoire.
+Les références directes du client et les catalogues d'avatars alimentent cette
+sélection, complétée par les familles dont les noms sont construits à l'exécution.
+Les sources graphiques et anciens exports inutilisés ne sont pas copiés.
+La réserve 0.6 contient 106 fichiers (24,47 Mo avant compression), pour un APK
+debug de 20,21 Mo. Les autres médias restent accessibles et sont mis en cache à
+la demande, dans la limite de stockage décrite ci-dessous.
 
 À chaque navigation principale, le natif lit le manifeste HTTPS sans réutiliser
 une réponse HTTP périmée. Un fichier identique est servi depuis l'APK ou le cache
@@ -28,8 +38,11 @@ leur publication ; les réponses audio permettent les plages d'octets.
 
 Si le manifeste manque (ancien déploiement), est invalide ou indisponible, la
 WebView charge les médias depuis le site. Elle ne substitue jamais arbitrairement
-un ancien asset de l'APK. Les URLs avec paramètres, ressources absentes du
-manifeste, API et sockets suivent également le chargement web habituel. Les
+un ancien asset de l'APK. Les ressources absentes du manifeste, API et sockets
+suivent également le chargement web habituel. Les URLs avec paramètres aussi,
+à l'exception du seul paramètre `v` des sons publics : leur version reste vérifiée
+par l'empreinte du manifeste courant. Les paramètres de nouvelle tentative
+(`asset_bust`) conservent leur passage par le web. Les
 pages de maintenance sont celles du site. Aucun cookie n'est envoyé par le cache
 natif de médias publics ; les sessions restent gérées par la WebView.
 
@@ -45,13 +58,22 @@ tant qu'Android garde le processus en mémoire. Les nouvelles versions web sont
 prises au prochain chargement du document. Android peut toujours détruire un
 processus sous pression mémoire ; ce cas utilise la récupération de session du jeu.
 
+Sur l'accueil, tirer vers le bas puis relâcher actualise le document et son
+manifeste de médias. Ce geste est désactivé dans les autres écrans, pendant une
+partie ou une connexion, avec une fenêtre ouverte, un champ actif ou une zone
+défilée. Les gestes horizontaux, trop courts ou à plusieurs doigts sont ignorés.
+Il faut installer l'APK 0.5 ou supérieur et déployer le client web correspondant
+pour l'activer. Le manifeste publié doit également contenir les médias ajoutés :
+un APK récent avec l'ancien manifeste de 40 fichiers continue de charger les
+polices et le fond du Grand Tableau par le web.
+
 Portrait par défaut ; paysage autorisé sur le grand tableau ou selon le réglage
 du joueur. Rotation, Retour et reprise ne recréent pas l'activité. Le conteneur
 natif réserve les barres système et transmet des marges nulles à la WebView,
 tout en conservant les événements du clavier (correctif 0.2).
 
 La passerelle native, de protocole 1, n'accepte que la fenêtre principale de
-`https://gobble.fr`. Elle expose l'orientation et des compteurs de diagnostic,
+`https://gobble.fr`. Elle expose l'orientation, l'actualisation et des compteurs de diagnostic,
 sans accès générique aux fichiers ni exécution arbitraire. Les liens externes
 s'ouvrent hors de la WebView.
 
@@ -80,7 +102,7 @@ Il reste distinct de Gobble publié et n'est pas destiné au Store en l'état.
 
 ```powershell
 .\scripts\android\test-media-cache.ps1
-node --test src/features/mobile/nativeHost.test.js src/features/layout/screenOrientation.test.js src/utils/displayMode.test.js
+node --test scripts/android/media-manifest.test.mjs src/features/mobile/nativeHost.test.js src/features/mobile/nativePullToRefresh.test.js src/features/layout/screenOrientation.test.js src/utils/displayMode.test.js
 adb -s emulator-5554 install -r android-hybrid/app/build/outputs/apk/debug/app-debug.apk
 node scripts/android/verify-web-updates.mjs
 ```
@@ -89,6 +111,7 @@ Le dernier test utilise un serveur local et `adb reverse`, sans VM. Il simule
 deux déploiements web avec le même APK, un asset remplacé à URL identique, sa
 réutilisation après redémarrage, les manifestes absents/invalides, la maintenance,
 le passage à une autre application puis le vrai client Gobble et ses rotations.
+Il contrôle aussi les médias ajoutés et le geste de rafraîchissement de l'accueil.
 Captures et mesures : `.tmp/hybrid-measurements`. Ce contrôle requiert un émulateur.
 La redirection vers la boucle locale est réservée aux builds debug et activée
 explicitement par le test ; les builds release restent limités à HTTPS Gobble.
@@ -98,10 +121,19 @@ WebView 144+. `measure-hybrid.mjs` compare médias web et cache natif pour le m�
 site déployé ; ne pas déployer pendant la comparaison. Ce n'est pas un comparatif
 avec la TWA ni une mesure sur le téléphone de Paul.
 
+`measure-chalkboard.mjs` rejoue une copie JSON du tableau public rempli et son
+catalogue de polices depuis `.tmp/hybrid-measurements`. Il mesure l'API, les polices,
+la texture et les jobs du worker jusqu'au rendu visible, puis la réouverture.
+`GOBBLE_CHALKBOARD_VARIANTS` choisit `native-live`, `native-current` ou `web-media` ;
+`GOBBLE_CHALKBOARD_SAMPLES` règle le nombre de passages. Ces variantes conservent
+la même WebView : elles ne constituent pas une comparaison avec Chrome ou la TWA.
+Utiliser un émulateur accéléré (`-gpu host`), le rendu logiciel étant trop lent
+sur les contributions riches en particules. Aucun contenu n'est publié par le test.
+
 ## Limites
 
-Pas encore de packs exhaustifs de tous les médias, de notifications, de partage
-ou de sélecteur de fichiers natif. Le code web et le jeu en ligne requièrent le
+Pas encore de notifications, de partage ou de sélecteur de fichiers natif.
+Le code web, les catalogues et le jeu en ligne requièrent le
 réseau. La compatibilité complète des manches et des usages doit être validée
 avant de remplacer l'application publiée. Bilan : [prototype](../docs/android-hybrid-prototype.md).
 

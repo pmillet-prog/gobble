@@ -36,6 +36,22 @@ public final class MediaCacheTest {
         for (String path : List.of("/", "/index.html", "/assets/app.js", "/assets/main.css", "/catalog.json", "/api/avatar.png", "/socket.io/pic.png", "/../image.png", "//host/image.png", "/image.png?v=2")) {
             check(!MediaCache.isMediaPath(path), "code or private path must use the web: " + path);
         }
+        for (String path : List.of("/chalkboard/surface/patinee-v2.webp", "/chalkfont/orange juice 2.0.ttf",
+                "/textures/jeans.jpg", "/textures/photo.jpeg", "/sound/game/invalide.m4a", "/sound/game/test.ogg")) {
+            byte[] content = ("public media " + path).getBytes();
+            MediaCache.Entry media = entry(path, content);
+            MediaCache expanded = new MediaCache(new File(directory, "expanded"), Map.of(path, media),
+                    ignored -> new ByteArrayInputStream(content), ignored -> { throw new IOException("Network unavailable"); });
+            MediaCache.Result result = expanded.open(media);
+            check(result.source.equals("bundled") && Arrays.equals(read(result), content), "runtime media is available from APK: " + path);
+        }
+        check(MediaCache.isMediaRequest("/sound/ui/lobbygo.wav", "v=2026-09-05-presenter-sfx-1"), "static versioned sound uses manifest identity");
+        check(MediaCache.isMediaRequest("/chalkboard/surface/patinee-v2.webp", null), "plain public media uses native cache");
+        for (String query : List.of("", "v=", "v=1&v=2", "v=1&asset_bust=2", "asset_bust=2", "user=1", "v=1%26user=2")) {
+            check(!MediaCache.isMediaRequest("/sound/ui/lobbygo.wav", query), "non-versioned or retry query stays on web: " + query);
+        }
+        check(!MediaCache.isMediaRequest("/icon.svg", "v=1"), "image parameters stay on web");
+        check(!MediaCache.isMediaRequest("/api/audio.mp3", "v=1"), "private audio stays on web");
         ExecutorService executor = Executors.newFixedThreadPool(3);
         try {
             MediaCache concurrent = new MediaCache(new File(directory, "parallel"), Map.of(), null, network);

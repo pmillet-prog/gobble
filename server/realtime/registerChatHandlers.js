@@ -2,9 +2,9 @@ export function registerChatHandlers(
   socket,
   {
     NICK_MAX_LEN,
+    auditedChatCommands,
     censorTargetSpoilersInChatText,
     checkTargetChatRateLimit,
-    deleteChatMessage,
     emitChatSocketEvent,
     emitPlayers,
     emitRoomsStats,
@@ -21,15 +21,13 @@ export function registerChatHandlers(
     joinSocketToChatRoom,
     markSocketPlayerActivity,
     normalizeChatReactionEmoji,
-    pushChatMessage,
     randomUUID,
     requireSocketPlayerIdentity,
     resolveReplyPreviewFromPayload,
     updateChatMessageReactions,
-    updateChatMessageText,
   }
 ) {
-  socket.on("chat:send", (text, cb) => {
+  socket.on("chat:send", async (text, cb) => {
     let payload = text;
     if (typeof payload === "function") {
       cb = payload;
@@ -125,8 +123,8 @@ export function registerChatHandlers(
     if (replyTo) {
       message.replyTo = replyTo;
     }
-    pushChatMessage(room, message);
-    cb?.({ ok: true });
+    const result = await auditedChatCommands.send(room, message, trimmed);
+    cb?.(result);
   });
 
   socket.on("chat:react", (payload, cb) => {
@@ -206,7 +204,7 @@ export function registerChatHandlers(
     cb?.({ ok: true, reactions: result.reactions });
   });
 
-  socket.on("chat:edit", (payload, cb) => {
+  socket.on("chat:edit", async (payload, cb) => {
     if (typeof payload === "function") {
       cb = payload;
       payload = null;
@@ -240,7 +238,7 @@ export function registerChatHandlers(
       cb?.({ ok: false, error: "not_logged_in" });
       return;
     }
-    const result = updateChatMessageText(room, {
+    const result = await auditedChatCommands.edit(room, {
       messageId: payload.messageId,
       installId,
       text: payload.text,
@@ -256,7 +254,7 @@ export function registerChatHandlers(
     cb?.({ ok: true, message: result.message });
   });
 
-  socket.on("chat:delete", (payload, cb) => {
+  socket.on("chat:delete", async (payload, cb) => {
     if (typeof payload === "function") {
       cb = payload;
       payload = null;
@@ -290,7 +288,7 @@ export function registerChatHandlers(
       cb?.({ ok: false, error: "not_logged_in" });
       return;
     }
-    const result = deleteChatMessage(room, {
+    const result = await auditedChatCommands.delete(room, {
       messageId: payload.messageId,
       installId,
     });

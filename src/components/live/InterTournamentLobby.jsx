@@ -4,7 +4,6 @@ import {
   getLiveTeamImageKey,
   getUiImageUrl,
 } from "../../assets/uiAssetManifest.js";
-import useDeadlineCountdown from "../../hooks/useDeadlineCountdown.js";
 
 function getReadyLine(lobby) {
   const ready = Number(lobby?.readyCount) || 0;
@@ -129,13 +128,6 @@ const styles = `
   text-shadow: 0 1px 2px #000;
   pointer-events: none;
 }
-.inter-lobby-cooldown {
-  margin-top: 2px;
-  color: #fff2c2;
-  font-size: 0.88em;
-  font-weight: 800;
-  opacity: 0.82;
-}
 .inter-lobby-maintenance {
   margin-top: 4px;
   color: #ffcf70;
@@ -181,13 +173,6 @@ export default function InterTournamentLobby({
 }) {
   const isCountdown = lobby?.phase === "countdown";
   const isIntro = lobby?.phase === "intro";
-  const showCooldown =
-    !!lobby?.cooldownActive && !!lobby?.readyThresholdMet && !isCountdown && !isIntro;
-  const cooldownLeft = useDeadlineCountdown({
-    active: showCooldown,
-    deadlineServerMs: lobby?.cooldownEndsAt,
-    serverNowMs: lobby?.serverNow,
-  });
   const readyDisabled = isCountdown || isIntro || !!lobby?.maintenanceMode;
   const titleSrc = getUiImageUrl(getLiveTeamImageKey("salon", team));
   const idleSrc = getUiImageUrl(getLiveTeamImageKey("ready", team));
@@ -233,11 +218,6 @@ export default function InterTournamentLobby({
       </div>
       <div className="inter-lobby-status">
         <span>{getReadyLine(lobby)}</span>
-        {showCooldown && cooldownLeft > 0 ? (
-          <span className="inter-lobby-cooldown tabular-nums">
-            Pause entre mini-tournois · {cooldownLeft} s
-          </span>
-        ) : null}
       </div>
       {lobby?.maintenanceMode ? (
         <div className="inter-lobby-maintenance">Maintenance en cours</div>

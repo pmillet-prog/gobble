@@ -154,6 +154,11 @@ public final class MainActivity extends ComponentActivity {
                                 response.put("value", bundledAssets.diagnostics().put("activityElapsedMs", SystemClock.elapsedRealtime() - started)
                                         .put("requestedOrientation", orientation));
                                 break;
+                            case "reload":
+                                response.put("value", true);
+                                // Acknowledge the gesture before replacing its JS context.
+                                view.post(() -> { if (webView == view) view.reload(); });
+                                break;
                             default: throw new IllegalArgumentException("Unsupported command");
                         }
                     } catch (Exception error) {

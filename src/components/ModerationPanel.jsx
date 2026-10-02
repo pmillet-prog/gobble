@@ -1,4 +1,5 @@
 import React from "react";
+const ChatAuditPanel = React.lazy(() => import("../features/admin/ChatAuditPanel.jsx"));
 
 export default function ModerationPanel({
   darkMode = false,
@@ -11,7 +12,9 @@ export default function ModerationPanel({
   onClose = null,
   onRefresh = null,
   onAction = null,
+  initialTab = "players",
 }) {
+  const [tab, setTab] = React.useState(initialTab);
   const panelClass = darkMode
     ? "bg-[linear-gradient(180deg,rgba(24,32,54,0.98),rgba(8,14,28,0.99))] border-sky-300/60 text-sky-50"
     : "bg-[linear-gradient(180deg,rgba(248,252,255,0.99),rgba(232,242,255,0.99))] border-sky-300/70 text-slate-900";
@@ -44,17 +47,25 @@ export default function ModerationPanel({
             >
               Retour
             </button>
-            <div className="text-sm font-extrabold tracking-wide">Moderation</div>
+            <div className="text-sm font-extrabold tracking-wide">Modération</div>
             <span className="text-[10px] font-bold opacity-75">
               {available ? accountLabel || "autorise" : "bloque"}
             </span>
           </div>
+          {available && <div className="mt-3 flex gap-2" role="group" aria-label="Outils de modération">
+            <button type="button" aria-pressed={tab === "players"} onClick={() => setTab("players")} className={`rounded-lg border px-3 py-2 text-xs font-semibold ${buttonClass}`}>Joueurs connectés</button>
+            <button type="button" aria-pressed={tab === "chat"} onClick={() => setTab("chat")} className={`rounded-lg border px-3 py-2 text-xs font-semibold ${buttonClass}`}>Historique du chat</button>
+          </div>}
         </div>
         <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2 text-sm">
           {!available ? (
             <div className={`rounded-xl border px-3 py-3 text-xs font-semibold ${buttonClass}`}>
               Compte non autorise pour la moderation.
             </div>
+          ) : tab === "chat" ? (
+            <React.Suspense fallback={<p role="status">Chargement…</p>}>
+              <ChatAuditPanel buttonClass={buttonClass} />
+            </React.Suspense>
           ) : (
             <>
               <div className="flex items-center justify-between gap-2">

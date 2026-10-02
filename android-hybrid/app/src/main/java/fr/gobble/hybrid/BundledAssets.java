@@ -76,7 +76,7 @@ final class BundledAssets implements AutoCloseable {
         if (request.isForMainFrame() && "GET".equals(request.getMethod())) refreshManifest();
         String path = request.getUrl().getPath();
         if (bundledMedia && !request.isForMainFrame() && "GET".equals(request.getMethod())
-                && request.getUrl().getQuery() == null && MediaCache.isMediaPath(path)) {
+                && MediaCache.isMediaRequest(path, request.getUrl().getEncodedQuery())) {
             try {
                 Future<Map<String, MediaCache.Entry>> pending = manifest;
                 MediaCache.Entry entry = pending == null ? null : pending.get(8, TimeUnit.SECONDS).get(path);

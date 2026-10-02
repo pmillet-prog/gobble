@@ -8,8 +8,8 @@ android {
         applicationId 'fr.gobble.hybrid.prototype'
         minSdk = 24
         targetSdk = 37
-        versionCode = 4
-        versionName '0.4-prototype'
+        versionCode = 6
+        versionName '0.6-prototype'
     }
     sourceSets.main.assets.srcDir('build/generated/web-assets')
     buildFeatures { buildConfig = true }

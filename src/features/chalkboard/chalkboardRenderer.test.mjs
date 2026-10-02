@@ -59,6 +59,47 @@ test("unchanged poll responses and offscreen publications retain the visible ras
   assert.equal(renderer.tileCache.entries.size, 0);
 });
 
+test("a font notification keeps an active published drawing and its completed worker bitmap", () => {
+  const messages = [];
+  const worker = { postMessage: message => messages.push(message), terminate() {} };
+  const renderer = new ChalkboardRenderer(canvas(), { worker });
+  renderer.setInterventions([group(stroke("ink"))], 1, "free:week");
+  renderer.render(view);
+  renderer.invalidateText();
+  renderer.render(view);
+  assert.equal(messages.length, 1);
+  const bitmap = { closed: false, close() { this.closed = true; } };
+  worker.onmessage({ data: { id: messages[0].id, bitmap } });
+  renderer.invalidateText();
+  renderer.render(view);
+  assert.equal(bitmap.closed, false);
+  assert.equal(renderer.asyncRaster.getTile(0, 0), bitmap);
+  assert.equal(renderer.loading, false);
+  assert.equal(messages.length, 1);
+  renderer.destroy();
+});
+
+for (const onlyOwn of [false, true]) test(`font notifications retain ink-only ${onlyOwn ? "sponge" : "synchronous"} tiles within a mixed contribution`, () => {
+  const renderer = new ChalkboardRenderer(canvas());
+  const label = { id: "text", type: "text", seed: 8, text: "CRAIE", font: "chalk", cx: 700, cy: 80, fontSize: 68, width: 100, scale: 1, angle: 0 };
+  const ink = stroke("ink");
+  const source = { id: "mixed", elements: [ink, label], canErase: true,
+    bounds: { minX: 10, minY: 10, maxX: 800, maxY: 160 } };
+  renderer.setInterventions([source], 1, "free:week");
+  renderer.render({ ...view, onlyOwn });
+  const layer = onlyOwn ? renderer.sponge : renderer.published;
+  const inkTile = layer.getTile(0, 0);
+  const textTile = layer.getTile(1, 0);
+  renderer.invalidateText();
+  assert.equal(inkTile.width > 0, true);
+  assert.equal(textTile.width, 0);
+  arcs = 0;
+  assert.equal(layer.getTile(0, 0), inkTile);
+  assert.equal(arcs, 0, "font loading must not replay chalk particles");
+  assert.notEqual(layer.getTile(1, 0), textTile);
+  renderer.destroy();
+});
+
 test("an appended draft segment paints only that segment, without copying earlier points", () => {
   const renderer = new ChalkboardRenderer(canvas());
   const element = stroke("draft");

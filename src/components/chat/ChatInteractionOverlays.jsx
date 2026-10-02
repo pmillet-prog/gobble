@@ -35,6 +35,7 @@ function ChatRulesDialog({ appearance, rules }) {
           <li>Pas de spam ni pub.</li>
           <li>Pas d'infos personnelles (téléphone, email, adresse, paiement).</li>
           <li>Utilisez "Signaler" en cas d'abus.</li>
+          <li>Une copie des messages, y compris modifiés ou supprimés, est conservée pour la modération.</li>
         </ul>
         <div className="mt-4 flex items-center justify-end gap-2">
           <button

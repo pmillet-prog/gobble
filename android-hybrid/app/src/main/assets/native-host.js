@@ -23,6 +23,7 @@
     protocol: 1,
     ownsAssets: true,
     setOrientation: mode => request('orientation', mode),
+    reload: () => request('reload'),
     getDiagnostics: () => request('diagnostics'),
   }) });
 })();

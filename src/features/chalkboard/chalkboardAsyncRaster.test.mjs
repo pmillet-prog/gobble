@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { ChalkboardAsyncRaster } from "./chalkboardAsyncRaster.js";
-import { ChalkboardTileCache } from "./chalkboardTileLayer.js";
+import { ChalkboardTileCache, getTileBounds } from "./chalkboardTileLayer.js";
 
 function setup() {
   const messages = [];
@@ -78,7 +78,7 @@ test("higher-resolution cached tiles can be reused when zooming out", () => {
   raster.destroy();
 });
 
-test("obsolete fonts and resolutions cannot restore stale worker bitmaps", () => {
+test("a full clear rejects in-flight tiles even when the same content is restored", () => {
   const { raster, index, bitmap, complete } = setup();
   raster.update(index, [[0, 0]], .5);
   raster.clear();
@@ -89,6 +89,86 @@ test("obsolete fonts and resolutions cannot restore stale worker bitmaps", () =>
   const current = bitmap();
   complete(current);
   assert.equal(raster.getTile(0, 0), current);
+  raster.destroy();
+});
+
+function mixedContributionIndex() {
+  const entry = { element: { id: "contribution", items: [
+    { element: { type: "stroke" }, bounds: { minX: 20, minY: 20, maxX: 40, maxY: 40 } },
+    { element: { type: "text", font: "chalk" }, bounds: { ...getTileBounds(1, 0), minX: getTileBounds(1, 0).minX + 20 } },
+  ] } };
+  return new Map([["0:0", [entry]], ["1:0", [entry]]]);
+}
+
+test("font changes retain cached ink tiles and invalidate offscreen text from the same contribution", () => {
+  const { raster, bitmap, complete, messages } = setup();
+  const index = mixedContributionIndex();
+  raster.update(index, [[0, 0], [1, 0]]);
+  const ink = bitmap(); complete(ink);
+  const text = bitmap(); complete(text);
+  raster.update(index, [[0, 0]]);
+  raster.setFonts([{ id: "chalk", src: "/new-font.ttf" }]);
+  assert.equal(ink.closed, false);
+  assert.equal(text.closed, true);
+  assert.equal(raster.getTile(0, 0), ink);
+  assert.equal(raster.pending, false);
+  raster.update(index, [[0, 0], [1, 0]]);
+  assert.equal(messages.length, 3);
+  assert.equal(messages.at(-1).groups[0].items[0].element.type, "text");
+  assert.equal(messages.at(-1).fonts[0].src, "/new-font.ttf");
+  const replacement = bitmap(); complete(replacement);
+  assert.equal(raster.getTile(1, 0), replacement);
+  raster.invalidateText();
+  assert.equal(replacement.closed, true);
+  assert.equal(raster.getTile(0, 0), ink);
+  raster.destroy();
+});
+
+test("font loading preserves an active ink job and queued text uses the latest catalog", () => {
+  const { raster, bitmap, complete, messages } = setup();
+  const index = mixedContributionIndex();
+  raster.update(index, [[0, 0], [1, 0]]);
+  raster.invalidateText();
+  const fonts = [{ id: "chalk", src: "/loaded-font.ttf" }];
+  raster.setFonts(fonts);
+  raster.update(index, [[0, 0], [1, 0]]);
+  assert.equal(messages.length, 1, "font notifications must not duplicate the active drawing");
+  const ink = bitmap(); complete(ink);
+  assert.equal(ink.closed, false);
+  assert.equal(raster.getTile(0, 0), ink);
+  assert.equal(messages.length, 2);
+  assert.equal(messages.at(-1).fonts, fonts);
+  const text = bitmap(); complete(text);
+  raster.setFonts(fonts);
+  assert.equal(raster.getTile(1, 0), text, "the same catalog does not invalidate completed text");
+  assert.equal(raster.pending, false);
+  raster.destroy();
+});
+
+test("active text from obsolete font generations is discarded without concurrent worker jobs", () => {
+  const { raster, bitmap, complete, messages } = setup();
+  const index = mixedContributionIndex();
+  raster.setFonts([{ id: "chalk", src: "/old-font.ttf" }]);
+  raster.update(index, [[1, 0]]);
+  raster.setFonts([{ id: "chalk", src: "/new-font.ttf" }]);
+  raster.update(index, [[1, 0]]);
+  assert.equal(messages.length, 1);
+  const staleCatalog = bitmap(); complete(staleCatalog);
+  assert.equal(staleCatalog.closed, true);
+  assert.equal(raster.getTile(1, 0), undefined);
+  assert.equal(messages.length, 2);
+  assert.equal(messages.at(-1).fonts[0].src, "/new-font.ttf");
+  raster.invalidateText();
+  const staleLoadingState = bitmap(); complete(staleLoadingState);
+  assert.equal(staleLoadingState.closed, true);
+  assert.equal(messages.length, 3);
+  const current = bitmap(); complete(current);
+  assert.equal(raster.getTile(1, 0), current);
+  assert.equal(raster.pending, false);
+  raster.clear();
+  assert.equal(current.closed, true, "general invalidation still releases all cached tiles");
+  raster.update(index, [[1, 0]]);
+  assert.equal(messages.length, 4);
   raster.destroy();
 });
 

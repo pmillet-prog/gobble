@@ -24,7 +24,16 @@ final class MediaCache {
         return path != null && path.startsWith("/") && !path.startsWith("//")
                 && !path.contains("..") && !path.contains("\\") && !path.contains("?") && !path.contains("#")
                 && !path.startsWith("/api/") && !path.startsWith("/socket.io/")
-                && (path.equals("/dico.txt") || path.matches("(?i)^/[^\\r\\n]+\\.(png|webp|gif|svg|ttf|otf|woff2?|wav|mp3)$"));
+                && (path.equals("/dico.txt") || path.matches("(?i)^/[^\\r\\n]+\\.(png|jpe?g|webp|gif|svg|avif|ttf|otf|woff2?|wav|mp3|m4a|ogg|webm)$"));
+    }
+    static boolean isMediaRequest(String path, String encodedQuery) {
+        if (!isMediaPath(path)) return false;
+        // SOUND_PATHS adds this deployment stamp to static audio URLs. The live
+        // manifest hash still determines the bytes, not the query or APK version.
+        // Keep retry cache-busters and every other parameter on the normal web path.
+        return encodedQuery == null || (path.startsWith("/sound/")
+                && path.matches("(?i).+\\.(wav|mp3|m4a|ogg)$")
+                && encodedQuery.matches("v=[A-Za-z0-9._~-]+"));
     }
     static final class Result {
         final InputStream stream;

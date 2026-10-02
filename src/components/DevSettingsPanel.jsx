@@ -37,6 +37,7 @@ export default function DevSettingsPanel({
   onSetAllBotsActive = null,
   onReturnToLiveLobby = null,
   onOpenTargetWaitPlayground = null,
+  onOpenChatAudit = null,
   targetWaitDevActive = false,
   targetWaitDevArmed = false,
 }) {
@@ -173,6 +174,10 @@ export default function DevSettingsPanel({
           </div>
         </div>
         <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2 text-sm">
+          {onOpenChatAudit && <button type="button" onClick={onOpenChatAudit}
+            className={`w-full rounded-xl border px-3 py-3 text-sm font-semibold ${mutedClass}`}>
+            Historique du chat · modération
+          </button>}
           {available && locked ? (
             <div className={`rounded-xl border px-3 py-3 text-xs font-semibold ${mutedClass}`}>
               Acces dev en attente d'autorisation compte.

@@ -4,6 +4,129 @@ Application indépendante `fr.gobble.hybrid.prototype`, construite dans
 `android-hybrid`. Le wrapper TWA et la VM n'ont pas été modifiés pour ce lot.
 L'APK debug s'installe à côté de Gobble ; il n'est pas destiné au Store en l'état.
 
+## Version 0.6 — réserve allégée et premier dessin du tableau — 2 octobre 2026
+
+Le manifeste web reste complet : **867 fichiers**, version
+`27b88c67de2beaf1`. La réserve embarquée devient un sous-ensemble de **106 fichiers,
+24 466 139 octets** avant compression, version `5221c8304fcf55f0`, avec un plafond
+de 30 Mio vérifié à la construction. Elle conserve les 22 boutons, le fond et les
+12 polices du Grand Tableau, les polices UI, les fonds, le dictionnaire, les sons
+UI et les petits visuels. Les calques d'avatars, musiques, sons de jeu, textures
+décoratives et animations des présentateurs sont téléchargés à leur première
+utilisation puis conservés dans le cache natif de 64 Mio, soumis à éviction.
+
+APK debug : `android-hybrid/app/build/outputs/apk/debug/app-debug.apk`, version
+`0.6-prototype` / code 6, **20 210 129 octets**, contre 188 887 256 pour la 0.5
+(−89,3 %). SHA-256 :
+`65e236d7304a5b9009988ef1e14034068f094a6c8a495d094dd9c171e2249abe`.
+Les 106 fichiers de l'APK construit ont été comparés au manifeste web et aux
+empreintes attendues, y compris les noms accentués.
+
+### Mesure sur le tableau public rempli
+
+La réponse publique `/api/chalkboard/free` a été récupérée en lecture seule :
+révision 420, semaine `2026-09-28`, 21 interventions, 269 éléments et 36 504 points.
+Cette copie intacte et le catalogue réel des polices ont été rejoués localement.
+Aucune contribution n'a été créée ou modifiée en production.
+
+L'arrivée des polices invalidait toutes les tuiles, même celles ne contenant que
+des traits. La première tuile riche en particules était ainsi calculée deux fois.
+L'invalidation ne touche désormais que les tuiles contenant du texte, y compris
+les résultats de calcul en cours ; les dessins et leurs calculs restent conservés.
+Le code du worker, l'algorithme de dessin et les délais de jeu sont inchangés.
+
+Médianes de trois passages avant/après, sur la même WebView 153 / Android 16,
+émulateur avec GPU hôte, en portrait (411 × 866 CSS, DPR 2,625). L'APK 0.5 est
+resté installé pendant les deux séries pour isoler la correction web ; les médias
+du tableau sont identiques dans la réserve 0.6.
+
+| Mesure | Avant | Après |
+| --- | ---: | ---: |
+| Première ouverture, cache HTTP vidé | 14,36 s | 8,42 s |
+| Fermeture puis réouverture dans le même document | 7,82 s | 7,96 s |
+| Calculs de tuiles à la première ouverture | 9 | 8 |
+
+Le premier affichage complet gagne **41 %** dans ce scénario. La réouverture
+ne présente pas de gain mesuré. Le calcul des traits reste dominant : les polices
+sont prêtes en environ 0,23 s. Ces résultats utilisent une API et des fichiers
+locaux ; ils ne mesurent ni le réseau réel, ni Chrome/TWA, ni le téléphone de Paul.
+Les essais initiaux en rendu graphique logiciel ne sont pas utilisés dans ces
+chiffres. Le contenu peint et une capture Android ont été vérifiés ; la capture
+CDP seule omet l'encre du canvas accéléré dans cet environnement.
+
+Rapports : `.tmp/hybrid-measurements/chalkboard-loading-before.json` et
+`chalkboard-loading-after.json`. Reproduction : `scripts/android/measure-chalkboard.mjs`.
+
+Validation : 38 tests ciblés du rendu, des polices/effacements et de la sélection
+des médias ; build web, `assembleDebug` et `lintDebug` (0 erreur, 9 avertissements).
+L'APK 0.6 installé sur l'émulateur passe `verify-web-updates.mjs` : médias du
+tableau et boutons sans téléchargement, médias différés avec empreinte exacte
+puis cache, plages audio, mises à jour web, rotation, Retour, reprise et geste
+d'actualisation sur l'accueil.
+
+Le manifeste public consulté pendant le diagnostic était encore celui de
+40 fichiers (`1ee78af8a423001c`), sans le fond ni les polices du tableau.
+**Le build web correspondant doit être déployé** pour activer la nouvelle
+couverture des médias, le correctif de rendu et le geste d'actualisation.
+L'APK seul ne met pas le site à jour. Aucun déploiement ni redémarrage du backend
+n'a été effectué.
+
+## Version 0.5 — médias complets et actualisation de l'accueil — 1er octobre 2026
+
+La réserve passe des seuls médias prioritaires du démarrage aux médias utilisés
+dans les fonctionnalités du client : les 22 boutons, le fond du Grand Tableau et
+ses 12 polices réellement utilisées, les textures, les présentateurs, les avatars
+et leurs accessoires, les réactions du chat, le dictionnaire, les sons et les
+musiques. Les sources graphiques, anciens exports et doublons de formats ne sont
+pas embarqués. Les catalogues JSON restent servis par le site.
+
+La sélection suit les références directes du client, les manifestes d'interface,
+le catalogue enrichi des avatars et les familles de fichiers à noms dynamiques.
+Des contrôles couvrent les médias des écrans secondaires, afin de détecter les
+oublis lors des prochains builds. Le paramètre `v` des sons publics est reconnu
+sans contourner le contrôle SHA-256 du manifeste courant ; les autres paramètres
+et les nouvelles tentatives `asset_bust` continuent de passer par le web.
+
+Réserve `27b88c67de2beaf1` : **867 fichiers, 192 896 822 octets** avant compression.
+Les fichiers sont lus à la demande depuis l'APK ; ce poids ne représente pas une
+allocation en mémoire. Le cache des fichiers modifiés reste limité à 64 Mio.
+
+Tirer vers le bas sur l'accueil affiche un indicateur ; relâcher après le seuil
+actualise la WebView et le manifeste. Ce geste est limité à l'accueil disponible,
+hors partie, connexion, fenêtre ouverte, champ actif ou zone déjà défilée. Il
+ignore les déplacements horizontaux, courts, interrompus ou à plusieurs doigts.
+Son contrôleur est isolé dans un satellite sans abonnement aux états du jeu.
+
+Il faut **installer le nouvel APK et déployer le build web correspondant**, dont
+`native-assets.json`. Installer uniquement l'APK ne modifie pas le manifeste ni
+le code du site déjà publié. Aucun déploiement VM ni redémarrage du backend n'a
+été effectué pour ce lot.
+
+APK debug : `android-hybrid/app/build/outputs/apk/debug/app-debug.apk`, version
+`0.5-prototype` / code 5, **188 887 256 octets**. SHA-256 :
+`1aa403b1a5ae776d95c7d28890d01390e225d488ad48d2491aa0d82a20cebda0`.
+Les 867 entrées ont été relues dans l'APK construit et comparées au manifeste web
+(taille et SHA-256), y compris les noms accentués.
+
+Validation locale : 25 tests JavaScript et les tests Java du cache passent,
+ainsi que le build web, `assembleDebug` et `lintDebug` (0 erreur, 9 avertissements).
+Sur émulateur Android 16 / WebView 153, avec serveur de fichiers local :
+
+- 41 médias représentatifs, dont toutes les polices du tableau et tous les
+  boutons, servis depuis l'APK avec taille et MIME attendus, sans requête HTTP ;
+- son avec son paramètre de version réel, y compris réponse partielle `206` ;
+- geste vertical sur l'accueil : indicateur puis nouveau document ; gestes
+  courts/horizontaux, chat ouvert et tableau : aucun rechargement ;
+- orientation, Retour, reprise, absence de double marge système conservés ;
+- deux déploiements web simulés, remplacement d'image au même nom, cache après
+  redémarrage, manifestes absents/invalides et page de maintenance validés.
+
+Le parcours réel accueil/tableau/reprise a servi 210 requêtes de médias par le
+natif et téléchargé 0 octet de médias via celui-ci. Ces contrôles établissent
+l'utilisation de la réserve ; ils ne mesurent pas un gain de latence sur un
+téléphone réel. Résultats dans `.tmp/hybrid-measurements/web-updates.json` et
+`runtime-checks.json`.
+
 ## Version 0.4 — code web actualisable, médias natifs — 30 septembre 2026
 
 Cette version remplace l'architecture des prototypes 0.1 à 0.3 : aucun HTML,

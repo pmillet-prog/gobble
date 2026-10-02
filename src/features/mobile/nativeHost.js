@@ -3,6 +3,11 @@ export function getNativeHost(windowObject = globalThis.window) {
   return host?.protocol === 1 && host?.ownsAssets === true ? host : null;
 }
 
+export function getNativeReload(windowObject = globalThis.window) {
+  const host = getNativeHost(windowObject);
+  return typeof host?.reload === "function" ? () => host.reload() : null;
+}
+
 export function getOrientationPort({ windowObject = globalThis.window, orientation = globalThis.screen?.orientation } = {}) {
   const host = getNativeHost(windowObject);
   if (typeof host?.setOrientation !== "function") return orientation;

@@ -17,6 +17,7 @@ export class ChalkboardAsyncRaster {
     this.fonts = [];
     this.ratio = 1.35;
     this.generation = 0;
+    this.fontGeneration = 0;
     this.failed = false;
     worker.onmessage = ({ data }) => this.receive(data);
     worker.onerror = () => this.fail();
@@ -25,7 +26,16 @@ export class ChalkboardAsyncRaster {
   setFonts(fonts) {
     if (this.fonts === fonts) return;
     this.fonts = fonts;
-    this.clear();
+    this.invalidateText();
+  }
+
+  invalidateText() {
+    this.fontGeneration++;
+    // Fonts cannot change ink-only tiles, including work already in flight.
+    // Keep that work serialized; obsolete text results are rejected on receipt.
+    for (const [key, tile] of this.cache.entries) {
+      if (key.startsWith("worker|") && tile.hasText) this.cache.delete(key);
+    }
   }
 
   update(index, tiles, ratio = 1.35) {
@@ -41,7 +51,8 @@ export class ChalkboardAsyncRaster {
 
   current(tile) {
     const cached = this.cache.get(`worker|${tile.x}:${tile.y}`);
-    return cached?.ratio >= this.ratio && cached.generation === this.generation && sameEntries(cached?.entries, tile.entries) ? cached : null;
+    return cached?.ratio >= this.ratio && cached.generation === this.generation &&
+      (!cached.hasText || cached.fontGeneration === this.fontGeneration) && sameEntries(cached?.entries, tile.entries) ? cached : null;
   }
 
   getTile(x, y) {
@@ -55,12 +66,14 @@ export class ChalkboardAsyncRaster {
     if (this.active || this.failed) return;
     const tile = [...this.wanted.values()].find(tile => !this.current(tile));
     if (!tile) return;
-    this.active = { ...tile, id: ++this.sequence, ratio: this.ratio, generation: this.generation };
     const bounds = getTileBounds(tile.x, tile.y);
+    const groups = tile.entries.map(({ element }) => ({
+      id: element.id, items: element.items.filter(item => boundsIntersect(item.bounds, bounds)),
+    }));
+    this.active = { ...tile, id: ++this.sequence, ratio: this.ratio, generation: this.generation,
+      fontGeneration: this.fontGeneration, hasText: groups.some(group => group.items.some(item => item.element.type === "text")) };
     try {
-      this.worker.postMessage({ id: this.active.id, groups: tile.entries.map(({ element }) => ({
-        id: element.id, items: element.items.filter(item => boundsIntersect(item.bounds, bounds)),
-      })), bounds, fonts: this.fonts, ratio: this.ratio });
+      this.worker.postMessage({ id: this.active.id, groups, bounds, fonts: this.fonts, ratio: this.ratio });
     } catch (_) { this.fail(); }
   }
 
@@ -69,10 +82,12 @@ export class ChalkboardAsyncRaster {
     const tile = this.active;
     this.active = null;
     if (error) { bitmap?.close(); this.fail(); return; }
-    if (tile.generation === this.generation && sameEntries(this.index.get(`${tile.x}:${tile.y}`), tile.entries)) {
+    if (tile.generation === this.generation && (!tile.hasText || tile.fontGeneration === this.fontGeneration) &&
+      sameEntries(this.index.get(`${tile.x}:${tile.y}`), tile.entries)) {
       const key = `worker|${tile.x}:${tile.y}`;
       this.cache.delete(key);
-      this.cache.set(key, { canvas: bitmap, entries: tile.entries, ratio: tile.ratio, generation: tile.generation });
+      this.cache.set(key, { canvas: bitmap, entries: tile.entries, ratio: tile.ratio, generation: tile.generation,
+        fontGeneration: tile.fontGeneration, hasText: tile.hasText });
     } else bitmap.close();
     this.onChange();
     this.pump();

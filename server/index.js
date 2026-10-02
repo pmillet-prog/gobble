@@ -45,10 +45,7 @@ import {
   normalizeTrainingDurationMs,
   normalizeTrainingMode,
 } from "./training/standaloneTrainingPolicy.js";
-import {
-  INTER_TOURNAMENT_MIN_COOLDOWN_MS,
-  getTournamentLobbyCooldownStatus,
-} from "./tournamentLobbyCooldownPolicy.js";
+import { getTournamentLobbyStartStatus } from "./tournamentLobbyStartPolicy.js";
 import { createBotManager, BOT_ROSTER_4X4 } from "./bots/botManager.js";
 import { getLiveRoundDurationMs, OCID_PROPOSAL_DURATION_MS, OCID_VOTE_DURATION_MS } from "./liveRoundDuration.js";
 import { createCoachHintPicker } from "./bots/coachHints.js";
@@ -109,6 +106,10 @@ import { registerSubmissionHandlers } from "./realtime/registerSubmissionHandler
 import { registerSessionUtilityHandlers } from "./realtime/registerSessionUtilityHandlers.js";
 import { registerSpecialRoundHandlers } from "./realtime/registerSpecialRoundHandlers.js";
 import { registerChatHandlers } from "./realtime/registerChatHandlers.js";
+import { openChatAuditRepository } from "./chat/chatAuditRepository.js";
+import { createAuditedChatCommands } from "./chat/auditedChatCommands.js";
+import { createChatMessageMutations } from "./chat/chatMessageMutations.js";
+import { registerChatAuditHandlers } from "./realtime/registerChatAuditHandlers.js";
 import { registerModerationHandlers } from "./realtime/registerModerationHandlers.js";
 import { registerDevHandlers } from "./realtime/registerDevHandlers.js";
 import { emitMaintenanceStatus } from "./realtime/emitMaintenanceStatus.js";
@@ -1922,6 +1923,19 @@ const AUTH_SESSION_COOKIE_NAME = "gobble_session";
 const RUNTIME_DATA_DIR = process.env.GOBBLE_DATA_DIR
   ? path.resolve(process.env.GOBBLE_DATA_DIR)
   : path.join(__dirname, "../data");
+const chatAudit = await openChatAuditRepository(path.join(RUNTIME_DATA_DIR, "chat-audit.sqlite"), {
+  retentionDays: process.env.GOBBLE_CHAT_AUDIT_RETENTION_DAYS || 30,
+});
+const { updateChatMessageText, deleteChatMessage } = createChatMessageMutations({
+  normalizeInstallId, isSystemChatEntry, censorTargetSpoilersInChatText,
+  maxTextLength: CHAT_MESSAGE_TEXT_MAX_LEN,
+});
+const auditedChatCommands = createAuditedChatCommands({
+  archive: chatAudit, pushChatMessage, updateChatMessageText, deleteChatMessage,
+});
+server.once("close", () => {
+  chatAudit.close().catch(error => console.error("[chat-audit] close failed", error.code || error.message));
+});
 const lepersQuestionHistory = createLepersQuestionHistory({
   filePath: path.join(RUNTIME_DATA_DIR, "lepers-question-history.json"),
 });
@@ -3808,9 +3822,6 @@ function maybeStartTournamentCountdown(room) {
   if (lobby.countdownEndsAt || lobby.introEndsAt) return false;
   const state = buildTournamentLobbyPayload(room);
   if (!state.canStart) return false;
-  if (lobby.cooldownTimer) clearTimeout(lobby.cooldownTimer);
-  lobby.cooldownTimer = null;
-  lobby.cooldownEndsAt = null;
   resetTournament(room);
   const openingTournamentRound = 1;
   const openingRoundNumber = (room.roundCounter || 0) + 1;
@@ -3948,10 +3959,8 @@ function createRoomState(roomId, config) {
     roundPreparingSnapshot: null,
     tournamentLobby: {
       readyKeys: new Set(),
-      cooldownEndsAt: null,
       countdownEndsAt: null,
       introEndsAt: null,
-      cooldownTimer: null,
       countdownTimer: null,
       introTimer: null,
     },
@@ -4111,10 +4120,8 @@ function ensureTournamentLobby(room) {
   if (!room.tournamentLobby) {
     room.tournamentLobby = {
       readyKeys: new Set(),
-      cooldownEndsAt: null,
       countdownEndsAt: null,
       introEndsAt: null,
-      cooldownTimer: null,
       countdownTimer: null,
       introTimer: null,
     };
@@ -4127,13 +4134,10 @@ function ensureTournamentLobby(room) {
 
 function clearTournamentLobbyTimers(room) {
   const lobby = ensureTournamentLobby(room);
-  if (lobby.cooldownTimer) clearTimeout(lobby.cooldownTimer);
   if (lobby.countdownTimer) clearTimeout(lobby.countdownTimer);
   if (lobby.introTimer) clearTimeout(lobby.introTimer);
-  lobby.cooldownTimer = null;
   lobby.countdownTimer = null;
   lobby.introTimer = null;
-  lobby.cooldownEndsAt = null;
   lobby.countdownEndsAt = null;
   lobby.introEndsAt = null;
 }
@@ -4142,27 +4146,6 @@ function resetTournamentLobby(room, { keepReady = false } = {}) {
   const lobby = ensureTournamentLobby(room);
   clearTournamentLobbyTimers(room);
   if (!keepReady) lobby.readyKeys.clear();
-}
-
-function armInterTournamentCooldown(
-  room,
-  durationMs = INTER_TOURNAMENT_MIN_COOLDOWN_MS
-) {
-  const lobby = ensureTournamentLobby(room);
-  const safeDurationMs = Math.max(0, Number(durationMs) || 0);
-  if (!(safeDurationMs > 0)) return;
-  if (lobby.cooldownTimer) clearTimeout(lobby.cooldownTimer);
-  const cooldownEndsAt = Date.now() + safeDurationMs;
-  lobby.cooldownEndsAt = cooldownEndsAt;
-  lobby.cooldownTimer = setTimeout(() => {
-    if (Number(lobby.cooldownEndsAt) !== cooldownEndsAt) return;
-    lobby.cooldownTimer = null;
-    lobby.cooldownEndsAt = null;
-    if (!maybeStartTournamentCountdown(room)) {
-      emitTournamentLobby(room);
-    }
-  }, safeDurationMs);
-  lobby.cooldownTimer.unref?.();
 }
 
 function isInterTournamentLobbyOpen(room) {
@@ -4311,23 +4294,15 @@ function buildTournamentLobbyPayload(room) {
   );
   const readyTotal = liveHumans.filter((player) => lobby.readyKeys.has(getPlayerReadyKey(player)));
   const activeHumanCount = activeHumans.length;
-  const readyThreshold = Math.max(1, Math.ceil(activeHumanCount * 0.5));
-  const cooldown = getTournamentLobbyCooldownStatus({
-    cooldownEndsAt: lobby.cooldownEndsAt,
-    humanCount: liveHumans.length,
-    now,
-    readyCount: readyActive.length,
-    readyThreshold,
-  });
   const maintenanceMode = isMaintenanceModeActive();
   const miniTournamentInProgress = isMiniTournamentInProgress(room);
   const isLobbyOpen = isInterTournamentLobbyOpen(room);
-  const canStart =
-    isLobbyOpen &&
-    !maintenanceMode &&
-    !cooldown.active &&
-    activeHumanCount > 0 &&
-    cooldown.readyThresholdMet;
+  const { readyThreshold, readyThresholdMet, canStart } = getTournamentLobbyStartStatus({
+    activeHumanCount,
+    readyCount: readyActive.length,
+    isLobbyOpen,
+    maintenanceMode,
+  });
   const phase = lobby.introEndsAt
     ? "intro"
     : lobby.countdownEndsAt
@@ -4350,9 +4325,7 @@ function buildTournamentLobbyPayload(room) {
     liveHumanCount: liveHumans.length,
     trainingHumanCount: trainingHumans.length,
     afkHumanCount: Math.max(0, liveHumans.length - activeHumans.length),
-    cooldownActive: cooldown.active,
-    cooldownEndsAt: cooldown.endsAt,
-    readyThresholdMet: cooldown.readyThresholdMet,
+    readyThresholdMet,
     countdownEndsAt: lobby.countdownEndsAt || null,
     introEndsAt: lobby.introEndsAt || null,
     roundStartPending: !!room.roundStartPending,
@@ -4377,7 +4350,7 @@ function emitTournamentLobby(room) {
   io.to(room.id).emit("tournamentLobbyUpdate", buildTournamentLobbyPayload(room));
 }
 
-function enterInterTournamentLobby(room, { cooldownMs = 0 } = {}) {
+function enterInterTournamentLobby(room) {
   if (!room) return;
   room.roundStartPending = false;
   room.roundPreparingSnapshot = null;
@@ -4391,9 +4364,6 @@ function enterInterTournamentLobby(room, { cooldownMs = 0 } = {}) {
   room.breakState = null;
   cancelBufferedPreparedGrid(room);
   resetTournamentLobby(room);
-  if (Number(cooldownMs) > 0) {
-    armInterTournamentCooldown(room, cooldownMs);
-  }
   emitTournamentLobby(room);
   emitPlayers(room);
   emitRoomsStats();
@@ -5527,36 +5497,6 @@ function updateChatMessageReactions(room, { messageId, emoji, installId, nick })
   };
 }
 
-function updateChatMessageText(room, { messageId, installId, text }) {
-  if (!room || typeof messageId !== "string" || !messageId.trim()) {
-    return { ok: false, error: "invalid_message_id" };
-  }
-  const targetId = messageId.trim();
-  const safeInstallId = normalizeInstallId(installId);
-  if (!safeInstallId) {
-    return { ok: false, error: "invalid_install_id" };
-  }
-  const trimmedText = typeof text === "string" ? text.trim() : "";
-  if (!trimmedText) {
-    return { ok: false, error: "empty_text" };
-  }
-  if (trimmedText.length > CHAT_MESSAGE_TEXT_MAX_LEN) {
-    return { ok: false, error: "text_too_long" };
-  }
-
-  const list = Array.isArray(room.chatMessages) ? room.chatMessages : [];
-  const target = list.find((entry) => entry?.id === targetId);
-  if (!target || isSystemChatEntry(target)) {
-    return { ok: false, error: "message_not_found" };
-  }
-  if (normalizeInstallId(target.installId) !== safeInstallId) {
-    return { ok: false, error: "forbidden" };
-  }
-  target.text = censorTargetSpoilersInChatText(room, trimmedText);
-  target.editedAt = Date.now();
-  return { ok: true, message: target };
-}
-
 function getActiveTargetChatSpoilerWord(room) {
   const currentRound = room?.currentRound;
   if (!currentRound || !isRoundActive(currentRound)) return "";
@@ -5671,32 +5611,6 @@ function censorTargetSpoilersInChatText(room, text) {
   return rawChars
     .map((char, rawIndex) => (blockedRawIndices.has(rawIndex) ? "*" : char))
     .join("");
-}
-
-function deleteChatMessage(room, { messageId, installId }) {
-  if (!room || typeof messageId !== "string" || !messageId.trim()) {
-    return { ok: false, error: "invalid_message_id" };
-  }
-  const targetId = messageId.trim();
-  const safeInstallId = normalizeInstallId(installId);
-  if (!safeInstallId) {
-    return { ok: false, error: "invalid_install_id" };
-  }
-  const list = Array.isArray(room.chatMessages) ? room.chatMessages : [];
-  const targetIndex = list.findIndex((entry) => entry?.id === targetId);
-  if (targetIndex < 0) {
-    return { ok: false, error: "message_not_found" };
-  }
-  const target = list[targetIndex];
-  if (!target || isSystemChatEntry(target)) {
-    return { ok: false, error: "message_not_found" };
-  }
-  if (normalizeInstallId(target.installId) !== safeInstallId) {
-    return { ok: false, error: "forbidden" };
-  }
-  list.splice(targetIndex, 1);
-  room.chatMessages = list;
-  return { ok: true, messageId: targetId, deletedAt: Date.now() };
 }
 
 function pushChatMessage(room, message) {
@@ -11702,10 +11616,7 @@ async function endRoundForRoom(room) {
   setTimeout(() => {
     if (room.breakState?.nextStartAt !== nextStartAt) return;
     if (breakKind === "tournament_end" || breakKind === "training_end") {
-      enterInterTournamentLobby(room, {
-        cooldownMs:
-          breakKind === "tournament_end" ? INTER_TOURNAMENT_MIN_COOLDOWN_MS : 0,
-      });
+      enterInterTournamentLobby(room);
       return;
     }
     startRoundForRoom(room).catch((e) => console.warn("startRoundForRoom failed", e));
@@ -11815,9 +11726,9 @@ io.on("connection", (socket) => {
 
   registerChatHandlers(socket, {
     NICK_MAX_LEN,
+    auditedChatCommands,
     censorTargetSpoilersInChatText,
     checkTargetChatRateLimit,
-    deleteChatMessage,
     emitChatSocketEvent,
     emitPlayers,
     emitRoomsStats,
@@ -11834,12 +11745,10 @@ io.on("connection", (socket) => {
     joinSocketToChatRoom,
     markSocketPlayerActivity,
     normalizeChatReactionEmoji,
-    pushChatMessage,
     randomUUID,
     requireSocketPlayerIdentity,
     resolveReplyPreviewFromPayload,
     updateChatMessageReactions,
-    updateChatMessageText,
   });
 
   registerDevHandlers(socket, {
@@ -11888,6 +11797,8 @@ io.on("connection", (socket) => {
     removeSocketPlayerFromRoom,
     requireModerationAccess,
   });
+
+  registerChatAuditHandlers(socket, { archive: chatAudit, requireModerationAccess, getRoom });
 
   registerReportHandlers(socket, {
     REPORT_MUTE_THRESHOLD,
