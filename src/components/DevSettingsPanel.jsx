@@ -480,7 +480,7 @@ export default function DevSettingsPanel({
             <div className="mt-2">
               {renderToggle({
                 keyName: "animatorBotsEnabled",
-                label: "Bots animateurs permanents",
+                label: "Bots animateurs · complément à 6 joueurs",
               })}
             </div>
             <div className="mt-2">
@@ -544,7 +544,7 @@ export default function DevSettingsPanel({
                       <span className="block truncate font-semibold">{bot.nick}</span>
                       {bot?.kind === "animator" ? (
                         <span className="block truncate text-[10px] opacity-75">
-                          animateur permanent, switch separe
+                          présence adaptée aux humains, switch séparé
                         </span>
                       ) : null}
                       {bot.override ? (

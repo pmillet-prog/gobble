@@ -4391,6 +4391,7 @@ function getBotStrengthForNick(nick) {
 }
 
 function emitPlayers(room) {
+  botManager?.refreshAnimatorPresenceForRoom(room, { notifyPlayers: false });
   const now = Date.now();
   const lobby = ensureTournamentLobby(room);
   io.to(room.id).emit(
@@ -10406,7 +10407,7 @@ async function runStartRoundForRoom(room, options = {}) {
   const roundEndsAt = roundStartsAt + roundDurationMs;
 
   if (botManager?.refreshPresenceForRoom) {
-    botManager.refreshPresenceForRoom(room);
+    botManager.refreshPresenceForRoom(room, { beforeRound: true });
   }
 
   room.currentRound = {

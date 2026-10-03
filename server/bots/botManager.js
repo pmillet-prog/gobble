@@ -1,6 +1,7 @@
 import { OCID_TYPE, normalizeWord, solveGrid } from "../../shared/gameLogic.js";
 import { createBotWordDiscovery } from "./botWordDiscovery.js";
 import { planBotSpecial3Words } from "./botSpecial3Words.js";
+import { countLiveHumans, selectPresentAnimators } from "./botPresencePolicy.js";
 
 const SOLVE_CACHE_MAX = 8;
 const solveCache = new Map();
@@ -539,6 +540,7 @@ class BotManager {
     this.botSessionUntil = new Map();
     this.manualBotOverrides = new Map();
     this.presenceTimers = new Map();
+    this.animatorPresenceRefreshing = new Set();
     this.presenceInterval = setInterval(() => this.refreshPresence(), 5 * 60 * 1000);
     this.warnedNoDictionary = false;
     this.roomSolutions = new Map();
@@ -553,7 +555,44 @@ class BotManager {
     }
   }
 
-  refreshPresenceForRoom(room) {
+  refreshAnimatorPresenceForRoom(room, { beforeRound = false, notifyPlayers = true } = {}) {
+    if (!room?.players || this.animatorPresenceRefreshing.has(room.id)) return;
+    // Keep the current round, vote and results intact. Reconcile immediately
+    // before creating the next round, or whenever the live lobby changes.
+    if (room.currentRound && (!beforeRound || ["intro", "running", "ocid_vote"].includes(room.currentRound.status))) return;
+    const roster = animatorRosterForRoom(room);
+    const selected = this.animatorBotsEnabled
+      ? selectPresentAnimators({ humanCount: countLiveHumans(room.players), roster })
+      : [];
+    const selectedKeys = new Set(selected.map(bot => this.botKey(bot)));
+    let changed = false;
+    let removed = false;
+    this.animatorPresenceRefreshing.add(room.id);
+    try {
+      for (const bot of roster) {
+        const key = this.botKey(bot);
+        if (!selectedKeys.has(key) && room.players.has(key)) {
+          this.removeBotFromRoom(room, bot, { notify: false });
+          changed = removed = true;
+        }
+      }
+      for (const bot of selected) {
+        if (!room.players.has(this.botKey(bot))) {
+          this.addBotToRoom(room, bot, { notify: false });
+          changed = true;
+        }
+      }
+      if (changed) {
+        if (notifyPlayers) this.emitPlayers(room);
+        if (removed) this.emitMedals?.(room);
+        this.broadcastProvisionalRanking(room);
+      }
+    } finally {
+      this.animatorPresenceRefreshing.delete(room.id);
+    }
+  }
+
+  refreshPresenceForRoom(room, { beforeRound = false } = {}) {
     if (!this.botsEnabled && !this.animatorBotsEnabled) return;
     const now = new Date();
     const roster = this.botsEnabled ? rosterForRoom(room) : [];
@@ -587,17 +626,7 @@ class BotManager {
       }
     }
 
-    if (this.animatorBotsEnabled) {
-      for (const bot of animatorRoster) {
-        const key = this.botKey(bot);
-        if (!room.players.has(key)) this.addBotToRoom(room, bot);
-      }
-    } else {
-      for (const bot of animatorRosterForRoom(room)) {
-        const key = this.botKey(bot);
-        if (room.players.has(key)) this.removeBotFromRoom(room, bot);
-      }
-    }
+    this.refreshAnimatorPresenceForRoom(room, { beforeRound });
 
     // Pendant une manche, on garde les bots stables (pas de pop-in/out en plein jeu).
     const isRoundActive =
@@ -716,7 +745,7 @@ class BotManager {
     }
   }
 
-  addBotToRoom(room, bot) {
+  addBotToRoom(room, bot, { notify = true } = {}) {
     const key = this.botKey(bot);
     room.players.set(key, { nick: bot.nick, token: key });
     const sessionKey = botSessionKey(room.id, bot.nick);
@@ -725,11 +754,13 @@ class BotManager {
         BOT_SESSION_MIN_MS + Math.floor(Math.random() * (BOT_SESSION_MAX_MS - BOT_SESSION_MIN_MS));
       this.botSessionUntil.set(sessionKey, Date.now() + sessionMs);
     }
-    if (room.currentRound) {
+    if (room.currentRound && room.currentRound.status !== "finished") {
       this.ensurePlayerInRound(room, bot.nick);
     }
-    this.emitPlayers(room);
-    this.broadcastProvisionalRanking(room);
+    if (notify) {
+      this.emitPlayers(room);
+      this.broadcastProvisionalRanking(room);
+    }
   }
 
   listBotsForRoom(room) {
@@ -761,7 +792,7 @@ class BotManager {
       return {
         nick: bot.nick,
         kind: "animator",
-        permanent: true,
+        permanent: false,
         skill: Number.isFinite(bot.skill) ? bot.skill : null,
         active: !!room?.players?.has?.(key),
         override: null,
@@ -925,12 +956,12 @@ class BotManager {
     this.presenceTimers.set(key, timer);
   }
 
-  removeBotFromRoom(room, bot) {
+  removeBotFromRoom(room, bot, { notify = true } = {}) {
     const key = this.botKey(bot);
     const hadPlayer = room.players.delete(key);
     if (!hadPlayer) return;
 
-    if (room.currentRound) {
+    if (room.currentRound && room.currentRound.status !== "finished") {
       const roundSubs = room.submissions.get(room.currentRound.id);
       roundSubs?.delete(bot.nick);
     }
@@ -947,9 +978,11 @@ class BotManager {
 
     room.medalExpiry.set(`nick:${bot.nick}`, Date.now() - 1);
     room.medals.delete(`nick:${bot.nick}`);
-    this.emitPlayers(room);
-    this.emitMedals?.(room);
-    this.broadcastProvisionalRanking(room);
+    if (notify) {
+      this.emitPlayers(room);
+      this.emitMedals?.(room);
+      this.broadcastProvisionalRanking(room);
+    }
   }
 
   onRoundStart(room) {
@@ -1240,10 +1273,7 @@ class BotManager {
     for (const room of this.rooms.values()) {
       const roster = animatorRosterForRoom(room);
       if (next) {
-        for (const bot of roster) {
-          const key = this.botKey(bot);
-          if (!room.players.has(key)) this.addBotToRoom(room, bot);
-        }
+        this.refreshAnimatorPresenceForRoom(room);
       } else {
         for (const bot of roster) {
           const key = this.botKey(bot);
