@@ -1,4 +1,5 @@
 import path from "path";
+import { initGobblarsHistory, readGobblarsHistory } from "./gobblarsHistory.js";
 import { fileURLToPath } from "url";
 import fs from "fs/promises";
 import sqlite3 from "sqlite3";
@@ -465,6 +466,7 @@ export async function initGobblarsService({ applyGlobalGrant = true } = {}) {
           );
         `);
       });
+      await initGobblarsHistory(openedDb);
       db = openedDb;
       console.log(`gobblars DB ready path=${DB_PATH}`);
       if (applyGlobalGrant) {
@@ -548,6 +550,11 @@ export async function getGobblarProfile(installId) {
     lockableCategories: LOCKABLE_THEME_CATEGORIES,
     unlockCost: THEME_UNLOCK_COST,
   };
+}
+
+export async function getGobblarsHistory(options) {
+  await ensureGobblarsServiceReady();
+  return runSerializedWrite(() => readGobblarsHistory(db, options));
 }
 
 export async function addGobblars({
@@ -746,7 +753,9 @@ export async function applyThemeSelection({
             installId,
             -spent,
             safeMode === "single" ? "theme_unlock_single" : "theme_unlock_full",
-            { requiredUnlocks, categoriesToApply },
+            { requiredUnlocks, categoriesToApply,
+              itemDetails: requiredUnlocks.map(key => ({ key, amount: unlockPrice })),
+            },
             ts
           );
         }

@@ -213,6 +213,35 @@ export function buildLepersResultIntervention(word) {
   };
 }
 
+export function buildLepersRoundResult(challenge) {
+  const word = normalizeWord(challenge?.word || "");
+  const result = buildLepersResultIntervention(word);
+  if (!challenge?.id || !result) return null;
+  const finders = Array.from(challenge.foundBy instanceof Set ? challenge.foundBy : [])
+    .map((nick) => String(nick || "").trim())
+    .filter(Boolean);
+  const finderNames = finders.length
+    ? new Intl.ListFormat("fr", { style: "long", type: "conjunction" }).format(finders)
+    : "";
+  const answer = result.highlights[0];
+  const congratulations =
+    finders.length === 1
+      ? ` Bravo à ${finderNames}, qui l’a trouvé !`
+      : finders.length > 1
+      ? ` Bravo à ${finderNames}, qui l’ont trouvé !`
+      : "";
+  return {
+    id: `${challenge.id}:answer`,
+    kind: "answer",
+    word,
+    // Keep the chosen question text: the dictionary can contain several senses.
+    definition: String(challenge.definition || "").trim(),
+    text: result.text,
+    chatCopyText: `La réponse était « ${answer} ».${congratulations}`,
+    highlights: result.highlights,
+  };
+}
+
 function scoreCandidate(word, rarityMeta, seed) {
   const bucket = String(rarityMeta?.rarityBucket || "");
   const length = word.length;

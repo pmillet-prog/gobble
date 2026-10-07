@@ -67,10 +67,10 @@ export default function useChatAutoScroll({
 
   const scrollToBottom = React.useCallback(() => {
     const node = listRef.current;
+    // Keep scrolling inside the message list: scrollIntoView also moves the
+    // document/visual viewport while iOS is bringing up the native keyboard.
     if (node) {
       node.scrollTop = node.scrollHeight;
-    } else {
-      endRef.current?.scrollIntoView({ block: "end" });
     }
     stickToBottomRef.current = true;
   }, []);

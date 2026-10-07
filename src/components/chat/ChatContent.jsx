@@ -1228,7 +1228,7 @@ export default function ChatContent({
                   onUserActivity?.("chat_input");
                 }}
                 onKeyDown={handleKeyDown}
-                className={`chat-content-input flex-1 overflow-y-auto border rounded px-3 py-2 text-sm ios-input chat-input resize-none ${inputSurfaceClass}`}
+                className={`chat-content-input flex-1 overflow-y-auto border rounded px-3 py-2 ios-input chat-input resize-none ${inputSurfaceClass}`}
                 style={{
                   boxSizing: "border-box",
                   height: `${chatTextareaHeightPx}px`,

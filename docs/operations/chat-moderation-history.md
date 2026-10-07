@@ -4,7 +4,8 @@ Le panneau **Modération → Historique du chat** affiche les messages des joueu
 leurs modifications et leurs suppressions. Un raccourci existe dans le menu dev
 uniquement pour les comptes disposant aussi des droits de modération.
 La recherche porte sur une période, un pseudo ou le texte ; les pages contiennent
-au maximum 50 événements. Les dates affichées utilisent le fuseau du navigateur.
+au maximum 50 événements. La période par défaut couvre les dernières 24 heures.
+Les dates affichées utilisent le fuseau du navigateur.
 
 L'archivage est automatique, indépendamment de l'ouverture des menus. Il commence
 à l'activation de cette version du serveur : aucun ancien message n'est reconstitué.

@@ -5,6 +5,7 @@ import ProfileAvatar from "./profile/ProfileAvatar.jsx";
 import ProfileAdminMenu from "../features/admin/ProfileAdminMenu.jsx";
 import ProfileMedalCaption from "./profile/ProfileMedalCaption.jsx";
 import ProfileJulienChallenge from "./profile/ProfileJulienChallenge.jsx";
+import ProfileTargetQuiz from "./profile/ProfileTargetQuiz.jsx";
 import useProfileMedals from "./profile/useProfileMedals.js";
 import { isOwnPlayerProfile } from "../features/avatar/avatarState.js";
 import useProfileDialog from "./profile/useProfileDialog.js";
@@ -36,8 +37,8 @@ function HeadToHead({ value, nickname }) {
   return <section className="profile-duel"><div className="profile-section-heading"><span>Nos face-à-face</span><Icon>swords</Icon></div>{Number(total.roundsPlayed) > 0 ? <><div className="profile-versus"><div><strong>{formatNumber(total.viewerWins)}</strong><span>Tes victoires</span></div><b>VS</b><div><strong>{formatNumber(total.targetWins)}</strong><span>{nickname}</span></div></div><p>{formatNumber(total.draws)} égalités · {formatNumber(total.roundsPlayed)} manches ensemble</p><details><summary>Par type de manche</summary>{TYPES.map(([type, label]) => { const row = value.byType?.[type] || {}; return <Detail key={type} label={label}>{Number(row.roundsPlayed) > 0 ? `${formatNumber(row.viewerWins)} – ${formatNumber(row.targetWins)}` : "—"}{Number(row.draws) > 0 ? ` · ${formatNumber(row.draws)} nul${Number(row.draws) > 1 ? "s" : ""}` : ""}</Detail>; })}</details></> : <p>Votre première rencontre reste à jouer !</p>}</section>;
 }
 
-export default function PlayerProfileModal({ open = false, darkMode = false, loading = false, error = "", profile = null, viewerUserId = null, gobblarsBalance = 0, nickname = "Joueur", onClose = null }) {
-  const [editing, setEditing] = React.useState(false);
+export default function PlayerProfileModal({ open = false, darkMode = false, loading = false, error = "", profile = null, viewerUserId = null, gobblarsBalance = 0, nickname = "Joueur", onClose = null, editAvatar = false }) {
+  const [editing, setEditing] = React.useState(editAvatar);
   const maintenanceMode = useApplicationSelector(selectAvatarMaintenanceMode);
   const dialogRef = React.useRef(null);
   const own = isOwnPlayerProfile(viewerUserId, profile?.userId);
@@ -70,6 +71,7 @@ export default function PlayerProfileModal({ open = false, darkMode = false, loa
             <div className="profile-career" aria-label="Parcours de jeu"><div><Icon>stadia_controller</Icon><strong>{formatNumber(highlights.rounds)}</strong><span>manches jouées</span></div><div><Icon>stars</Icon><strong>{formatNumber(highlights.score)}</strong><span>points cumulés</span></div><div><Icon>local_fire_department</Icon><strong>{formatNumber(highlights.gobbles)}</strong><span>gobbles <small>dont {formatNumber(highlights.doubleGobbles)} doubles</small></span></div></div>
             <Vocabulary vocabulary={profile?.vocabulary} />
             <ProfileJulienChallenge count={profile?.avatarStats?.lepersCorrectAnswers} nickname={nick} />
+            <ProfileTargetQuiz progress={profile?.targetQuiz} />
             <section className="profile-records"><div className="profile-section-heading"><span>Les plus beaux exploits</span><Icon>workspace_premium</Icon></div><div className="profile-record-grid"><Record icon="military_tech" label="Manche record" value={highlights.bestRound ? formatNumber(highlights.bestRound) : "—"} detail="points en une manche" featured /><Record icon="auto_awesome" label="Mot le plus précieux" value={highlights.bestWord?.word} detail={highlights.bestWord?.pts ? `${formatNumber(highlights.bestWord.pts)} points` : "Le prochain sera peut-être le bon"} featured /><Record icon="straighten" label="Mot le plus long" value={highlights.longestWord?.word} detail={highlights.longestWord?.len ? `${formatNumber(highlights.longestWord.len)} lettres` : "À découvrir"} /><Record icon="bolt" label="Avalanche de mots" value={highlights.mostWords?.wordsCount ? formatNumber(highlights.mostWords.wordsCount) : "—"} detail="mots en une manche" /></div><details className="profile-other-records"><summary>Tous les records <span aria-hidden="true">+</span></summary><Detail label="Meilleur 3 mots">{highlights.bestSpecial3 ? `${formatNumber(highlights.bestSpecial3)} pts` : "—"}</Detail><Detail label="Cible longueur">{formatTargetTime(allTime.bestTimeTargetLong?.ms)}{allTime.bestTimeTargetLong?.word ? ` · ${allTime.bestTimeTargetLong.word}` : ""}</Detail><Detail label="Cible score">{formatTargetTime(allTime.bestTimeTargetScore?.ms)}{allTime.bestTimeTargetScore?.word ? ` · ${allTime.bestTimeTargetScore.word}` : ""}</Detail></details></section>
             <section className="profile-week"><div className="profile-section-heading"><span>Cette semaine, on joue !</span><Icon>date_range</Icon></div><div className="profile-week-grid"><div><span>La course aux points</span><strong>{formatNumber(currentWeek.totalScore?.totalScore || 0)} <small>pts</small></strong><p>{formatNumber(currentWeek.totalScore?.roundsPlayed || 0)} manches jouées</p></div><div><span>Le duel des équipes</span><strong>{formatNumber(duel.points)} <small>pts</small></strong><p>{duel.rank ? `Rang #${formatNumber(duel.rank)}` : "Le classement t’attend"}</p></div></div></section>
             {!own ? <HeadToHead value={profile?.headToHead} nickname={nick} /> : null}

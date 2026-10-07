@@ -34,6 +34,7 @@ export function recordTournamentWordAchievement(
     nick = "",
     points = 0,
     round = 0,
+    specialType = null,
     totalRounds = 5,
     word = "",
   } = {}
@@ -77,7 +78,8 @@ export function recordTournamentWordAchievement(
     };
   }
 
-  if (isBot) return true;
+  // Les manches cibles donnent des indices : elles ne comptent pas dans ce rappel.
+  if (isBot || specialType === "target_long" || specialType === "target_score") return true;
   const longest = records.longestHumanWords || { len: 0, words: [] };
   if (safeLength > (Number(longest.len) || 0)) {
     records.longestHumanWords = {

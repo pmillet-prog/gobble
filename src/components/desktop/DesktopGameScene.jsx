@@ -17,6 +17,7 @@ import {
 } from "../../features/live/LiveRosterSatellites.jsx";
 import { LIVE_CONNECTION_INTERRUPTED_MESSAGE } from "../../network/liveSubmissionRecovery.js";
 import AutoScaleInline from "../AutoScaleInline.jsx";
+import useTargetQuizTargetSource from "../targetQuiz/useTargetQuizTargetSource.js";
 import DesktopChatPanel from "../DesktopChatPanel.jsx";
 import DesktopResultsSummaryDrawer from "../DesktopResultsSummaryDrawer.jsx";
 import DesktopResultsWordList from "../DesktopResultsWordList.jsx";
@@ -49,6 +50,7 @@ import TrainingPlayerBadge from "../training/TrainingPlayerBadge.jsx";
 import useDesktopSceneLayout from "./useDesktopSceneLayout.js";
 
 export default function DesktopGameScene({ runtime }) {
+  const targetSourceRef = useTargetQuizTargetSource(runtime.targetWaitDevActive);
   const presenterInterventionHostRef = React.useRef(null);
   const {
     activeRoom,
@@ -270,7 +272,6 @@ export default function DesktopGameScene({ runtime }) {
     submitOcidVote,
     suppressWordListScores,
     targetWaitDevActive,
-    targetWaitDevSessionState,
     tileColorPreset,
     tileFontPx,
     tileGapPx,
@@ -647,7 +648,7 @@ export default function DesktopGameScene({ runtime }) {
         </div>
       )}
       {isTargetRound && (
-        <div className={`desktop-target-card mb-2 min-w-0 overflow-hidden rounded-xl border ${darkMode ? "bg-slate-900/70 border-white/10" : "bg-white border-slate-200"}`}>
+        <div aria-hidden={targetWaitDevActive || undefined} style={targetWaitDevActive ? { visibility: "hidden" } : undefined} className={`desktop-target-card mb-2 min-w-0 overflow-hidden rounded-xl border ${darkMode ? "bg-slate-900/70 border-white/10" : "bg-white border-slate-200"}`}>
           <div className="desktop-target-title font-extrabold tracking-widest text-center text-amber-500 dark:text-amber-300">
             {specialRound?.type === "target_long"
               ? "TROUVE LE PLUS LONG MOT"
@@ -656,6 +657,7 @@ export default function DesktopGameScene({ runtime }) {
               : "MANCHE SPECIALE"}
           </div>
           <div
+            ref={targetSourceRef}
             className={`desktop-target-pattern w-full min-w-0 text-center font-black tabular-nums ${
               solvedTargetWord ? "tracking-normal" : "tracking-widest"
             }`}
@@ -695,8 +697,9 @@ export default function DesktopGameScene({ runtime }) {
                       e.stopPropagation();
                       openDefinition(solvedTargetWord);
                     }}
-                    aria-label="Voir la dGinition"
-                    title="Voir la dGinition"
+                    tabIndex={targetWaitDevActive ? -1 : undefined}
+                    aria-label="Voir la définition"
+                    title="Voir la définition"
                   >
                     <svg
                       width="16"
@@ -955,9 +958,7 @@ export default function DesktopGameScene({ runtime }) {
                         )}px`,
                       }}
                     >
-                      {targetWaitDevActive
-                        ? Math.max(0, Number(targetWaitDevSessionState.remainingSeconds) || 0)
-                        : <RoundClockSeconds />}
+                      <RoundClockSeconds />
                     </div>
                   </div>
                 ) : (

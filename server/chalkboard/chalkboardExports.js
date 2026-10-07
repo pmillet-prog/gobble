@@ -1,7 +1,7 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Worker } from "node:worker_threads";
-import { chalkboardMailConfig } from "./chalkboardMail.js";
+import { chalkboardMailConfig, isChalkboardMailEnabled } from "./chalkboardMail.js";
 
 export function runChalkboardExportWorker(workerData) {
   return new Promise((resolve, reject) => {
@@ -20,6 +20,7 @@ export function runChalkboardExportWorker(workerData) {
 export function createChalkboardExports({ service,
   directory = path.join(process.env.GOBBLE_DATA_DIR || fileURLToPath(new URL("../../data/", import.meta.url)), "chalkboard-exports"),
   runWorker = runChalkboardExportWorker, now = () => Date.now(), configured = () => !!chalkboardMailConfig(),
+  mailEnabled = () => isChalkboardMailEnabled(),
   log = console.warn,
 }) {
   let timer = null, active = null, stopped = false;
@@ -27,7 +28,8 @@ export function createChalkboardExports({ service,
     if (active) return active;
     active = (async () => {
       await service.getSnapshot("free"); // Monday reset, even with no visitors.
-      const job = await service.repository.nextExport(now());
+      const deliveryEnabled = !!mailEnabled();
+      const job = await service.repository.nextExport(now(), { mailEnabled: deliveryEnabled });
       if (!job) return;
       try {
         let filename = job.png_path;
@@ -36,6 +38,8 @@ export function createChalkboardExports({ service,
           await runWorker({ action: "render", snapshot: JSON.parse(job.snapshot), filename });
           await service.repository.setPng(job.id, filename);
         }
+        // Local archives remain available without SMTP attempts or retries.
+        if (!deliveryEnabled) return;
         if (!configured()) throw new Error("mail_not_configured");
         await runWorker({ action: "send", id: job.id, weekId: job.week_id, filename });
         await service.repository.markSent(job.id, now());
@@ -57,10 +61,11 @@ export function createChalkboardExports({ service,
     tick,
     start() { if (timer || stopped) return; schedule(); void tick().catch(error => log("[chalkboard] archive check failed", error.message)); },
     async stop() { stopped = true; clearTimeout(timer); await active; },
+    mailEnabled() { return !!mailEnabled(); },
     configured() {
       // Status routes must remain usable even if a service credential cannot be
       // read. The delivery attempt above records the precise failure for retry.
-      try { return !!configured(); } catch { return false; }
+      try { return !!mailEnabled() && !!configured(); } catch { return false; }
     },
   };
 }

@@ -9,6 +9,8 @@ import {
   LEPERS_SOLVED_CELEBRATION_DURATION_MS,
 } from "./lepersAnimation.js";
 
+const protectAnswerText = event => event?.kind === "answer";
+
 function LepersIntervention({
   animated = true,
   chatFeature,
@@ -44,6 +46,10 @@ function LepersIntervention({
     (event) =>
       chatFeature?.recordPresenterPresentationComplete?.("lepers", event),
     [chatFeature]
+  );
+  const handleTextRevealed = React.useCallback(
+    event => presenterHintsController.markLepersAnswerRevealed(event),
+    [presenterHintsController],
   );
 
   const subscribeInterventions = React.useCallback(
@@ -108,6 +114,8 @@ function LepersIntervention({
       onManualActivation={handleManualActivation}
       onOpenWord={onOpenWord}
       onPresentationComplete={handlePresentationComplete}
+      onTextRevealed={handleTextRevealed}
+      protectTextUntilRevealed={protectAnswerText}
       phaseKey={phaseKey}
       queueWhileDisabled
       roundId={retainedRoundIdRef.current}

@@ -19,6 +19,7 @@ export function createInitialOverlaysState() {
     definitionModal: {
       definitions: [],
       definition: "",
+      highlightedDefinition: "",
       etymology: "",
       fromVault: false,
       fromWordInfo: false,
@@ -244,7 +245,7 @@ export function createOverlaysFeature(
     }));
   }
 
-  function openPlayerProfile({ nick = "", userId = null } = {}) {
+  function openPlayerProfile({ nick = "", userId = null, editAvatar = false } = {}) {
     if (!active || !userId) return null;
     cancelPlayerProfileRequest();
     const targetNick = String(nick || "").trim();
@@ -265,6 +266,7 @@ export function createOverlaysFeature(
       open: true,
       userId,
       nick: targetNick,
+      editAvatar,
       loading: true,
       error: "",
       profile: null,
@@ -311,6 +313,7 @@ export function createOverlaysFeature(
           open: true,
           userId,
           nick: targetNick,
+          editAvatar,
           loading: false,
           error: "",
           profile: data.profile,

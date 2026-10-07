@@ -56,7 +56,7 @@ export async function openChatAuditRepository(filename, {
     },
     async list({ roomId, from, to, before, query = "" } = {}) {
       const end = to == null ? now() : Number(to);
-      const start = from == null ? end - 60 * 60 * 1000 : Number(from);
+      const start = from == null ? end - 24 * 60 * 60 * 1000 : Number(from);
       const cursor = before == null ? Number.MAX_SAFE_INTEGER : Number(before);
       if (!roomId || !Number.isSafeInteger(start) || !Number.isSafeInteger(end) ||
           start < 0 || end < start || !Number.isSafeInteger(cursor) || cursor < 1 ||

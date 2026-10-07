@@ -12,20 +12,30 @@ export default function useVocabOverlayFit(open) {
     if (!viewport || !panel) return;
     const visualViewport = window.visualViewport;
     let frame = null;
+    const writeStyle = (element, property, value) => {
+      if (element.style[property] !== value) element.style[property] = value;
+    };
     const fit = () => {
       frame = null;
       const width = visualViewport?.width || window.innerWidth;
       const height = visualViewport?.height || window.innerHeight;
-      Object.assign(viewport.style, {
+      // Read the natural panel size before any viewport write. ResizeObserver
+      // schedules another fit if a viewport resize changes the text wrapping.
+      const panelWidth = panel.offsetWidth;
+      const panelHeight = panel.offsetHeight;
+      const viewportStyles = {
         left: `${visualViewport?.offsetLeft || 0}px`,
         top: `${visualViewport?.offsetTop || 0}px`,
         width: `${width}px`,
         height: `${height}px`,
-      });
-      const scale = Math.min(1, Math.max(1, width - 32) / panel.offsetWidth,
-        Math.max(1, height - 32) / panel.offsetHeight);
+      };
+      const scale = Math.min(1, Math.max(1, width - 32) / Math.max(1, panelWidth),
+        Math.max(1, height - 32) / Math.max(1, panelHeight));
       scaleRef.current = scale;
-      panel.style.transform = `scale(${scale})`;
+      for (const [property, value] of Object.entries(viewportStyles)) {
+        writeStyle(viewport, property, value);
+      }
+      writeStyle(panel, "transform", `scale(${scale})`);
     };
     const schedule = () => {
       if (frame === null) frame = window.requestAnimationFrame(fit);

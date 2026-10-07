@@ -37,6 +37,7 @@ function areRankingListsEquivalent(left, right) {
     if ((a.roundGobbles || 0) !== (b.roundGobbles || 0)) return false;
     if ((a.roundLepersBonus || 0) !== (b.roundLepersBonus || 0)) return false;
     if ((a.roundPoints || 0) !== (b.roundPoints || 0)) return false;
+    if (a.scorePrefix !== b.scorePrefix) return false;
     if ((a.fakeTwinsCompletionBonus || 0) !== (b.fakeTwinsCompletionBonus || 0)) return false;
     if (!!a.inTraining !== !!b.inTraining) return false;
     if ((a.trainingMode || "") !== (b.trainingMode || "")) return false;
@@ -911,6 +912,7 @@ function RankingWidgetMobile({
         );
         const scoreContent = (
           <>
+            {entry?.scorePrefix ? <span className="mr-2 inline-flex align-middle">{entry.scorePrefix}</span> : null}
             {roundLepersBonus > 0 ? (
               <LepersBonusBadge bonus={roundLepersBonus} className="mr-1" />
             ) : null}
@@ -1721,6 +1723,7 @@ function RankingWidgetMobile({
                         ""
                       ) : (
                         <>
+                          {labelEntry?.scorePrefix ? <span className="mr-2 inline-flex align-middle">{labelEntry.scorePrefix}</span> : null}
                           {roundLepersBonus > 0 ? (
                             <LepersBonusBadge bonus={roundLepersBonus} className="mr-1" />
                           ) : null}

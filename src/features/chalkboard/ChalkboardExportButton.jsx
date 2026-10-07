@@ -14,6 +14,7 @@ export default function ChalkboardExportButton({ disabled, onNotice }) {
         const job = await fetchChalkboardExport(jobId, { signal: controller.signal });
         if (controller.signal.aborted) return;
         if (job.status === "sent") onNotice("Copie PNG envoyée par e-mail.");
+        else if (job.status === "archived") onNotice("Copie PNG conservée localement, sans envoi par e-mail.");
         else if (job.status === "pending_retry") onNotice(job.mailConfigured ? "Copie conservée. L’envoi a échoué et sera réessayé automatiquement." : "Copie conservée. L’envoi attend la configuration e-mail du serveur.");
         else { timer = window.setTimeout(poll, 2000); return; }
         setJobId("");
@@ -35,7 +36,7 @@ export default function ChalkboardExportButton({ disabled, onNotice }) {
       onNotice("Préparation de la copie PNG…");
       setJobId(result.id);
     } catch (error) {
-      onNotice(error.message === "export_rate_limited" ? "Un envoi vient d’être demandé. Patiente quelques instants." : "La copie n’a pas pu être demandée. Réessaie dans un instant.");
+      onNotice(error.message === "chalkboard_mail_disabled" ? "L’envoi du grand tableau par e-mail est désactivé en local." : error.message === "export_rate_limited" ? "Un envoi vient d’être demandé. Patiente quelques instants." : "La copie n’a pas pu être demandée. Réessaie dans un instant.");
       setSending(false);
     }
   };

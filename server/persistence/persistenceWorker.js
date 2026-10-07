@@ -1,5 +1,6 @@
 import { parentPort } from "worker_threads";
 import { avatarInventory } from "../auth/authService.js";
+import { loadTargetQuizProgress, saveTargetQuizProgress, loadTargetQuizPoints, saveTargetQuizAnswer, finishTargetQuizPoints } from "../targetMiniGame/targetQuizProgressStore.js";
 
 import {
   initPlayerProfileService,
@@ -12,6 +13,7 @@ import {
 } from "../stats/vocabularyService.js";
 import {
   addGobblars,
+  getGobblarsHistory,
   applyThemeSelection,
   grantWeeklyWinnerGobblars,
   initGobblarsService,
@@ -35,7 +37,12 @@ function ensureReady() {
 }
 
 async function handleJob(type, payload) {
+  if (type === "loadTargetQuizProgress") return loadTargetQuizProgress(payload);
+  if (type === "saveTargetQuizProgress") return saveTargetQuizProgress(payload);
   await ensureReady();
+  if (type === "loadTargetQuizPoints") return loadTargetQuizPoints(payload);
+  if (type === "finishTargetQuizPoints") return finishTargetQuizPoints(payload);
+  if (type === "saveTargetQuizAnswer") return saveTargetQuizAnswer(payload);
   if (type === "recordAvatarObjectives") return avatarInventory.objectives.recordBatch(payload);
   if (type === "recordPlayerRoundStats") {
     return recordPlayerRoundStats(payload || {});
@@ -53,6 +60,7 @@ async function handleJob(type, payload) {
   if (type === "addGobblars") {
     return addGobblars(payload || {});
   }
+  if (type === "getGobblarsHistory") return getGobblarsHistory(payload || {});
   if (type === "grantWeeklyWinnerGobblars") {
     return grantWeeklyWinnerGobblars(payload || {});
   }

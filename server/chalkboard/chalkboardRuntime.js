@@ -28,7 +28,7 @@ export async function createPersistentChalkboard({
       return result;
     } catch (error) { core.restoreState(before); throw error; }
   });
-  const runtime = Object.fromEntries(["getSnapshot", "addIntervention", "deleteIntervention", "undoLastDeletion", "canUndoDeletion", "exportSealedAudit"].map(method => [method, (...args) => execute(method, args)]));
+  const runtime = Object.fromEntries(["getSnapshot", "getActivity", "addIntervention", "deleteIntervention", "undoLastDeletion", "canUndoDeletion", "exportSealedAudit"].map(method => [method, (...args) => execute(method, args)]));
   runtime.getFonts = core.getFonts;
   runtime.queueExport = async identity => {
     await runtime.getSnapshot("free");

@@ -3,7 +3,7 @@ import React from "react";
 import { clampValue } from "../../utils/numbers.js";
 import { VIEWPORT_EVENTS } from "./createViewportEventHub.js";
 import {
-  createMobileGameViewportTracker,
+  acquireMobileGameViewportTracker,
   lockMobileGameDocument,
 } from "./mobileGameViewport.js";
 
@@ -186,24 +186,14 @@ export function computeMobileGameLayoutSizing({
   };
 }
 
-function createSafeAreaProbe(property, value) {
-  if (typeof document === "undefined" || !document.body) return null;
-  const probe = document.createElement("div");
-  probe.style.position = "absolute";
-  probe.style.left = "0";
-  probe.style.top = "0";
-  probe.style.height = "0";
-  probe.style[property] = value;
-  probe.style.visibility = "hidden";
-  probe.style.pointerEvents = "none";
-  document.body.appendChild(probe);
-  return probe;
-}
-
-function removeProbe(probeRef) {
-  const probe = probeRef.current;
-  if (probe?.parentNode) probe.parentNode.removeChild(probe);
-  probeRef.current = null;
+export function measureMobileGameInsets(headerElement, windowTarget = globalThis.window) {
+  const container = headerElement?.parentElement;
+  const styles = container ? windowTarget.getComputedStyle(container) : null;
+  const safeTop = Math.max(0, parseFloat(styles?.paddingTop) || 0);
+  const safeBottom = Math.max(0, parseFloat(styles?.paddingBottom) || 0);
+  // A bounding rect includes WebKit's focus pan. Only local dimensions belong
+  // in the board budget, including in a standalone PWA (no Fullscreen API).
+  return { headerOffset: Math.round((headerElement?.offsetHeight || 0) + safeTop), safeBottom };
 }
 
 function minPositive(values) {
@@ -219,7 +209,6 @@ export default function useMobileLayoutController({
 }) {
   const { gridSize, phase, roundType, showHelp } = game;
   const {
-    isFullscreen,
     isMobileLayout,
     layoutFeature,
     maxGridWidth,
@@ -232,8 +221,6 @@ export default function useMobileLayoutController({
   const mobileHelpRef = React.useRef(null);
   const mobileGameViewportLockRef = React.useRef({ width: 0, height: 0 });
   const mobileGameViewportTrackerRef = React.useRef(null);
-  const safeAreaProbeRef = React.useRef(null);
-  const safeAreaTopProbeRef = React.useRef(null);
 
   React.useEffect(() => {
     if (typeof window === "undefined") return;
@@ -243,16 +230,18 @@ export default function useMobileLayoutController({
     }
     // Observe the lobby as well: entering the first round can unmount its
     // focused chat before the keyboard has finished closing.
-    const tracker = createMobileGameViewportTracker({
+    const acquired = acquireMobileGameViewportTracker({
       subscribeViewport: layoutFeature.subscribeViewport,
     });
+    const { tracker } = acquired;
     mobileGameViewportTrackerRef.current = tracker;
     mobileGameViewportLockRef.current = tracker.getSnapshot();
-    tracker.subscribe((viewport) => {
+    const unsubscribe = tracker.subscribe((viewport) => {
       mobileGameViewportLockRef.current = viewport;
     });
     return () => {
-      tracker.dispose();
+      unsubscribe();
+      acquired.release();
       mobileGameViewportTrackerRef.current = null;
     };
   }, [
@@ -260,35 +249,9 @@ export default function useMobileLayoutController({
     layoutFeature,
   ]);
 
-  const measureSafeAreaTopPx = React.useCallback(() => {
-    if (typeof window === "undefined") return 0;
-    const probe = safeAreaTopProbeRef.current;
-    if (!probe) return 0;
-    const paddingTop = window.getComputedStyle(probe).paddingTop || "0";
-    const value = parseFloat(paddingTop);
-    return Number.isFinite(value) ? value : 0;
-  }, []);
-
-  const getSafeTopPx = React.useCallback(
-    (forceFullscreen = false) => {
-      if (!forceFullscreen && !isFullscreen) return 0;
-      const measured = measureSafeAreaTopPx();
-      if (measured > 0) return Math.round(measured);
-      if (typeof window === "undefined") return 0;
-      return Math.round(Math.min(48, Math.max(0, window.innerHeight * 0.03)));
-    },
-    [isFullscreen, measureSafeAreaTopPx],
-  );
-
   const getHeaderOffsetPx = React.useCallback(() => {
-    const headerElement = mobileHeaderRef.current;
-    if (!headerElement) return 0;
-    const rect = headerElement.getBoundingClientRect?.();
-    const rectBottom =
-      rect && Number.isFinite(rect.bottom) ? Math.round(rect.bottom) : 0;
-    if (rectBottom > 0) return rectBottom;
-    return Math.round(headerElement.offsetHeight || 0) + getSafeTopPx();
-  }, [getSafeTopPx]);
+    return measureMobileGameInsets(mobileHeaderRef.current).headerOffset;
+  }, []);
 
   React.useEffect(() => {
     if (typeof window === "undefined") return;
@@ -325,19 +288,6 @@ export default function useMobileLayoutController({
       );
       if (viewportHeight < 120 || viewportWidth < 120) return;
 
-      if (!safeAreaProbeRef.current) {
-        safeAreaProbeRef.current = createSafeAreaProbe(
-          "paddingBottom",
-          "env(safe-area-inset-bottom)",
-        );
-      }
-      if (!safeAreaTopProbeRef.current) {
-        safeAreaTopProbeRef.current = createSafeAreaProbe(
-          "paddingTop",
-          "env(safe-area-inset-top)",
-        );
-      }
-
       const headerOffsetPx = getHeaderOffsetPx();
       if (headerOffsetPx > 0) {
         setMobileHeaderOffsetPx((previous) =>
@@ -355,13 +305,7 @@ export default function useMobileLayoutController({
             );
           })()
         : 0;
-      const safeAreaBottomPx =
-        isFullscreen && safeAreaProbeRef.current
-          ? parseFloat(
-              window.getComputedStyle(safeAreaProbeRef.current).paddingBottom ||
-                "0",
-            ) || 0
-          : 0;
+      const safeAreaBottomPx = measureMobileGameInsets(mobileHeaderRef.current).safeBottom;
       const bodyHeight = Math.max(
         0,
         viewportHeight -
@@ -421,13 +365,10 @@ export default function useMobileLayoutController({
         "visibilitychange",
         scheduleComputeMobileLayout,
       );
-      removeProbe(safeAreaProbeRef);
-      removeProbe(safeAreaTopProbeRef);
     };
   }, [
     getHeaderOffsetPx,
     gridSize,
-    isFullscreen,
     isMobileLayout,
     layoutFeature,
     maxGridWidth,
@@ -451,7 +392,6 @@ export default function useMobileLayoutController({
     );
   }, [
     getHeaderOffsetPx,
-    isFullscreen,
     isMobileLayout,
     setMobileHeaderOffsetPx,
   ]);

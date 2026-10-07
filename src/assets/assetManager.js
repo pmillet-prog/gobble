@@ -1090,6 +1090,13 @@ export function getSfxBuffer(key) {
   return state.sfxBuffers.get(key) || null;
 }
 
+// Scheduled soundtracks share the existing unlocked graph and its live mute /
+// master controls. Reading this route never creates or resumes an AudioContext.
+export function getAudioOutput() {
+  if (!state.audioUnlocked || state.ctx?.state !== "running" || !state.masterGain) return null;
+  return { ctx: state.ctx, output: state.masterGain };
+}
+
 export function getFileUrl(key) {
   if (!key) return "";
   if (state.fileUrls.has(key)) return state.fileUrls.get(key) || "";
@@ -1396,6 +1403,7 @@ const AssetManager = {
   assertReady,
   getImage,
   getSfxBuffer,
+  getAudioOutput,
   getFileUrl,
   getFileBuffer,
   release,

@@ -1,18 +1,20 @@
 import React from "react";
+import { resolveDefinitionSelection } from "../utils/definitionSelection.js";
 
 export default function DefinitionDetails({
   definition = "",
   definitions = [],
+  highlightedDefinition = "",
   etymology = "",
   darkMode = false,
   showEtymology = true,
   compact = false,
 }) {
-  const items = Array.isArray(definitions) && definitions.length
-    ? definitions
-    : definition
-    ? [definition]
-    : [];
+  const { items, highlightedIndex } = resolveDefinitionSelection({
+    definition,
+    definitions,
+    highlightedDefinition,
+  });
 
   if (!items.length) return null;
 
@@ -21,7 +23,22 @@ export default function DefinitionDetails({
       {items.length > 1 ? (
         <ol className={`${compact ? "space-y-1.5" : "space-y-2"} list-decimal pl-5 text-left`}>
           {items.map((item, index) => (
-            <li key={`${String(item).slice(0, 32)}-${index}`}>{item}</li>
+            <li key={`${String(item).slice(0, 32)}-${index}`}>
+              {index === highlightedIndex ? (
+                <mark
+                  className={`block rounded-md border px-2 py-1.5 ${
+                    darkMode
+                      ? "border-amber-300/45 bg-amber-300/20 text-amber-50"
+                      : "border-amber-300 bg-amber-100 text-amber-950"
+                  }`}
+                >
+                  <span className="mb-0.5 block text-[10px] font-extrabold uppercase tracking-wide">
+                    Question de Julien
+                  </span>
+                  {item}
+                </mark>
+              ) : item}
+            </li>
           ))}
         </ol>
       ) : (

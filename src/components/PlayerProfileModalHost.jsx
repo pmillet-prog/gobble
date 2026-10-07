@@ -11,6 +11,7 @@ export default function PlayerProfileModalHost({
   viewerUserId,
   gobblarsBalance,
   nickname,
+  editAvatar = false,
   onClose,
 }) {
   if (!open) return null;
@@ -26,6 +27,7 @@ export default function PlayerProfileModalHost({
         viewerUserId={viewerUserId}
         gobblarsBalance={gobblarsBalance}
         nickname={nickname}
+        editAvatar={editAvatar}
         onClose={onClose}
       />
     </Suspense>

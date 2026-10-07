@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import {
   FACEBOOK_INVITE_VERSION,
+  PATCH_NOTES_RELEASE_TS,
   PATCH_NOTES_VERSION,
   fetchDefinitionSummaryForWordOfDay,
   resolveLobbyPopupAction,
@@ -13,7 +14,7 @@ import {
   buildPatchNotesSeenMarker,
 } from "../../utils/accountSeenMarkers.js";
 
-const accountCreatedAt = "2026-08-01T00:00:00Z";
+const accountCreatedAt = Date.parse("2026-08-01T00:00:00Z");
 
 function eligibleConfig(overrides = {}) {
   return {
@@ -44,7 +45,7 @@ test("lobby popup coordinator gives patch notes first priority", () => {
 });
 
 test("reading the previous release does not hide the new patch notes from home", () => {
-  const seen = new Set([buildPatchNotesSeenMarker("2026-09-20"), buildPatchNotesSeenMarker("2026-09-23"), buildPatchNotesSeenMarker("2026-09-27")]);
+  const seen = new Set([buildPatchNotesSeenMarker("2026-09-20"), buildPatchNotesSeenMarker("2026-09-23"), buildPatchNotesSeenMarker("2026-09-27"), buildPatchNotesSeenMarker("2026-10-03")]);
   const action = resolveLobbyPopupAction(eligibleConfig({ accountSeenMarkers: seen }));
   assert.deepEqual(action, {
     marker: buildPatchNotesSeenMarker(PATCH_NOTES_VERSION),
@@ -57,6 +58,18 @@ test("reading the previous release does not hide the new patch notes from home",
     "patch-notes",
     "the new release is only announced once per account",
   );
+});
+
+test("the October major release includes existing accounts and excludes new players", () => {
+  for (const createdAt of [Date.parse("2026-10-04T12:00:00+02:00"), PATCH_NOTES_RELEASE_TS - 1]) {
+    assert.equal(resolveLobbyPopupAction(eligibleConfig({ accountCreatedAt: createdAt }))?.type, "patch-notes");
+  }
+  for (const createdAt of [PATCH_NOTES_RELEASE_TS, PATCH_NOTES_RELEASE_TS + 1, Date.parse("2026-10-07T12:00:00+02:00")]) {
+    assert.notEqual(resolveLobbyPopupAction(eligibleConfig({ accountCreatedAt: createdAt }))?.type, "patch-notes");
+  }
+  for (const override of [{ isNewPlayerPopupQuiet: true }, { shouldShowTutorial: true }, { accountSeenReady: false }, { isAccountAuthenticated: false }, { phase: "playing" }]) {
+    assert.notEqual(resolveLobbyPopupAction(eligibleConfig(override))?.type, "patch-notes");
+  }
 });
 
 test("lobby popup coordinator never overlaps duel with open patch notes", () => {

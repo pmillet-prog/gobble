@@ -5,6 +5,7 @@ import { getCompactRankingLayout } from "../../components/ranking/compactRanking
 import {
   areMobileLayoutSizingsEqual,
   computeMobileGameLayoutSizing,
+  measureMobileGameInsets,
   resolveMobileGameViewportLock,
 } from "./useMobileLayoutController.js";
 
@@ -12,7 +13,7 @@ test("mobile game viewport lock ignores height-only keyboard resizes", () => {
   const baseline = { width: 390, height: 844 };
 
   assert.deepEqual(
-    resolveMobileGameViewportLock(baseline, { width: 390, height: 478 }),
+    resolveMobileGameViewportLock(baseline, { width: 390, height: 478 }, { keyboardActive: true }),
     baseline,
   );
   assert.deepEqual(
@@ -23,6 +24,17 @@ test("mobile game viewport lock ignores height-only keyboard resizes", () => {
     resolveMobileGameViewportLock(baseline, { width: 391, height: 844 }),
     { width: 391, height: 844 },
   );
+});
+
+test("PWA safe-area budgeting uses local header size regardless of visual viewport pan", () => {
+  const container = {};
+  const header = { offsetHeight: 64, parentElement: container,
+    getBoundingClientRect() { throw new Error("Visual position must not enter the layout budget"); } };
+  const windowTarget = { getComputedStyle(element) {
+    assert.equal(element, container);
+    return { paddingTop: "62px", paddingBottom: "34px" };
+  } };
+  assert.deepEqual(measureMobileGameInsets(header, windowTarget), { headerOffset: 126, safeBottom: 34 });
 });
 
 test("mobile layout sizing keeps the game blocks inside the available body", () => {

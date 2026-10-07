@@ -11,7 +11,7 @@ const SkinPreview = React.memo(function SkinPreview({ base, tone, customColor, s
   return <AvatarPortrait value={value} size={112} view="face" label={`Aperçu ${AVATAR_SKINS.find(skin => skin.id === skinStyle).label}`} />;
 });
 
-export default function AvatarFaceOptions({ draft, baseChosen, disabled, onSelectBase, onChange }) {
+export default function AvatarFaceOptions({ draft, baseChosen, disabled, onSelectBase, onSelectSkin, onChange }) {
   return <div className="avatar-face-options">
     <div className="avatar-base-choices avatar-face-models" role="group" aria-label="Modèle de visage">
       {BASES.map(part => <div key={part.id} className="avatar-choice" data-selected={baseChosen && draft.base === part.id}>
@@ -28,7 +28,7 @@ export default function AvatarFaceOptions({ draft, baseChosen, disabled, onSelec
       <fieldset className="avatar-skin-options"><legend>Choisis ton visage</legend>
         <div className="avatar-skin-grid">{AVATAR_SKINS.map(skin => <button type="button" key={skin.id}
           className="avatar-skin-choice" aria-pressed={draft.skinStyle === skin.id}
-          onClick={() => onChange({ skinStyle: skin.id })} title={skin.description}>
+          onClick={() => onSelectSkin(skin.id)} title={skin.description}>
           <SkinPreview base={draft.base} tone={draft.tone} customColor={draft.customColor} skinStyle={skin.id} silhouetteWidth={draft.silhouetteWidth} />
           <span>{skin.label}{draft.skinStyle === skin.id ? <i aria-hidden="true"> ✓</i> : null}</span>
         </button>)}</div>

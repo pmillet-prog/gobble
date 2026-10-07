@@ -1,5 +1,6 @@
 import React from "react";
 import useMobileBackTarget from "../mobile/useMobileBackTarget.js";
+import useChalkboardUnseenRegions from "./useChalkboardUnseenRegions.js";
 import { CHALKBOARD_BOARD } from "../../../shared/chalkboardRules.js";
 
 import {
@@ -60,7 +61,7 @@ function getErrorMessage(error) {
   return "Le tableau n'est pas disponible pour le moment.";
 }
 
-function ChalkboardBoard({ canPublish = false, connection, onClose, onArchives }) {
+function ChalkboardBoard({ canPublish = false, accountId, connection, onClose, onArchives }) {
   const [snapshot, setSnapshot] = React.useState({
     board,
     interventions: [],
@@ -110,7 +111,7 @@ function ChalkboardBoard({ canPublish = false, connection, onClose, onArchives }
       try {
         const currentSnapshot = snapshotRef.current;
         const payload = accessOnly ? await fetchChalkboardAccess({ signal }) : await fetchChalkboard(board, {
-          revision: currentSnapshot.board === board ? currentSnapshot.revision : null,
+          revision: currentSnapshot.board === board && !currentSnapshot.needsSnapshotRefresh ? currentSnapshot.revision : null,
           signal,
           weekId: currentSnapshot.board === board ? currentSnapshot.weekId : "",
         });
@@ -123,6 +124,7 @@ function ChalkboardBoard({ canPublish = false, connection, onClose, onArchives }
             return { ...current, canModerate: !!payload.canModerate, canUndoDelete: !!payload.canUndoDelete };
           }
           if (
+            !current.needsSnapshotRefresh &&
             current.revision === payload.revision &&
             current.weekId === payload.weekId &&
             current.canModerate === !!payload.canModerate &&
@@ -154,6 +156,10 @@ function ChalkboardBoard({ canPublish = false, connection, onClose, onArchives }
     board, interventions: snapshot.interventions, canModerate: snapshot.canModerate,
     canUndoDelete: snapshot.canUndoDelete, busy, setBusy, setNotice, reload: loadBoard, getErrorMessage,
   });
+  const unreadRegions = useChalkboardUnseenRegions({
+    accountId, snapshot, viewport,
+    enabled: !loading && !rendering && !editing && !moderation.mode && !maintenanceMode && !snapshot.needsSnapshotRefresh,
+  });
   useChalkboardPan(scrollRef, !interacting && !moderation.mode && !busy && !maintenanceMode);
 
   React.useEffect(() => {
@@ -161,6 +167,10 @@ function ChalkboardBoard({ canPublish = false, connection, onClose, onArchives }
     void loadBoard({ signal: controller.signal });
     return () => controller.abort();
   }, [loadBoard]);
+
+  React.useEffect(() => {
+    if (snapshot.needsSnapshotRefresh) void loadBoard({ quiet: true });
+  }, [snapshot.needsSnapshotRefresh, loadBoard]);
 
   React.useEffect(() => {
     const controller = new AbortController();
@@ -325,6 +335,9 @@ function ChalkboardBoard({ canPublish = false, connection, onClose, onArchives }
         board,
         revision: result.revision,
         weekId: result.weekId,
+        // A gap means someone may have published between our last poll and
+        // this acknowledgement, which contains only our own new contribution.
+        needsSnapshotRefresh: !result.interventions && (current.needsSnapshotRefresh || current.weekId !== result.weekId || result.revision !== current.revision + 1),
         interventions: result.interventions || [...current.interventions, result.intervention].filter(Boolean),
       }));
       editor.reset();
@@ -389,7 +402,8 @@ function ChalkboardBoard({ canPublish = false, connection, onClose, onArchives }
             </div>
           </div>
         </section>
-        <ChalkboardScrollHints scrollRef={scrollRef} enabled={!interacting && !moderation.mode && !loading} viewport={viewport} worldWidth={worldWidth} />
+        <ChalkboardScrollHints scrollRef={scrollRef} enabled={!interacting && !moderation.mode && !loading && !maintenanceMode} viewport={viewport} worldWidth={worldWidth}
+          unreadLeft={unreadRegions.left} unreadRight={unreadRegions.right} />
         {notice ? <div className="chalkboard-notice" role="status">{notice}</div> : null}
       </div>
 

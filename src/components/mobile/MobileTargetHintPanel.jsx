@@ -24,6 +24,7 @@ function MobileTargetHintPanel({
     <section
       ref={panelRef}
       aria-label="Mot cible et indices"
+      data-target-quiz-surface="target"
       className="mobile-target-hint rounded-xl border border-slate-200 bg-white/90 shadow-sm dark:border-slate-700 dark:bg-slate-900/90"
       style={{ height: `${height}px` }}
     >

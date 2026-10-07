@@ -22,6 +22,7 @@ function MobileWordPreview({
   previewTileBaseStyle,
   previewStats,
   traceBoard = [],
+  contentOverride = null,
 }) {
   const { foundWordsCount, score } = useGameProgressFields(
     PREVIEW_PROGRESS_FIELDS
@@ -65,11 +66,12 @@ function MobileWordPreview({
   const previewScale = previewChunks.length
     ? Math.min(1, Math.max(0.6, 11 / Math.max(1, previewChunks.join("").length)))
     : 1;
-  const canRotate = typeof onRotateGrid === "function";
+  const canRotate = !contentOverride && typeof onRotateGrid === "function";
   const showStats = Boolean(previewStats?.show);
   return (
     <div
       data-game-word-preview="true"
+      data-target-quiz-surface={contentOverride ? "score" : undefined}
       className={`rounded-xl border border-slate-200 dark:border-slate-700 bg-white/90 dark:bg-slate-900/90 px-2.5 shadow-sm flex-none box-border ${
         isCompactPreview ? "py-0.5" : "py-1.5"
       }`}
@@ -88,7 +90,7 @@ function MobileWordPreview({
         }`}
         style={{ fontSize: `${baseFontPx}px`, lineHeight: 1.1 }}
       >
-        {phase !== "playing" ? (
+        {contentOverride || (phase !== "playing" ? (
           <span className="text-slate-700 dark:text-white">
             {countdownLines.map((line, idx) => (
               <span
@@ -150,7 +152,7 @@ function MobileWordPreview({
           <span className="text-slate-700 dark:text-slate-200">
             {READY_LABEL}
           </span>
-        )}
+        ))}
       </div>
       {canRotate ? (
         <button

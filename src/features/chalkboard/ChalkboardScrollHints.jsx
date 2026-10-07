@@ -1,6 +1,6 @@
 import React from "react";
 
-export default function ChalkboardScrollHints({ scrollRef, enabled, viewport, worldWidth }) {
+export default function ChalkboardScrollHints({ scrollRef, enabled, viewport, worldWidth, unreadLeft = false, unreadRight = false }) {
   const [discovered, setDiscovered] = React.useState(false);
   React.useEffect(() => {
     const node = scrollRef.current;
@@ -31,9 +31,19 @@ export default function ChalkboardScrollHints({ scrollRef, enabled, viewport, wo
       node.removeEventListener("scroll", scrolled);
     };
   }, [scrollRef, discovered, enabled]);
-  if (discovered || !enabled || worldWidth <= viewport.width + 2) return null;
-  return <div className="chalkboard-scroll-hints" aria-hidden="true">
-    {viewport.scrollLeft > 2 && <span className="chalkboard-scroll-hint is-left">‹</span>}
-    {viewport.scrollLeft < worldWidth - viewport.width - 2 && <span className="chalkboard-scroll-hint is-right">›</span>}
+  if (!enabled || worldWidth <= viewport.width + 2) return null;
+  const showLeft = viewport.scrollLeft > 2 && (!discovered || unreadLeft);
+  const showRight = viewport.scrollLeft < worldWidth - viewport.width - 2 && (!discovered || unreadRight);
+  if (!showLeft && !showRight) return null;
+  return <div className="chalkboard-scroll-hints">
+    {(unreadLeft || unreadRight) && <span className="chalkboard-unread-status" role="status">
+      {unreadLeft && unreadRight ? "Nouvelles contributions à gauche et à droite" : unreadLeft ? "Nouvelles contributions à gauche" : "Nouvelles contributions à droite"}
+    </span>}
+    {showLeft && <span className={`chalkboard-scroll-hint is-left${unreadLeft ? " has-unread" : ""}`} aria-hidden="true">‹
+      {unreadLeft && <span className="chalkboard-scroll-unread">!</span>}
+    </span>}
+    {showRight && <span className={`chalkboard-scroll-hint is-right${unreadRight ? " has-unread" : ""}`} aria-hidden="true">›
+      {unreadRight && <span className="chalkboard-scroll-unread">!</span>}
+    </span>}
   </div>;
 }

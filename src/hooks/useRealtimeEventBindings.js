@@ -6,6 +6,7 @@ import {
 } from "../components/daily/dailySpecialModel.js";
 import { DAILY_SPECIAL_MODE } from "../components/daily/dailyModes.js";
 import { FAKE_TWINS_TYPE, OCID_TYPE } from "../components/gameLogic.js";
+import { createRoundEndedHandler } from "../features/round/createRoundEndedHandler.js";
 
 export default function useRealtimeEventBindings(runtime) {
   const {
@@ -86,6 +87,7 @@ export default function useRealtimeEventBindings(runtime) {
     setTournamentSummaryAt,
     setTrainingBusy,
     setUpcomingSpecial,
+    setVocabDecisionRoundId,
     setVocabResultsReadyKey,
     setVocabRoundDelta,
     setVocabWeeklyRoundDelta,
@@ -233,6 +235,7 @@ useEffect(() => {
       }
       setVocabRoundDelta(null);
       setVocabWeeklyRoundDelta(null);
+      setVocabDecisionRoundId(null);
       setVocabResultsReadyKey(null);
       vocabResultsPendingRef.current = null;
       if (training || special?.type === OCID_TYPE) {
@@ -280,42 +283,12 @@ useEffect(() => {
       );
     }
 
-    function onRoundEnded({
-      roomId: endedRoomId,
-      roundId: endedId,
-      results = [],
-      tournament: tournamentPayload = null,
-      tournamentSummary: summary = null,
-      tournamentSummaryAt: summaryAt = null,
-      targetSummary: targetSummaryPayload = null,
-      teamDuel: teamDuelPayload = null,
-      training = false,
-    }) {
-      if (!shouldHandleLiveRoundSocketEvents(endedRoomId)) return;
-      const payload = {
-        roomId: endedRoomId,
-        roundId: endedId,
-        results,
-        tournament: tournamentPayload,
-        tournamentSummary: summary,
-        tournamentSummaryAt: summaryAt,
-        targetSummary: targetSummaryPayload,
-        teamDuel: teamDuelPayload,
-        training,
-      };
-      if (targetSummaryPayload?.ocid) {
-        processRoundEndedRef.current?.(payload);
-        return;
-      }
-      if (phaseRef.current !== "playing") {
-        processRoundEndedRef.current?.(payload);
-        return;
-      }
-      playOutroThenResultsRef.current?.(
-        payload,
-        { fallback: false }
-      );
-    }
+    const onRoundEnded = createRoundEndedHandler({
+      shouldHandleLiveRoundSocketEvents,
+      phaseRef,
+      processRoundEndedRef,
+      playOutroThenResultsRef,
+    });
 
     function onBreakStarted(payload = {}) {
       if (!shouldHandleLiveRoundSocketEvents(payload?.roomId)) return;
@@ -416,6 +389,8 @@ useEffect(() => {
       if (!shouldHandleLiveRoundSocketEvents(payload?.roomId)) return;
       if (!amount) return;
       const awardKind = String(payload?.kind || "").toLowerCase();
+      // The quiz displays this reward when its recap gauge crosses the milestone.
+      if (awardKind === "target_quiz_milestone") return;
       if (awardKind === "live_gobble") {
         const message =
           amount >= 2

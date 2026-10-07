@@ -159,6 +159,9 @@
 .chalkboard-scroll-hint { position: absolute; top: 50%; display: grid; place-items: center; width: 40px; height: 76px; transform: translateY(-50%); border-radius: 20px; color: #fff9e5; background: #13271d; opacity: .45; font: 300 58px/1 system-ui, sans-serif; user-select: none; }
 .chalkboard-scroll-hint.is-left { left: 8px; }
 .chalkboard-scroll-hint.is-right { right: 8px; }
+.chalkboard-scroll-hint.has-unread { opacity: 1; }
+.chalkboard-scroll-unread { position: absolute; top: -5px; right: -5px; display: grid; place-items: center; width: 23px; height: 23px; border: 1px solid #ffd37a; border-radius: 50%; background: #dc2626; color: #fff; font: 900 17px/1 system-ui, sans-serif; box-shadow: 0 2px 4px #0006; }
+.chalkboard-unread-status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .chalkboard-scroll:not(.is-editing):not(.is-moderating):active { cursor: grabbing; }
 
 .chalkboard-empty, .chalkboard-loader {

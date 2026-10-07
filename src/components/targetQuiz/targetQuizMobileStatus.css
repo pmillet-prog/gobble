@@ -1,0 +1,7 @@
+.target-quiz-mobile-score { display: inline-flex; align-items: baseline; justify-content: center; gap: 7px; white-space: nowrap; color: inherit; }
+.target-quiz-mobile-score > span { font-size: 11px; font-weight: 650; }
+.target-quiz-mobile-score strong { font-size: 21px; line-height: 1; font-weight: 900; font-variant-numeric: tabular-nums; }
+.target-quiz-mobile-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: center; gap: 3px 12px; height: 100%; margin: 0; font-size: 11px; line-height: 1.2; }
+.target-quiz-mobile-stats > div { display: flex; justify-content: space-between; align-items: baseline; gap: 4px; }
+.target-quiz-mobile-stats dt { min-width: 0; font-weight: 600; }
+.target-quiz-mobile-stats dd { flex: none; margin: 0; font-size: 16px; font-weight: 900; font-variant-numeric: tabular-nums; }

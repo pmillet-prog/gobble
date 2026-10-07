@@ -1,6 +1,5 @@
 import React from "react";
 import SettingsMenuFrame from "../settings/SettingsMenuFrame.jsx";
-import NewFeatureBadge from "../NewFeatureBadge.jsx";
 
 export default function AccountMenu({ actions, appearance, auth, labels }) {
   const close = actions.onClose;
@@ -70,7 +69,17 @@ export default function AccountMenu({ actions, appearance, auth, labels }) {
                 }}
                 className={`w-full rounded-xl border px-3 py-2 text-left text-sm font-semibold ${appearance.goldButtonClass}`}
               >
-                Voir mon profil <NewFeatureBadge className="ml-2" />
+                Voir mon profil
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  close();
+                  actions.onOpenProfile({ userId: auth.userId, nick: auth.user?.usernameDisplay || labels.nickname || "Joueur", editAvatar: true });
+                }}
+                className={`w-full rounded-xl border px-3 py-2 text-left text-sm font-semibold ${appearance.panelButtonClass}`}
+              >
+                Modifier mon avatar
               </button>
               <button
                 type="button"

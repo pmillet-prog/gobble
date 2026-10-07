@@ -1,0 +1,2 @@
+export const TARGET_QUIZ_FEEDBACK_MS = 1000;
+export const TARGET_QUIZ_QUESTION_FADE_MS = 500;

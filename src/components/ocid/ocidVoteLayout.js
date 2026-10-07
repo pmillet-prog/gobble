@@ -9,7 +9,7 @@ export function selectVisibleOcidVoteOptions(options, { compact = false } = {}) 
   if (allOptions.length <= botLimit) {
     return { hiddenBotCount: 0, options: allOptions };
   }
-  const optionsWithoutBots = allOptions.filter((option) => !option?.botOnly);
+  const optionsWithoutBots = allOptions.filter((option) => !option?.botOnly || option?.animatorFallback);
   return {
     hiddenBotCount: allOptions.length - optionsWithoutBots.length,
     options: optionsWithoutBots,

@@ -1,5 +1,6 @@
 import React from "react";
 import ChatContent from "../chat/ChatContent.jsx";
+import useLiveSalonViewport from "./useLiveSalonViewport.js";
 import {
   getLiveBackgroundKey,
   getUiImageUrl,
@@ -20,8 +21,8 @@ const styles = `
   position: fixed;
   inset: 0;
   width: 100vw;
-  min-height: 100svh;
-  height: 100svh;
+  min-height: 100dvh;
+  height: 100dvh;
 }
 .live-salon-stage {
   position: absolute;
@@ -44,37 +45,36 @@ const styles = `
   object-fit: fill;
 }
 .live-salon-keyboard-open .live-salon-backdrop {
-  transform: translateY(var(--salon-vv-offset-top, 0px));
 }
 .live-salon-slot {
   position: absolute;
   z-index: 3;
 }
 .live-salon-top {
-  left: 2.6%;
-  right: 2.6%;
-  top: 2.2%;
+  left: max(2.6%, env(safe-area-inset-left));
+  right: max(2.6%, env(safe-area-inset-right));
+  top: max(2.2%, env(safe-area-inset-top));
 }
 .live-salon-ready {
   left: 50%;
-  top: 1%;
+  top: max(1%, env(safe-area-inset-top));
   width: 40%;
   transform: translateX(-50%);
 }
 .live-salon-info {
-  right: 3%;
-  bottom: 4%;
+  right: max(3%, env(safe-area-inset-right));
+  bottom: max(4%, env(safe-area-inset-bottom));
   width: 24%;
 }
 .live-salon-players {
-  right: 3%;
+  right: max(3%, env(safe-area-inset-right));
   top: 32%;
   width: 22%;
 }
 .live-salon-utilities {
-  right: 2.5%;
+  right: max(2.5%, env(safe-area-inset-right));
   top: 36.5%;
-  bottom: 3%;
+  bottom: max(3%, env(safe-area-inset-bottom));
   width: clamp(68px, 7.8%, 128px);
 }
 .live-salon-notebook {
@@ -302,7 +302,7 @@ const styles = `
 }
 .live-salon-scene .live-salon-ready {
   left: 50%;
-  top: 1%;
+  top: calc(1% + env(safe-area-inset-top));
   width: 80%;
   transform: translateX(-50%);
 }
@@ -337,7 +337,10 @@ const styles = `
   margin-left: 2%;
   margin-right: 2%;
 }
+}
+@media (pointer: coarse) {
 .live-salon-scene.live-salon-keyboard-open .live-salon-notebook {
+  z-index: 50;
   transform: none;
 }
 .live-salon-scene.live-salon-keyboard-open .chat-content-messages {
@@ -347,11 +350,15 @@ const styles = `
   backface-visibility: hidden;
 }
 .live-salon-scene.live-salon-keyboard-open .chat-content-compose {
+  --salon-composer-side: max(4vw, env(safe-area-inset-left), env(safe-area-inset-right));
   position: fixed;
   z-index: 50;
-  left: 4vw;
-  right: 4vw;
-  bottom: calc(var(--salon-keyboard-inset, 0px) + 10px);
+  left: max(var(--salon-composer-left, 4vw), var(--salon-composer-side));
+  right: auto;
+  width: min(var(--salon-composer-width, 92vw), calc(100vw - var(--salon-composer-side) - var(--salon-composer-side)));
+  top: var(--salon-composer-bottom);
+  bottom: auto;
+  transform: translateY(-100%);
   margin: 0;
   padding: 8px 10px;
   border: 1px solid rgba(121, 71, 23, 0.46);
@@ -418,70 +425,9 @@ export default function LiveSalonScene({
   topControls = null,
   utilityControls = null,
 }) {
-  const sceneRef = React.useRef(null);
+  const sceneRef = useLiveSalonViewport(className.includes("live-salon-scene-fullscreen"));
   const desktopBackgroundUrl = getUiImageUrl(getLiveBackgroundKey(team, "wide"));
   const mobileBackgroundUrl = getUiImageUrl(getLiveBackgroundKey(team, "tall"));
-
-  React.useEffect(() => {
-    const scene = sceneRef.current;
-    if (!scene || typeof window === "undefined") return undefined;
-    if (!window.matchMedia("(max-aspect-ratio: 1/1) and (pointer: coarse)").matches) {
-      return undefined;
-    }
-    const visualViewport = window.visualViewport;
-    let frameId = null;
-    let baselineWidth = Math.round(window.innerWidth || visualViewport?.width || 0);
-    let baselineHeight = Math.round(
-      Math.max(
-        window.innerHeight || 0,
-        (visualViewport?.height || 0) + (visualViewport?.offsetTop || 0)
-      )
-    );
-
-    const update = () => {
-      frameId = null;
-      const width = Math.round(window.innerWidth || visualViewport?.width || 0);
-      const offsetTop = Math.max(0, Math.round(visualViewport?.offsetTop || 0));
-      const viewportHeight = Math.round(visualViewport?.height || window.innerHeight || 0);
-      const visibleBottom = offsetTop + viewportHeight;
-      if (Math.abs(width - baselineWidth) > 72) {
-        baselineWidth = width;
-        baselineHeight = Math.max(visibleBottom, Math.round(window.innerHeight || 0));
-      } else if (visibleBottom >= baselineHeight - 48) {
-        baselineHeight = Math.max(baselineHeight, visibleBottom);
-      }
-      const keyboardInset = Math.max(0, baselineHeight - visibleBottom);
-      const keyboardThreshold = Math.max(110, Math.round(baselineHeight * 0.17));
-      const keyboardOpen = keyboardInset >= keyboardThreshold;
-      scene.style.setProperty("--salon-vv-offset-top", `${offsetTop}px`);
-      scene.style.setProperty(
-        "--salon-keyboard-inset",
-        `${keyboardOpen ? keyboardInset : 0}px`
-      );
-      scene.classList.toggle("live-salon-keyboard-open", keyboardOpen);
-    };
-
-    const scheduleUpdate = () => {
-      if (frameId !== null) return;
-      frameId = window.requestAnimationFrame(update);
-    };
-
-    update();
-    window.addEventListener("resize", scheduleUpdate);
-    window.addEventListener("orientationchange", scheduleUpdate);
-    visualViewport?.addEventListener("resize", scheduleUpdate);
-    visualViewport?.addEventListener("scroll", scheduleUpdate);
-    return () => {
-      window.removeEventListener("resize", scheduleUpdate);
-      window.removeEventListener("orientationchange", scheduleUpdate);
-      visualViewport?.removeEventListener("resize", scheduleUpdate);
-      visualViewport?.removeEventListener("scroll", scheduleUpdate);
-      if (frameId !== null) window.cancelAnimationFrame(frameId);
-      scene.classList.remove("live-salon-keyboard-open");
-      scene.style.removeProperty("--salon-vv-offset-top");
-      scene.style.removeProperty("--salon-keyboard-inset");
-    };
-  }, []);
 
   return (
     <div

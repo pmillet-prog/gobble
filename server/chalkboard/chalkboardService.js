@@ -251,6 +251,25 @@ export function createChalkboardService({ now = () => Date.now(), auditPublicKey
     for (const board of CHALKBOARD_BOARDS) boards.set(board, []);
   }
 
+  function getActivity(identity) {
+    ensureCurrentWeek();
+    // Entries stay in z-order, including after undo. Deletions and erasures
+    // never create a new entry number. A player's own entries do not alert them;
+    // anonymous readers still see all entries without learning their authors.
+    const ownerId = identity?.userId ? String(identity.userId) : null;
+    let latestEntry = 0;
+    for (const board of CHALKBOARD_BOARDS) {
+      const entries = boards.get(board);
+      for (let index = entries.length - 1; index >= 0; index -= 1) {
+        const entry = entries[index];
+        if (ownerId && entry.ownerId === ownerId) continue;
+        latestEntry = Math.max(latestEntry, entry.z);
+        break;
+      }
+    }
+    return { ok: true, weekId, latestEntry };
+  }
+
   function getSnapshot(boardValue, identity) {
     ensureCurrentWeek();
     const board = normalizeBoard(boardValue);
@@ -387,6 +406,7 @@ export function createChalkboardService({ now = () => Date.now(), auditPublicKey
     undoLastDeletion,
     exportSealedAudit,
     getSnapshot,
+    getActivity,
     exportState,
     restoreState,
     getFonts: fontCatalog.getFonts,

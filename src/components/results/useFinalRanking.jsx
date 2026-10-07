@@ -2,6 +2,7 @@ import React from "react";
 import { FAKE_TWINS_TYPE } from "../gameLogic.js";
 import { isRareBonusEnabledForSpecial } from "../../game/specialRoundTypes.js";
 import { formatNumber } from "../../utils/numbers.js";
+import TargetQuizBonusBadge from "../targetQuiz/TargetQuizBonusBadge.jsx";
 
 export function formatTargetTime(ms) {
   if (!Number.isFinite(ms)) return "PAS TROUVÉ";
@@ -140,6 +141,7 @@ export default function useFinalRanking({
               roundPoints,
               roundGobbles,
               roundLepersBonus,
+              scorePrefix: entry.targetQuiz ? <TargetQuizBonusBadge summary={entry.targetQuiz} /> : null,
               rightLabel: Number.isFinite(timeMs) ? formatTargetTime(timeMs) : "PAS TROUVÉ",
             };
           }

@@ -1,0 +1,100 @@
+{
+  "seed": "gobble-rare-qcm-20261006-v1",
+  "protocolVersion": 2,
+  "requestedCandidates": 10000,
+  "generatedCandidates": 8444,
+  "sampleSize": 50,
+  "eligibleLexicalEntries": 11966,
+  "knownWordKeys": 419659,
+  "maxCorpusFrequencyPerMillion": 0.05,
+  "counters": {
+    "definitionsScanned": 396832,
+    "wordShape": 7956,
+    "noShortSelfContainedDefinition": 11914,
+    "inflectionOrVariant": 327514,
+    "corpusTooFrequent": 30475,
+    "gameRarity": 3194,
+    "ambiguousPartOfSpeech": 3767,
+    "properName": 46,
+    "targetsAttempted": 11966,
+    "fewerThanThreeFalseSpellings": 3453,
+    "spellingCollisionWithKnownWord": 293,
+    "duplicateDefinition": 69
+  },
+  "candidatePartsOfSpeech": {
+    "adjectif": 1245,
+    "adverbe": 15,
+    "nom": 6624,
+    "verbe": 560
+  },
+  "samplePartsOfSpeech": {
+    "adjectif": 8,
+    "nom": 40,
+    "verbe": 2
+  },
+  "candidateRarityBuckets": {
+    "extreme": 226,
+    "never_found": 7980,
+    "very_rare": 238
+  },
+  "sampleRarityBuckets": {
+    "extreme": 2,
+    "never_found": 46,
+    "very_rare": 2
+  },
+  "candidatesAbsentFromLexique": 7619,
+  "sampleAbsentFromLexique": 46,
+  "candidateSameDomainDistractors": {
+    "0": 3802,
+    "1": 139,
+    "2": 164,
+    "3": 4339
+  },
+  "sampleSameDomainDistractors": {
+    "0": 21,
+    "1": 2,
+    "2": 2,
+    "3": 25
+  },
+  "answerPositions": {
+    "words": {
+      "D": 10,
+      "B": 17,
+      "C": 12,
+      "A": 11
+    },
+    "spellings": {
+      "B": 9,
+      "D": 14,
+      "C": 10,
+      "A": 17
+    }
+  },
+  "lexique": {
+    "url": "https://www.lexique.org/databases/Lexique383/Lexique383.tsv",
+    "documentation": "https://openlexicon.fr/datasets-info/Lexique383/README-Lexique.html",
+    "authors": "Boris New et Christophe Pallier",
+    "license": "CC BY-SA 4.0",
+    "sha256": "637ba37a767a66679c48371d673ece50cbf541b49a4e40e598963d4f3fbce52b"
+  },
+  "rules": [
+    "Snapshot local Wiktionnaire, lemmes 6–14 lettres, une seule nature parmi nom/verbe/adjectif/adverbe.",
+    "Classes Gobble very_rare/extreme/never_found, puis filtre Lexique sur fréquence maximale mot/lemme, livres/films.",
+    "Absence dans Lexique admise comme signal imparfait, jamais assimilée à une fréquence zéro mesurée.",
+    "Première définition admissible entière : 35–160 caractères, 5–27 mots, sans chiffres/formules, renvoi ni réponse/racine dévoilée.",
+    "Distracteurs réels : même nature, longueur à ±3, priorité aux domaines communs; relations connues et définitions proches exclues.",
+    "Graphies : une mutation, aucune différence d'accent seule, rejet de toute forme connue dans les trois sources.",
+    "Cibles mélangées par graine, sans classement qualitatif; conserver les premiers candidats compatibles avec les deux formules.",
+    "50 cibles tirées uniformément sans remise du lot généré, même définition pour les deux modes, aucune retouche individuelle."
+  ],
+  "limitations": [
+    "Corpus ancien et incomplet : l'absence de Lexique ne prouve pas qu'un mot soit très rare ou inconnu des joueurs.",
+    "Les relations et domaines sont agrégés par entrée; les filtres ne prouvent pas l'unicité sémantique des réponses.",
+    "Une graphie absente des sources peut exister ailleurs; plausibilité et difficulté des mutations restent à évaluer.",
+    "Le tirage représente ce générateur et ses filtres, pas l'ensemble des mots rares; l'intersection favorise les mots mutables.",
+    "Relire les deux modes sur les mêmes cibles aide la comparaison éditoriale mais biaise les temps si la réponse est mémorisée.",
+    "Aucun barème ni délai de jeu simulé; échantillon de contenu uniquement, sans intégration au mini-jeu."
+  ],
+  "protocolRevision": "Premier lot non livré : seuil 0,5/million trop permissif et exposants perdus dans certaines unités. Règles uniformes resserrées à 0,05, définitions chiffrées rejetées, longueur maximale portée de 13 à 14. Même graine, aucun remplacement individuel.",
+  "validation": "4 choix distincts, une réponse attendue, vraies réponses présentes et fausses graphies absentes des sources, définitions uniques : vérifié sur tout le lot."
+}

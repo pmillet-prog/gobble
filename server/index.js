@@ -58,7 +58,7 @@ import {
   LEPERS_BONUS_POINTS,
   LEPERS_RESULT_DELAY_MS,
   buildLepersBonusAnnouncement,
-  buildLepersResultIntervention,
+  buildLepersRoundResult as buildLepersRoundResultPayload,
   buildLepersSolvedIntervention,
   getLepersBonusForNick,
   pickLepersTournamentRound,
@@ -120,6 +120,7 @@ import { registerDisconnectHandler } from "./realtime/registerDisconnectHandler.
 import { registerSessionHandlers } from "./realtime/registerSessionHandlers.js";
 import { getSocketDeviceKind } from "./realtime/clientDeviceKind.js";
 import { registerChalkboardRoutes } from "./chalkboard/registerChalkboardRoutes.js";
+import { registerGobblarsHistoryRoute } from "./stats/registerGobblarsHistoryRoute.js";
 import { createPersistentChalkboard } from "./chalkboard/chalkboardRuntime.js";
 import { createChalkboardExports } from "./chalkboard/chalkboardExports.js";
 import {
@@ -141,6 +142,7 @@ import {
   recordMedal,
   recordMostGobbles,
   recordMostWordsInGame,
+  recordRoundTop3,
   recordTotalScore,
   recordVocabCount,
   recordWeeklyVocabCount,
@@ -217,6 +219,10 @@ import {
 } from "./stats/playerProfileService.js";
 import { applyPendingScoreRecordRollback } from "./stats/scoreRecordRollbackService.js";
 import { getTargetWaitDevCatalog } from "./targetMiniGame/targetWaitCatalogService.js";
+import { loadTargetQuizCatalog } from "./targetMiniGame/targetQuizCatalog.js";
+import { createTargetQuizService } from "./targetMiniGame/targetQuizService.js";
+import { getTargetQuizResult } from "./targetMiniGame/targetQuizRoundResults.js";
+import { createTargetQuizSocketHandlers } from "./targetMiniGame/registerTargetQuizHandlers.js";
 import {
   clearBroadcastMessage,
   getActiveBroadcast,
@@ -267,6 +273,24 @@ await applyPendingScoreRecordRollback()
 
 const computePool = createComputePool();
 const persistenceClient = createPersistenceClient();
+const targetQuizService = createTargetQuizService({
+  loadCatalog: loadTargetQuizCatalog,
+  loadProgress: playerKey => persistenceClient.loadTargetQuizProgress({ playerKey }),
+  saveProgress: (playerKey, progress) => persistenceClient.saveTargetQuizProgress({ playerKey, progress }),
+  loadPoints: playerKey => persistenceClient.loadTargetQuizPoints({ playerKey }),
+  saveAnswer: payload => persistenceClient.saveTargetQuizAnswer(payload),
+  finishPoints: payload => persistenceClient.finishTargetQuizPoints(payload),
+  onReward: ({ playerKey, reward }) => {
+    for (const client of io.sockets.sockets.values()) {
+      if (`user:${client.data?.authUser?.id}` === playerKey) client.emit("gobblarsAwarded", { ...reward, kind: "target_quiz_milestone" });
+    }
+  },
+});
+const targetQuizHandlers = createTargetQuizSocketHandlers({
+  service: targetQuizService, getRoom, getSocketPlayerIdentity, areDevToolsAllowedForSocket,
+  markActivity: markSocketPlayerActivity,
+});
+void loadTargetQuizCatalog().catch(error => console.warn("[target-quiz] bank unavailable", error.message));
 const avatarObjectiveProgress = createAvatarObjectiveBatcher({
   persist: events => persistenceClient.recordAvatarObjectives(events),
   onRewards: rewards => {
@@ -451,9 +475,12 @@ app.get("/api/player-profile/user/:userId", async (req, res) => {
     const fallbackNick = String(req.query?.nick || "");
     const cacheKey = `${userId}|${safeViewerUserId || 0}|${fallbackNick.slice(0, 48)}`;
     const cachedProfile = getCachedPlayerProfile(cacheKey);
-    const appearance = await getPlayerProfileAppearance(userId);
+    const [appearance, targetQuiz] = await Promise.all([
+      getPlayerProfileAppearance(userId),
+      persistenceClient.loadTargetQuizPoints({ playerKey: `user:${userId}` }),
+    ]);
     if (cachedProfile) {
-      return res.json({ ok: true, profile: { ...cachedProfile, ...appearance } });
+      return res.json({ ok: true, profile: { ...cachedProfile, ...appearance, targetQuiz } });
     }
     const profile = await getPublicPlayerProfileByUserId(userId, {
       fallbackNick,
@@ -463,7 +490,7 @@ app.get("/api/player-profile/user/:userId", async (req, res) => {
       return res.status(404).json({ ok: false, error: "profile_not_found" });
     }
     setCachedPlayerProfile(cacheKey, profile);
-    return res.json({ ok: true, profile: { ...profile, ...appearance } });
+    return res.json({ ok: true, profile: { ...profile, ...appearance, targetQuiz } });
   } catch (err) {
     console.warn("Player profile route failed", err);
     return res.status(500).json({ ok: false, error: "profile_unavailable" });
@@ -904,6 +931,12 @@ async function buildWeeklyStatsResponse(topN) {
         filterBots(mergedWeeklyVocab)
       ),
       mostGobbles: withUserIds(filterBots(boards.mostGobbles)),
+      top3: Object.fromEntries(
+        Object.entries(boards.top3 || {}).map(([roundType, entries]) => [
+          roundType,
+          withUserIds(filterBots(entries)),
+        ])
+      ),
     };
   return { ...payload, boards: filteredBoards };
 }
@@ -1196,6 +1229,17 @@ app.post("/api/daily/submit", async (req, res) => {
     return res.json(result);
   }
   return res.json(result);
+});
+
+registerGobblarsHistoryRoute(app, {
+  requireIdentity: requireRequestPlayerIdentity,
+  readHistory: payload => persistenceClient.getGobblarsHistory(payload),
+  checkRateLimit: (installId, res) => {
+    pruneHeavyEndpointRateBuckets();
+    const result = checkHeavyEndpointRateLimit(`gobblars-history:${installId}`, { limit: 20, windowMs: 60_000 });
+    if (!result.ok) sendRateLimitResponse(res, result);
+    return result.ok;
+  },
 });
 
 app.get("/api/theme/profile", async (req, res) => {
@@ -3586,6 +3630,7 @@ function buildTournamentSpecials(roomConfig) {
 function createTournamentState(roomConfig) {
   return {
     id: `${Date.now()}-${Math.floor(Math.random() * 1e9)}`,
+    startedAt: null,
     currentRound: 0,
     totalRounds: TOURNAMENT_TOTAL_ROUNDS,
     lepersChallengeRound: pickLepersTournamentRound(),
@@ -4352,6 +4397,8 @@ function emitTournamentLobby(room) {
 
 function enterInterTournamentLobby(room) {
   if (!room) return;
+  void targetQuizHandlers.closeRoomRound(room.id, room.currentRound?.id)
+    .catch(error => console.warn("[target-quiz] lobby save failed", error.message));
   room.roundStartPending = false;
   room.roundPreparingSnapshot = null;
   clearPendingRankingBroadcast(room);
@@ -4486,7 +4533,7 @@ function emitMedals(room) {
   persistRoomMedals(room);
 }
 
-function addMedal(room, nick, type, tournamentKey = null) {
+function addMedal(room, nick, type, tournamentKey = null, tournament = room?.tournament) {
   if (!room || !nick) return;
   if (isBotNick(room, nick)) return;
   const key = getMedalKeyForNickLookup(room, nick);
@@ -4524,6 +4571,8 @@ function addMedal(room, nick, type, tournamentKey = null) {
         reason: "tournament_medal",
         meta: {
           roomId: room.id,
+          tournamentId: tournament?.id || null,
+          tournamentStartedAt: tournament?.startedAt || null,
           nick,
           medal: type,
         },
@@ -6430,32 +6479,11 @@ function scheduleLepersChallengeStart(room) {
 
 function buildLepersRoundResult(round) {
   const challenge = round?.lepersChallenge;
-  const result = buildLepersResultIntervention(challenge?.word);
-  if (!challenge || !result) return null;
-  const finders = Array.from(challenge.foundBy instanceof Set ? challenge.foundBy : [])
-    .map((nick) => String(nick || "").trim())
-    .filter(Boolean);
-  const finderNames = finders.length
-    ? new Intl.ListFormat("fr", { style: "long", type: "conjunction" }).format(
-        finders
-      )
-    : "";
-  const answer = String(result.highlights?.[0] || challenge.word || "")
-    .trim()
-    .toLocaleUpperCase("fr");
-  const congratulations =
-    finders.length === 1
-      ? ` Bravo à ${finderNames}, qui l’a trouvé !`
-      : finders.length > 1
-      ? ` Bravo à ${finderNames}, qui l’ont trouvé !`
-      : "";
+  const result = buildLepersRoundResultPayload(challenge);
+  if (!result) return null;
   return {
-    id: `${challenge.id}:answer`,
-    kind: "answer",
+    ...result,
     moderation: registerContentReference("lepers", challenge.word, challenge.id),
-    text: result.text,
-    chatCopyText: `La réponse était « ${answer} ».${congratulations}`,
-    highlights: result.highlights,
   };
 }
 
@@ -7863,8 +7891,10 @@ function buildOcidVoteOptions(room) {
       hasHumanAuthor: false,
     });
   }
-  const proposals =
-    round.ocidProposals instanceof Map ? Array.from(round.ocidProposals.entries()) : [];
+  const proposals = [
+    ...(round.ocidProposals instanceof Map ? round.ocidProposals.entries() : []),
+    ...(botManager?.getOcidAnimatorFallbackProposals(room) || []),
+  ];
   for (const [nick, proposal] of proposals) {
     const normalized = normalizeWord(proposal?.normalized || proposal?.display || "");
     if (!normalized || normalized === targetNorm) continue;
@@ -7878,7 +7908,8 @@ function buildOcidVoteOptions(room) {
       hasHumanAuthor: false,
     };
     if (!existing.authors.includes(nick)) existing.authors.push(nick);
-    if (isBotNick(room, nick)) existing.hasBotAuthor = true;
+    if (proposal?.animatorFallback) existing.animatorFallback = true;
+    if (proposal?.animatorFallback || isBotNick(room, nick)) existing.hasBotAuthor = true;
     else existing.hasHumanAuthor = true;
     byNorm.set(normalized, existing);
   }
@@ -7911,6 +7942,7 @@ function buildPublicOcidVotePayload(room) {
       id: option.id,
       display: option.display,
       botOnly: !!option.botOnly,
+      animatorFallback: !!option.animatorFallback,
       voteCount: Number(voteCounts.get(option.id)) || 0,
     })),
   };
@@ -8070,7 +8102,7 @@ function computeOcidRoundResults(room, baseResults) {
       continue;
     }
     for (const author of option.authors || []) {
-      if (!author || author === nick) continue;
+      if (!author || author === nick || !proposals.has(author)) continue;
       const authorDetail = ensure(author);
       authorDetail.bluffVotes += 1;
       if (!authorDetail.votersForProposal.includes(nick)) {
@@ -8798,6 +8830,7 @@ function submitWordForNick(
       nick: resolvedNick,
       points: wordPts,
       round: tRound,
+      specialType: roundSpecialType,
       totalRounds: t.totalRounds || TOURNAMENT_TOTAL_ROUNDS,
       word: norm,
     });
@@ -8877,6 +8910,7 @@ function submitWordForNick(
         roundId,
         nick: resolvedNick,
         kind: specialType,
+        targetFoundAt: foundAt,
       });
       if (persistentProgressAllowed && !isBotPlayer && playerKey) {
         recordBestTargetTime(
@@ -9056,6 +9090,8 @@ function submitWordForNick(
       reason: "live_gobble",
       meta: {
         roomId: room.id,
+        tournamentId: room.currentRound?.tournamentId || null,
+        tournamentStartedAt: room.tournament?.startedAt || null,
         roundId: roundId || null,
         nick: resolvedNick,
         word: norm,
@@ -10405,6 +10441,7 @@ async function runStartRoundForRoom(room, options = {}) {
   );
   const roundStartsAt = now + roundIntroMs;
   const roundEndsAt = roundStartsAt + roundDurationMs;
+  if (tournamentIdForRound && !room.tournament.startedAt) room.tournament.startedAt = roundStartsAt;
 
   if (botManager?.refreshPresenceForRoom) {
     botManager.refreshPresenceForRoom(room, { beforeRound: true });
@@ -10778,6 +10815,8 @@ async function endRoundForRoom(room) {
   }
 
   room.currentRound.status = "finished";
+  await targetQuizHandlers.closeRoomRound(room.id, room.currentRound.id)
+    .catch(error => console.warn("[target-quiz] round save failed", error.message));
   flushPendingDuelWordAcceptedQueues(room.currentRound, room);
   const pendingDuelWordTasks =
     room.currentRound.duelWordTasks instanceof Set
@@ -11244,6 +11283,7 @@ async function endRoundForRoom(room) {
         words: meta ? [room.currentRound.targetWord || ""] : [],
         targetFoundAt: meta ? meta.ts : null,
         targetFoundMs: meta ? meta.elapsedMs : null,
+        targetQuiz: getTargetQuizResult(room.currentRound, player),
         userId: Number.isInteger(Number(player?.userId)) ? Number(player.userId) : null,
         installId: player?.installId || null,
         team: getTeamForInstallCached(player?.installId),
@@ -11273,6 +11313,17 @@ async function endRoundForRoom(room) {
 
     results.length = 0;
     results.push(...targetResults);
+  }
+
+  if (!isTrainingRound) {
+    recordRoundTop3({
+      roundType: specialType || "normal",
+      results: results.map((entry) => ({
+        ...entry,
+        playerKey: entry.isBot ? null : getMedalKeyForNickLookup(room, entry.nick),
+      })),
+      achievedAt: endedAt,
+    });
   }
 
   const liveHeadToHeadRoundType = getLiveHeadToHeadRoundType(room.currentRound);
@@ -11477,9 +11528,9 @@ async function endRoundForRoom(room) {
     const medalDelay = Math.max(0, tournamentSummaryAt - Date.now());
     setTimeout(() => {
       if (room.breakState?.breakKind !== "tournament_end") return;
-      if (medalWinners[0]) addMedal(room, medalWinners[0], "gold", `${room.id}:${t.id}`);
-      if (medalWinners[1]) addMedal(room, medalWinners[1], "silver");
-      if (medalWinners[2]) addMedal(room, medalWinners[2], "bronze");
+      if (medalWinners[0]) addMedal(room, medalWinners[0], "gold", `${room.id}:${t.id}`, t);
+      if (medalWinners[1]) addMedal(room, medalWinners[1], "silver", null, t);
+      if (medalWinners[2]) addMedal(room, medalWinners[2], "bronze", null, t);
       emitMedals(room);
     }, medalDelay);
 
@@ -11635,6 +11686,7 @@ io.on("connection", (socket) => {
   console.log("Client connecté", socket.id);
   emitMaintenanceStatus(socket, isMaintenanceModeActive());
   emitRoomsStats();
+  targetQuizHandlers.register(socket);
 
   registerSessionUtilityHandlers(socket, {
     addPlaytimeUsage,

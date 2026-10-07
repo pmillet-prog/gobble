@@ -6,6 +6,7 @@ import { createApplicationKernel } from "../../app/core/createApplicationKernel.
 import {
   createInitialStatsState,
   createStatsFeature,
+  VOCAB_STATUS_TIMEOUT_MS,
 } from "./createStatsFeature.js";
 
 function createDeferred() {
@@ -241,6 +242,26 @@ test("stats satellite replaces a status request when identity changes", async ()
   socket.emissions[1].acknowledge({ count: 20, weeklyCount: 9 });
   assert.deepEqual(await nextRequest, { count: 20, weeklyCount: 9 });
   assert.equal(feature.store.getState().vocabCount, 20);
+  scope.dispose();
+});
+
+test("vocab request settles on timeout and ignores a late response", async () => {
+  const socket = createStatsSocket({ connected: true });
+  const timers = createTimerHarness();
+  const scope = createResourceScope("stats-vocab-timeout");
+  const feature = createStatsFeature({ ports: { realtime: socket }, scope }, timers);
+  feature.configureRealtime({ installId: "user:5", socket });
+  feature.start();
+  const request = feature.requestVocabCount();
+  timers.runDelay(VOCAB_STATUS_TIMEOUT_MS);
+  assert.equal(await request, null);
+  assert.equal(feature.store.getState().vocabLoading, false);
+  socket.emissions[0].acknowledge({ count: 999, weeklyCount: 999 });
+  assert.equal(feature.store.getState().vocabCount, null);
+  const retry = feature.requestVocabCount();
+  socket.emissions[1].acknowledge({ count: 20, weeklyCount: 9 });
+  assert.deepEqual(await retry, { count: 20, weeklyCount: 9 });
+  assert.equal(timers.timers.size, 0);
   scope.dispose();
 });
 

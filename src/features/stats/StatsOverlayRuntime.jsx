@@ -5,7 +5,7 @@ import { buildUserScopedInstallId } from "../../app/adapters/browserIdentity.js"
 import StatsApplication from "./StatsApplication.jsx";
 import VocabularyProgressPanel from "./VocabularyProgressPanel.jsx";
 import { getStatsImageUrl, getStatsProfileUserId } from "./statsPresentation.js";
-import { STATS_SEASON_TARGET_LIMIT, STATS_WEEKLY_DISPLAY_LIMIT, WEEKLY_BOARDS } from "./statsConfig.js";
+import { STATS_SEASON_TARGET_LIMIT, STATS_WEEKLY_DISPLAY_LIMIT, WEEKLY_STATS_BOARDS } from "./statsConfig.js";
 
 export default function StatsOverlayRuntime() {
   const stats = useFeatureRuntime("stats");
@@ -46,7 +46,7 @@ export default function StatsOverlayRuntime() {
         renderVocabPanel: (options) => <VocabularyProgressPanel darkMode={darkMode} {...options} />,
       }}
       requests={{ fetchWeeklyStats: stats.fetchWeekly, requestTrophyStatus: stats.requestTrophyStatus }}
-      statsConfig={{ seasonTargetLimit: STATS_SEASON_TARGET_LIMIT, weeklyBoardDisplayLimit: STATS_WEEKLY_DISPLAY_LIMIT, weeklyBoards: WEEKLY_BOARDS }}
+      statsConfig={{ seasonTargetLimit: STATS_SEASON_TARGET_LIMIT, weeklyBoardDisplayLimit: STATS_WEEKLY_DISPLAY_LIMIT, weeklyBoards: WEEKLY_STATS_BOARDS }}
     />
   );
 }

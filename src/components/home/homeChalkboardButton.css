@@ -1,15 +1,18 @@
-.home-chalkboard-new {
+.home-chalkboard-unread {
   position: absolute;
   z-index: 1;
   top: 4%;
   left: 50%;
   transform: translate(-50%, -20%);
-  padding: 3px 5px;
+  display: grid;
+  place-items: center;
+  width: clamp(20px, 1.8vw, 28px);
+  height: clamp(20px, 1.8vw, 28px);
   border: 1px solid #ffd37a;
   border-radius: 999px;
   background: #dc2626;
   color: #fff;
-  font-size: clamp(9px, 0.7vw, 12px);
+  font-size: clamp(14px, 1.2vw, 20px);
   font-weight: 900;
   line-height: 1;
   white-space: nowrap;

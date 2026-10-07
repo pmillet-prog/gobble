@@ -49,6 +49,12 @@ du tableau. Dessin, éponge, rotation et redimensionnement ne la déclenchent pa
 
 ## Envoi par e-mail
 
+Les envois du grand tableau sont activés uniquement en production
+(`NODE_ENV=production`). En local, la remise à zéro et la génération des archives
+PNG restent actives, mais aucune copie n'est envoyée, y compris celles déjà en
+attente avant un redémarrage. Le bouton admin indique que l'envoi est désactivé.
+Cette restriction ne concerne pas les autres e-mails du jeu.
+
 Destinataire par défaut : `pmillet@gmail.com`. Expéditeur par défaut :
 `support@gobble.fr`. Ces valeurs sont remplaçables dans l'environnement serveur :
 
@@ -75,7 +81,7 @@ SMTP_PASSWORD=<secret dans l'environnement serveur uniquement>
 ```
 
 Le port 465 utilise TLS direct ; un autre port exige STARTTLS. Ne pas désactiver
-la validation des certificats. Aucun secret n'est envoyé au client. Sans relais
+la validation des certificats. Aucun secret n'est envoyé au client. En production, sans relais
 configuré, les copies PNG sont tout de même archivées et l'interface indique que
 l'envoi reste en attente. En production, ces variables sont fournies par le
 lanceur du backend. Pour la boîte Zimbra utilisée ici, les paramètres publics
@@ -95,9 +101,10 @@ ce fichier local est ignoré : les paramètres et le secret restent gérés par 
 Le fichier local reste exclu du dépôt et des archives de déploiement.
 
 Cette commande remplace le lancement habituel ; ne pas démarrer un second
-backend en parallèle. Les copies déjà en attente sont conservées et l'envoi sera
-réessayé après le lancement avec cette configuration. Vérifier la configuration
-ne nécessite aucun envoi réel.
+backend en parallèle. Le chargement de cette configuration reste utile aux
+autres e-mails, notamment la récupération de compte. Les copies locales du grand
+tableau restent conservées sans tentative d'envoi, même avec un relais configuré.
+Vérifier la configuration ne nécessite aucun envoi réel.
 
 Pour un mot de passe chiffré au repos sur la VM, le backend accepte aussi
 `SMTP_PASSWORD_FILE`, prioritaire sur le secret en variable d’environnement.

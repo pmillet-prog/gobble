@@ -9,20 +9,31 @@ async function readRefund(db, userId) {
       (SELECT MAX(rowid) FROM gobblar_ledger WHERE installId = ? AND reason = 'avatar_refund'), 0)
     ORDER BY rowid`, String(userId), String(userId));
   const keys = new Set();
+  const itemDetails = [];
   let amount = 0;
   for (const purchase of purchases) {
-    let items;
-    try { items = JSON.parse(purchase.meta)?.items; } catch { /* Fail closed below. */ }
+    let items, metadata;
+    try { metadata = JSON.parse(purchase.meta); items = metadata?.items; } catch { /* Fail closed below. */ }
     if (!Number.isSafeInteger(purchase.delta) || purchase.delta >= 0 || !Array.isArray(items)
       || !items.length || items.some(key => typeof key !== "string" || !/^[^:]+:[^:]+$/.test(key))) {
       throw Object.assign(new Error("avatar_refund_unavailable"), { code: "avatar_refund_unavailable" });
     }
     amount -= purchase.delta;
     items.forEach(key => keys.add(key));
+    // Carry the recorded purchase details forward; legacy refunds keep their
+    // exact total without inventing individual prices from today's catalogue.
+    for (const detail of Array.isArray(metadata?.itemDetails) ? metadata.itemDetails : []) {
+      if (!items.includes(detail?.key)) continue;
+      itemDetails.push({
+        key: detail.key,
+        ...(typeof detail.label === "string" ? { label: detail.label } : {}),
+        ...(Number.isSafeInteger(detail.amount) && detail.amount >= 0 ? { amount: detail.amount } : {}),
+      });
+    }
   }
   if (!Number.isSafeInteger(amount)) throw new Error("avatar_refund_overflow");
   return {
-    keys: [...keys], purchaseIds: purchases.map(row => row.id),
+    keys: [...keys], itemDetails, purchaseIds: purchases.map(row => row.id),
     quote: { amount, itemCount: keys.size, token: amount
       ? createHash("sha256").update(JSON.stringify([userId, purchases])).digest("hex") : null },
   };
@@ -37,7 +48,7 @@ export function createAvatarRefundRepository({ getDb, runWrite, readInventory, p
       const db = await getDb();
       return runWrite(() => runSqliteImmediateTransaction(db, async () => {
         assertWritable();
-        const { quote, keys, purchaseIds } = await readRefund(db, userId);
+        const { quote, keys, itemDetails, purchaseIds } = await readRefund(db, userId);
         // Also protects retries/double clicks and purchases made on another device
         // since the confirmation was displayed.
         if (!quote.amount || quote.token !== token) return { ok: false, error: "avatar_refund_changed", quote };
@@ -47,7 +58,7 @@ export function createAvatarRefundRepository({ getDb, runWrite, readInventory, p
         if (credit.changes !== 1) throw new Error("avatar_wallet_unavailable");
         for (const key of keys) await db.run("DELETE FROM avatar_unlocks WHERE user_id = ? AND item_key = ?", userId, key);
         await db.run("INSERT INTO gobblar_ledger (installId, ts, delta, reason, meta) VALUES (?, ?, ?, ?, ?)",
-          String(userId), now, quote.amount, "avatar_refund", JSON.stringify({ items: keys, purchaseIds }));
+          String(userId), now, quote.amount, "avatar_refund", JSON.stringify({ items: keys, itemDetails, purchaseIds }));
         // A tombstone, rather than a deleted row, invalidates drafts on every
         // device, including a first save that is still rendering its thumbnail.
         await db.run(`INSERT INTO user_avatars (user_id, configuration, revision, updated_at)

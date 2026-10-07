@@ -139,6 +139,7 @@ export const BOT_ANIMATOR_ROSTER = [
   { nick: "Julien Lechéper", skill: 0.43, maxWordsPerRound: 34, minWordsPerRound: 13, pointBias: 0.56, rarityBias: 0.16, pace: 0.94, alwaysPresent: true, animator: true },
   { nick: "Maître Gobbello", skill: 0.57, maxWordsPerRound: 44, minWordsPerRound: 18, pointBias: 0.64, rarityBias: 0.28, pace: 1, alwaysPresent: true, animator: true },
   { nick: "Laurent Bafouille", skill: 0.37, maxWordsPerRound: 31, minWordsPerRound: 11, pointBias: 0.55, rarityBias: 0.35, pace: 0.88, alwaysPresent: true, animator: true },
+  { nick: "Jean-Bière FouKro", skill: 0.18, maxWordsPerRound: 18, minWordsPerRound: 5, pointBias: 0.24, rarityBias: 0, pace: 0.8, alwaysPresent: true, animator: true },
 ];
 
 const BOT_ROSTERS_BY_SIZE = {
@@ -1149,6 +1150,42 @@ class BotManager {
       Math.max(0, Math.min(timeBudget - 1000, warmupDelay))
     );
     this.registerTimer(room.id, timer);
+  }
+
+  getOcidAnimatorFallbackProposals(room) {
+    const round = room?.currentRound;
+    if (!this.animatorBotsEnabled || round?.special?.type !== OCID_TYPE) return [];
+    if (countLiveHumans(room.players) >= 10) return [];
+
+    const proposals = round.ocidProposals instanceof Map ? round.ocidProposals : new Map();
+    const absentAnimators = animatorRosterForRoom(room).filter(
+      (bot) => !room.players.has(this.botKey(bot)) && !proposals.has(bot.nick)
+    );
+    if (!absentAnimators.length) return [];
+    const solutions = this.roomSolutions.get(room.id) || preparedSolutionsForBotRound(round)
+      || (this.dictionary ? solveGridCached(round.grid, this.dictionary) : new Map());
+    const target = normalizeWord(round.targetWord || "");
+    const allCandidates = Array.from(solutions.keys()).filter((word) => word !== target);
+    if (!allCandidates.length) return [];
+    const usedWords = new Set(Array.from(proposals.values(), (proposal) =>
+      normalizeWord(proposal?.normalized || proposal?.display || "")
+    ));
+    const fallbackProposals = [];
+    for (const bot of absentAnimators) {
+      const rand = mulberry32(hashString(`${round.id}-${bot.nick}-ocid-fallback`));
+      const words = pickWordsForBot(solutions, tuneBotProfile(bot), {
+        rand, gridSize: room?.config?.gridSize, roundType: OCID_TYPE,
+      }).filter((word) => word !== target && !usedWords.has(word));
+      const unusedCandidates = allCandidates.filter((word) => !usedWords.has(word));
+      const pool = words.length ? words : unusedCandidates.length ? unusedCandidates : allCandidates;
+      const word = pool[Math.floor(rand() * pool.length)];
+      usedWords.add(word);
+      // These are vote choices only: absent hosts do not become players or earn points.
+      fallbackProposals.push([bot.nick, {
+        normalized: word, display: word.toUpperCase(), animatorFallback: true,
+      }]);
+    }
+    return fallbackProposals;
   }
 
   playOcidProposal(room, bot, word) {

@@ -94,7 +94,14 @@ export function createAvatarInventoryRepository({ getDb, runWrite, loadCatalog, 
           const debit = await db.run("UPDATE gobblar_profiles SET balance = balance - ?, updatedAt = ? WHERE installId = ? AND balance >= ?", spent, now, String(userId), spent);
           if (debit.changes !== 1) throw new Error("avatar_wallet_unavailable");
           for (const item of missing) await db.run("INSERT INTO avatar_unlocks (user_id, item_key, unlocked_at) VALUES (?, ?, ?)", userId, avatarUnlockKey(item.family, item.id), now);
-          await db.run("INSERT INTO gobblar_ledger (installId, ts, delta, reason, meta) VALUES (?, ?, ?, ?, ?)", String(userId), now, -spent, "avatar_unlock", JSON.stringify({ items: missing.map(item => avatarUnlockKey(item.family, item.id)) }));
+          await db.run("INSERT INTO gobblar_ledger (installId, ts, delta, reason, meta) VALUES (?, ?, ?, ?, ?)", String(userId), now, -spent, "avatar_unlock", JSON.stringify({
+            items: missing.map(item => avatarUnlockKey(item.family, item.id)),
+            itemDetails: missing.map(item => ({
+              key: avatarUnlockKey(item.family, item.id),
+              label: item.part.label || (item.family === "base" ? (item.id === "homme" ? "Homme" : "Femme") : item.id),
+              amount: item.rule.price,
+            })),
+          }));
         }
         return { ok: true, spent, inventory: await read(db, userId) };
       }, { label: "avatar-unlock" }));

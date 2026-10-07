@@ -2,6 +2,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { promises as fs } from "fs";
 import { pruneTimestampedBackups } from "../persistence/backupRetention.js";
+import { buildWeeklyTop3Boards, createWeeklyTop3Maps, getRoundTop3Outcomes } from "./weeklyTop3.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -24,6 +25,8 @@ function buildWeekState(weekStartTs) {
     medals: new Map(),
     mostWordsInGame: new Map(),
     totalScore: new Map(),
+    top3: createWeeklyTop3Maps(),
+    top3TrackingStartTs: null,
     bestWord: new Map(),
     longestWord: new Map(),
     bestSpecial3Score: new Map(),
@@ -188,6 +191,8 @@ function serializeWeekState(week) {
     medals: serializeMap(week.medals),
     mostWordsInGame: serializeMap(week.mostWordsInGame),
     totalScore: serializeMap(week.totalScore),
+    top3: Object.fromEntries(Object.entries(week.top3).map(([type, entries]) => [type, serializeMap(entries)])),
+    top3TrackingStartTs: week.top3TrackingStartTs,
     bestWord: serializeMap(week.bestWord),
     longestWord: serializeMap(week.longestWord),
     bestSpecial3Score: serializeMap(week.bestSpecial3Score),
@@ -207,6 +212,8 @@ function reviveWeekState(parsed, fallbackWeekStartTs) {
     medals: reviveMap(parsed?.medals),
     mostWordsInGame: reviveMap(parsed?.mostWordsInGame),
     totalScore: reviveMap(parsed?.totalScore),
+    top3: createWeeklyTop3Maps(parsed?.top3),
+    top3TrackingStartTs: Number(parsed?.top3TrackingStartTs) || null,
     bestWord: reviveMap(parsed?.bestWord),
     longestWord: reviveMap(parsed?.longestWord),
     bestSpecial3Score: reviveMap(parsed?.bestSpecial3Score),
@@ -233,6 +240,7 @@ function isWeekEmpty(week) {
     week.medals.size === 0 &&
     week.mostWordsInGame.size === 0 &&
     week.totalScore.size === 0 &&
+    Object.values(week.top3).every((entries) => entries.size === 0) &&
     week.bestWord.size === 0 &&
     week.longestWord.size === 0 &&
     week.bestSpecial3Score.size === 0 &&
@@ -577,6 +585,26 @@ export function recordTotalScore(playerKey, nick, scoreToAdd, achievedAt = Date.
   scheduleSave();
 }
 
+export function recordRoundTop3({ roundType = "normal", results = [], achievedAt = Date.now() } = {}) {
+  ensureCurrentWeek();
+  if (!Object.hasOwn(state.top3, roundType)) return;
+  const board = state.top3[roundType];
+  const firstTrackedRound = !state.top3TrackingStartTs;
+  if (firstTrackedRound) state.top3TrackingStartTs = achievedAt;
+  const outcomes = getRoundTop3Outcomes(roundType, results);
+  for (const { playerKey, nick, isTop3 } of outcomes) {
+    const previous = board.get(playerKey);
+    board.set(playerKey, {
+      playerKey,
+      nick,
+      top3Count: (previous?.top3Count || 0) + (isTop3 ? 1 : 0),
+      roundsPlayed: (previous?.roundsPlayed || 0) + 1,
+      achievedAt,
+    });
+  }
+  if (firstTrackedRound || outcomes.length) scheduleSave();
+}
+
 export function recordMostGobbles(playerKey, nick, gobblesToAdd, achievedAt = Date.now()) {
   ensureCurrentWeek();
   if (!playerKey || !nick || !Number.isFinite(gobblesToAdd)) return;
@@ -728,11 +756,13 @@ export function getWeeklyStats(topN = TOP_N) {
     nextResetISO: new Date(nextResetTs).toISOString(),
     previousWeeklyVocabChampion,
     previousWeeklyVocabPodium,
+    top3TrackingStartTs: activeState.top3TrackingStartTs,
     topN,
     boards: {
       medals: sortEntries(Array.from(activeState.medals.values()), "total", false).slice(0, topN),
       mostWordsInGame: sortEntries(mostWords, "wordsCount", false).slice(0, topN),
       totalScore: sortEntries(Array.from(activeState.totalScore.values()), "totalScore", false).slice(0, topN),
+      top3: buildWeeklyTop3Boards(activeState.top3, topN),
       bestWord: sortEntries(Array.from(activeState.bestWord.values()), "pts", false).slice(0, topN),
       longestWord: sortEntries(Array.from(activeState.longestWord.values()), "len", false).slice(0, topN),
       bestSpecial3Score: sortEntries(

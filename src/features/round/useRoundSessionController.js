@@ -382,6 +382,7 @@ export default function useRoundSessionController() {
         },
         realtime: {
           finalResults: [],
+          lepersResult: null,
           roundId: newRoundId || null,
           roundStats: stats,
           serverEndsAt: Number.isFinite(effectiveEndsAt) ? effectiveEndsAt : null,
@@ -428,6 +429,7 @@ export default function useRoundSessionController() {
       setDailySpecialPlacements,
       setDailyWordSlots,
       setFinalResults,
+      setLepersResult,
       setFoundTargetThisRound,
       setFoundTargetWord,
       setGridSize,
@@ -480,6 +482,7 @@ export default function useRoundSessionController() {
       setNextStartAt(null);
       setBreakKind(null);
       setFinalResults([]);
+      setLepersResult(null);
       setProvisionalRanking([]);
       if (snapshot.roundPreparing) {
         refs.roundHandlersRef.current.onRoundPreparing?.(snapshot.roundPreparing);
@@ -635,6 +638,7 @@ export default function useRoundSessionController() {
       intermissionFeature.stop();
       setBreakKind(null);
       setFinalResults([]);
+      setLepersResult(null);
       setProvisionalRanking([]);
       setRoundPreparing(null);
       setUpcomingSpecial(null);

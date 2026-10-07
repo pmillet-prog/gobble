@@ -51,7 +51,7 @@ export async function openChalkboardRepository(filename) {
 
   return {
     load, save, enqueue,
-    nextExport: now => db.get("SELECT * FROM chalkboard_exports WHERE sent_at IS NULL AND next_attempt_at<=? ORDER BY created_at LIMIT 1", now),
+    nextExport: (now, { mailEnabled = true } = {}) => db.get("SELECT * FROM chalkboard_exports WHERE sent_at IS NULL AND next_attempt_at<=? AND (? OR png_path IS NULL) ORDER BY created_at LIMIT 1", now, mailEnabled ? 1 : 0),
     setPng: (id, filename) => db.run("UPDATE chalkboard_exports SET png_path=? WHERE id=?", filename, id),
     markSent: (id, now) => db.run("UPDATE chalkboard_exports SET sent_at=?, error=NULL WHERE id=?", now, id),
     markFailed: (id, now, attempts, error) => db.run("UPDATE chalkboard_exports SET attempts=?,next_attempt_at=?,error=? WHERE id=?", attempts, now + Math.min(3600000, 60000 * 2 ** Math.min(attempts - 1, 6)), error, id),

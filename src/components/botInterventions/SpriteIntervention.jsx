@@ -10,9 +10,9 @@ import {
   getInterventionTypingDelay,
   getNextPresenterHitReaction,
   isInterventionForActiveRound,
-  randomIntegerBetween,
   resolveInterventionAppearanceSfxKey,
   schedulePresenterHitExit,
+  schedulePresenterMouthAnimation,
 } from "./spriteInterventionAnimation.js";
 import { mountTypedText } from "./interventionText.js";
 import { observeInterventionPlacement, updateInterventionPlacement } from "./spriteInterventionPlacement.js";
@@ -38,6 +38,10 @@ function getCharacterFrameUrl(config, frame) {
     Math.max(0, Math.trunc(Number(frame) || 0))
   );
   return String(frameUrls[safeFrame] || frameUrls[0] || "");
+}
+
+function getPresentationKey(event) {
+  return String(event?.id || `${event?.roundId || ""}:${event?.text || ""}`);
 }
 
 export function preloadInterventionSprite(spriteUrl) {
@@ -73,7 +77,9 @@ function SpriteIntervention({
   manualKey = "",
   onManualActivation = null,
   onPresentationComplete = null,
+  onTextRevealed = null,
   onOpenWord = null,
+  protectTextUntilRevealed = null,
   queueWhileDisabled = false,
   phaseKey = "",
   roundId = null,
@@ -94,6 +100,8 @@ function SpriteIntervention({
   const completedPresentationKeysRef = React.useRef(new Set());
   const completedRoundIdRef = React.useRef(roundId);
   const onPresentationCompleteRef = React.useRef(onPresentationComplete);
+  const onTextRevealedRef = React.useRef(onTextRevealed);
+  const revealedTextKeysRef = React.useRef(new Set());
   const onOpenWordRef = React.useRef(onOpenWord);
   onOpenWordRef.current = onOpenWord;
   const wordsInteractive = typeof onOpenWord === "function";
@@ -104,6 +112,7 @@ function SpriteIntervention({
   enabledRef.current = enabled;
   roundIdRef.current = roundId;
   onPresentationCompleteRef.current = onPresentationComplete;
+  onTextRevealedRef.current = onTextRevealed;
   const manualMode = !!manualController && !!manualKey;
 
   const completePresentation = React.useCallback((event = null) => {
@@ -348,6 +357,7 @@ function SpriteIntervention({
     completePresentation();
     if (String(completedRoundIdRef.current || "") !== String(roundId || "")) {
       completedPresentationKeysRef.current.clear();
+      revealedTextKeysRef.current.clear();
       completedRoundIdRef.current = roundId;
     }
     pendingSequenceRef.current += 1;
@@ -407,6 +417,16 @@ function SpriteIntervention({
       }
       return;
     }
+    const unread = latestInterventionRef.current;
+    if (
+      queueWhileDisabled && unread?.text && protectTextUntilRevealed?.(unread) &&
+      !revealedTextKeysRef.current.has(getPresentationKey(unread)) &&
+      isInterventionForActiveRound(unread.roundId, roundIdRef.current)
+    ) {
+      // A visit to the vault/home may hide the answer mid-sentence. Resume it
+      // on return so the results presenter cannot stay locked for this round.
+      queuedInterventionRef.current = unread;
+    }
     completePresentation();
     pendingSequenceRef.current += 1;
     clearTimers();
@@ -425,6 +445,8 @@ function SpriteIntervention({
     manualKey,
     manualMode,
     presentIntervention,
+    protectTextUntilRevealed,
+    queueWhileDisabled,
     roundId,
     setSpriteFrame,
   ]);
@@ -448,7 +470,6 @@ function SpriteIntervention({
       (typeof window !== "undefined" &&
         window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches);
     const units = typedText.units;
-    let mouthTimerId = null;
     let typingTimerId = null;
     let finished = false;
 
@@ -461,10 +482,10 @@ function SpriteIntervention({
     const finishTyping = () => {
       if (finished) return;
       finished = true;
-      cancelTimer(mouthTimerId);
+      revealedTextKeysRef.current.add(getPresentationKey(intervention.sourceEvent));
       cancelTimer(typingTimerId);
-      setSpriteFrame(config.neutralFrame);
       setPhase("holding");
+      onTextRevealedRef.current?.(intervention.sourceEvent);
       schedule(() => {
         setPhase("exiting");
         schedule(() => {
@@ -478,25 +499,12 @@ function SpriteIntervention({
 
     const startMouthAnimation = () => {
       if (reducedMotion) return;
-      let step = 0;
-      const blinkStep =
-        Math.random() < config.blinkChance
-          ? randomIntegerBetween(5, 12)
-          : -1;
-      const tick = () => {
-        if (finished) return;
-        const frame =
-          step === blinkStep
-            ? config.blinkFrame
-            : config.mouthSequence[step % config.mouthSequence.length];
-        setSpriteFrame(frame);
-        step += 1;
-        mouthTimerId = schedule(
-          tick,
-          randomIntegerBetween(config.mouthDelayMinMs, config.mouthDelayMaxMs)
-        );
-      };
-      tick();
+      schedulePresenterMouthAnimation({
+        config,
+        schedule,
+        cancelTimer,
+        setFrame: setSpriteFrame,
+      });
     };
 
     const startTyping = () => {
@@ -563,6 +571,8 @@ function SpriteIntervention({
       event?.stopPropagation?.();
       if (
         !intervention ||
+        (!revealedTextKeysRef.current.has(getPresentationKey(intervention.sourceEvent)) &&
+          protectTextUntilRevealed?.(intervention.sourceEvent)) ||
         phase === "exiting" ||
         phase === "stars" ||
         phase === "zapped"
@@ -603,6 +613,7 @@ function SpriteIntervention({
       manualKey,
       manualMode,
       phase,
+      protectTextUntilRevealed,
       schedule,
       setSpriteFrame,
     ]

@@ -99,7 +99,6 @@ export default function MobileStandardScene({ state, refs, actions, content, con
     targetScoreMax,
     targetSummary,
     targetWaitDevActive,
-    targetWaitDevSessionState,
     tileColorPreset,
     tileMaterialClass,
     totalScoreLabel,
@@ -281,7 +280,7 @@ export default function MobileStandardScene({ state, refs, actions, content, con
       mobileViewportHeight > 0
         ? {
             position: "fixed",
-            top: 0,
+            top: "var(--mobile-viewport-offset-top, 0px)",
             left: 0,
             right: 0,
             width: "100%",
@@ -295,7 +294,7 @@ export default function MobileStandardScene({ state, refs, actions, content, con
           }
         : {
             position: "fixed",
-            top: 0,
+            top: "var(--mobile-viewport-offset-top, 0px)",
             left: 0,
             right: 0,
             width: "100%",
@@ -767,11 +766,6 @@ export default function MobileStandardScene({ state, refs, actions, content, con
         targetWaitDevActive={targetWaitDevActive}
         onTargetWaitDevGridHostChange={setTargetWaitDevGridHost}
         onTargetWaitDevSideHostChange={setTargetWaitDevSideHost}
-        clockOverrideSeconds={
-          targetWaitDevActive
-            ? targetWaitDevSessionState.remainingSeconds
-            : undefined
-        }
         tileColorPreset={tileColorPreset}
         tileMaterialClass={tileMaterialClass}
         tileRefs={tileRefs}

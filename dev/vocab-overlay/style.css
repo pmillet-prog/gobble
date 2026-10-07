@@ -1,0 +1,6 @@
+html, body, #root { min-height: 100%; margin: 0; }
+body { background: #dbe4e4; font-family: Arial, sans-serif; }
+.fixture-controls { max-width: 720px; margin: 40px auto; padding: 24px; color: #182b34; }
+.fixture-controls h1 { font-size: 24px; font-weight: 700; }
+.fixture-controls p { margin: 16px 0; }
+.fixture-controls button { margin: 8px 8px 8px 0; padding: 8px 16px; background: white; border: 1px solid #9ca3af; border-radius: 8px; }

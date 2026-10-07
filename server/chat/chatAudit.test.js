@@ -49,6 +49,13 @@ test("send/edit/delete archive exact versions and authenticated identity across 
   assert.equal(result.retentionDays, 30);
 });
 
+test("default history covers the last 24 hours", async t => {
+  const now = Date.now();
+  const { repository } = await setup(t, { now: () => now });
+  for (const hours of [0, 2, 23, 25]) await repository.append({ action: "sent", roomId, message: message({ id: String(hours) }), at: now - hours * 3600000 });
+  assert.deepEqual((await repository.list({ roomId })).entries.map(entry => entry.messageId), ["23", "2", "0"]);
+});
+
 test("failed disk writes do not publish, edit or delete; subsequent commands recover", async () => {
   let fail = true;
   const entries = [];

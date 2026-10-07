@@ -10,6 +10,7 @@ import { PRESENTER_HINT_KEYS } from "./createPresenterHintsController.js";
 import usePresenterHintsController from "./usePresenterHintsController.js";
 import { CHAT_BOT_VISIBILITY_OPTIONS } from "../../components/chat/chatBotVisibility.js";
 import { getResultsPresenter } from "./resultsPresenter.js";
+import { getResultsPresenterDisabledReason } from "./resultsPresenterAvailability.js";
 
 const presenterNames = Object.fromEntries(CHAT_BOT_VISIBILITY_OPTIONS.map(({ key, nick }) => [key, nick]));
 
@@ -71,6 +72,7 @@ export function HomeActionButton({
 export function PresenterButton({
   controller,
   disabled = false,
+  disabledReason = "",
   presenter,
   state,
   darkMode,
@@ -93,7 +95,7 @@ export function PresenterButton({
     : config.buttonUrl;
   const label = `${presenter.name || config.accessibleName}${
     disabled
-      ? " : indisponible pendant cette manche"
+      ? ` : ${disabledReason || "indisponible pendant cette manche"}`
       : stunned
       ? " : indisponible jusqu'à la prochaine phase"
       : hasHint
@@ -287,13 +289,14 @@ export function ResultsActionBar({
   );
   const desktop = layout === "desktop";
   const buttonSize = desktop ? "min(25cqi, 112px)" : "clamp(58px, 18vw, 68px)";
+  const presenterDisabledReason = getResultsPresenterDisabledReason(presenterState, PRESENTER_HINT_KEYS.pivot);
 
   React.useLayoutEffect(() => {
     if (desktop) return controller.setInterventionHost(hostRef?.current, "inside-top");
   }, [controller, desktop, hostRef]);
 
-  React.useEffect(() => {
-    controller.setRound(roundId);
+  React.useLayoutEffect(() => {
+    controller.setScope(roundId, "results");
   }, [controller, roundId]);
 
   return (
@@ -330,6 +333,8 @@ export function ResultsActionBar({
       <PresenterButton
         controller={controller}
         darkMode={darkMode}
+        disabled={!!presenterDisabledReason}
+        disabledReason={presenterDisabledReason}
         presenter={getResultsPresenter(presenterState.entries[PRESENTER_HINT_KEYS.pivot])}
         size={buttonSize}
         state={presenterState.entries[PRESENTER_HINT_KEYS.pivot]}

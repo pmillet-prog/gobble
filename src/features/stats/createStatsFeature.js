@@ -1,6 +1,8 @@
 import { createStateFeature } from "../../app/core/createStateFeature.js";
 import { shouldProcessAttachedLiveRoomEvent } from "../../utils/liveEventScope.js";
 
+export const VOCAB_STATUS_TIMEOUT_MS = 6500;
+
 export function createInitialStatsState() {
   return {
     activeIndex: 0,
@@ -17,6 +19,7 @@ export function createInitialStatsState() {
     vocabLoading: false,
     vocabOverlayOpen: false,
     vocabOverlayRequest: null,
+    vocabDecisionRoundId: null,
     vocabResultsReadyKey: null,
     vocabRoundDelta: null,
     vocabUpdatedAt: null,
@@ -66,7 +69,7 @@ export function createStatsFeature(
   }
 
   function startStatusRequest(
-    { eventName, kind, loadingField, onResponse },
+    { eventName, kind, loadingField, onResponse, timeoutMs = 0 },
     requestConfig = {}
   ) {
     if (!active) return Promise.resolve(null);
@@ -105,9 +108,11 @@ export function createStatsFeature(
       socket.off?.("connect_error", onConnectError);
     };
 
+    let timeoutId = null;
     const settle = (value) => {
       if (request.settled) return;
       request.settled = true;
+      if (timeoutId != null) clearTimeoutFn(timeoutId);
       detachConnectionListeners();
       if (pendingStatusRequests[kind] === request) {
         pendingStatusRequests[kind] = null;
@@ -116,6 +121,7 @@ export function createStatsFeature(
       resolveRequest(value);
     };
     request.settle = settle;
+    if (timeoutMs > 0) timeoutId = setTimeoutFn(() => settle(null), timeoutMs);
 
     const send = () => {
       if (request.settled) return;
@@ -167,6 +173,7 @@ export function createStatsFeature(
         eventName: "getVocabCount",
         kind: "vocab",
         loadingField: "vocabLoading",
+        timeoutMs: VOCAB_STATUS_TIMEOUT_MS,
         onResponse: (response) => {
           const count = Number.isFinite(response?.count) ? response.count : null;
           const weeklyCount = Number.isFinite(response?.weeklyCount)

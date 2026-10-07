@@ -1,4 +1,5 @@
 import { resolvePresenterKey } from "./presenterIdentity.js";
+import { getResultsPresenterDisabledReason } from "./resultsPresenterAvailability.js";
 
 export const PRESENTER_HINT_KEYS = Object.freeze({
   romejko: "romejko",
@@ -68,6 +69,8 @@ export function createPresenterHintsController({
     phaseKey: "",
     roundId: "",
     entries: Object.freeze(createEmptyEntries()),
+    resultsAvailability: null,
+    lepersAnswerRevealedRoundId: "",
   });
   const listeners = new Set();
   const requestListeners = new Map(
@@ -215,7 +218,11 @@ export function createPresenterHintsController({
       }
     },
     request(key, request = null) {
-      if (!snapshot.entries[key]?.hasHint || snapshot.entries[key]?.stunned) {
+      if (
+        !snapshot.entries[key]?.hasHint ||
+        snapshot.entries[key]?.stunned ||
+        getResultsPresenterDisabledReason(snapshot, key)
+      ) {
         return false;
       }
       commitEntry(key, { hasHint: true, pending: false, stunned: false });
@@ -224,6 +231,32 @@ export function createPresenterHintsController({
         for (const listener of listeners) listener({ nextKey: key });
       }
       for (const listener of requestListeners.get(key) || []) listener(request);
+      return true;
+    },
+    setResultsAvailability({ roundId = null, vocabReady = false, lepersAnswerExpected = false } = {}) {
+      const next = {
+        roundId: String(roundId || ""),
+        vocabReady: !!vocabReady,
+        lepersAnswerExpected: !!lepersAnswerExpected,
+      };
+      const previous = snapshot.resultsAvailability;
+      if (
+        previous?.roundId === next.roundId &&
+        previous?.vocabReady === next.vocabReady &&
+        previous?.lepersAnswerExpected === next.lepersAnswerExpected
+      ) return;
+      snapshot = Object.freeze({ ...snapshot, resultsAvailability: Object.freeze(next) });
+      emit();
+    },
+    markLepersAnswerRevealed(event) {
+      const answerRoundId = String(event?.roundId || "");
+      if (
+        event?.kind !== "answer" || !event?.text || !answerRoundId ||
+        answerRoundId !== snapshot.roundId ||
+        snapshot.lepersAnswerRevealedRoundId === answerRoundId
+      ) return false;
+      snapshot = Object.freeze({ ...snapshot, lepersAnswerRevealedRoundId: answerRoundId });
+      emit();
       return true;
     },
     setScope(roundId = null, phaseKey = null) {
@@ -236,8 +269,11 @@ export function createPresenterHintsController({
         return;
       }
       snapshot = Object.freeze({
+        ...snapshot,
         phaseKey: nextPhaseKey,
         roundId: nextRoundId,
+        lepersAnswerRevealedRoundId: nextRoundId === snapshot.roundId
+          ? snapshot.lepersAnswerRevealedRoundId : "",
         entries: Object.freeze(createScopedEntries(nextRoundId, nextPhaseKey)),
       });
       emit();
@@ -246,8 +282,10 @@ export function createPresenterHintsController({
       const nextRoundId = roundId == null ? "" : String(roundId);
       if (snapshot.roundId === nextRoundId) return;
       snapshot = Object.freeze({
+        ...snapshot,
         phaseKey: snapshot.phaseKey,
         roundId: nextRoundId,
+        lepersAnswerRevealedRoundId: "",
         entries: Object.freeze(createScopedEntries(nextRoundId, snapshot.phaseKey)),
       });
       emit();

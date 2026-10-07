@@ -7,6 +7,7 @@ import ContentExcludeButton from "../../features/admin/ContentExcludeButton.jsx"
 import { clampValue, formatNumber } from "../../utils/numbers.js";
 import AutoScaleInline from "../AutoScaleInline.jsx";
 import DefinitionDetails from "../DefinitionDetails.jsx";
+import LepersAnswerSummary from "./LepersAnswerSummary.jsx";
 import { DAILY_SPECIAL_MODE } from "../daily/dailyModes.js";
 import {
   FAKE_TWINS_TYPE,
@@ -31,6 +32,7 @@ export default function useDesktopResultsPresentation(runtime) {
     isSpecial3RoundForResults,
     isSpeedRound,
     isTargetRound,
+    lepersResult,
     nicknameRef,
     normalizeNickKey,
     openDefinition,
@@ -906,6 +908,7 @@ export default function useDesktopResultsPresentation(runtime) {
           </div>
         ) : null}
         {renderDockSpecial3LeaderSummary()}
+        <LepersAnswerSummary result={lepersResult} openDefinition={openDefinition} darkMode={darkMode} />
         {!isSpecial3RoundForResults &&
         !isSpeedRound &&
         specialRound?.type !== MASSIVE_BOGGLE_TYPE &&

@@ -332,7 +332,7 @@ export default function MobileSpecial3Scene({ state, refs, actions, content, con
       mobileViewportHeight > 0
         ? {
             position: "fixed",
-            top: 0,
+            top: "var(--mobile-viewport-offset-top, 0px)",
             left: 0,
             right: 0,
             width: "100%",
@@ -346,7 +346,7 @@ export default function MobileSpecial3Scene({ state, refs, actions, content, con
           }
         : {
             position: "fixed",
-            top: 0,
+            top: "var(--mobile-viewport-offset-top, 0px)",
             left: 0,
             right: 0,
             width: "100%",

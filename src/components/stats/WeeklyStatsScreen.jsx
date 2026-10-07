@@ -4,6 +4,8 @@ import { getVocabLevelMeta } from "../../vocabRanks.js";
 import FantasyPanelShell from "../home/FantasyPanelShell.jsx";
 import WeeklyNickLine from "./WeeklyNickLine.jsx";
 import AvatarThumbnail from "../../features/avatar/AvatarThumbnail.jsx";
+import WeeklyTop3Controls from "./WeeklyTop3Controls.jsx";
+import { formatWeeklyTop3Percentage } from "./weeklyTop3Model.js";
 import {
   formatMsShort,
   formatWeeklyDate,
@@ -43,16 +45,20 @@ export default function WeeklyStatsScreen({ runtime }) {
     shiftWeeklyBoard,
     shouldIgnoreSwipeClick,
     statsTab,
+    top3RoundType,
+    setTop3RoundType,
     weeklyBoardsMeta,
     weeklyEntriesByBoard,
     weeklyStatsError,
     weeklyStatsLoading,
     weeklySwipeBlockRef,
     weeklySwipeTrack,
+    weeklyTop3TrackingStartTs,
     weeklyVocabLookup,
     weeklyVocabSelfCount,
     weeklyVocabSelfRank,
     weeklyWeekNumber,
+    weeklyWeekStartTs,
   } = runtime;
 
   function renderWeeklyRow(
@@ -64,7 +70,7 @@ export default function WeeklyStatsScreen({ runtime }) {
     if (!entry) return null;
     const rank = idx + 1;
     const isTotalScoreBoard = boardKey === "totalScore";
-    const achieved = entry.achievedAt
+    const achieved = boardKey !== "top3" && entry.achievedAt
       ? isTotalScoreBoard
         ? formatWeeklyDayTime(entry.achievedAt)
         : formatWeeklyDate(entry.achievedAt)
@@ -87,6 +93,8 @@ export default function WeeklyStatsScreen({ runtime }) {
       valueParts.push(`${formatNumber(entry.wordsCount) ?? 0} mots`);
     } else if (boardKey === "totalScore") {
       valueParts.push(`${formatNumber(entry.totalScore) ?? 0} pts`);
+    } else if (boardKey === "top3") {
+      valueParts.push(formatWeeklyTop3Percentage(entry.percentage));
     } else if (boardKey === "bestWord") {
       valueParts.push(`${formatNumber(entry.pts) ?? 0} pts`);
     } else if (boardKey === "longestWord") {
@@ -223,6 +231,14 @@ export default function WeeklyStatsScreen({ runtime }) {
         </div>
         <div className="shrink-0 text-right text-sm font-bold tabular-nums whitespace-nowrap">
           {valueParts.join(" ")}
+          {boardKey === "top3" ? (
+            <div
+              className="text-[10px] font-normal opacity-75"
+              title={`${formatNumber(entry.top3Count)} top 3 sur ${formatNumber(entry.roundsPlayed)} manches avec un score supérieur à 0`}
+            >
+              {formatNumber(entry.top3Count)} / {formatNumber(entry.roundsPlayed)} manches
+            </div>
+          ) : null}
         </div>
       </div>
     );
@@ -488,8 +504,18 @@ export default function WeeklyStatsScreen({ runtime }) {
                             <div className="text-xs text-red-400">Erreur ({weeklyStatsError})</div>
                           ) : null}
                         </div>
+                        {board.key === "top3" && shouldRenderRows ? (
+                          <WeeklyTop3Controls
+                            darkMode={darkMode}
+                            roundType={top3RoundType}
+                            onRoundTypeChange={setTop3RoundType}
+                            trackingStartTs={weeklyTop3TrackingStartTs}
+                            weekStartTs={weeklyWeekStartTs}
+                          />
+                        ) : null}
                         {shouldRenderRows ? (
                           <div
+                            key={board.key === "top3" ? top3RoundType : board.key}
                             className="flex-1 min-h-0 overflow-y-auto overscroll-contain custom-scrollbar custom-scrollbar-gray pr-1"
                             data-stats-scroll="true"
                             style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-y" }}
@@ -503,6 +529,8 @@ export default function WeeklyStatsScreen({ runtime }) {
                                   ? "Chargement..."
                                   : weeklyStatsError && idx === safeWeeklyIndex
                                   ? "Impossible de recuperer les stats"
+                                  : board.key === "top3"
+                                  ? "Pas encore de manches avec un score supérieur à 0 pour ce type."
                                   : "Pas encore de stats cette semaine."}
                               </div>
                             )}

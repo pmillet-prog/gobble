@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Gobble — Essais de questions rares</title>
+  <style>
+    :root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, sans-serif; background: #101226; color: #f4f3ff; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-width: 300px; }
+    button, select { font: inherit; }
+    button { cursor: pointer; }
+    button:focus-visible, summary:focus-visible, a:focus-visible { outline: 3px solid #ffc977; outline-offset: 4px; }
+    button:disabled { cursor: default; opacity: .45; }
+    main { width: min(980px, 100%); margin: 0 auto; padding: 40px 24px 60px; }
+    .eyebrow { color: #b3a8f3; font-size: .75rem; font-weight: 750; text-transform: uppercase; letter-spacing: .15em; margin: 0 0 10px; }
+    h1 { font-size: clamp(1.8rem, 4vw, 2.7rem); line-height: 1.15; letter-spacing: -.04em; margin: 0 0 14px; }
+    .intro, .metadata, .help { color: #abaec8; line-height: 1.5; }
+    .intro { margin: 0; }
+    .metadata { font-size: .8rem; margin: 6px 0 0; overflow-wrap: anywhere; }
+    .controls { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; margin: 28px 0 20px; }
+    .group { display: flex; padding: 5px; gap: 5px; border: 1px solid #34374f; border-radius: 13px; background: #191c34; }
+    .group button { color: #b6bad4; border: 0; border-radius: 9px; background: transparent; padding: 10px 15px; font-weight: 650; }
+    .group button[aria-pressed="true"] { color: #fff; background: #6552bf; }
+    .mode button[aria-pressed="true"] { background: #343853; }
+    .panel { background: #191c34; border: 1px solid #34374f; border-radius: 20px; padding: clamp(20px, 4vw, 36px); }
+    .question-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; color: #b9bdd6; font-size: .85rem; }
+    .tag { display: inline-block; padding: 5px 9px; border-radius: 7px; background: #272340; color: #cabdfb; font-size: .75rem; }
+    progress { display: block; width: 100%; height: 4px; margin-top: 18px; accent-color: #a893ff; border: 0; background: #30334c; }
+    progress::-webkit-progress-bar { background: #30334c; border-radius: 4px; }
+    progress::-webkit-progress-value { background: #a893ff; border-radius: 4px; }
+    progress::-moz-progress-bar { background: #a893ff; border-radius: 4px; }
+    h2 { font-size: clamp(1.2rem, 3vw, 1.65rem); line-height: 1.5; font-weight: 600; margin: 26px 0; overflow-wrap: anywhere; }
+    .answers { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .answer { display: flex; gap: 13px; align-items: center; padding: 18px; text-align: left; border: 1px solid #494b68; background: #222640; color: #f4f3ff; border-radius: 12px; min-height: 72px; overflow-wrap: anywhere; }
+    .answer:not(:disabled):hover { background: #313454; border-color: #a893ff; }
+    .answer:disabled { opacity: 1; }
+    .answer.correct { border-color: #74d5a3; background: #1b443d; }
+    .answer.incorrect { border-color: #f198a6; background: #532b3c; }
+    .answer .letter { display: grid; place-items: center; flex: 0 0 25px; width: 25px; height: 25px; border: 1px solid #696685; border-radius: 6px; color: #b9aedf; font-size: .8rem; }
+    .answer.correct .letter, .answer.incorrect .letter { border-color: currentColor; color: inherit; }
+    .feedback { min-height: 65px; padding-top: 20px; color: #bdc1db; line-height: 1.5; }
+    .feedback strong { color: #f4f3ff; }
+    .feedback .success { color: #8ee4b7; }
+    .feedback .failure { color: #ffafba; }
+    .source { display: block; font-size: .8rem; margin-top: 4px; }
+    a { color: #b8a6ff; text-underline-offset: 3px; }
+    .navigation { display: flex; justify-content: space-between; gap: 12px; margin-top: 14px; }
+    .navigation button { border: 1px solid #4b4e69; border-radius: 10px; background: transparent; color: #c9cde3; padding: 12px 18px; }
+    .navigation .primary { background: #ddceff; color: #27203e; border-color: #ddceff; font-weight: 700; }
+    .help { font-size: .8rem; text-align: center; margin: 16px 0; }
+    .list { display: grid; gap: 16px; }
+    .list-card { background: #191c34; border: 1px solid #34374f; border-radius: 15px; padding: 24px; }
+    .list-card h2 { font-size: 1.05rem; margin: 12px 0 16px; }
+    .list-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 0; margin: 0 0 18px; list-style: none; gap: 8px; }
+    .list-options li { background: #242740; padding: 10px 13px; border-radius: 7px; overflow-wrap: anywhere; }
+    .list-options span { color: #a49acb; padding-right: 8px; }
+    details { color: #b9bdd6; font-size: .9rem; line-height: 1.6; }
+    summary { cursor: pointer; color: #cabbf5; }
+    details p { margin: 10px 0 0; }
+    footer { font-size: .75rem; color: #949ab7; line-height: 1.6; margin-top: 28px; }
+    [hidden] { display: none !important; }
+    @media (max-width: 560px) {
+      main { padding: 28px 16px 40px; }
+      .controls { gap: 12px; }
+      .group { width: 100%; }
+      .group button { flex: 1; padding: 10px 8px; }
+      .answers, .list-options { grid-template-columns: 1fr; }
+      .answer { min-height: 62px; padding: 14px; }
+      .question-top { align-items: flex-start; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <p class="eyebrow">Gobble · Laboratoire de questions</p>
+      <h1>Une définition.<br>Quatre possibilités.</h1>
+      <p class="intro">Deux formules, les mêmes définitions. Tirage automatique reproductible, sans sélection manuelle.</p>
+      <p id="metadata" class="metadata"></p>
+    </header>
+
+    <div class="controls">
+      <div class="group" role="group" aria-label="Formule">
+        <button type="button" data-formula="words" aria-pressed="true">4 mots rares</button>
+        <button type="button" data-formula="spellings" aria-pressed="false">4 graphies proches</button>
+      </div>
+      <div class="group mode" role="group" aria-label="Affichage">
+        <button type="button" data-mode="quiz" aria-pressed="true">Essayer</button>
+        <button type="button" data-mode="list" aria-pressed="false">Tout relire</button>
+      </div>
+    </div>
+
+    <section id="quiz" aria-label="Essai de rapidité">
+      <div class="panel">
+        <div class="question-top">
+          <span id="position"></span>
+          <span id="formula-label" class="tag"></span>
+        </div>
+        <progress id="progress" aria-label="Progression"></progress>
+        <h2 id="definition"></h2>
+        <div id="answers" class="answers" role="group" aria-labelledby="definition"></div>
+        <div id="feedback" class="feedback" aria-live="polite" aria-atomic="true"></div>
+        <nav class="navigation" aria-label="Navigation dans les questions">
+          <button id="previous" type="button">← Précédente</button>
+          <button id="next" class="primary" type="button">Passer →</button>
+        </nav>
+      </div>
+      <p class="help">Clavier : 1 à 4 pour répondre · Entrée pour continuer après la réponse.<br>Temps indicatif, sans limite ni barème de points.</p>
+    </section>
+
+    <section id="list" class="list" aria-label="Toutes les questions" hidden></section>
+    <footer>
+      Échantillon de comparaison éditoriale. Les réponses sont révélées à la demande.
+      La rareté est estimée par les sources ; les mots absents du corpus restent des candidats à évaluer.
+      Essayer une seconde fois la même définition peut faciliter la réponse.<br>
+      Définitions : Wiktionnaire, sources individuelles accessibles après réponse, CC BY-SA / GFDL.
+      Fréquences : <a href="https://openlexicon.fr/datasets-info/Lexique383/README-Lexique.html" target="_blank" rel="noopener noreferrer">Lexique 3.83, Boris New et Christophe Pallier</a>, CC BY-SA 4.0.
+      <a href="report.json">Méthode et bilan du tirage</a>.
+    </footer>
+  </main>
+
+  <script>
+    "use strict";
+    const data = __QUIZ_DATA__;
+    const questions = data.questions;
+    const byId = (id) => document.getElementById(id);
+    const labels = { words: "Trouver le bon mot", spellings: "Trouver la bonne orthographe" };
+    const state = { formula: "words", mode: "quiz", index: 0, choice: null, startedAt: 0 };
+
+    function element(tag, className, text) {
+      const node = document.createElement(tag);
+      if (className) node.className = className;
+      if (text !== undefined) node.textContent = text;
+      return node;
+    }
+
+    function sourceLink(question) {
+      try {
+        const url = new URL(question.sourceUrl);
+        if (url.protocol !== "https:" && url.protocol !== "http:") return null;
+        const link = element("a", "source", "Consulter la source");
+        link.href = url.href;
+        link.target = "_blank";
+        link.rel = "noopener noreferrer";
+        return link;
+      } catch {
+        return null;
+      }
+    }
+
+    function showQuestion() {
+      const question = questions[state.index];
+      state.choice = null;
+      byId("position").textContent = `Question ${state.index + 1} / ${questions.length}`;
+      byId("formula-label").textContent = labels[state.formula];
+      byId("progress").max = questions.length;
+      byId("progress").value = state.index + 1;
+      byId("definition").textContent = question.definition;
+      byId("feedback").replaceChildren();
+      byId("previous").disabled = state.index === 0;
+      byId("next").textContent = state.index === questions.length - 1 ? "Recommencer ↺" : "Passer →";
+      byId("answers").replaceChildren(...question[state.formula].map((word, index) => {
+        const button = element("button", "answer");
+        button.type = "button";
+        button.append(element("span", "letter", String(index + 1)), element("span", "", word));
+        button.addEventListener("click", () => choose(index));
+        return button;
+      }));
+      state.startedAt = performance.now();
+    }
+
+    function choose(index) {
+      if (state.mode !== "quiz" || state.choice !== null) return;
+      const question = questions[state.index];
+      const choices = question[state.formula];
+      if (index < 0 || index >= choices.length) return;
+      state.choice = index;
+      const correct = choices[index] === question.answer;
+      const seconds = ((performance.now() - state.startedAt) / 1000).toLocaleString("fr-FR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+      Array.from(byId("answers").children).forEach((button, answerIndex) => {
+        button.disabled = true;
+        if (choices[answerIndex] === question.answer) button.classList.add("correct");
+        else if (answerIndex === index) button.classList.add("incorrect");
+      });
+      const result = element("strong", correct ? "success" : "failure", correct ? "Bonne réponse." : `Réponse : ${question.answer}.`);
+      byId("feedback").replaceChildren(result, document.createTextNode(` ${seconds} s`));
+      const link = sourceLink(question);
+      if (link) byId("feedback").append(link);
+      byId("next").textContent = state.index === questions.length - 1 ? "Recommencer ↺" : "Suivante →";
+    }
+
+    function showList() {
+      byId("list").replaceChildren(...questions.map((question, index) => {
+        const card = element("article", "list-card");
+        card.append(element("span", "tag", `Question ${index + 1}`), element("h2", "", question.definition));
+        const options = element("ol", "list-options");
+        question[state.formula].forEach((word, choiceIndex) => {
+          const option = element("li");
+          option.append(element("span", "", `${choiceIndex + 1}.`), document.createTextNode(word));
+          options.append(option);
+        });
+        const details = element("details");
+        details.append(element("summary", "", "Voir la réponse et la source"));
+        const answer = element("p");
+        answer.append(element("strong", "", question.answer));
+        if (question.partOfSpeech) answer.append(document.createTextNode(` · ${question.partOfSpeech}`));
+        details.append(answer);
+        const link = sourceLink(question);
+        if (link) details.append(link);
+        card.append(options, details);
+        return card;
+      }));
+    }
+
+    function refresh() {
+      document.querySelectorAll("[data-formula]").forEach((button) => {
+        button.setAttribute("aria-pressed", String(button.dataset.formula === state.formula));
+      });
+      document.querySelectorAll("[data-mode]").forEach((button) => {
+        button.setAttribute("aria-pressed", String(button.dataset.mode === state.mode));
+      });
+      byId("quiz").hidden = state.mode !== "quiz";
+      byId("list").hidden = state.mode !== "list";
+      if (state.mode === "quiz") showQuestion();
+      else showList();
+    }
+
+    document.querySelectorAll("[data-formula]").forEach((button) => {
+      button.addEventListener("click", () => {
+        state.formula = button.dataset.formula;
+        state.choice = null;
+        refresh();
+      });
+    });
+    document.querySelectorAll("[data-mode]").forEach((button) => {
+      button.addEventListener("click", () => {
+        state.mode = button.dataset.mode;
+        refresh();
+      });
+    });
+    byId("previous").addEventListener("click", () => {
+      if (state.index > 0) state.index -= 1;
+      showQuestion();
+    });
+    byId("next").addEventListener("click", () => {
+      state.index = (state.index + 1) % questions.length;
+      showQuestion();
+    });
+    document.addEventListener("keydown", (event) => {
+      if (state.mode !== "quiz" || event.altKey || event.ctrlKey || event.metaKey || event.repeat) return;
+      if (/^[1-4]$/.test(event.key)) {
+        event.preventDefault();
+        choose(Number(event.key) - 1);
+      } else if (event.key === "Enter" && state.choice !== null && !event.target.closest("a, summary, [data-formula], [data-mode], #previous")) {
+        event.preventDefault();
+        byId("next").click();
+      }
+    });
+
+    const metadata = [`Graine : ${data.seed}`];
+    const report = data.report || {};
+    if (Number.isFinite(report.generatedCandidates)) metadata.push(`${report.generatedCandidates.toLocaleString("fr-FR")} candidats générés`);
+    if (Number.isFinite(report.requestedCandidates)) metadata.push(`objectif : ${report.requestedCandidates.toLocaleString("fr-FR")}`);
+    metadata.push(`${Number.isFinite(report.sampleSize) ? report.sampleSize : questions.length} définitions par formule`);
+    byId("metadata").textContent = metadata.join(" · ");
+    if (questions.length) refresh();
+    else {
+      byId("definition").textContent = "Cet échantillon ne contient aucune question.";
+      byId("previous").disabled = true;
+      byId("next").disabled = true;
+      document.querySelectorAll(".controls button").forEach((button) => { button.disabled = true; });
+    }
+  </script>
+</body>
+</html>

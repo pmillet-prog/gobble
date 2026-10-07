@@ -5,6 +5,62 @@ import {
   PRESENTER_HINT_KEYS,
   createPresenterHintsController,
 } from "./createPresenterHintsController.js";
+import { getResultsPresenterDisabledReason } from "./resultsPresenterAvailability.js";
+
+test("results presenters reject every activation until vocabulary has settled", () => {
+  const controller = createPresenterHintsController({ storage: null });
+  const activations = [];
+  const interruptions = [];
+  controller.setScope("round-8", "results");
+  for (const key of Object.values(PRESENTER_HINT_KEYS)) {
+    controller.markAvailable(key, "round-8");
+    controller.subscribeRequests(key, () => activations.push(key));
+    controller.subscribeInterruptions(key, () => interruptions.push(key));
+    assert.equal(controller.request(key), false, `${key} is locked before any vocabulary decision`);
+  }
+  assert.deepEqual(activations, []);
+  assert.deepEqual(interruptions, []);
+  assert.equal(controller.getSnapshot().entries.pivot.pending, true);
+  controller.setResultsAvailability({ roundId: "round-8", vocabReady: false });
+  assert.equal(controller.request("pivot"), false);
+  assert.match(getResultsPresenterDisabledReason(controller.getSnapshot(), "pivot"), /vocabulaire/);
+  controller.setResultsAvailability({ roundId: "round-8", vocabReady: true });
+  assert.equal(controller.request("pivot"), true);
+  assert.equal(getResultsPresenterDisabledReason(controller.getSnapshot(), "pivot"), "");
+  controller.setScope("round-9", "results");
+  controller.markAvailable("pivot", "round-9");
+  assert.equal(controller.request("pivot"), false, "previous round readiness cannot unlock the next round");
+});
+
+test("QPUC lets Julien answer after vocabulary and unlocks the other presenter only on answer reveal", () => {
+  const controller = createPresenterHintsController({ storage: null });
+  controller.setScope("round-8", "results");
+  controller.markAvailable("lepers", "round-8");
+  controller.markAvailable("pivot", "round-8");
+  controller.setResultsAvailability({ roundId: "round-8", vocabReady: true, lepersAnswerExpected: true });
+  assert.equal(controller.request("lepers"), true);
+  assert.equal(controller.request("pivot"), false);
+  assert.match(getResultsPresenterDisabledReason(controller.getSnapshot(), "pivot"), /Julien/);
+  for (const event of [
+    { kind: "challenge", roundId: "round-8", text: "Question" },
+    { kind: "solved", roundId: "round-8", text: "Bravo" },
+    { kind: "answer", roundId: "round-7", text: "Ancienne réponse" },
+    { roundId: "round-8", text: "Bilan du tournoi" },
+  ]) {
+    assert.equal(controller.markLepersAnswerRevealed(event), false);
+    assert.equal(controller.request("pivot"), false);
+  }
+  const answer = { kind: "answer", roundId: "round-8", text: "Il fallait trouver CHIEN." };
+  assert.equal(controller.markLepersAnswerRevealed(answer), true);
+  assert.equal(controller.request("pivot"), true);
+  assert.equal(controller.markLepersAnswerRevealed(answer), false);
+  controller.setScope("round-8", "results");
+  assert.equal(controller.request("pivot"), true, "re-registering the results surface preserves the answer");
+  controller.setRound("round-9");
+  controller.setResultsAvailability({ roundId: "round-9", vocabReady: true, lepersAnswerExpected: true });
+  controller.markAvailable("pivot", "round-9");
+  assert.equal(controller.request("pivot"), false);
+});
 
 test("presenter hints stay replayable after their unread dot is cleared", () => {
   const controller = createPresenterHintsController();

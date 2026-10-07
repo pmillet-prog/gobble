@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mots rares — aperçu local</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" />
+    <style>
+      body { margin: 0; background: #f5efe6; color: #263044; font-family: system-ui, sans-serif; }
+      .fixture { padding: 12px; margin: auto; max-width: 1050px; font-family: system-ui, sans-serif; }
+      .fixture > h1 { font-size: 18px; font-weight: 800; margin: 0 0 4px; }
+      .fixture > p { margin: 0 0 10px; font-size: 12px; }
+      .fixture-controls { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+      .fixture-controls button, .fixture-controls select { padding: 5px 8px; border: 1px solid #bac0cd; border-radius: 5px; background: white; font: inherit; font-size: 12px; }
+      .fixture-controls label { display: flex; align-items: center; gap: 4px; font-size: 12px; }
+      .fixture-controls button { cursor: pointer; }
+      .fixture-audio { margin-bottom: 12px; padding: 8px; border: 1px solid #b7c0cd; border-radius: 8px; font-size: 12px; }
+      .fixture-audio .fixture-controls { margin-bottom: 4px; }
+      .fixture-audio output { font-variant-numeric: tabular-nums; }
+      .fixture-stage { display: flex; gap: 12px; margin: auto; max-width: 100%; align-items: stretch; }
+      .fixture-stage--compact { flex-direction: column; gap: 8px; }
+      .fixture-grid { flex: none; width: 100%; aspect-ratio: 1; min-width: 0; position: relative; }
+      .fixture-side { flex: 1; min-width: 0; }
+      .fixture-board { min-width: 0; }
+      .fixture-stage--desktop .fixture-board { flex: none; width: 480px; max-width: calc(100% - 250px); }
+      .fixture-stage--compact .fixture-board { width: 100%; }
+      .fixture-stage--compact .fixture-side { height: 112px; flex: none; }
+      .fixture--phone { padding: 0; max-width: none; }
+      .fixture--phone > :not(.fixture-stage):not([role="dialog"]) { display: none; }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="./main.jsx"></script>
+  </body>
+</html>

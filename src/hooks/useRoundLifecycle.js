@@ -7,8 +7,10 @@ import { shouldProcessLiveRoomEvent } from "../utils/liveEventScope.js";
 import { createRoundBreakHandler } from "../features/round/createRoundBreakHandler.js";
 import { resolveVocabRoundProgress } from "../features/stats/vocabRoundProgress.js";
 import { resolveTournamentFinaleGate } from "../features/celebration/tournamentFinaleGate.js";
+import { useFeatureRuntime } from "../app/react/useFeatureRuntime.js";
 
 export default function useRoundLifecycle(runtime) {
+  const targetQuiz = useFeatureRuntime("targetQuiz");
   const finaleGateRef = React.useRef(null);
   const {
     appViewRef,
@@ -68,6 +70,7 @@ export default function useRoundLifecycle(runtime) {
     setBreakKind,
     setCurrentRoomId,
     setFinalResults,
+    setLepersResult,
     setInputLocked,
     setPhase,
     setProvisionalRanking,
@@ -88,6 +91,7 @@ export default function useRoundLifecycle(runtime) {
     setTournamentSummary,
     setTournamentSummaryAt,
     setTournamentTotals,
+    setVocabDecisionRoundId,
     setVocabResultsReadyKey,
     setVocabRoundDelta,
     setVocabWeeklyRoundDelta,
@@ -118,6 +122,7 @@ export default function useRoundLifecycle(runtime) {
       tournamentSummary: summary = null,
       tournamentSummaryAt: summaryAt = null,
       targetSummary: targetSummaryPayload = null,
+      lepersResult = null,
       teamDuel: teamDuelPayload = null,
       training = false,
     }) => {
@@ -222,6 +227,7 @@ export default function useRoundLifecycle(runtime) {
       setTournamentSummary(summary || null);
       setTournamentSummaryAt(summaryAt || null);
       setTargetSummary(targetSummaryPayload || null);
+      setLepersResult(lepersResult ? { ...lepersResult, roundId: endedId || null } : null);
       setResultsRankingMode("round");
       const roundTeamDelta = { red: 0, blue: 0 };
       if (teamDuelPayload && typeof teamDuelPayload === "object" && Array.isArray(results)) {
@@ -299,13 +305,19 @@ export default function useRoundLifecycle(runtime) {
         }
       }
       const isTargetResults = !!targetSummaryPayload;
+      const vocabDecisionRoundId = String(endedId || "results-without-round-id");
+      setVocabDecisionRoundId(null);
       if (isTrainingResults || isTargetResults) {
+        setVocabDecisionRoundId(vocabDecisionRoundId);
         vocabResultsPendingRef.current = null;
         setVocabRoundDelta(null);
         setVocabWeeklyRoundDelta(null);
         setVocabResultsReadyKey(null);
         vocabOverlayRankSnapshotRef.current = null;
       } else {
+        const skipVocabOverlay = skipVocabOverlayOnceRef.current;
+        skipVocabOverlayOnceRef.current = false;
+        if (skipVocabOverlay) setVocabDecisionRoundId(vocabDecisionRoundId);
         const stableVocabKey =
           endedId ||
           summaryAt ||
@@ -343,6 +355,7 @@ export default function useRoundLifecycle(runtime) {
           if (!progress.available || !Number.isFinite(progress.count)) {
             setVocabRoundDelta(null);
             setVocabWeeklyRoundDelta(null);
+            setVocabDecisionRoundId(vocabDecisionRoundId);
             return;
           }
           setVocabRoundDelta(progress.delta);
@@ -379,9 +392,9 @@ export default function useRoundLifecycle(runtime) {
             rankEnd,
             race: raceSnapshot,
           };
-          if (skipVocabOverlayOnceRef.current) {
-            skipVocabOverlayOnceRef.current = false;
+          if (skipVocabOverlay) {
             setVocabResultsReadyKey(null);
+            setVocabDecisionRoundId(vocabDecisionRoundId);
             return;
           }
           setVocabResultsReadyKey(vocabResultsKey);
@@ -438,6 +451,8 @@ export default function useRoundLifecycle(runtime) {
         (!gameplaySessionId || gameplaySessionIdRef?.current === gameplaySessionId);
 
       const roundKey = payload?.roundId ?? roundIdRef.current ?? null;
+      targetQuiz.reconcile(payload);
+      const quizRecap = targetQuiz.hasPlayed(roundKey) && !currentRoundTrainingRef.current && !isDailyPlayRef.current;
       if (outroInFlightRef.current) {
         if (payload) pendingRoundEndRef.current = payload;
         return;
@@ -497,13 +512,13 @@ export default function useRoundLifecycle(runtime) {
 
       const prevOpacity = gridEl?.style?.opacity;
       const prevTransition = gridEl?.style?.transition;
-      if (gridEl) {
+      if (gridEl && !quizRecap) {
         gridEl.style.transition = "opacity 40ms linear";
         gridEl.style.opacity = "0";
       }
 
       let stopAuxNow = null;
-      if (!isSfxMuted) {
+      if (!isSfxMuted && !quizRecap) {
         const syncToken = ++blackHoleSyncTokenRef.current;
         const stopAux = (fadeMs = 260) => {
           if (blackHoleSyncTokenRef.current !== syncToken) return;
@@ -621,7 +636,9 @@ export default function useRoundLifecycle(runtime) {
       let fxOverlay = null;
       let fxFade = null;
       try {
-        if (holeX != null && holeY != null && tileEls.length > 0) {
+        if (quizRecap) {
+          await targetQuiz.showRecap(roundKey, payload);
+        } else if (holeX != null && holeY != null && tileEls.length > 0) {
           const fx = await playBlackHoleOutro3D({
             tileEls,
             holeX,
@@ -750,7 +767,7 @@ export default function useRoundLifecycle(runtime) {
 
       outroInFlightRef.current = false;
     },
-    [clearSelection]
+    [clearSelection, targetQuiz]
   );
 
   useEffect(() => {

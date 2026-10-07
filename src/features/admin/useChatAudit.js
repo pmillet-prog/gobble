@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { chatAuditError, requestChatAudit } from "./chatAuditClient.js";
 
-export const chatAuditLastHour = () => {
+export const chatAuditLast24Hours = () => {
   const to = Date.now();
-  return { from: to - 3600000, to, query: "" };
+  return { from: to - 24 * 60 * 60 * 1000, to, query: "" };
 };
 
 export function useChatAudit(connection) {
   const [state, setState] = useState({ entries: [], busy: false, error: "", nextBefore: null, retentionDays: 30 });
-  const filters = useRef(chatAuditLastHour());
+  const filters = useRef(chatAuditLast24Hours());
   const cancel = useRef(null);
   const load = useCallback((nextFilters, before = null) => {
     cancel.current?.();

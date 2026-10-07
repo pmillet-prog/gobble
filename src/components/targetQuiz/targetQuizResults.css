@@ -1,0 +1,20 @@
+.target-quiz-bonus { display: inline-flex; align-items: center; gap: 3px; flex: none; white-space: nowrap; font-variant-numeric: tabular-nums; color: #167448; }
+.dark .target-quiz-bonus { color: #8ce3b5; }
+.target-quiz-bonus--negative { color: #b02a46; }
+.dark .target-quiz-bonus--negative { color: #ff9fb1; }
+.target-quiz-bonus img { width: 24px; height: 24px; object-fit: contain; }
+.target-quiz-result-detail { display: inline-flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: 4px 9px; }
+.target-quiz-recap { position: fixed; inset: 0; z-index: 19000; display: grid; place-items: center; padding: 16px; background: #050917ed; color: #f6f3ec; animation: target-quiz-recap-in 300ms ease-out both; }
+.target-quiz-recap__card { box-sizing: border-box; width: min(520px, 100%); max-height: 100%; overflow: auto; padding: clamp(18px, 4vh, 40px) 22px; text-align: center; border: 1px solid #6889b7; border-radius: 24px; background: radial-gradient(ellipse at 50% 0%, #353159, #0d182d 70%); box-shadow: 0 0 90px #4a52983b; }
+.target-quiz-recap__logo { width: clamp(60px, 16vh, 118px); height: auto; margin: 0 auto 14px; }
+.target-quiz-recap h2 { margin: 0; color: #e9c27a; font-size: 17px; font-weight: 800; letter-spacing: .04em; }
+.target-quiz-recap__score { margin-top: 8px; color: #a6f4cc; font-size: clamp(58px, 13vw, 90px); font-weight: 900; font-variant-numeric: tabular-nums; line-height: 1.15; }
+.target-quiz-recap__score--negative { color: #ffadbe; }
+.target-quiz-recap__unit { color: #c6d1e2; font-size: 13px; }
+.target-quiz-recap__stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 26px 0 0; }
+.target-quiz-recap__stats div { padding: 12px 4px; background: #ffffff07; border: 1px solid #ffffff15; border-radius: 10px; }
+.target-quiz-recap__stats dt { font-size: 12px; color: #c7d2e7; }
+.target-quiz-recap__stats dd { margin: 3px 0 0; font-size: 30px; line-height: 1.1; font-weight: 800; }
+.target-quiz-recap__stats small { font-size: 16px; }
+@keyframes target-quiz-recap-in { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .target-quiz-recap { animation: none; } }

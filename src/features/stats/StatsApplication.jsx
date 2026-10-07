@@ -13,6 +13,8 @@ import { isKeyboardEditableTarget } from "../../utils/domTargets.js";
 import { clampValue } from "../../utils/numbers.js";
 import WeeklyStatsScreen from "../../components/stats/WeeklyStatsScreen.jsx";
 import { createWeeklyStatsRuntimeModel } from "../../components/stats/weeklyStatsModel.js";
+import { getWeeklyTop3Entries } from "../../components/stats/weeklyTop3Model.js";
+import { WEEKLY_TOP3_ROUND_TYPES } from "./statsConfig.js";
 
 const RESULTS_SWIPE_THRESHOLD = 52;
 const SEASON_PAGES = Object.freeze(["vocab_rank", "vocab_personal"]);
@@ -163,6 +165,7 @@ export default function StatsApplication({
     vocabWeeklyUpdatedAt,
   } = statsState;
   const weeklySwipeTrack = useSwipeTrackController(weeklyActiveIndex);
+  const [top3RoundType, setTop3RoundType] = React.useState(WEEKLY_TOP3_ROUND_TYPES[0].key);
   const seasonSwipeTrack = useSwipeTrackController(seasonActiveIndex);
   const weeklyTouchRef = React.useRef(createTouchState());
   const seasonTouchRef = React.useRef(createTouchState());
@@ -576,7 +579,10 @@ export default function StatsApplication({
   const weeklyEntriesByBoard = Object.fromEntries(
     weeklyBoards.map((board) => [
       board.key,
-      dedupeWeeklyEntries(
+      board.key === "top3" ? getWeeklyTop3Entries(
+        weeklyBoardData.top3?.[top3RoundType],
+        weeklyBoardDisplayLimit
+      ) : dedupeWeeklyEntries(
         board.key,
         weeklyBoardData[board.key],
         weeklyBoardDisplayLimit
@@ -641,6 +647,8 @@ export default function StatsApplication({
             shiftWeeklyBoard,
             shouldIgnoreSwipeClick,
             statsTab,
+            top3RoundType,
+            setTop3RoundType,
             trophyStatus,
             weeklyBoardsMeta: weeklyBoards,
             weeklyEntriesByBoard,
@@ -648,10 +656,12 @@ export default function StatsApplication({
             weeklyStatsLoading,
             weeklySwipeBlockRef,
             weeklySwipeTrack,
+            weeklyTop3TrackingStartTs: weeklyStats?.top3TrackingStartTs,
             weeklyVocabLookup,
             weeklyVocabSelfCount,
             weeklyVocabSelfRank,
             weeklyWeekNumber,
+            weeklyWeekStartTs: weeklyStats?.weekStartTs,
           }}
         />
       </div>

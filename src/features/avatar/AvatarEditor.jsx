@@ -19,6 +19,7 @@ import { getAvatarPartIds, selectAvatarPart, removeAvatarParts } from "../../../
 import useAvatarDragScroll from "./useAvatarDragScroll.js";
 import AvatarRefundDialog from "./AvatarRefundDialog.jsx";
 import AvatarFaceOptions from "./AvatarFaceOptions.jsx";
+import AvatarFaceChangeDialog from "./AvatarFaceChangeDialog.jsx";
 
 const CATEGORIES = [
   ["base", "Visage", "face"], ["eyes", "Regard", "visibility"],
@@ -38,6 +39,8 @@ export default function AvatarEditor({ initialValue, nickname, onClose, onSave, 
   const [selection, setSelection] = React.useState(null);
   const [checkout, setCheckout] = React.useState(false);
   const [refundOpen, setRefundOpen] = React.useState(false);
+  const [pendingFace, setPendingFace] = React.useState(null);
+  const savedAvatar = React.useRef(initialValue);
   const [catalog, setCatalog] = React.useState(null);
   const [error, setError] = React.useState("");
   const [attempt, setAttempt] = React.useState(0);
@@ -74,7 +77,27 @@ export default function AvatarEditor({ initialValue, nickname, onClose, onSave, 
   const lashesUnavailable = (inventory && !hasUnlockedAvatarEyes(inventory)) || !hasAvatarEyelids(draft.eyes);
   const locked = baseChosen && catalog && inventory ? getLockedAvatarParts(draft, catalog, inventory) : [];
   const plan = getAvatarPurchasePlan(draft, catalog, inventory);
-  const wearable = baseChosen && catalog && inventory ? getOwnedAvatarAppearance(draft, initialValue, catalog, inventory) : draft;
+  const wearable = baseChosen && catalog && inventory ? getOwnedAvatarAppearance(draft, savedAvatar.current, catalog, inventory) : draft;
+  const saveFace = async next => {
+    if (savingRef.current || purchasing || conflict) return;
+    savingRef.current = true;
+    setSaving(true); setError("");
+    try {
+      const owned = inventory ? getOwnedAvatarAppearance(next, savedAvatar.current, catalog, inventory) : next;
+      await onSave(owned);
+      savedAvatar.current = owned;
+      if (mountedRef.current) { setDraft(next); setBaseChosen(true); setPendingFace(null); }
+    } catch (reason) {
+      if (mountedRef.current) { setPendingFace(null); setError(reason.message); setConflict(reason.code === "avatar_conflict"); }
+    } finally { savingRef.current = false; if (mountedRef.current) setSaving(false); }
+  };
+  const selectFace = values => {
+    if (savingRef.current || purchasing || conflict) return;
+    const next = normalizeAvatar({ ...draft, ...values }, catalog);
+    if (baseChosen && next.base === draft.base && next.skinStyle === draft.skinStyle) return;
+    if (savedAvatar.current) setPendingFace(next);
+    else void saveFace(next);
+  };
   const selectPart = (family, part, toggle = true) => {
     if (savingRef.current || purchasing) return;
     if (family === "lashes" && lashesUnavailable) return;
@@ -102,6 +125,7 @@ export default function AvatarEditor({ initialValue, nickname, onClose, onSave, 
     try {
       await onRefund(token);
       if (mountedRef.current) {
+        savedAvatar.current = null;
         setDraft(createBlankAvatar()); setBaseChosen(false); setCategory("base");
         setSelection(null); setCheckout(false); setRefundOpen(false);
         setResolution(null); setConflict(false);
@@ -166,10 +190,10 @@ export default function AvatarEditor({ initialValue, nickname, onClose, onSave, 
           {!catalog ? <p role="status">{error || "Ouverture de l’atelier…"}{error ? <button type="button" onClick={() => setAttempt(value => value + 1)}>Réessayer</button> : null}</p> : <>
             <div className="avatar-options-heading"><h3>{baseChosen ? categoryLabel : "Choisis ton visage"}</h3></div>
             {inventory && category !== "base" ? <p className="avatar-editor-note">Compose ton aperçu librement. Achète une pièce pour la porter aussitôt, ou utilise Acheter et porter en bas pour valider l’ensemble.</p> : null}
-            {!baseChosen ? <p className="avatar-editor-note">Homme ou Femme : le choix est gratuit. Ajoute ensuite les pièces de ton choix.</p> : null}
+            {!baseChosen ? <p className="avatar-editor-note">Homme ou Femme : ce premier choix gratuit est enregistré automatiquement. Ajoute ensuite les pièces de ton choix.</p> : null}
             {baseChosen && category !== "base" ? <AvatarEditorControls category={category} draft={draft} limits={resolution?.limits} incompatible={resolution?.incompatible} onChange={change} /> : null}
-            {category === "base" ? <AvatarFaceOptions draft={draft} baseChosen={baseChosen} disabled={saving || purchasing}
-              onSelectBase={part => selectPart("base", part)} onChange={change} /> : <>
+            {category === "base" ? <AvatarFaceOptions draft={draft} baseChosen={baseChosen} disabled={saving || purchasing || conflict}
+              onSelectBase={part => selectFace({ base: part.id })} onSelectSkin={skinStyle => selectFace({ skinStyle })} onChange={change} /> : <>
               {category === "auras" ? <p className="avatar-editor-note">Or, argent, bronze : le podium de la course hebdo débloque son aura jusqu’au lundi suivant à 00 h, heure de Paris. L’aura des donateurs reste acquise.</p> : null}
               {category === "accessories" ? <p className="avatar-editor-note">Tu peux porter plusieurs accessoires ensemble. Touche un accessoire pour l’ajouter ou le retirer ; « Aucun » les retire tous.</p> : null}
               {category === "lashes" && lashesUnavailable ? <p className="avatar-editor-note">Débloque des yeux, puis choisis un modèle avec paupières pour ajouter des cils.</p> : null}
@@ -203,5 +227,6 @@ export default function AvatarEditor({ initialValue, nickname, onClose, onSave, 
       onConfirm={() => { if (conflict) throw new Error("Recharge ton avatar avant de réessayer."); return apply(draft, plan.purchasable.map(({ family, id }) => ({ family, id }))); }}
       onRemoveUnavailable={() => change(removeAvatarParts(draft, plan.unavailable))} onClose={() => setCheckout(false)} /> : null}
     {refundOpen ? <AvatarRefundDialog onQuote={onRefundQuote} onConfirm={refund} busy={purchasing || saving} onClose={() => setRefundOpen(false)} /> : null}
+    {pendingFace ? <AvatarFaceChangeDialog busy={saving} onConfirm={() => void saveFace(pendingFace)} onClose={() => setPendingFace(null)} /> : null}
   </div>;
 }

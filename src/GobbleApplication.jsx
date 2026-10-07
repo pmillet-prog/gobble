@@ -87,6 +87,8 @@ import useElementSize from "./hooks/useElementSize.js";
 import useRealtimeEventBindings from "./hooks/useRealtimeEventBindings.js";
 import useMobileRoundIntro from "./hooks/useMobileRoundIntro.js";
 import useMobileExperience from "./features/mobile/useMobileExperience.js";
+import useTargetQuizPlacement from "./features/targetQuiz/useTargetQuizPlacement.js";
+import TargetQuizRecapSatellite from "./components/targetQuiz/TargetQuizRecapSatellite.jsx";
 import MobileExitConfirmDialog from "./features/mobile/MobileExitConfirmDialog.jsx";
 import { capturePlayersOverlaySnapshot } from "./features/overlays/playersOverlaySnapshot.js";
 import useGridTransitionEffects from "./hooks/useGridTransitionEffects.js";
@@ -162,6 +164,8 @@ import GameCelebrationOverlay from "./components/GameCelebrationOverlay.jsx";
 import ScoreFlightSatellite from "./features/live/ScoreFlightSatellite.jsx";
 import NotificationToastLayer from "./features/notifications/NotificationToastLayer.jsx";
 import useResultsPresenterGate from "./components/botInterventions/useResultsPresenterGate.js";
+import useResultsPresenterAvailability from "./features/presenters/useResultsPresenterAvailability.js";
+import useVocabResultsDecisionDeadline from "./features/stats/useVocabResultsDecisionDeadline.js";
 import { useSettledGameProgress } from "./features/progress/useSettledGameProgress.js";
 import { useLiveEntryFeature } from "./features/session/useLiveEntryFeature.js";
 import { useLiveResumeFeature } from "./features/session/useLiveResumeFeature.js";
@@ -412,8 +416,8 @@ const MobileUltraCompactScene = React.lazy(loadMobileUltraCompactScene);
 const SettingsMenu = React.lazy(() => import("./components/settings/SettingsMenu.jsx"));
 const HelpOverlay = React.lazy(() => import("./components/HelpOverlay.jsx"));
 const loadMobileResultsScreen = () => import("./components/mobile/MobileResultsScreen.jsx");
-const TargetWaitDevPlayground = React.lazy(() =>
-  import("./components/targetWait/TargetWaitDevPlayground.jsx")
+const TargetQuizPlayground = React.lazy(() =>
+  import("./components/targetQuiz/TargetQuizPlayground.jsx")
 );
 const loadVocabProgressOverlay = () =>
   import("./components/vocab/VocabProgressOverlay.jsx");
@@ -788,6 +792,7 @@ const CHAT_ROOT_FIELDS = Object.freeze([
 const REALTIME_ROOT_FIELDS = Object.freeze([
   "breakKind",
   "finalResults",
+  "lepersResult",
   "medals",
   "nextStartAt",
   "roomsStats",
@@ -892,6 +897,7 @@ export default function GobbleApplication() {
   const {
     breakKind,
     finalResults,
+    lepersResult: storedLepersResult,
     medals,
     nextStartAt,
     roomsStats,
@@ -912,6 +918,9 @@ export default function GobbleApplication() {
     tournamentTotals,
     upcomingSpecial,
   } = realtimeState;
+  const lepersResult = phase === "results" && appView === "live" &&
+    String(storedLepersResult?.roundId || "") === String(roundId || "")
+    ? storedLepersResult : null;
   const {
     lobbyPlayersList,
     lobbyPlayersLoading,
@@ -974,6 +983,7 @@ export default function GobbleApplication() {
   const {
     setBreakKind,
     setFinalResults,
+    setLepersResult,
     setMedals,
     setNextStartAt,
     setRoomsStats,
@@ -1325,6 +1335,7 @@ export default function GobbleApplication() {
     "vocabCount",
     "vocabOverlayOpen",
     "vocabOverlayRequest",
+    "vocabDecisionRoundId",
     "vocabResultsReadyKey",
     "vocabRoundDelta",
     "vocabUpdatedAt",
@@ -1373,8 +1384,8 @@ export default function GobbleApplication() {
     () =>
       bindFeatureStateSetters(statsFeature, {
         setDefinitionBlink: "definitionBlink",
-        setIsVocabOverlayOpen: "vocabOverlayOpen",
         setVocabOverlayRequest: "vocabOverlayRequest",
+        setVocabDecisionRoundId: "vocabDecisionRoundId",
         setVocabResultsReadyKey: "vocabResultsReadyKey",
         setVocabRoundDelta: "vocabRoundDelta",
         setVocabWeeklyRoundDelta: "vocabWeeklyRoundDelta",
@@ -1408,9 +1419,6 @@ export default function GobbleApplication() {
         setPerfTestEnabled: "perfTestEnabled",
         setTargetWaitDevActiveRoundId: "targetWaitDevActiveRoundId",
         setTargetWaitDevArmed: "targetWaitDevArmed",
-        setTargetWaitDevGridHost: "targetWaitDevGridHost",
-        setTargetWaitDevSessionState: "targetWaitDevSessionState",
-        setTargetWaitDevSideHost: "targetWaitDevSideHost",
       }),
     [adminFeature]
   );
@@ -1484,6 +1492,7 @@ export default function GobbleApplication() {
     vocabCount,
     vocabOverlayOpen: isVocabOverlayOpen,
     vocabOverlayRequest,
+    vocabDecisionRoundId,
     vocabResultsReadyKey,
     vocabRoundDelta,
     vocabUpdatedAt,
@@ -1493,8 +1502,8 @@ export default function GobbleApplication() {
   } = statsState;
   const {
     setDefinitionBlink,
-    setIsVocabOverlayOpen,
     setVocabOverlayRequest,
+    setVocabDecisionRoundId,
     setVocabResultsReadyKey,
     setVocabRoundDelta,
     setVocabWeeklyRoundDelta,
@@ -1524,9 +1533,6 @@ export default function GobbleApplication() {
     perfTestEnabled,
     targetWaitDevActiveRoundId,
     targetWaitDevArmed,
-    targetWaitDevGridHost,
-    targetWaitDevSessionState,
-    targetWaitDevSideHost,
   } = adminState;
   const {
     setDevAccountAllowed,
@@ -1553,9 +1559,6 @@ export default function GobbleApplication() {
     setPerfTestEnabled,
     setTargetWaitDevActiveRoundId,
     setTargetWaitDevArmed,
-    setTargetWaitDevGridHost,
-    setTargetWaitDevSessionState,
-    setTargetWaitDevSideHost,
   } = adminActions;
   const { deviceInstallId, installIdCreatedAtTs } = identityState;
   const missingImageRef = useRef(new Set());
@@ -1920,15 +1923,24 @@ export default function GobbleApplication() {
     markers: accountSeenMarkers,
     markSeen: markAccountSeen,
   } = useAccountSeenMarkers({ authenticatedUserId, isAuthenticated: isAccountAuthenticated });
-  const resultsPresentersReady = useResultsPresenterGate({
-    accountSeenReady,
-    isAccountAuthenticated,
+  const noResultsVocabAnimation = !isAccountAuthenticated || !!targetSummary ||
+    specialRound?.type === DAILY_SPECIAL_MODE;
+  useVocabResultsDecisionDeadline({
+    phase, roundId, accountSeenReady, noVocabAnimation: noResultsVocabAnimation,
+  });
+  const resultsVocabReady = useResultsPresenterGate({
+    noVocabAnimation: noResultsVocabAnimation,
     phase,
     roundId,
-    targetSummary,
+    vocabDecisionRoundId,
     vocabOverlayOpen: isVocabOverlayOpen,
     vocabOverlayRequest,
-    vocabResultsReadyKey,
+  });
+  const resultsPresentersReady = useResultsPresenterAvailability({
+    phase,
+    roundId,
+    vocabReady: resultsVocabReady,
+    lepersAnswerExpected: !!lepersResult?.text,
   });
   useEffect(() => {
     if (!isAccountAuthenticated) {
@@ -2521,9 +2533,12 @@ export default function GobbleApplication() {
   const roundPlayerAnchorElementRef = useRef(null);
   const roundPlayerAnchorNickRef = useRef("");
   const handleVocabOverlayVisibilityChange = React.useCallback((open) => {
-    setIsVocabOverlayOpen(!!open);
-    if (!open) setVocabOverlayRequest(null);
-  }, []);
+    const wasOpen = statsFeature.store.getState().vocabOverlayOpen;
+    statsFeature.patch({
+      vocabOverlayOpen: !!open,
+      ...(!open && wasOpen ? { vocabOverlayRequest: null } : null),
+    });
+  }, [statsFeature]);
   useEffect(() => {
     if (phase !== "playing" || !isAccountAuthenticated) return;
     void loadVocabProgressOverlay();
@@ -3868,13 +3883,19 @@ export default function GobbleApplication() {
       stopVocabOverlayAnimation();
       return;
     }
+    const decisionRoundId = String(roundId || "results-without-round-id");
+    if (vocabDecisionRoundId === decisionRoundId) return;
     if (!isAccountAuthenticated || !accountSeenReady) return;
     if (!vocabResultsReadyKey) return;
     const overlayKey = vocabResultsReadyKey;
-    if (vocabOverlayRoundRef.current === overlayKey) return;
+    if (vocabOverlayRoundRef.current === overlayKey) {
+      setVocabDecisionRoundId(decisionRoundId);
+      return;
+    }
     const accountMarker = buildVocabOverlaySeenMarker(overlayKey);
     if (accountSeenMarkers.has(accountMarker)) {
       vocabOverlayRoundRef.current = overlayKey;
+      setVocabDecisionRoundId(decisionRoundId);
       return;
     }
     const selfKey = normalizeNickKey(nicknameRef.current || nickname);
@@ -3895,7 +3916,10 @@ export default function GobbleApplication() {
       delta: vocabRoundDelta,
       weeklyDelta: vocabWeeklyRoundDelta,
     });
-    if (!progress.available || !Number.isFinite(progress.count)) return;
+    if (!progress.available || !Number.isFinite(progress.count)) {
+      setVocabDecisionRoundId(decisionRoundId);
+      return;
+    }
     vocabOverlayRoundRef.current = overlayKey;
     markAccountSeen(accountMarker);
     const deltaCount = progress.delta ?? 0;
@@ -3958,6 +3982,7 @@ export default function GobbleApplication() {
       words: progress.newWeeklyWords,
       seasonWords: progress.newWords,
     });
+    setVocabDecisionRoundId(decisionRoundId);
   }, [
     accepted,
     accountSeenMarkers,
@@ -3973,6 +3998,7 @@ export default function GobbleApplication() {
     vocabWeeklyCount,
     vocabRoundDelta,
     vocabWeeklyRoundDelta,
+    vocabDecisionRoundId,
     vocabResultsReadyKey,
     weeklyStats,
     targetSummary,
@@ -4130,6 +4156,7 @@ export default function GobbleApplication() {
     setBreakKind,
     setCurrentRoomId,
     setFinalResults,
+    setLepersResult,
     setInputLocked,
     setNextStartAt,
     setPhase,
@@ -4153,6 +4180,7 @@ export default function GobbleApplication() {
     setTournamentSummaryAt,
     setTournamentTotals,
     setUpcomingSpecial,
+    setVocabDecisionRoundId,
     setVocabResultsReadyKey,
     setVocabRoundDelta,
     setVocabWeeklyRoundDelta,
@@ -4529,6 +4557,7 @@ export default function GobbleApplication() {
     setTournamentSummaryAt,
     setTrainingBusy,
     setUpcomingSpecial,
+    setVocabDecisionRoundId,
     setVocabResultsReadyKey,
     setVocabRoundDelta,
     setVocabWeeklyRoundDelta,
@@ -4787,6 +4816,7 @@ export default function GobbleApplication() {
     setGridSize,
     setHighlightPlayers,
     setInputLocked,
+    setLepersResult,
     setMobileRoundIntroHideTiles,
     setNextStartAt,
     setOcidProposal,
@@ -6119,6 +6149,7 @@ export default function GobbleApplication() {
     return overlaysFeature.openPlayerProfile({
       nick: targetNick,
       userId: targetUserId,
+      editAvatar: target.editAvatar === true,
     });
   }
 
@@ -6344,12 +6375,13 @@ export default function GobbleApplication() {
 
   function openDefinition(
     term,
-    { fromWordInfo = false, preferLongDefinition = true, fromVault = false } = {}
+    { fromWordInfo = false, preferLongDefinition = true, fromVault = false, highlightedDefinition = "" } = {}
   ) {
     const clean = String(term || "").trim();
     if (!clean) return;
     const originFromWordInfo = !!fromWordInfo;
     const useLongDefinition = !!preferLongDefinition;
+    const selectedDefinition = sanitizeDefinitionText(highlightedDefinition);
     if (guidedResultsStep === GUIDED_RESULTS_STEPS.TAP_DEFINITION) {
       completeGuidedResultsTutorial();
     }
@@ -6388,6 +6420,7 @@ export default function GobbleApplication() {
       fromWordInfo: originFromWordInfo,
       fromVault: !!fromVault,
       preferLongDefinition: useLongDefinition,
+      highlightedDefinition: selectedDefinition,
     });
 
     const tried = new Set();
@@ -6448,6 +6481,7 @@ export default function GobbleApplication() {
             fromWordInfo: originFromWordInfo,
             fromVault: !!fromVault,
             preferLongDefinition: useLongDefinition,
+            highlightedDefinition: selectedDefinition,
           });
         })
         .catch(() => {
@@ -8528,6 +8562,7 @@ function handleTouchEnd() {
     isSpecial3RoundForResults,
     isSpeedRound,
     isTargetRound,
+    lepersResult,
     nicknameRef,
     normalizeNickKey,
     openDefinition,
@@ -9987,6 +10022,7 @@ function handleTouchEnd() {
       viewerUserId={authenticatedUserId}
       gobblarsBalance={gobblarsBalance}
       nickname={playerProfileModal.nick}
+      editAvatar={playerProfileModal.editAvatar}
       onClose={closePlayerProfileModal}
     />
   );
@@ -10804,6 +10840,15 @@ function handleTouchEnd() {
   const closeDevMenu = React.useCallback(() => {
     setIsDevMenuOpen(false);
   }, []);
+  const quiz = useTargetQuizPlacement({
+    appView, gamePresentationView, phase, isLoggedIn, roundId,
+    roomId: currentRoomId || roomId, userId: authenticatedUserId, nickname,
+    endsAt: serverEndsAt, getNowServerMs, socket,
+    specialRoundType: specialRound?.type, foundTargetThisRound,
+    currentRoundTraining: currentRoundTrainingRef.current,
+    standaloneTrainingSession, phaseLoopTestEnabled,
+    devPreviewActiveRoundId: targetWaitDevActiveRoundId,
+  });
   const openTargetWaitDevPlayground = React.useCallback(() => {
     setIsDevMenuOpen(false);
     setIsSettingsOpen(false);
@@ -10818,7 +10863,7 @@ function handleTouchEnd() {
     showToast("Mini-jeu armé : démarrage à la prochaine manche.", 3000);
   }, [targetWaitDevArmed]);
   React.useEffect(() => {
-    if (!targetWaitDevArmed || phase !== "playing" || roundId == null) return;
+    if (!targetWaitDevArmed || !quiz.canRun) return;
     const currentRoundKey = String(roundId);
     const armedRoundKey =
       targetWaitDevArmedRoundIdRef.current == null
@@ -10829,24 +10874,13 @@ function handleTouchEnd() {
     setTargetWaitDevArmed(false);
     targetWaitDevArmedRoundIdRef.current = null;
     showToast("Simulation cible active : la cible est considérée comme trouvée.", 3200);
-  }, [phase, roundId, targetWaitDevArmed]);
+  }, [quiz.canRun, roundId, targetWaitDevArmed]);
   React.useEffect(() => {
     if (targetWaitDevActiveRoundId == null) return;
     if (phase === "playing" && String(roundId ?? "") === targetWaitDevActiveRoundId) return;
     setTargetWaitDevActiveRoundId(null);
-    setTargetWaitDevGridHost(null);
-    setTargetWaitDevSideHost(null);
-    setTargetWaitDevSessionState((previous) => ({
-      ...previous,
-      phase: "idle",
-      remainingSeconds: 90,
-      wordLength: 0,
-    }));
   }, [phase, roundId, targetWaitDevActiveRoundId]);
-  const targetWaitDevActive =
-    targetWaitDevActiveRoundId != null &&
-    phase === "playing" &&
-    String(roundId ?? "") === targetWaitDevActiveRoundId;
+  const targetWaitDevActive = quiz.devPreview;
   const applyModerationResponse = React.useCallback((res) => {
     if (!res || typeof res !== "object") return;
     setModerationAvailable(!!res.available);
@@ -11987,8 +12021,8 @@ function handleTouchEnd() {
           isLoggedIn &&
           gamePresentationView === "live" &&
           phase === "results" &&
-          (showResultsPresenterActionBar ||
-            (visualPresenterAnimationsEnabled && resultsPresentersReady))
+          resultsPresentersReady &&
+          (showResultsPresenterActionBar || visualPresenterAnimationsEnabled)
         }
         hostRef={gridRef}
         manual={showResultsPresenterActionBar}
@@ -12022,7 +12056,7 @@ function handleTouchEnd() {
             !presenterHintsDisabledForRound &&
             isLoggedIn &&
             gamePresentationView === "live" &&
-            (phase === "playing" || (phase === "results" && resultsPresentersReady)))
+            (phase === "playing" || (phase === "results" && resultsVocabReady)))
         }
         hostRef={gridRef}
         liveRoundFeature={liveRoundFeature}
@@ -12068,22 +12102,29 @@ function handleTouchEnd() {
       {authDialogView}
       {specialTutorialOverlay}
       {settingsMenuView}
-      {targetWaitDevActive ? (
+      {quiz.active ? (
         <Suspense fallback={null}>
-          <TargetWaitDevPlayground
+          <TargetQuizPlayground
             active
-            gridHost={targetWaitDevGridHost}
-            sideHost={targetWaitDevSideHost}
+            gridHost={quiz.gridHost}
+            sideHost={quiz.sideHost}
             socket={socket}
             darkMode={darkMode}
             getNickClassName={getLiveNickClassName}
-            onToast={showToast}
-            onSessionStateChange={setTargetWaitDevSessionState}
+            roundId={roundId}
+            endsAt={serverEndsAt}
+            getNowServerMs={getNowServerMs}
+            devPreview={quiz.devPreview}
             compact={isMobileLayout}
+            targetWord={solvedTargetWord}
+            onOpenTargetDefinition={openDefinition}
+            onSessionStateChange={quiz.onSessionStateChange}
+            onDismiss={quiz.onDismiss}
           />
         </Suspense>
       ) : null}
       {aboutModalView}
+      <TargetQuizRecapSatellite />
       <ChatReactionToastSatellite />
       <NotificationToastLayer darkMode={darkMode} />
     </>
@@ -12218,6 +12259,7 @@ function handleTouchEnd() {
       <Suspense fallback={null}>
         <ChalkboardApplication
           canPublish={isAccountAuthenticated}
+          accountId={isAccountAuthenticated ? authenticatedUserId : null}
           connection={socket}
           onClose={closeChalkboard}
         />
@@ -12567,6 +12609,7 @@ function handleTouchEnd() {
     useUltraCompactLayout &&
     phase === "playing" &&
     !isSpecial3WordsMode &&
+    !quiz.active &&
     !standaloneTrainingSession
   ) {
     return (
@@ -12824,8 +12867,7 @@ function handleTouchEnd() {
             suppressWordListScores,
             targetScoreMax,
             targetSummary,
-            targetWaitDevActive,
-            targetWaitDevSessionState,
+            targetWaitDevActive: quiz.active,
             tileColorPreset,
             tileMaterialClass,
             totalScoreLabel,
@@ -12888,8 +12930,8 @@ function handleTouchEnd() {
             setHighlightPath,
             setHighlightPlayers,
             setShowHelp,
-            setTargetWaitDevGridHost,
-            setTargetWaitDevSideHost,
+            setTargetWaitDevGridHost: quiz.setGridHost,
+            setTargetWaitDevSideHost: quiz.setSideHost,
             setTournamentReady,
             stableCanOpenPlayerProfile,
             stableOpenPlayerProfile,
@@ -13146,8 +13188,8 @@ function handleTouchEnd() {
             setIsSettingsOpen,
             setResultsRankingModeWithPulse,
             setShowAllWords,
-            setTargetWaitDevGridHost,
-            setTargetWaitDevSideHost,
+            setTargetWaitDevGridHost: quiz.setGridHost,
+            setTargetWaitDevSideHost: quiz.setSideHost,
             setTournamentReady,
             shouldDefinitionBlink,
             showAllWords,
@@ -13176,8 +13218,7 @@ function handleTouchEnd() {
             submitOcidProposal,
             submitOcidVote,
             suppressWordListScores,
-            targetWaitDevActive,
-            targetWaitDevSessionState,
+            targetWaitDevActive: quiz.active,
             tileColorPreset,
             tileFontPx,
             tileGapPx,

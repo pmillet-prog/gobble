@@ -101,12 +101,13 @@ export default function DefinitionOverlays({ runtime }) {
               >
                 {definitionModal.loading ? (
                   <span>Chargement...</span>
-                ) : definitionModal.ok && definitionModal.definition ? (
+                ) : (definitionModal.ok && definitionModal.definition) || definitionModal.highlightedDefinition ? (
                   <DefinitionDetails
                     definition={definitionModal.definition}
                     definitions={
                       definitionModal.preferLongDefinition ? definitionModalDefinitions : []
                     }
+                    highlightedDefinition={definitionModal.highlightedDefinition}
                     etymology={definitionModalEtymology}
                     darkMode={definitionModalDarkMode}
                     showEtymology={definitionModal.preferLongDefinition}

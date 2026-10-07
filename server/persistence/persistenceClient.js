@@ -135,6 +135,24 @@ export function createPersistenceClient() {
     addGobblars(payload) {
       return call("addGobblars", payload);
     },
+    getGobblarsHistory(payload) {
+      return call("getGobblarsHistory", payload);
+    },
+    loadTargetQuizProgress(payload) {
+      return call("loadTargetQuizProgress", payload);
+    },
+    saveTargetQuizProgress(payload) {
+      return call("saveTargetQuizProgress", payload);
+    },
+    loadTargetQuizPoints(payload) {
+      return call("loadTargetQuizPoints", payload);
+    },
+    saveTargetQuizAnswer(payload) {
+      return call("saveTargetQuizAnswer", payload);
+    },
+    finishTargetQuizPoints(payload) {
+      return call("finishTargetQuizPoints", payload);
+    },
     recordAvatarObjectives(payload) {
       return call("recordAvatarObjectives", payload);
     },

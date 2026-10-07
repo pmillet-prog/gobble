@@ -1,6 +1,6 @@
 import React from "react";
 import { useApplicationKernel } from "../../app/react/ApplicationRuntimeProvider.jsx";
-import { chatAuditLastHour, useChatAudit } from "./useChatAudit.js";
+import { chatAuditLast24Hours, useChatAudit } from "./useChatAudit.js";
 
 function localInput(time) {
   const date = new Date(time);
@@ -13,7 +13,7 @@ export default function ChatAuditPanel({ buttonClass }) {
   const kernel = useApplicationKernel();
   const audit = useChatAudit(kernel.ports.realtime);
   const [range, setRange] = React.useState(() => {
-    const value = chatAuditLastHour();
+    const value = chatAuditLast24Hours();
     return { from: localInput(value.from), to: localInput(value.to), query: "" };
   });
   const inputClass = `block w-full min-w-0 mt-1 rounded-lg border px-2 py-2 text-xs ${buttonClass}`;
@@ -40,9 +40,9 @@ export default function ChatAuditPanel({ buttonClass }) {
       <div className="flex flex-wrap gap-2">
         <button type="submit" disabled={audit.busy} className={button}>Rechercher</button>
         <button type="button" disabled={audit.busy} className={button} onClick={() => {
-          const value = chatAuditLastHour(); setPage(1);
+          const value = chatAuditLast24Hours(); setPage(1);
           setRange({ from: localInput(value.from), to: localInput(value.to), query: "" }); audit.load(value);
-        }}>Dernière heure · actualiser</button>
+        }}>Dernières 24 h · actualiser</button>
       </div>
     </form>
     <div aria-live="polite" className="text-xs">

@@ -1,7 +1,12 @@
 import nodemailer from "nodemailer";
 import { mailTransportConfig } from "../mail/mailTransport.js";
 
+export function isChalkboardMailEnabled(env = process.env) {
+  return env.NODE_ENV === "production";
+}
+
 export function chalkboardMailConfig(env = process.env) {
+  if (!isChalkboardMailEnabled(env)) return null;
   const from = env.GOBBLE_CHALKBOARD_MAIL_FROM || env.SMTP_FROM || "support@gobble.fr";
   const to = env.GOBBLE_CHALKBOARD_MAIL_TO || "pmillet@gmail.com";
   const transport = mailTransportConfig(env);

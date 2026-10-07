@@ -32,6 +32,7 @@ export default function ChatStyleSlide(props) {
     keyboardInsetPx,
     keyboardOpen,
     keyboardVisible,
+    viewportSettled,
     overlayStyle,
     sheetStyle,
   } = useChatViewport({
@@ -53,12 +54,14 @@ export default function ChatStyleSlide(props) {
       isChatOpen: isOpen,
       keyboardOpen,
       keyboardWasOpen: keyboardSessionSeenRef.current,
+      keyboardVisible,
+      viewportSettled,
     });
     keyboardSessionSeenRef.current = transition.keyboardWasOpen;
     if (!transition.shouldCloseChat) return;
     setIsRenderedOpen(false);
     closeChat();
-  }, [closeChat, isOpen, keyboardOpen]);
+  }, [closeChat, isOpen, keyboardOpen, keyboardVisible, viewportSettled]);
 
   React.useEffect(() => {
     if (!isChatVisible) {
@@ -103,9 +106,6 @@ export default function ChatStyleSlide(props) {
       style={{
         ...overlayStyle,
         overscrollBehavior: "none",
-        paddingTop: chatTopInsetPx
-          ? `${Math.max(0, chatTopInsetPx)}px`
-          : undefined,
       }}
     >
       <button
@@ -126,7 +126,7 @@ export default function ChatStyleSlide(props) {
             ...(sheetStyle || {}),
             boxSizing: "border-box",
             paddingBottom: keyboardConstrained
-              ? "max(6px, env(safe-area-inset-bottom, 0px))"
+              ? "6px"
               : undefined,
             transitionProperty: keyboardVisible
               ? "transform, opacity"

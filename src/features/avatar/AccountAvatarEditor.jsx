@@ -73,6 +73,11 @@ export default function AccountAvatarEditor({ userId, nickname, onClose, mainten
     return result;
   };
   const reload = () => { setLoaded(null); setAttempt(value => value + 1); };
+  const save = async avatar => {
+    const result = await accountAvatarStore.save(Number(userId), avatar, loaded.revision);
+    if (mounted.current) setLoaded(result);
+    return result;
+  };
   if (maintenanceMode && !loaded) return <AvatarMaintenanceNotice onClose={onClose} />;
   if (!loaded || loaded.userId !== Number(userId)) return <div className="profile-editor-loading">
     <h2 id="player-profile-title">Ton avatar</h2>
@@ -82,5 +87,5 @@ export default function AccountAvatarEditor({ userId, nickname, onClose, mainten
   return <AvatarEditor key={`${userId}:${attempt}`} initialValue={loaded.avatar} nickname={nickname} onClose={onClose}
     inventory={inventory} onPurchase={purchase} maintenanceMode={maintenanceMode}
     onRefundQuote={options => requestAvatarRefundQuote(userId, options)} onRefund={refund}
-    onReload={reload} onSave={avatar => accountAvatarStore.save(Number(userId), avatar, loaded.revision)} />;
+    onReload={reload} onSave={save} />;
 }

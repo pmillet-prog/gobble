@@ -39,6 +39,12 @@ export function registerChalkboardRoutes({
     return res.json({ ok: true, canAccess: true });
   });
 
+  router.get("/api/chalkboard/activity", async (req, res) => {
+    setJsonHeaders(res);
+    const identity = await getRequestIdentity(req);
+    return res.json(await service.getActivity(identity));
+  });
+
   router.get("/api/chalkboard/admin/audit", async (req, res) => {
     setJsonHeaders(res);
     const identity = await requireRequestIdentity(req, res);
@@ -124,6 +130,7 @@ export function registerChalkboardRoutes({
     if (!identity) return;
     if (!isModerator(identity)) return res.status(403).json({ ok: false, error: "moderation_forbidden" });
     if (!exportService || !service.queueExport) return res.status(503).json({ ok: false, error: "export_unavailable" });
+    if (exportService.mailEnabled?.() === false) return res.status(503).json({ ok: false, error: "chalkboard_mail_disabled" });
     if (Date.now() - lastManualSend < 30000) return res.status(429).json({ ok: false, error: "export_rate_limited" });
     lastManualSend = Date.now();
     const job = await service.queueExport(identity);
@@ -138,6 +145,7 @@ export function registerChalkboardRoutes({
     if (!isModerator(identity)) return res.status(403).json({ ok: false, error: "moderation_forbidden" });
     const job = await service.repository?.exportStatus(req.params.id);
     if (!job) return res.status(404).json({ ok: false, error: "not_found" });
-    return res.json({ ok: true, id: job.id, status: job.sent_at ? "sent" : job.error ? "pending_retry" : "processing", pngReady: !!job.png_path, mailConfigured: !!exportService?.configured() });
+    const archivedLocally = !!job.png_path && exportService?.mailEnabled?.() === false;
+    return res.json({ ok: true, id: job.id, status: job.sent_at ? "sent" : archivedLocally ? "archived" : job.error ? "pending_retry" : "processing", pngReady: !!job.png_path, mailConfigured: !!exportService?.configured() });
   });
 }

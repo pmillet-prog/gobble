@@ -9,11 +9,11 @@ import {
 import { HOME_DISPLAY_ACTIONS } from "../../utils/displayMode.js";
 import { useChatUnreadState } from "../../features/chat/useChatUnreadState.js";
 import useHomeLobbyIntro from "./useHomeLobbyIntro.js";
+import useMobileViewportSurface from "../../features/layout/useMobileViewportSurface.js";
 import HomeChalkboardButton from "./HomeChalkboardButton.jsx";
 import HomeTutorialButton from "./HomeTutorialButton.jsx";
 import LocalPlayerAvatar from "../../features/avatar/LocalPlayerAvatar.jsx";
-import NewFeatureBadge from "../NewFeatureBadge.jsx";
-import GobblarsBalance from "../GobblarsBalance.jsx";
+import HomeGobblarsBalance from "../../features/gobblars/HomeGobblarsBalance.jsx";
 
 const HOME_ASSETS = {
   title: UI_IMAGE_KEYS.home.title,
@@ -829,6 +829,7 @@ function HomeLobby({
   weeklyRecapLoading = false,
   trainingControl = null,
 }) {
+  const viewportRef = useMobileViewportSurface({ lockDocument: true });
   const { homeChatUnreadCount, homeChatUnreadIsBotOnly } =
     useChatUnreadState();
   const [isIosInstallHelpOpen, setIsIosInstallHelpOpen] = React.useState(false);
@@ -900,7 +901,7 @@ function HomeLobby({
   });
 
   return (
-    <div className={`home-lobby-screen home-lobby-stage-${introStage}`}>
+    <div ref={viewportRef} className={`home-lobby-screen home-lobby-stage-${introStage}`}>
       <style>{styles}</style>
       <picture className="home-lobby-backdrop" aria-hidden="true">
         <source media="(min-aspect-ratio: 1/1)" srcSet={resolvedBackgroundDesktop} />
@@ -913,7 +914,7 @@ function HomeLobby({
         />
       </picture>
       <div className="home-lobby-shell">
-        {accountUserId ? <div className="home-gobblars home-lobby-secondary" data-maintenance={maintenanceMode}><GobblarsBalance balance={gobblarsBalance} /></div> : null}
+        {accountUserId ? <div className="home-gobblars home-lobby-secondary" data-maintenance={maintenanceMode}><HomeGobblarsBalance key={accountUserId} accountId={accountUserId} balance={gobblarsBalance} /></div> : null}
         {onOpenTutorial ? <HomeTutorialButton onClick={onOpenTutorial} /> : null}
         {maintenanceMode ? (
           <div
@@ -947,7 +948,6 @@ function HomeLobby({
           onClick={onOpenAccount}
         >
           <span className="home-account-name">{safeAccountLabel}</span>
-          <NewFeatureBadge />
           {accountUserId ? <span className="home-account-avatar"><LocalPlayerAvatar userId={accountUserId} size={64} label="Mon avatar" /></span> : null}
           <span
             className={`home-account-dot ${accountOnline ? "" : "home-account-dot-off"}`}
@@ -1068,7 +1068,7 @@ function HomeLobby({
               <span className="home-count-badge">{formatBadgeCount(dailyRemainingCount)}</span>
             ) : null}
           </HomeImageButton>
-          <HomeChalkboardButton onClick={onOpenChalkboard} disabled={isConnecting || maintenanceMode} maintenanceMode={maintenanceMode} />
+          <HomeChalkboardButton accountId={accountUserId} onClick={onOpenChalkboard} disabled={isConnecting || maintenanceMode} maintenanceMode={maintenanceMode} />
           <HomeImageButton
             alt="Chat"
             className="home-icon-button"

@@ -424,6 +424,8 @@ test("resume during results replays the Lepers answer instead of the opening clu
         roundId: "massive-results",
         lepersResult: {
           id: "massive-results:lepers:answer",
+          word: "allocutaire",
+          definition: "Personne à qui s’adresse un énoncé.",
           text: "« ALLOCUTAIRE », bien sûr !",
           highlights: ["ALLOCUTAIRE"],
         },
@@ -434,6 +436,10 @@ test("resume during results replays the Lepers answer instead of the opening clu
   assert.equal(harness.live.hydrateSnapshot(snapshot), true);
   assert.deepEqual(interventions.map((entry) => entry.kind), ["answer"]);
   assert.equal(interventions[0].text, "« ALLOCUTAIRE », bien sûr !");
+  assert.equal(
+    harness.calls.find(entry => entry.name === "hydrate").payload.lastRoundResults.payload.lepersResult,
+    snapshot.lastRoundResults.payload.lepersResult,
+  );
   harness.release();
 });
 

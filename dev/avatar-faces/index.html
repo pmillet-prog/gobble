@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Visages — aperçu local Gobble</title>
+    <link rel="stylesheet" href="./preview.css" />
+  </head>
+  <body>
+    <main>
+      <header>
+        <p class="eyebrow">Avatars Gobble · aperçu local</p>
+        <h1>Deux nouveaux visages</h1>
+        <p>Essaie le visage fin et les pattes-d’oie, puis compare-les aux modèles existants.</p>
+        <p class="notice">Fin et Pattes-d’oie sont des propositions à examiner. Les essais restent sur cette page.</p>
+      </header>
+      <section class="workshop" aria-label="Essai des visages">
+        <div class="preview-panel">
+          <div class="canvas-wrap" data-background="checker"><canvas id="portrait" width="768" height="768" aria-label="Aperçu de l’avatar"></canvas></div>
+          <p id="status" role="status">Chargement des pièces…</p>
+        </div>
+        <form id="controls">
+          <label>Base<select name="base"><option value="homme">Homme</option><option value="femme">Femme</option></select></label>
+          <label>Visage<select name="skinStyle"></select></label>
+          <label>Vue<select name="view"><option value="face">Visage assemblé</option><option value="portrait">Buste</option><option value="head">Tête seule</option></select></label>
+          <label>Teinte<select name="tone"><option value="native">Teinte d’origine</option><option value="custom">Personnalisée</option></select></label>
+          <label>Couleur de peau<input name="customColor" type="color" value="#f6bd91" /></label>
+          <label class="checkbox"><input name="hair" type="checkbox" /> Avec une coiffure</label>
+          <label>Fond de contrôle<select name="background"><option value="checker">Damier</option><option value="light">Clair</option><option value="dark">Sombre</option></select></label>
+          <p id="description"></p>
+        </form>
+      </section>
+    </main>
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>

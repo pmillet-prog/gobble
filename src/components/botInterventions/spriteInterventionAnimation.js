@@ -140,6 +140,38 @@ export function getInterventionFramePosition(frame, frameCount = 7) {
   return `${(safeFrame / maximumFrame) * 100}% 0%`;
 }
 
+export const PRESENTER_SPEAKING_DURATION_MS = 3000;
+
+// Sprite motion has its own clock; faster text must not shorten the gesture.
+// All timers still belong to the intervention and stop on dismissal or a hit.
+export function schedulePresenterMouthAnimation({
+  config,
+  schedule,
+  cancelTimer,
+  setFrame,
+  random = Math.random,
+}) {
+  let step = 0;
+  let mouthTimerId = null;
+  const blinkStep = random() < config.blinkChance
+    ? randomIntegerBetween(5, 12, random)
+    : -1;
+  const tick = () => {
+    setFrame(step === blinkStep
+      ? config.blinkFrame
+      : config.mouthSequence[step % config.mouthSequence.length]);
+    step += 1;
+    mouthTimerId = schedule(tick, randomIntegerBetween(
+      config.mouthDelayMinMs, config.mouthDelayMaxMs, random
+    ));
+  };
+  tick();
+  schedule(() => {
+    cancelTimer(mouthTimerId);
+    setFrame(config.neutralFrame);
+  }, PRESENTER_SPEAKING_DURATION_MS);
+}
+
 export function getNextPresenterHitReaction(hitCount) {
   return Math.max(0, Math.trunc(Number(hitCount) || 0)) % 2 === 0
     ? "hit1"

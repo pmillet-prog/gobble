@@ -7,6 +7,7 @@ import MobileGrid from "../MobileGrid.jsx";
 import MobileHeader from "../MobileHeader.jsx";
 import MobileWordPreview from "../MobileWordPreview.jsx";
 import MobileTargetHintPanel from "./MobileTargetHintPanel.jsx";
+import { TargetQuizMobileScore, TargetQuizMobileStats } from "../targetQuiz/TargetQuizMobileStatus.jsx";
 import OcidVoteOptionsGrid from "../ocid/OcidVoteOptionsGrid.jsx";
 import { MobileLiveRankingPanel } from "../../features/live/LiveRosterSatellites.jsx";
 import MobilePresenterActionBar from "../../features/presenters/MobilePresenterActionBar.jsx";
@@ -215,12 +216,7 @@ function MobileStandardPlaying(props) {
               />
             </div>
           ) : null}
-          {isStandaloneTraining && !isTargetRound ? null : targetWaitDevActive ? (
-            <div
-              ref={onTargetWaitDevSideHostChange}
-              className="relative h-[250px] max-h-[34vh] min-h-[220px] flex-none overflow-hidden rounded-xl"
-            />
-          ) : phase === "playing" && isOcidRound ? (
+          {isStandaloneTraining && !isTargetRound ? null : phase === "playing" && isOcidRound ? (
             <div
               ref={mobileRankingRef}
               className={`relative rounded-xl border border-slate-200 dark:border-slate-700 px-3 py-2 bg-white/90 dark:bg-slate-900/90 shadow-sm overflow-hidden box-border ${
@@ -317,8 +313,9 @@ function MobileStandardPlaying(props) {
             />
           )}
 
-          {!isOcidRound && !targetWaitDevActive ? (
+          {!isOcidRound ? (
             <MobileWordPreview
+              contentOverride={targetWaitDevActive ? <TargetQuizMobileScore /> : null}
               countdownLines={countdownLines}
               darkMode={darkMode}
               getTraceCellLabel={getTraceCellLabel}
@@ -389,16 +386,18 @@ function MobileStandardPlaying(props) {
             ) : null}
             </div>
             {!isStandaloneTraining && (showMobileLiveFeed || hasReservedFeed) ? <div
+              ref={targetWaitDevActive ? onTargetWaitDevSideHostChange : null}
+              data-target-quiz-surface={targetWaitDevActive ? "stats" : undefined}
               className={`rounded-xl border border-slate-200 dark:border-slate-700 bg-white/90 dark:bg-slate-900/90 px-3 ${compactFeed ? "py-0.5" : "py-2"} shadow-sm flex-1 min-h-0 overflow-hidden box-border`}
               style={hasReservedFeed ? { minHeight: mobileLayoutSizing.liveFeedMinHeight } : undefined}
             >
-              <LiveFeedSatellite
+              {targetWaitDevActive ? <TargetQuizMobileStats /> : <LiveFeedSatellite
                 darkMode={darkMode}
                 maxHeight="100%"
                 getNickClassName={getNickClassName}
                 showTitle={false}
                 compact={compactFeed}
-              />
+              />}
             </div> : null}
           </div>
           ) : null}

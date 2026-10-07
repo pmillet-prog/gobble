@@ -127,14 +127,106 @@ test("keeps the overlay and sheet above keyboards of different heights", () => {
     assert.equal(layout.keyboardVisible, true);
     assert.equal(layout.overlayStyle.top, "42px");
     assert.equal(layout.overlayStyle.height, `${viewportHeight}px`);
-    const expectedHeight = Math.min(490, viewportHeight - 52);
+    const visibleTopInset = 52;
+    const expectedHeight = Math.min(490, viewportHeight - visibleTopInset);
     assert.equal(layout.sheetStyle.height, `${expectedHeight}px`);
-    assert.equal(layout.keyboardConstrained, viewportHeight - 52 < 490);
+    assert.equal(layout.keyboardConstrained, viewportHeight - visibleTopInset < 490);
     assert.ok(
-      42 + 52 + Number.parseInt(layout.sheetStyle.height, 10) <=
+      42 + visibleTopInset + Number.parseInt(layout.sheetStyle.height, 10) <=
         42 + viewportHeight
     );
   }
+});
+
+test("a panned WebKit viewport still reports the open keyboard", () => {
+  for (const offsetTop of [0, 42, 200, 366]) {
+    const layout = computeChatViewportLayout({
+      baselineHeight: 844,
+      keyboardFocused: true,
+      viewportHeight: 478,
+      viewportWidth: 390,
+      offsetTop,
+    });
+    assert.equal(layout.keyboardInsetPx, 366);
+    assert.equal(layout.keyboardOpen, true);
+    assert.equal(layout.overlayStyle.top, `${offsetTop}px`);
+    assert.equal(layout.sheetStyle.height, "478px");
+  }
+});
+
+test("waits for keyboard geometry to settle before closing after blur", () => {
+  let keyboardWasOpen = true;
+  for (const frame of [
+    { keyboardOpen: false, keyboardVisible: true, viewportSettled: false },
+    { keyboardOpen: false, keyboardVisible: true, viewportSettled: true },
+    { keyboardOpen: false, keyboardVisible: false, viewportSettled: false },
+    { keyboardOpen: true, keyboardVisible: true, viewportSettled: false },
+  ]) {
+    const transition = computeChatKeyboardSessionTransition({
+      isChatOpen: true, keyboardWasOpen, ...frame,
+    });
+    assert.equal(transition.shouldCloseChat, false);
+    assert.equal(transition.keyboardWasOpen, true);
+    keyboardWasOpen = transition.keyboardWasOpen;
+  }
+  assert.deepEqual(computeChatKeyboardSessionTransition({
+    isChatOpen: true, keyboardWasOpen,
+    keyboardOpen: false, keyboardVisible: false, viewportSettled: true,
+  }), { keyboardWasOpen: false, shouldCloseChat: true });
+});
+
+test("uses safe areas without keeping a home-indicator gap above the keyboard", () => {
+  const safeAreaInsets = { top: 62, bottom: 34, left: 20, right: 20 };
+  const closed = computeChatViewportLayout({
+    baselineHeight: 320, viewportHeight: 320, viewportWidth: 844,
+    safeAreaInsets, offsetLeft: 12,
+  });
+  assert.equal(closed.overlayStyle.paddingTop, "62px");
+  assert.equal(closed.overlayStyle.paddingBottom, "34px");
+  assert.equal(closed.overlayStyle.paddingLeft, "20px");
+  assert.equal(closed.overlayStyle.paddingRight, "20px");
+  assert.ok(Number.parseInt(closed.sheetStyle.height, 10) <= 320 - 62 - 34);
+
+  const keyboard = computeChatViewportLayout({
+    baselineHeight: 844, viewportHeight: 478, viewportWidth: 390,
+    keyboardFocused: true, offsetTop: 42, safeAreaInsets,
+  });
+  assert.equal(keyboard.overlayStyle.paddingTop, "62px");
+  assert.equal(keyboard.overlayStyle.paddingBottom, "0px");
+  assert.equal(keyboard.sheetStyle.height, "416px");
+});
+
+test("keeps the compensated game header protected after viewport panning", () => {
+  const layout = computeChatViewportLayout({
+    baselineHeight: 844, viewportHeight: 478, viewportWidth: 390,
+    keyboardFocused: true, offsetTop: 120, topInsetPx: 110,
+    safeAreaInsets: { top: 62 },
+  });
+  assert.equal(layout.overlayStyle.paddingTop, "110px");
+});
+
+test("does not feed the previous inline document lock back into the baseline", () => {
+  const snapshot = readChatViewportSnapshot({
+    innerHeight: 780, innerWidth: 390,
+    visualViewport: { height: 780, width: 390, offsetTop: 0, offsetLeft: 0 },
+  }, {
+    activeElement: null,
+    documentElement: { clientHeight: 844, clientWidth: 390 },
+  });
+  assert.equal(snapshot.layoutHeight, 780);
+  const session = updateChatViewportSession({}, snapshot);
+  assert.equal(session.baseline.height, 780);
+  assert.equal(session.layout.keyboardVisible, false);
+});
+
+test("initializes from the visible browser viewport before opening the keyboard", () => {
+  const snapshot = {
+    layoutHeight: 844, keyboardFocused: false, offsetTop: 0,
+    viewportHeight: 720, viewportWidth: 390,
+  };
+  const session = updateChatViewportSession({}, snapshot);
+  assert.equal(session.baseline.height, 720);
+  assert.equal(session.layout.keyboardInsetPx, 0);
 });
 
 test("never expands the drawer during the first frames of keyboard animation", () => {
