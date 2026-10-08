@@ -19,7 +19,7 @@ test("outfits match each base and all four auras are available for local preview
   for (const base of ["femme", "homme"]) {
     const choices = getAvatarChoices(catalog, "clothes", base);
     assert.ok(choices.length > 0);
-    assert.ok(choices.every(part => part.base === base && part.masks.skin && part.mask));
+    assert.ok(choices.every(part => part.base === base && part.mask && (part.masks.skin || (part.dualColor && part.masks.secondary))));
   }
   assert.equal(catalog.families.auras.length, 4);
   assert.ok(catalog.families.auras.every(part => part.unlock));
@@ -58,7 +58,7 @@ test("hat, brow and glasses thumbnails use centered 6:5 framing independent of a
 });
 test("every image and coloration mask referenced by the runtime pack exists", () => {
   const files = catalog.bases.flatMap(part => [part.file, part.mask]);
-  for (const parts of Object.values(catalog.families)) for (const part of parts) files.push(part.file, part.mask, ...Object.values(part.layers), ...Object.values(part.masks));
+  for (const parts of Object.values(catalog.families)) for (const part of parts) files.push(part.file, part.thumbnail, part.mask, ...Object.values(part.layers), ...Object.values(part.masks));
   for (const file of files.filter(Boolean)) assert.ok(fs.existsSync(new URL(file, assetRoot)), file);
 });
 

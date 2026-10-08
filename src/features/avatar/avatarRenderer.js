@@ -3,7 +3,7 @@ import decorations from "./renderer/lot_003_004_renderer.js";
 import hair from "./renderer/lot_005_renderer.js";
 import mouths from "./renderer/lot_006_renderer.js";
 import facialhair from "./renderer/lot_010_renderer.js";
-import clothes from "./renderer/lot_009_renderer.js";
+import { createAvatarClothesRenderer } from "./avatarClothesRenderer.js";
 import headwear from "./renderer/lot_007_renderer.js";
 import glasses from "./renderer/lot_008_renderer.js";
 import { getAvatarRenderState } from "./avatarRenderState.js";
@@ -17,6 +17,8 @@ import { getAvatarPartIds } from "../../../shared/avatarSelections.js";
 import { avatarSkinFile } from "../../../shared/avatarSkins.js";
 import { createAvatarSkinRenderer } from "./avatarSkinRenderer.js";
 import { applyAvatarSilhouette } from "./avatarSilhouette.js";
+import { createAvatarCostumeRenderer } from "./avatarCostumeRenderer.js";
+import { normalizeAvatar } from "./avatarState.js";
 export { loadAvatarCatalog } from "./avatarCatalog.js";
 
 const ROOT = "/avatars/v1/";
@@ -37,7 +39,7 @@ export async function createAvatarRenderer(dependencies = {}) {
   engine.setHair(hair.create(makeCanvas, manifest("hair")));
   engine.setMouths(mouths.create(makeCanvas, manifest("mouths")));
   engine.setFacialHair(facialhair.create(makeCanvas, manifest("facialhair")));
-  engine.setClothes(clothes.create(makeCanvas, manifest("clothes")));
+  engine.setClothes(createAvatarClothesRenderer(makeCanvas, manifest("clothes")));
   engine.setHeadwear(headwear.create(makeCanvas, manifest("headwear")));
   engine.setGlasses(glasses.create(makeCanvas, manifest("glasses")));
   const images = new Map();
@@ -76,13 +78,25 @@ export async function createAvatarRenderer(dependencies = {}) {
       }
       if (state.accessories.includes("participant_tag")) await loadAvatarMarkerFont();
       const resolved = engine.resolve(state, assets);
+      const costume = createAvatarCostumeRenderer(assets, resolved.state, catalog.families.costumes?.find(part => part.id === state.costumes));
+      // The editor uses resolved adjustments to update its draft. Rendering-only
+      // masking must never erase an equipped hairstyle, hat or garment there.
+      const selected = costume ? normalizeAvatar(value, catalog) : null;
+      const resolvedState = selected ? { ...resolved.state, hair: selected.hair, headwear: selected.headwear, clothes: selected.clothes } : resolved.state;
       const selectedCosmetics = catalog.families.accessories?.filter(part => state.accessories.includes(part.id)) || [];
-      return { ...resolved, draw(canvas, view, medals, nickname = options.nickname) {
+      return { ...resolved, state: resolvedState, draw(canvas, view, medals, nickname = options.nickname) {
         const ctx = canvas.getContext("2d");
         engine.draw(canvas, assets, resolved.state, {
           view, background: "transparent", portraitOffsetY: options.portraitOffsetY,
           drawAccessories: (ctx, layer) => cosmetics.draw(ctx, assets, resolved.state, selectedCosmetics, layer),
           drawSkin: skinLayer ? ctx => ctx.drawImage(skinLayer, 0, 0) : undefined,
+          drawBust: costume?.drawBust,
+          drawCostume: costume?.draw,
+          hairUnderCostume: costume?.hairUnderCostume,
+          costumeHairClip: costume?.hairClip,
+          drawCostumeHeadwear: costume?.drawHeadwear,
+          costumeTop: costume?.top,
+          headClip: costume?.headClip,
           transformCharacter: (ctx, viewport) => {
             viewport.silhouetteWidth = resolved.state.silhouetteWidth;
             applyAvatarSilhouette(ctx, resolved.state.silhouetteWidth);

@@ -1,6 +1,8 @@
 import { withMinimalAvatarEyes } from "./avatarEyes.js";
 import { AVATAR_COSMETICS } from "./avatarCosmetics.js";
 import { AVATAR_ADDITIONAL_NOSES } from "./avatarNoses.js";
+import { AVATAR_COSTUMES } from "./avatarCostumes.js";
+import { withAdditionalAvatarClothes } from "./avatarClothes.js";
 
 // Add future in-game rewards here: server grants, workshop progress and toasts
 // share these identifiers. Progress only comes from validated game events.
@@ -20,7 +22,8 @@ export const AVATAR_ACCESSORIES = Object.freeze([
 
 export function withAvatarAccessories(catalog) {
   return { ...catalog, families: { ...catalog.families,
-    eyes: withMinimalAvatarEyes(catalog.families.eyes), accessories: AVATAR_ACCESSORIES,
+    eyes: withMinimalAvatarEyes(catalog.families.eyes), accessories: AVATAR_ACCESSORIES, costumes: AVATAR_COSTUMES,
+    clothes: withAdditionalAvatarClothes(catalog.families.clothes),
     nose: [...(catalog.families.nose || []).filter(part => !AVATAR_ADDITIONAL_NOSES.some(extra => extra.id === part.id)), ...AVATAR_ADDITIONAL_NOSES],
   } };
 }

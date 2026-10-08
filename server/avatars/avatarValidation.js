@@ -26,6 +26,8 @@ export async function validateAvatarConfiguration(value) {
     if (value[key] === undefined && Object.hasOwn(SCAR_ADJUSTMENT_RANGES, key)) return false;
     if (key === "skinStyle" && value[key] === undefined) return false; // Existing accounts/older clients keep the classic face.
     if (key === "silhouetteWidth" && value[key] === undefined) return false; // Existing silhouettes stay at 100%.
+    if (key === "costumes" && value[key] === undefined) return false; // Older clients keep their original clothes.
+    if (key === "clothesSecondaryColor" && value[key] === undefined) return false; // Existing garments retain their original secondary fabric.
     if (key === "accessories") {
       const ids = value[key] === undefined || value[key] === "" ? []
         : typeof value[key] === "string" ? [value[key]] : value[key];

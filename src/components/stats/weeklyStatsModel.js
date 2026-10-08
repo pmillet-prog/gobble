@@ -61,6 +61,11 @@ export function getWeeklyMetricValue(boardKey, entry) {
     return Number.isFinite(Number(entry.ms)) ? Number(entry.ms) : null;
   }
   if (boardKey === "mostGobbles") return Number(entry.gobbles) || 0;
+  if (boardKey === "gobbles") return Number(entry.gobbles) || 0;
+  if (boardKey === "doubleGobbles") return Number(entry.doubleGobbles) || 0;
+  if (boardKey === "presenterHits") return Number(entry.hits) || 0;
+  if (boardKey === "qpugAnswers") return Number(entry.correctCount) || 0;
+  if (boardKey === "targetQuizPoints") return Number(entry.points) || 0;
   return null;
 }
 
@@ -119,7 +124,16 @@ export function createWeeklyStatsRuntimeModel(
       case "bestTimeTargetScore":
         return Number.isFinite(entry.ms) ? Number(entry.ms) : null;
       case "mostGobbles":
+      case "gobbles":
         return Number(entry.gobbles) || 0;
+      case "doubleGobbles":
+        return Number(entry.doubleGobbles) || 0;
+      case "presenterHits":
+        return Number(entry.hits) || 0;
+      case "qpugAnswers":
+        return Number(entry.correctCount) || 0;
+      case "targetQuizPoints":
+        return Number(entry.points) || 0;
       default:
         return null;
     }
@@ -140,7 +154,7 @@ export function createWeeklyStatsRuntimeModel(
     const byPlayer = new Map();
     for (const entry of entries) {
       const nickKey = entry?.nick ? String(entry.nick).trim().toLowerCase() : null;
-      const rawKey = entry?.playerKey || nickKey;
+      const rawKey = entry?.presenterId || entry?.playerKey || (entry?.userId ? `user:${entry.userId}` : nickKey);
       const key =
         isVocabBoard && nickKey && (!rawKey || String(rawKey).startsWith("nick:"))
           ? installKeyByNick.get(nickKey) || rawKey

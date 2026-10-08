@@ -1,0 +1,35 @@
+{
+  "mode": "built-in image_gen",
+  "date": "2026-10-08",
+  "promptSet": "dev/avatar-costumes/generation.json",
+  "reference": "public/avatars/v1/master/femme_homme_v02/head_homme.png",
+  "outputDirectory": "public/avatars/v1/costumes/2026-10-08",
+  "sourceDirectory": "C:/Users/Paul/.codex/generated_images/01a11b72-7e59-7ae0-a377-def8e07a795d",
+  "width": 1254,
+  "height": 1254,
+  "originalsUnchanged": true,
+  "validation": "All eleven visually inspected; PNG alpha at image center x=50%, y=40% and top-left corner equals zero.",
+  "assets": [
+    { "id": "astronaut", "source": "exec-2faf1bd1-b36b-41a9-aeeb-29750bac236e.png", "bytes": 1198159 },
+    { "id": "pirate", "source": "exec-604e5287-75c4-4d4b-aa40-90f24cdbeae5.png", "bytes": 1609029 },
+    { "id": "knight", "source": "exec-b7c0f22a-3a0a-4b08-b18c-3b99617d5f40.png", "bytes": 1462061 },
+    {
+      "id": "vampire",
+      "source": "exec-15a6d1fc-edef-440d-8525-7432702b42c5.png",
+      "bytes": 951055,
+      "promptSuffix": "Individual costume override: NO hood whatsoever. ALL the canvas above y510 must remain totally empty real alpha transparency. Collar only begins beneath ear level, and shoulders/torso below."
+    },
+    { "id": "mummy", "source": "exec-21edf630-93de-4cd6-8bb9-521ce0765acb.png", "bytes": 1484628 },
+    {
+      "id": "clown",
+      "source": "exec-062077b9-086e-4047-bcc1-f575f28d2427.png",
+      "bytes": 865107,
+      "promptSuffix": "Individual costume override: absolutely NO hood or wig. Only the little hat is above the head area; space beneath hat down to bow tie is fully empty real alpha transparency, open at sides."
+    },
+    { "id": "santa", "source": "exec-b7faf98b-cb78-46c3-a5a4-569aee3f5de8.png", "bytes": 1256187 },
+    { "id": "scarecrow", "source": "exec-d0de8ffd-6462-408a-a035-e0bcbbdb89a0.png", "bytes": 1750168 },
+    { "id": "robot", "source": "exec-e8839938-2890-419c-8c75-4cf0946e1e04.png", "bytes": 1269131 },
+    { "id": "musketeer", "source": "exec-449c96b5-7175-4b90-9769-7858fc52f45a.png", "bytes": 1748263 },
+    { "id": "baby", "source": "exec-f0af0c5c-0a69-4a1d-97f0-035db2d77c35.png", "bytes": 1340996 }
+  ]
+}

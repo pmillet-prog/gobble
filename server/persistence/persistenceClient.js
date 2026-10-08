@@ -153,6 +153,9 @@ export function createPersistenceClient() {
     finishTargetQuizPoints(payload) {
       return call("finishTargetQuizPoints", payload);
     },
+    getPlayerProgressBoards(payload) {
+      return call("getPlayerProgressBoards", payload);
+    },
     recordAvatarObjectives(payload) {
       return call("recordAvatarObjectives", payload);
     },

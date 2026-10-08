@@ -1,6 +1,6 @@
 import { parentPort } from "worker_threads";
 import { avatarInventory } from "../auth/authService.js";
-import { loadTargetQuizProgress, saveTargetQuizProgress, loadTargetQuizPoints, saveTargetQuizAnswer, finishTargetQuizPoints } from "../targetMiniGame/targetQuizProgressStore.js";
+import { loadTargetQuizProgress, saveTargetQuizProgress, loadTargetQuizPoints, saveTargetQuizAnswer, finishTargetQuizPoints, getPlayerProgressBoards } from "../targetMiniGame/targetQuizProgressStore.js";
 
 import {
   initPlayerProfileService,
@@ -43,6 +43,7 @@ async function handleJob(type, payload) {
   if (type === "loadTargetQuizPoints") return loadTargetQuizPoints(payload);
   if (type === "finishTargetQuizPoints") return finishTargetQuizPoints(payload);
   if (type === "saveTargetQuizAnswer") return saveTargetQuizAnswer(payload);
+  if (type === "getPlayerProgressBoards") return getPlayerProgressBoards(payload);
   if (type === "recordAvatarObjectives") return avatarInventory.objectives.recordBatch(payload);
   if (type === "recordPlayerRoundStats") {
     return recordPlayerRoundStats(payload || {});

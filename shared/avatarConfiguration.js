@@ -27,14 +27,14 @@ export function normalizeAvatarAdjustments(source) {
 
 export const DEFAULT_AVATAR = Object.freeze({
   version: 1, base: "homme", eyes: "open", brows: "straight", nose: "short", accessories: Object.freeze([]),
-  mouths: "thin_neutral", hair: "quiff", headwear: "", headwearHair: "auto", glasses: "", lashes: "", facialhair: "", clothes: "", backdrops: "", auras: "",
+  mouths: "thin_neutral", hair: "quiff", headwear: "", headwearHair: "auto", glasses: "", lashes: "", facialhair: "", clothes: "", costumes: "", backdrops: "", auras: "",
   tone: "native", skinStyle: "classic", customColor: "#f6bd91", hairColor: "#653a23", irisColor: "#658c6c",
-  backgroundColor: "#204e63", mouthColor: "", headwearColor: "", glassesColor: "", clothesColor: "", facialhairColor: "#653a23", backdropColor: "#597ea5",
+  backgroundColor: "#204e63", mouthColor: "", headwearColor: "", glassesColor: "", clothesColor: "", clothesSecondaryColor: "", facialhairColor: "#653a23", backdropColor: "#597ea5",
   ...AVATAR_ADJUSTMENT_DEFAULTS,
 });
 
-const PART_KEYS = ["eyes", "brows", "lashes", "nose", "mouths", "hair", "headwear", "glasses", "facialhair", "clothes", "backdrops", "auras", "accessories"];
-const COLOR_KEYS = ["customColor", "hairColor", "irisColor", "backgroundColor", "mouthColor", "headwearColor", "glassesColor", "clothesColor", "facialhairColor", "backdropColor"];
+const PART_KEYS = ["eyes", "brows", "lashes", "nose", "mouths", "hair", "headwear", "glasses", "facialhair", "clothes", "costumes", "backdrops", "auras", "accessories"];
+const COLOR_KEYS = ["customColor", "hairColor", "irisColor", "backgroundColor", "mouthColor", "headwearColor", "glassesColor", "clothesColor", "clothesSecondaryColor", "facialhairColor", "backdropColor"];
 
 // A new player's canvas contains only the chosen base. Existing saved defaults
 // remain unchanged; explicitly empty features must survive saving and rendering.
@@ -48,7 +48,7 @@ export function normalizeAvatar(value, catalog) {
   next.tone = source.tone === "custom" ? "custom" : "native";
   if (isAvatarSkin(source.skinStyle)) next.skinStyle = source.skinStyle;
   if (["auto", "under", "all", "hide"].includes(source.headwearHair)) next.headwearHair = source.headwearHair;
-  for (const key of COLOR_KEYS) if (/^#[\da-f]{6}$/i.test(source[key])) next[key] = source[key];
+  for (const key of COLOR_KEYS) if (typeof source[key] === "string" && /^#[\da-f]{6}$/i.test(source[key])) next[key] = source[key];
   for (const key of ["hairColor", "facialhairColor"]) if (source[key] === "") next[key] = "";
   for (const key of PART_KEYS) {
     if (key === "accessories") {

@@ -21,6 +21,24 @@ test("weekly metric values keep score and target-time semantics", () => {
   assert.equal(getWeeklyMetricValue("bestTimeTargetLong", { ms: "2500" }), 2500);
 });
 
+test("presenter progress rankings keep negative balances and deduplicate by stable identity", () => {
+  const model = createWeeklyStatsRuntimeModel({ current: "" }, { current: "" }, null);
+  const points = model.dedupeWeeklyEntries("targetQuizPoints", [
+    { userId: 1, nick: "Même pseudo", points: -250 },
+    { userId: 2, nick: "Même pseudo", points: 0 },
+    { userId: 3, nick: "Autre", points: 150 },
+  ]);
+  assert.deepEqual(points.map(entry => entry.points), [150, 0, -250]);
+  assert.equal(getWeeklyMetricValue("targetQuizPoints", points[2]), -250);
+  const hits = model.dedupeWeeklyEntries("presenterHits", [
+    { presenterId: "pivot", nick: "Pinot", hits: 5 },
+    { presenterId: "lepers", nick: "Lechéper", hits: 18 },
+    { presenterId: "foukro", nick: "FouKro", hits: 0 },
+  ]);
+  assert.deepEqual(hits.map(entry => entry.presenterId), ["lepers", "pivot", "foukro"]);
+  assert.equal(model.dedupeWeeklyEntries("qpugAnswers", [{ userId: 8, correctCount: 35 }])[0].correctCount, 35);
+});
+
 test("weekly changes detect rank, score, and faster target times", () => {
   const rankMap = new Map([["user:42", 2]]);
   const scoreMap = new Map([["user:42", 100]]);

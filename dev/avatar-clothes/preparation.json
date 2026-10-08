@@ -1,0 +1,242 @@
+[
+  {
+    "model": "dungarees",
+    "sourceBounds": [
+      131,
+      699,
+      992,
+      518
+    ],
+    "placement": [
+      107,
+      575,
+      810,
+      420
+    ],
+    "colorPixels": [
+      110123,
+      138132
+    ],
+    "thumbnailBytes": 9496
+  },
+  {
+    "model": "quilted_vest",
+    "sourceBounds": [
+      81,
+      575,
+      1093,
+      652
+    ],
+    "placement": [
+      107,
+      575,
+      810,
+      420
+    ],
+    "colorPixels": [
+      120754,
+      126315
+    ],
+    "thumbnailBytes": 10548
+  },
+  {
+    "model": "kimono",
+    "sourceBounds": [
+      101,
+      683,
+      1052,
+      552
+    ],
+    "placement": [
+      77,
+      575,
+      870,
+      420
+    ],
+    "colorPixels": [
+      188726,
+      55324
+    ],
+    "thumbnailBytes": 8704
+  },
+  {
+    "model": "poncho",
+    "sourceBounds": [
+      140,
+      597,
+      974,
+      657
+    ],
+    "placement": [
+      62,
+      575,
+      900,
+      420
+    ],
+    "colorPixels": [
+      173886,
+      85070
+    ],
+    "thumbnailBytes": 9998
+  },
+  {
+    "model": "varsity",
+    "sourceBounds": [
+      153,
+      679,
+      949,
+      558
+    ],
+    "placement": [
+      97,
+      575,
+      830,
+      420
+    ],
+    "colorPixels": [
+      150619,
+      102442
+    ],
+    "thumbnailBytes": 9374
+  },
+  {
+    "model": "safari",
+    "sourceBounds": [
+      151,
+      692,
+      952,
+      525
+    ],
+    "placement": [
+      107,
+      575,
+      810,
+      420
+    ],
+    "colorPixels": [
+      201039,
+      47613
+    ],
+    "thumbnailBytes": 9666
+  },
+  {
+    "model": "raincoat",
+    "sourceBounds": [
+      36,
+      576,
+      1183,
+      662
+    ],
+    "placement": [
+      87,
+      575,
+      850,
+      420
+    ],
+    "colorPixels": [
+      195348,
+      69277
+    ],
+    "thumbnailBytes": 12926
+  },
+  {
+    "model": "sherpa",
+    "sourceBounds": [
+      81,
+      555,
+      1093,
+      678
+    ],
+    "placement": [
+      107,
+      575,
+      810,
+      420
+    ],
+    "colorPixels": [
+      183882,
+      52118
+    ],
+    "thumbnailBytes": 12838
+  },
+  {
+    "model": "sweater_vest",
+    "sourceBounds": [
+      61,
+      611,
+      1132,
+      609
+    ],
+    "placement": [
+      107,
+      575,
+      810,
+      420
+    ],
+    "colorPixels": [
+      149954,
+      95314
+    ],
+    "thumbnailBytes": 9074
+  },
+  {
+    "model": "bow_blouse",
+    "sourceBounds": [
+      105,
+      629,
+      1044,
+      601
+    ],
+    "placement": [
+      107,
+      575,
+      810,
+      420
+    ],
+    "colorPixels": [
+      178429,
+      66676
+    ],
+    "thumbnailBytes": 8292
+  },
+  {
+    "model": "waistcoat",
+    "sourceBounds": [
+      140,
+      666,
+      975,
+      565
+    ],
+    "placement": [
+      107,
+      575,
+      810,
+      420
+    ],
+    "colorPixels": [
+      119780,
+      114216
+    ],
+    "thumbnailBytes": 9034
+  },
+  {
+    "model": "track_jacket",
+    "sourceBounds": [
+      156,
+      664,
+      942,
+      567
+    ],
+    "placement": [
+      107,
+      575,
+      810,
+      420
+    ],
+    "colorPixels": [
+      174244,
+      63239
+    ],
+    "thumbnailBytes": 10464
+  }
+]

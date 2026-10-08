@@ -24,7 +24,7 @@ import {
 import { VIEWPORT_EVENTS } from "../layout/createViewportEventHub.js";
 import { getBroadcastMessageKey } from "../home/homeViewModel.js";
 
-export const PATCH_NOTES_VERSION = "2026-10-06";
+export const PATCH_NOTES_VERSION = "2026-10-08";
 export const PATCH_NOTES_RELEASE_TS = Date.parse("2026-10-06T00:00:00+02:00");
 export const FACEBOOK_INVITE_VERSION = "facebook-group-v1";
 

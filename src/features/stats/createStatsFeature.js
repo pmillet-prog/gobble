@@ -6,6 +6,8 @@ export const VOCAB_STATUS_TIMEOUT_MS = 6500;
 export function createInitialStatsState() {
   return {
     activeIndex: 0,
+    category: "vocabulary",
+    boardKey: "weeklyVocab",
     error: "",
     loading: false,
     open: false,
@@ -459,9 +461,9 @@ export function createStatsFeature(
     bindRealtime();
   }
 
-  function openOverlay({ reset = false } = {}) {
+  function openOverlay({ reset = true } = {}) {
     if (!active) return;
-    feature.patch({ open: true, ...(reset ? { activeIndex: 0, tab: "weekly" } : {}) });
+    feature.patch({ open: true, ...(reset ? { activeIndex: 0, tab: "weekly", category: "vocabulary", boardKey: "weeklyVocab" } : {}) });
     void fetchWeekly(true);
     void requestVocabCount();
     void requestTrophyStatus();

@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { DEFAULT_AVATAR, normalizeAvatar, createBlankAvatar, isOwnPlayerProfile } from "./avatarState.js";
 import { AVATAR_SKINS, avatarSkinFile } from "../../../shared/avatarSkins.js";
+import { selectAvatarPart } from "../../../shared/avatarSelections.js";
 
 test("only an authenticated matching account owns the profile", () => {
   assert.equal(isOwnPlayerProfile(12, "12"), true);
@@ -29,6 +30,31 @@ test("skin styles survive saves and changes of face while older avatars retain t
 test("animation expressions migrate to the neutral version of the same mouth", () => {
   for (const expression of ["happy", "sad", "surprised", "neutral"]) {
     assert.equal(normalizeAvatar({ mouths: `full_${expression}` }).mouths, "full_neutral");
+  }
+});
+
+test("costumes survive saving and removing one restores the selected appearance without changing it", () => {
+  const original = normalizeAvatar({ hair: "longwaves", headwear: "cap", glasses: "vue_ronde", clothes: "tee_homme", accessories: ["earrings_hoops"] });
+  const dressed = normalizeAvatar(selectAvatarPart(original, "costumes", "dinosaur"));
+  assert.equal(dressed.costumes, "dinosaur");
+  assert.deepEqual(normalizeAvatar(JSON.parse(JSON.stringify(dressed))), dressed);
+  assert.deepEqual(normalizeAvatar(selectAvatarPart(dressed, "costumes", "")), original);
+  assert.equal(normalizeAvatar({ ...dressed, base: "femme" }).costumes, "dinosaur");
+  const { costumes, ...older } = original;
+  assert.equal(normalizeAvatar(older).costumes, "");
+  assert.equal(createBlankAvatar().costumes, "");
+});
+
+test("clothing colors persist and reset independently while older avatars keep original secondary fabric", () => {
+  const colored = normalizeAvatar({ clothesColor: "#355a8b", clothesSecondaryColor: "#EECDAA" });
+  assert.deepEqual(normalizeAvatar(JSON.parse(JSON.stringify(colored))), colored);
+  assert.equal(normalizeAvatar({ ...colored, clothesColor: "" }).clothesSecondaryColor, "#EECDAA");
+  assert.equal(normalizeAvatar({ ...colored, clothesSecondaryColor: "" }).clothesColor, "#355a8b");
+  assert.equal(normalizeAvatar({ ...colored, base: "femme" }).clothesSecondaryColor, "#EECDAA");
+  const { clothesSecondaryColor, ...older } = colored;
+  assert.equal(normalizeAvatar(older).clothesSecondaryColor, "");
+  for (const invalid of ["red", "#abc", "#123456ff", "url(file)", null, 123456, ["#123456"], {}]) {
+    assert.equal(normalizeAvatar({ clothesSecondaryColor: invalid }).clothesSecondaryColor, "");
   }
 });
 

@@ -1,0 +1,2277 @@
+{
+  "renderer": "production createNativeAvatarRenderer",
+  "matrix": [
+    {
+      "base": "homme",
+      "costume": "dinosaur",
+      "hair": "bob",
+      "hairDifference": {
+        "changed": 22839,
+        "tested": 249100,
+        "maximum": 230
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 7435,
+        "maximum": 5
+      },
+      "glassesDifference": {
+        "changed": 4968,
+        "tested": 168300,
+        "maximum": 234
+      },
+      "accessoriesDifference": {
+        "changed": 7456,
+        "tested": 362080,
+        "maximum": 235
+      },
+      "featuresDifference": {
+        "changed": 31346,
+        "tested": 189200,
+        "maximum": 247
+      }
+    },
+    {
+      "base": "homme",
+      "costume": "dinosaur",
+      "hair": "quiff",
+      "hairDifference": {
+        "changed": 2424,
+        "tested": 249100,
+        "maximum": 255
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 7435,
+        "maximum": 7
+      }
+    },
+    {
+      "base": "homme",
+      "costume": "chicken",
+      "hair": "bob",
+      "hairDifference": {
+        "changed": 25303,
+        "tested": 249100,
+        "maximum": 255
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 2534,
+        "maximum": 4
+      },
+      "glassesDifference": {
+        "changed": 4978,
+        "tested": 168300,
+        "maximum": 234
+      },
+      "accessoriesDifference": {
+        "changed": 7614,
+        "tested": 362080,
+        "maximum": 236
+      },
+      "featuresDifference": {
+        "changed": 29920,
+        "tested": 189200,
+        "maximum": 247
+      }
+    },
+    {
+      "base": "homme",
+      "costume": "chicken",
+      "hair": "quiff",
+      "hairDifference": {
+        "changed": 16753,
+        "tested": 249100,
+        "maximum": 255
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 2534,
+        "maximum": 4
+      }
+    },
+    {
+      "base": "homme",
+      "costume": "penguin",
+      "hair": "bob",
+      "hairDifference": {
+        "changed": 48036,
+        "tested": 249100,
+        "maximum": 253
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 4119,
+        "maximum": 6
+      },
+      "glassesDifference": {
+        "changed": 4968,
+        "tested": 168300,
+        "maximum": 234
+      },
+      "accessoriesDifference": {
+        "changed": 7912,
+        "tested": 362080,
+        "maximum": 255
+      },
+      "featuresDifference": {
+        "changed": 32018,
+        "tested": 189200,
+        "maximum": 247
+      }
+    },
+    {
+      "base": "homme",
+      "costume": "penguin",
+      "hair": "quiff",
+      "hairDifference": {
+        "changed": 14235,
+        "tested": 249100,
+        "maximum": 250
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 4119,
+        "maximum": 6
+      }
+    },
+    {
+      "base": "homme",
+      "costume": "unicorn",
+      "hair": "bob",
+      "hairDifference": {
+        "changed": 22011,
+        "tested": 249100,
+        "maximum": 253
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 11941,
+        "maximum": 6
+      },
+      "glassesDifference": {
+        "changed": 4965,
+        "tested": 168300,
+        "maximum": 234
+      },
+      "accessoriesDifference": {
+        "changed": 7714,
+        "tested": 362080,
+        "maximum": 255
+      },
+      "featuresDifference": {
+        "changed": 27988,
+        "tested": 189200,
+        "maximum": 247
+      }
+    },
+    {
+      "base": "homme",
+      "costume": "unicorn",
+      "hair": "quiff",
+      "hairDifference": {
+        "changed": 2338,
+        "tested": 249100,
+        "maximum": 254
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 11941,
+        "maximum": 6
+      }
+    },
+    {
+      "base": "homme",
+      "costume": "bear",
+      "hair": "bob",
+      "hairDifference": {
+        "changed": 39102,
+        "tested": 249100,
+        "maximum": 253
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 2197,
+        "maximum": 4
+      },
+      "glassesDifference": {
+        "changed": 4968,
+        "tested": 168300,
+        "maximum": 234
+      },
+      "accessoriesDifference": {
+        "changed": 7783,
+        "tested": 362080,
+        "maximum": 255
+      },
+      "featuresDifference": {
+        "changed": 32018,
+        "tested": 189200,
+        "maximum": 247
+      }
+    },
+    {
+      "base": "homme",
+      "costume": "bear",
+      "hair": "quiff",
+      "hairDifference": {
+        "changed": 7036,
+        "tested": 249100,
+        "maximum": 229
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 2197,
+        "maximum": 7
+      }
+    },
+    {
+      "base": "homme",
+      "costume": "frog",
+      "hair": "bob",
+      "hairDifference": {
+        "changed": 52929,
+        "tested": 249100,
+        "maximum": 253
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 712,
+        "maximum": 6
+      },
+      "glassesDifference": {
+        "changed": 4968,
+        "tested": 168300,
+        "maximum": 234
+      },
+      "accessoriesDifference": {
+        "changed": 7895,
+        "tested": 362080,
+        "maximum": 255
+      },
+      "featuresDifference": {
+        "changed": 32015,
+        "tested": 189200,
+        "maximum": 246
+      }
+    },
+    {
+      "base": "homme",
+      "costume": "frog",
+      "hair": "quiff",
+      "hairDifference": {
+        "changed": 20362,
+        "tested": 249100,
+        "maximum": 253
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 712,
+        "maximum": 6
+      }
+    },
+    {
+      "base": "homme",
+      "costume": "shark",
+      "hair": "bob",
+      "hairDifference": {
+        "changed": 24669,
+        "tested": 249100,
+        "maximum": 255
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 7939,
+        "maximum": 7
+      },
+      "glassesDifference": {
+        "changed": 4968,
+        "tested": 168300,
+        "maximum": 234
+      },
+      "accessoriesDifference": {
+        "changed": 7784,
+        "tested": 362080,
+        "maximum": 250
+      },
+      "featuresDifference": {
+        "changed": 30950,
+        "tested": 189200,
+        "maximum": 247
+      }
+    },
+    {
+      "base": "homme",
+      "costume": "shark",
+      "hair": "quiff",
+      "hairDifference": {
+        "changed": 11093,
+        "tested": 249100,
+        "maximum": 255
+      },
+      "costumeCoverage": {
+        "changed": 1,
+        "tested": 7939,
+        "maximum": 9
+      }
+    },
+    {
+      "base": "homme",
+      "costume": "panda",
+      "hair": "bob",
+      "hairDifference": {
+        "changed": 34166,
+        "tested": 249100,
+        "maximum": 251
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 13854,
+        "maximum": 6
+      },
+      "glassesDifference": {
+        "changed": 4968,
+        "tested": 168300,
+        "maximum": 234
+      },
+      "accessoriesDifference": {
+        "changed": 7600,
+        "tested": 362080,
+        "maximum": 234
+      },
+      "featuresDifference": {
+        "changed": 32018,
+        "tested": 189200,
+        "maximum": 247
+      }
+    },
+    {
+      "base": "homme",
+      "costume": "panda",
+      "hair": "quiff",
+      "hairDifference": {
+        "changed": 5572,
+        "tested": 249100,
+        "maximum": 228
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 13854,
+        "maximum": 8
+      }
+    },
+    {
+      "base": "homme",
+      "costume": "bee",
+      "hair": "bob",
+      "hairDifference": {
+        "changed": 39514,
+        "tested": 249100,
+        "maximum": 230
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 3081,
+        "maximum": 7
+      },
+      "glassesDifference": {
+        "changed": 4967,
+        "tested": 168300,
+        "maximum": 234
+      },
+      "accessoriesDifference": {
+        "changed": 7851,
+        "tested": 362080,
+        "maximum": 249
+      },
+      "featuresDifference": {
+        "changed": 32016,
+        "tested": 189200,
+        "maximum": 247
+      }
+    },
+    {
+      "base": "homme",
+      "costume": "bee",
+      "hair": "quiff",
+      "hairDifference": {
+        "changed": 13784,
+        "tested": 249100,
+        "maximum": 255
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 3081,
+        "maximum": 7
+      }
+    },
+    {
+      "base": "homme",
+      "costume": "rabbit",
+      "hair": "bob",
+      "hairDifference": {
+        "changed": 24087,
+        "tested": 249100,
+        "maximum": 255
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 9018,
+        "maximum": 3
+      },
+      "glassesDifference": {
+        "changed": 4955,
+        "tested": 168300,
+        "maximum": 234
+      },
+      "accessoriesDifference": {
+        "changed": 7695,
+        "tested": 362080,
+        "maximum": 255
+      },
+      "featuresDifference": {
+        "changed": 28167,
+        "tested": 189200,
+        "maximum": 247
+      }
+    },
+    {
+      "base": "homme",
+      "costume": "rabbit",
+      "hair": "quiff",
+      "hairDifference": {
+        "changed": 10674,
+        "tested": 249100,
+        "maximum": 255
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 9018,
+        "maximum": 5
+      }
+    },
+    {
+      "base": "homme",
+      "costume": "cow",
+      "hair": "bob",
+      "hairDifference": {
+        "changed": 46830,
+        "tested": 249100,
+        "maximum": 253
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 20953,
+        "maximum": 3
+      },
+      "glassesDifference": {
+        "changed": 4969,
+        "tested": 168300,
+        "maximum": 234
+      },
+      "accessoriesDifference": {
+        "changed": 8018,
+        "tested": 362080,
+        "maximum": 255
+      },
+      "featuresDifference": {
+        "changed": 32017,
+        "tested": 189200,
+        "maximum": 247
+      }
+    },
+    {
+      "base": "homme",
+      "costume": "cow",
+      "hair": "quiff",
+      "hairDifference": {
+        "changed": 11450,
+        "tested": 249100,
+        "maximum": 253
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 20953,
+        "maximum": 7
+      }
+    },
+    {
+      "base": "homme",
+      "costume": "astronaut",
+      "hair": "bob",
+      "hairDifference": {
+        "changed": 52599,
+        "tested": 249100,
+        "maximum": 230
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 762,
+        "maximum": 6
+      },
+      "glassesDifference": {
+        "changed": 4968,
+        "tested": 168300,
+        "maximum": 234
+      },
+      "accessoriesDifference": {
+        "changed": 7583,
+        "tested": 362080,
+        "maximum": 242
+      },
+      "featuresDifference": {
+        "changed": 32018,
+        "tested": 189200,
+        "maximum": 247
+      }
+    },
+    {
+      "base": "homme",
+      "costume": "astronaut",
+      "hair": "quiff",
+      "hairDifference": {
+        "changed": 23659,
+        "tested": 249100,
+        "maximum": 253
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 762,
+        "maximum": 6
+      }
+    },
+    {
+      "base": "homme",
+      "costume": "pirate",
+      "hair": "bob",
+      "hairDifference": {
+        "changed": 37079,
+        "tested": 249100,
+        "maximum": 253
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 1579,
+        "maximum": 4
+      },
+      "glassesDifference": {
+        "changed": 4968,
+        "tested": 168300,
+        "maximum": 234
+      },
+      "accessoriesDifference": {
+        "changed": 7970,
+        "tested": 362080,
+        "maximum": 255
+      },
+      "featuresDifference": {
+        "changed": 32016,
+        "tested": 189200,
+        "maximum": 247
+      }
+    },
+    {
+      "base": "homme",
+      "costume": "pirate",
+      "hair": "quiff",
+      "hairDifference": {
+        "changed": 4538,
+        "tested": 249100,
+        "maximum": 226
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 1579,
+        "maximum": 2
+      }
+    },
+    {
+      "base": "homme",
+      "costume": "knight",
+      "hair": "bob",
+      "hairDifference": {
+        "changed": 32230,
+        "tested": 249100,
+        "maximum": 253
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 543,
+        "maximum": 5
+      },
+      "glassesDifference": {
+        "changed": 4968,
+        "tested": 168300,
+        "maximum": 234
+      },
+      "accessoriesDifference": {
+        "changed": 7605,
+        "tested": 362080,
+        "maximum": 255
+      },
+      "featuresDifference": {
+        "changed": 32018,
+        "tested": 189200,
+        "maximum": 247
+      }
+    },
+    {
+      "base": "homme",
+      "costume": "knight",
+      "hair": "quiff",
+      "hairDifference": {
+        "changed": 6860,
+        "tested": 249100,
+        "maximum": 255
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 543,
+        "maximum": 5
+      }
+    },
+    {
+      "base": "homme",
+      "costume": "vampire",
+      "hair": "bob",
+      "hairDifference": {
+        "changed": 93995,
+        "tested": 249100,
+        "maximum": 255
+      },
+      "costumeCoverage": {
+        "changed": 10,
+        "tested": 61,
+        "maximum": 46
+      },
+      "glassesDifference": {
+        "changed": 4968,
+        "tested": 168300,
+        "maximum": 234
+      },
+      "accessoriesDifference": {
+        "changed": 5300,
+        "tested": 362080,
+        "maximum": 251
+      },
+      "featuresDifference": {
+        "changed": 32018,
+        "tested": 189200,
+        "maximum": 247
+      }
+    },
+    {
+      "base": "homme",
+      "costume": "vampire",
+      "hair": "quiff",
+      "hairDifference": {
+        "changed": 65833,
+        "tested": 249100,
+        "maximum": 255
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 61,
+        "maximum": 0
+      }
+    },
+    {
+      "base": "homme",
+      "costume": "mummy",
+      "hair": "bob",
+      "hairDifference": {
+        "changed": 44781,
+        "tested": 249100,
+        "maximum": 251
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 1522,
+        "maximum": 5
+      },
+      "glassesDifference": {
+        "changed": 4967,
+        "tested": 168300,
+        "maximum": 234
+      },
+      "accessoriesDifference": {
+        "changed": 7588,
+        "tested": 362080,
+        "maximum": 255
+      },
+      "featuresDifference": {
+        "changed": 32020,
+        "tested": 189200,
+        "maximum": 247
+      }
+    },
+    {
+      "base": "homme",
+      "costume": "mummy",
+      "hair": "quiff",
+      "hairDifference": {
+        "changed": 16920,
+        "tested": 249100,
+        "maximum": 253
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 1522,
+        "maximum": 5
+      }
+    },
+    {
+      "base": "homme",
+      "costume": "clown",
+      "hair": "bob",
+      "hairDifference": {
+        "changed": 80754,
+        "tested": 249100,
+        "maximum": 255
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 247,
+        "maximum": 2
+      },
+      "glassesDifference": {
+        "changed": 4968,
+        "tested": 168300,
+        "maximum": 234
+      },
+      "accessoriesDifference": {
+        "changed": 5575,
+        "tested": 362080,
+        "maximum": 255
+      },
+      "featuresDifference": {
+        "changed": 32018,
+        "tested": 189200,
+        "maximum": 247
+      }
+    },
+    {
+      "base": "homme",
+      "costume": "clown",
+      "hair": "quiff",
+      "hairDifference": {
+        "changed": 49217,
+        "tested": 249100,
+        "maximum": 255
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 247,
+        "maximum": 4
+      }
+    },
+    {
+      "base": "homme",
+      "costume": "santa",
+      "hair": "bob",
+      "hairDifference": {
+        "changed": 27037,
+        "tested": 249100,
+        "maximum": 230
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 473,
+        "maximum": 4
+      },
+      "glassesDifference": {
+        "changed": 4968,
+        "tested": 168300,
+        "maximum": 234
+      },
+      "accessoriesDifference": {
+        "changed": 7799,
+        "tested": 362080,
+        "maximum": 255
+      },
+      "featuresDifference": {
+        "changed": 31900,
+        "tested": 189200,
+        "maximum": 247
+      }
+    },
+    {
+      "base": "homme",
+      "costume": "santa",
+      "hair": "quiff",
+      "hairDifference": {
+        "changed": 1916,
+        "tested": 249100,
+        "maximum": 221
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 473,
+        "maximum": 2
+      }
+    },
+    {
+      "base": "homme",
+      "costume": "scarecrow",
+      "hair": "bob",
+      "hairDifference": {
+        "changed": 23869,
+        "tested": 249100,
+        "maximum": 230
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 1347,
+        "maximum": 2
+      },
+      "glassesDifference": {
+        "changed": 4968,
+        "tested": 168300,
+        "maximum": 234
+      },
+      "accessoriesDifference": {
+        "changed": 7584,
+        "tested": 362080,
+        "maximum": 255
+      },
+      "featuresDifference": {
+        "changed": 31609,
+        "tested": 189200,
+        "maximum": 247
+      }
+    },
+    {
+      "base": "homme",
+      "costume": "scarecrow",
+      "hair": "quiff",
+      "hairDifference": {
+        "changed": 1231,
+        "tested": 249100,
+        "maximum": 255
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 1347,
+        "maximum": 8
+      }
+    },
+    {
+      "base": "homme",
+      "costume": "robot",
+      "hair": "bob",
+      "hairDifference": {
+        "changed": 24354,
+        "tested": 249100,
+        "maximum": 254
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 3608,
+        "maximum": 4
+      },
+      "glassesDifference": {
+        "changed": 4968,
+        "tested": 168300,
+        "maximum": 234
+      },
+      "accessoriesDifference": {
+        "changed": 7525,
+        "tested": 362080,
+        "maximum": 245
+      },
+      "featuresDifference": {
+        "changed": 31697,
+        "tested": 189200,
+        "maximum": 247
+      }
+    },
+    {
+      "base": "homme",
+      "costume": "robot",
+      "hair": "quiff",
+      "hairDifference": {
+        "changed": 9177,
+        "tested": 249100,
+        "maximum": 255
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 3608,
+        "maximum": 7
+      }
+    },
+    {
+      "base": "homme",
+      "costume": "musketeer",
+      "hair": "bob",
+      "hairDifference": {
+        "changed": 40282,
+        "tested": 249100,
+        "maximum": 253
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 2398,
+        "maximum": 4
+      },
+      "glassesDifference": {
+        "changed": 4968,
+        "tested": 168300,
+        "maximum": 234
+      },
+      "accessoriesDifference": {
+        "changed": 7938,
+        "tested": 362080,
+        "maximum": 255
+      },
+      "featuresDifference": {
+        "changed": 32018,
+        "tested": 189200,
+        "maximum": 247
+      }
+    },
+    {
+      "base": "homme",
+      "costume": "musketeer",
+      "hair": "quiff",
+      "hairDifference": {
+        "changed": 6646,
+        "tested": 249100,
+        "maximum": 255
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 2398,
+        "maximum": 4
+      }
+    },
+    {
+      "base": "homme",
+      "costume": "baby",
+      "hair": "bob",
+      "hairDifference": {
+        "changed": 53938,
+        "tested": 249100,
+        "maximum": 230
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 12106,
+        "maximum": 8
+      },
+      "glassesDifference": {
+        "changed": 4966,
+        "tested": 168300,
+        "maximum": 234
+      },
+      "accessoriesDifference": {
+        "changed": 7774,
+        "tested": 362080,
+        "maximum": 234
+      },
+      "featuresDifference": {
+        "changed": 32016,
+        "tested": 189200,
+        "maximum": 247
+      }
+    },
+    {
+      "base": "homme",
+      "costume": "baby",
+      "hair": "quiff",
+      "hairDifference": {
+        "changed": 24271,
+        "tested": 249100,
+        "maximum": 235
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 12106,
+        "maximum": 8
+      }
+    },
+    {
+      "base": "femme",
+      "costume": "dinosaur",
+      "hair": "bob",
+      "hairDifference": {
+        "changed": 22975,
+        "tested": 249100,
+        "maximum": 232
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 7435,
+        "maximum": 5
+      },
+      "glassesDifference": {
+        "changed": 4970,
+        "tested": 168300,
+        "maximum": 234
+      },
+      "accessoriesDifference": {
+        "changed": 8290,
+        "tested": 362080,
+        "maximum": 255
+      },
+      "featuresDifference": {
+        "changed": 32239,
+        "tested": 189200,
+        "maximum": 247
+      }
+    },
+    {
+      "base": "femme",
+      "costume": "dinosaur",
+      "hair": "quiff",
+      "hairDifference": {
+        "changed": 2427,
+        "tested": 249100,
+        "maximum": 255
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 7435,
+        "maximum": 7
+      }
+    },
+    {
+      "base": "femme",
+      "costume": "chicken",
+      "hair": "bob",
+      "hairDifference": {
+        "changed": 25327,
+        "tested": 249100,
+        "maximum": 255
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 2534,
+        "maximum": 4
+      },
+      "glassesDifference": {
+        "changed": 4980,
+        "tested": 168300,
+        "maximum": 234
+      },
+      "accessoriesDifference": {
+        "changed": 8435,
+        "tested": 362080,
+        "maximum": 239
+      },
+      "featuresDifference": {
+        "changed": 30813,
+        "tested": 189200,
+        "maximum": 247
+      }
+    },
+    {
+      "base": "femme",
+      "costume": "chicken",
+      "hair": "quiff",
+      "hairDifference": {
+        "changed": 16752,
+        "tested": 249100,
+        "maximum": 255
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 2534,
+        "maximum": 4
+      }
+    },
+    {
+      "base": "femme",
+      "costume": "penguin",
+      "hair": "bob",
+      "hairDifference": {
+        "changed": 48199,
+        "tested": 249100,
+        "maximum": 252
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 4119,
+        "maximum": 6
+      },
+      "glassesDifference": {
+        "changed": 4970,
+        "tested": 168300,
+        "maximum": 234
+      },
+      "accessoriesDifference": {
+        "changed": 8748,
+        "tested": 362080,
+        "maximum": 255
+      },
+      "featuresDifference": {
+        "changed": 32911,
+        "tested": 189200,
+        "maximum": 247
+      }
+    },
+    {
+      "base": "femme",
+      "costume": "penguin",
+      "hair": "quiff",
+      "hairDifference": {
+        "changed": 14247,
+        "tested": 249100,
+        "maximum": 252
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 4119,
+        "maximum": 6
+      }
+    },
+    {
+      "base": "femme",
+      "costume": "unicorn",
+      "hair": "bob",
+      "hairDifference": {
+        "changed": 22186,
+        "tested": 249100,
+        "maximum": 253
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 11941,
+        "maximum": 6
+      },
+      "glassesDifference": {
+        "changed": 4967,
+        "tested": 168300,
+        "maximum": 234
+      },
+      "accessoriesDifference": {
+        "changed": 8588,
+        "tested": 362080,
+        "maximum": 255
+      },
+      "featuresDifference": {
+        "changed": 28869,
+        "tested": 189200,
+        "maximum": 247
+      }
+    },
+    {
+      "base": "femme",
+      "costume": "unicorn",
+      "hair": "quiff",
+      "hairDifference": {
+        "changed": 2355,
+        "tested": 249100,
+        "maximum": 254
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 11941,
+        "maximum": 6
+      }
+    },
+    {
+      "base": "femme",
+      "costume": "bear",
+      "hair": "bob",
+      "hairDifference": {
+        "changed": 39279,
+        "tested": 249100,
+        "maximum": 252
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 2197,
+        "maximum": 4
+      },
+      "glassesDifference": {
+        "changed": 4970,
+        "tested": 168300,
+        "maximum": 234
+      },
+      "accessoriesDifference": {
+        "changed": 8634,
+        "tested": 362080,
+        "maximum": 255
+      },
+      "featuresDifference": {
+        "changed": 32910,
+        "tested": 189200,
+        "maximum": 247
+      }
+    },
+    {
+      "base": "femme",
+      "costume": "bear",
+      "hair": "quiff",
+      "hairDifference": {
+        "changed": 7042,
+        "tested": 249100,
+        "maximum": 250
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 2197,
+        "maximum": 7
+      }
+    },
+    {
+      "base": "femme",
+      "costume": "frog",
+      "hair": "bob",
+      "hairDifference": {
+        "changed": 53107,
+        "tested": 249100,
+        "maximum": 253
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 712,
+        "maximum": 6
+      },
+      "glassesDifference": {
+        "changed": 4970,
+        "tested": 168300,
+        "maximum": 234
+      },
+      "accessoriesDifference": {
+        "changed": 8755,
+        "tested": 362080,
+        "maximum": 255
+      },
+      "featuresDifference": {
+        "changed": 32908,
+        "tested": 189200,
+        "maximum": 247
+      }
+    },
+    {
+      "base": "femme",
+      "costume": "frog",
+      "hair": "quiff",
+      "hairDifference": {
+        "changed": 20375,
+        "tested": 249100,
+        "maximum": 253
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 712,
+        "maximum": 6
+      }
+    },
+    {
+      "base": "femme",
+      "costume": "shark",
+      "hair": "bob",
+      "hairDifference": {
+        "changed": 24802,
+        "tested": 249100,
+        "maximum": 255
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 7939,
+        "maximum": 7
+      },
+      "glassesDifference": {
+        "changed": 4970,
+        "tested": 168300,
+        "maximum": 234
+      },
+      "accessoriesDifference": {
+        "changed": 8624,
+        "tested": 362080,
+        "maximum": 255
+      },
+      "featuresDifference": {
+        "changed": 31844,
+        "tested": 189200,
+        "maximum": 247
+      }
+    },
+    {
+      "base": "femme",
+      "costume": "shark",
+      "hair": "quiff",
+      "hairDifference": {
+        "changed": 11099,
+        "tested": 249100,
+        "maximum": 255
+      },
+      "costumeCoverage": {
+        "changed": 1,
+        "tested": 7939,
+        "maximum": 9
+      }
+    },
+    {
+      "base": "femme",
+      "costume": "panda",
+      "hair": "bob",
+      "hairDifference": {
+        "changed": 34331,
+        "tested": 249100,
+        "maximum": 237
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 13854,
+        "maximum": 6
+      },
+      "glassesDifference": {
+        "changed": 4970,
+        "tested": 168300,
+        "maximum": 234
+      },
+      "accessoriesDifference": {
+        "changed": 8450,
+        "tested": 362080,
+        "maximum": 255
+      },
+      "featuresDifference": {
+        "changed": 32911,
+        "tested": 189200,
+        "maximum": 247
+      }
+    },
+    {
+      "base": "femme",
+      "costume": "panda",
+      "hair": "quiff",
+      "hairDifference": {
+        "changed": 5576,
+        "tested": 249100,
+        "maximum": 229
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 13854,
+        "maximum": 8
+      }
+    },
+    {
+      "base": "femme",
+      "costume": "bee",
+      "hair": "bob",
+      "hairDifference": {
+        "changed": 39680,
+        "tested": 249100,
+        "maximum": 232
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 3081,
+        "maximum": 7
+      },
+      "glassesDifference": {
+        "changed": 4969,
+        "tested": 168300,
+        "maximum": 234
+      },
+      "accessoriesDifference": {
+        "changed": 8655,
+        "tested": 362080,
+        "maximum": 255
+      },
+      "featuresDifference": {
+        "changed": 32911,
+        "tested": 189200,
+        "maximum": 247
+      }
+    },
+    {
+      "base": "femme",
+      "costume": "bee",
+      "hair": "quiff",
+      "hairDifference": {
+        "changed": 13790,
+        "tested": 249100,
+        "maximum": 255
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 3081,
+        "maximum": 7
+      }
+    },
+    {
+      "base": "femme",
+      "costume": "rabbit",
+      "hair": "bob",
+      "hairDifference": {
+        "changed": 24123,
+        "tested": 249100,
+        "maximum": 255
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 9018,
+        "maximum": 3
+      },
+      "glassesDifference": {
+        "changed": 4957,
+        "tested": 168300,
+        "maximum": 234
+      },
+      "accessoriesDifference": {
+        "changed": 8529,
+        "tested": 362080,
+        "maximum": 255
+      },
+      "featuresDifference": {
+        "changed": 29052,
+        "tested": 189200,
+        "maximum": 247
+      }
+    },
+    {
+      "base": "femme",
+      "costume": "rabbit",
+      "hair": "quiff",
+      "hairDifference": {
+        "changed": 10678,
+        "tested": 249100,
+        "maximum": 255
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 9018,
+        "maximum": 5
+      }
+    },
+    {
+      "base": "femme",
+      "costume": "cow",
+      "hair": "bob",
+      "hairDifference": {
+        "changed": 47052,
+        "tested": 249100,
+        "maximum": 253
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 20953,
+        "maximum": 4
+      },
+      "glassesDifference": {
+        "changed": 4971,
+        "tested": 168300,
+        "maximum": 234
+      },
+      "accessoriesDifference": {
+        "changed": 9007,
+        "tested": 362080,
+        "maximum": 255
+      },
+      "featuresDifference": {
+        "changed": 32909,
+        "tested": 189200,
+        "maximum": 247
+      }
+    },
+    {
+      "base": "femme",
+      "costume": "cow",
+      "hair": "quiff",
+      "hairDifference": {
+        "changed": 11457,
+        "tested": 249100,
+        "maximum": 253
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 20953,
+        "maximum": 7
+      }
+    },
+    {
+      "base": "femme",
+      "costume": "astronaut",
+      "hair": "bob",
+      "hairDifference": {
+        "changed": 52645,
+        "tested": 249100,
+        "maximum": 232
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 762,
+        "maximum": 6
+      },
+      "glassesDifference": {
+        "changed": 4970,
+        "tested": 168300,
+        "maximum": 234
+      },
+      "accessoriesDifference": {
+        "changed": 8350,
+        "tested": 362080,
+        "maximum": 243
+      },
+      "featuresDifference": {
+        "changed": 32911,
+        "tested": 189200,
+        "maximum": 247
+      }
+    },
+    {
+      "base": "femme",
+      "costume": "astronaut",
+      "hair": "quiff",
+      "hairDifference": {
+        "changed": 23668,
+        "tested": 249100,
+        "maximum": 253
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 762,
+        "maximum": 6
+      }
+    },
+    {
+      "base": "femme",
+      "costume": "pirate",
+      "hair": "bob",
+      "hairDifference": {
+        "changed": 37287,
+        "tested": 249100,
+        "maximum": 253
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 1579,
+        "maximum": 4
+      },
+      "glassesDifference": {
+        "changed": 4970,
+        "tested": 168300,
+        "maximum": 234
+      },
+      "accessoriesDifference": {
+        "changed": 8788,
+        "tested": 362080,
+        "maximum": 255
+      },
+      "featuresDifference": {
+        "changed": 32911,
+        "tested": 189200,
+        "maximum": 247
+      }
+    },
+    {
+      "base": "femme",
+      "costume": "pirate",
+      "hair": "quiff",
+      "hairDifference": {
+        "changed": 4550,
+        "tested": 249100,
+        "maximum": 227
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 1579,
+        "maximum": 2
+      }
+    },
+    {
+      "base": "femme",
+      "costume": "knight",
+      "hair": "bob",
+      "hairDifference": {
+        "changed": 32408,
+        "tested": 249100,
+        "maximum": 253
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 543,
+        "maximum": 5
+      },
+      "glassesDifference": {
+        "changed": 4970,
+        "tested": 168300,
+        "maximum": 234
+      },
+      "accessoriesDifference": {
+        "changed": 8328,
+        "tested": 362080,
+        "maximum": 255
+      },
+      "featuresDifference": {
+        "changed": 32911,
+        "tested": 189200,
+        "maximum": 247
+      }
+    },
+    {
+      "base": "femme",
+      "costume": "knight",
+      "hair": "quiff",
+      "hairDifference": {
+        "changed": 6874,
+        "tested": 249100,
+        "maximum": 255
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 543,
+        "maximum": 5
+      }
+    },
+    {
+      "base": "femme",
+      "costume": "vampire",
+      "hair": "bob",
+      "hairDifference": {
+        "changed": 94016,
+        "tested": 249100,
+        "maximum": 255
+      },
+      "costumeCoverage": {
+        "changed": 10,
+        "tested": 61,
+        "maximum": 46
+      },
+      "glassesDifference": {
+        "changed": 4970,
+        "tested": 168300,
+        "maximum": 234
+      },
+      "accessoriesDifference": {
+        "changed": 6584,
+        "tested": 362080,
+        "maximum": 255
+      },
+      "featuresDifference": {
+        "changed": 32911,
+        "tested": 189200,
+        "maximum": 247
+      }
+    },
+    {
+      "base": "femme",
+      "costume": "vampire",
+      "hair": "quiff",
+      "hairDifference": {
+        "changed": 65844,
+        "tested": 249100,
+        "maximum": 255
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 61,
+        "maximum": 0
+      }
+    },
+    {
+      "base": "femme",
+      "costume": "mummy",
+      "hair": "bob",
+      "hairDifference": {
+        "changed": 44962,
+        "tested": 249100,
+        "maximum": 251
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 1522,
+        "maximum": 5
+      },
+      "glassesDifference": {
+        "changed": 4969,
+        "tested": 168300,
+        "maximum": 234
+      },
+      "accessoriesDifference": {
+        "changed": 8454,
+        "tested": 362080,
+        "maximum": 255
+      },
+      "featuresDifference": {
+        "changed": 32911,
+        "tested": 189200,
+        "maximum": 247
+      }
+    },
+    {
+      "base": "femme",
+      "costume": "mummy",
+      "hair": "quiff",
+      "hairDifference": {
+        "changed": 16936,
+        "tested": 249100,
+        "maximum": 253
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 1522,
+        "maximum": 5
+      }
+    },
+    {
+      "base": "femme",
+      "costume": "clown",
+      "hair": "bob",
+      "hairDifference": {
+        "changed": 80812,
+        "tested": 249100,
+        "maximum": 255
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 247,
+        "maximum": 2
+      },
+      "glassesDifference": {
+        "changed": 4970,
+        "tested": 168300,
+        "maximum": 234
+      },
+      "accessoriesDifference": {
+        "changed": 6911,
+        "tested": 362080,
+        "maximum": 255
+      },
+      "featuresDifference": {
+        "changed": 32911,
+        "tested": 189200,
+        "maximum": 247
+      }
+    },
+    {
+      "base": "femme",
+      "costume": "clown",
+      "hair": "quiff",
+      "hairDifference": {
+        "changed": 49228,
+        "tested": 249100,
+        "maximum": 255
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 247,
+        "maximum": 4
+      }
+    },
+    {
+      "base": "femme",
+      "costume": "santa",
+      "hair": "bob",
+      "hairDifference": {
+        "changed": 27207,
+        "tested": 249100,
+        "maximum": 232
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 473,
+        "maximum": 4
+      },
+      "glassesDifference": {
+        "changed": 4970,
+        "tested": 168300,
+        "maximum": 234
+      },
+      "accessoriesDifference": {
+        "changed": 8696,
+        "tested": 362080,
+        "maximum": 255
+      },
+      "featuresDifference": {
+        "changed": 32792,
+        "tested": 189200,
+        "maximum": 247
+      }
+    },
+    {
+      "base": "femme",
+      "costume": "santa",
+      "hair": "quiff",
+      "hairDifference": {
+        "changed": 1920,
+        "tested": 249100,
+        "maximum": 225
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 473,
+        "maximum": 2
+      }
+    },
+    {
+      "base": "femme",
+      "costume": "scarecrow",
+      "hair": "bob",
+      "hairDifference": {
+        "changed": 23963,
+        "tested": 249100,
+        "maximum": 232
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 1347,
+        "maximum": 2
+      },
+      "glassesDifference": {
+        "changed": 4970,
+        "tested": 168300,
+        "maximum": 234
+      },
+      "accessoriesDifference": {
+        "changed": 8471,
+        "tested": 362080,
+        "maximum": 255
+      },
+      "featuresDifference": {
+        "changed": 32503,
+        "tested": 189200,
+        "maximum": 247
+      }
+    },
+    {
+      "base": "femme",
+      "costume": "scarecrow",
+      "hair": "quiff",
+      "hairDifference": {
+        "changed": 1236,
+        "tested": 249100,
+        "maximum": 255
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 1347,
+        "maximum": 8
+      }
+    },
+    {
+      "base": "femme",
+      "costume": "robot",
+      "hair": "bob",
+      "hairDifference": {
+        "changed": 24500,
+        "tested": 249100,
+        "maximum": 254
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 3608,
+        "maximum": 6
+      },
+      "glassesDifference": {
+        "changed": 4970,
+        "tested": 168300,
+        "maximum": 234
+      },
+      "accessoriesDifference": {
+        "changed": 8325,
+        "tested": 362080,
+        "maximum": 253
+      },
+      "featuresDifference": {
+        "changed": 32592,
+        "tested": 189200,
+        "maximum": 247
+      }
+    },
+    {
+      "base": "femme",
+      "costume": "robot",
+      "hair": "quiff",
+      "hairDifference": {
+        "changed": 9181,
+        "tested": 249100,
+        "maximum": 255
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 3608,
+        "maximum": 7
+      }
+    },
+    {
+      "base": "femme",
+      "costume": "musketeer",
+      "hair": "bob",
+      "hairDifference": {
+        "changed": 40568,
+        "tested": 249100,
+        "maximum": 253
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 2398,
+        "maximum": 4
+      },
+      "glassesDifference": {
+        "changed": 4970,
+        "tested": 168300,
+        "maximum": 234
+      },
+      "accessoriesDifference": {
+        "changed": 8856,
+        "tested": 362080,
+        "maximum": 255
+      },
+      "featuresDifference": {
+        "changed": 32910,
+        "tested": 189200,
+        "maximum": 247
+      }
+    },
+    {
+      "base": "femme",
+      "costume": "musketeer",
+      "hair": "quiff",
+      "hairDifference": {
+        "changed": 6663,
+        "tested": 249100,
+        "maximum": 255
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 2398,
+        "maximum": 4
+      }
+    },
+    {
+      "base": "femme",
+      "costume": "baby",
+      "hair": "bob",
+      "hairDifference": {
+        "changed": 54146,
+        "tested": 249100,
+        "maximum": 232
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 12106,
+        "maximum": 8
+      },
+      "glassesDifference": {
+        "changed": 4968,
+        "tested": 168300,
+        "maximum": 234
+      },
+      "accessoriesDifference": {
+        "changed": 8585,
+        "tested": 362080,
+        "maximum": 236
+      },
+      "featuresDifference": {
+        "changed": 32908,
+        "tested": 189200,
+        "maximum": 247
+      }
+    },
+    {
+      "base": "femme",
+      "costume": "baby",
+      "hair": "quiff",
+      "hairDifference": {
+        "changed": 24280,
+        "tested": 249100,
+        "maximum": 235
+      },
+      "costumeCoverage": {
+        "changed": 0,
+        "tested": 12106,
+        "maximum": 8
+      }
+    }
+  ],
+  "musketeer": [
+    {
+      "base": "homme",
+      "skinStyle": "classic",
+      "hair": "bob",
+      "hairDifference": {
+        "changed": 40282,
+        "tested": 249100,
+        "maximum": 253
+      }
+    },
+    {
+      "base": "homme",
+      "skinStyle": "classic",
+      "hair": "quiff",
+      "hairDifference": {
+        "changed": 6646,
+        "tested": 249100,
+        "maximum": 255
+      }
+    },
+    {
+      "base": "homme",
+      "skinStyle": "chubby",
+      "hair": "bob",
+      "hairDifference": {
+        "changed": 40290,
+        "tested": 249100,
+        "maximum": 253
+      }
+    },
+    {
+      "base": "homme",
+      "skinStyle": "chubby",
+      "hair": "quiff",
+      "hairDifference": {
+        "changed": 6649,
+        "tested": 249100,
+        "maximum": 255
+      }
+    },
+    {
+      "base": "homme",
+      "skinStyle": "slim",
+      "hair": "bob",
+      "hairDifference": {
+        "changed": 40271,
+        "tested": 249100,
+        "maximum": 253
+      }
+    },
+    {
+      "base": "homme",
+      "skinStyle": "slim",
+      "hair": "quiff",
+      "hairDifference": {
+        "changed": 6639,
+        "tested": 249100,
+        "maximum": 255
+      }
+    },
+    {
+      "base": "homme",
+      "skinStyle": "defined",
+      "hair": "bob",
+      "hairDifference": {
+        "changed": 40276,
+        "tested": 249100,
+        "maximum": 253
+      }
+    },
+    {
+      "base": "homme",
+      "skinStyle": "defined",
+      "hair": "quiff",
+      "hairDifference": {
+        "changed": 6637,
+        "tested": 249100,
+        "maximum": 255
+      }
+    },
+    {
+      "base": "homme",
+      "skinStyle": "crows_feet",
+      "hair": "bob",
+      "hairDifference": {
+        "changed": 40286,
+        "tested": 249100,
+        "maximum": 253
+      }
+    },
+    {
+      "base": "homme",
+      "skinStyle": "crows_feet",
+      "hair": "quiff",
+      "hairDifference": {
+        "changed": 6650,
+        "tested": 249100,
+        "maximum": 255
+      }
+    },
+    {
+      "base": "homme",
+      "skinStyle": "wrinkled",
+      "hair": "bob",
+      "hairDifference": {
+        "changed": 40241,
+        "tested": 249100,
+        "maximum": 253
+      }
+    },
+    {
+      "base": "homme",
+      "skinStyle": "wrinkled",
+      "hair": "quiff",
+      "hairDifference": {
+        "changed": 6623,
+        "tested": 249100,
+        "maximum": 255
+      }
+    },
+    {
+      "base": "femme",
+      "skinStyle": "classic",
+      "hair": "bob",
+      "hairDifference": {
+        "changed": 40568,
+        "tested": 249100,
+        "maximum": 253
+      }
+    },
+    {
+      "base": "femme",
+      "skinStyle": "classic",
+      "hair": "quiff",
+      "hairDifference": {
+        "changed": 6663,
+        "tested": 249100,
+        "maximum": 255
+      }
+    },
+    {
+      "base": "femme",
+      "skinStyle": "chubby",
+      "hair": "bob",
+      "hairDifference": {
+        "changed": 40560,
+        "tested": 249100,
+        "maximum": 253
+      }
+    },
+    {
+      "base": "femme",
+      "skinStyle": "chubby",
+      "hair": "quiff",
+      "hairDifference": {
+        "changed": 6668,
+        "tested": 249100,
+        "maximum": 255
+      }
+    },
+    {
+      "base": "femme",
+      "skinStyle": "slim",
+      "hair": "bob",
+      "hairDifference": {
+        "changed": 40600,
+        "tested": 249100,
+        "maximum": 253
+      }
+    },
+    {
+      "base": "femme",
+      "skinStyle": "slim",
+      "hair": "quiff",
+      "hairDifference": {
+        "changed": 6662,
+        "tested": 249100,
+        "maximum": 255
+      }
+    },
+    {
+      "base": "femme",
+      "skinStyle": "defined",
+      "hair": "bob",
+      "hairDifference": {
+        "changed": 40513,
+        "tested": 249100,
+        "maximum": 253
+      }
+    },
+    {
+      "base": "femme",
+      "skinStyle": "defined",
+      "hair": "quiff",
+      "hairDifference": {
+        "changed": 6653,
+        "tested": 249100,
+        "maximum": 255
+      }
+    },
+    {
+      "base": "femme",
+      "skinStyle": "crows_feet",
+      "hair": "bob",
+      "hairDifference": {
+        "changed": 40566,
+        "tested": 249100,
+        "maximum": 253
+      }
+    },
+    {
+      "base": "femme",
+      "skinStyle": "crows_feet",
+      "hair": "quiff",
+      "hairDifference": {
+        "changed": 6669,
+        "tested": 249100,
+        "maximum": 255
+      }
+    },
+    {
+      "base": "femme",
+      "skinStyle": "wrinkled",
+      "hair": "bob",
+      "hairDifference": {
+        "changed": 40534,
+        "tested": 249100,
+        "maximum": 253
+      }
+    },
+    {
+      "base": "femme",
+      "skinStyle": "wrinkled",
+      "hair": "quiff",
+      "hairDifference": {
+        "changed": 6647,
+        "tested": 249100,
+        "maximum": 255
+      }
+    }
+  ],
+  "sheets": [
+    "all-costumes-homme-bob.png",
+    "all-costumes-homme-quiff.png",
+    "all-costumes-femme-bob.png",
+    "all-costumes-femme-quiff.png",
+    "musketeer-six-faces-homme.png",
+    "musketeer-six-faces-femme.png"
+  ],
+  "summary": {
+    "matrixCases": 88,
+    "musketeerCases": 24,
+    "hairInvisible": [],
+    "costumeOpaquePixelsAffected": [
+      {
+        "base": "homme",
+        "costume": "shark",
+        "hair": "quiff",
+        "changed": 1,
+        "tested": 7939,
+        "maximum": 9
+      },
+      {
+        "base": "homme",
+        "costume": "vampire",
+        "hair": "bob",
+        "changed": 10,
+        "tested": 61,
+        "maximum": 46
+      },
+      {
+        "base": "femme",
+        "costume": "shark",
+        "hair": "quiff",
+        "changed": 1,
+        "tested": 7939,
+        "maximum": 9
+      },
+      {
+        "base": "femme",
+        "costume": "vampire",
+        "hair": "bob",
+        "changed": 10,
+        "tested": 61,
+        "maximum": 46
+      }
+    ],
+    "missingGlasses": [],
+    "missingAccessories": [],
+    "missingFeatures": []
+  }
+}

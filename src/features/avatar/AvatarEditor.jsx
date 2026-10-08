@@ -17,6 +17,7 @@ import AvatarMaintenanceNotice from "./AvatarMaintenanceNotice.jsx";
 import { getAvatarPurchasePlan, getOwnedAvatarAppearance } from "./avatarPurchasePlan.js";
 import { getAvatarPartIds, selectAvatarPart, removeAvatarParts } from "../../../shared/avatarSelections.js";
 import useAvatarDragScroll from "./useAvatarDragScroll.js";
+import useAvatarWheelScroll from "./useAvatarWheelScroll.js";
 import AvatarRefundDialog from "./AvatarRefundDialog.jsx";
 import AvatarFaceOptions from "./AvatarFaceOptions.jsx";
 import AvatarFaceChangeDialog from "./AvatarFaceChangeDialog.jsx";
@@ -26,11 +27,11 @@ const CATEGORIES = [
   ["brows", "Sourcils", "gesture"], ["lashes", "Cils"], ["nose", "Nez", "person"],
   ["mouths", "Bouche", "mood"], ["hair", "Cheveux", "face_3"],
   ["headwear", "Chapeaux"], ["glasses", "Lunettes"], ["facialhair", "Barbe", "face_6"],
-  ["clothes", "Vêtements"], ["backdrops", "Décor", "landscape"],
+  ["clothes", "Vêtements"], ["costumes", "Costumes"], ["backdrops", "Décor", "landscape"],
   ["accessories", "Accessoires", "badge"],
   ["auras", "Auras", "auto_awesome"],
 ];
-const OPTIONAL = new Set(["eyes", "nose", "mouths", "hair", "brows", "lashes", "headwear", "glasses", "facialhair", "clothes", "backdrops", "auras", "accessories"]);
+const OPTIONAL = new Set(["eyes", "nose", "mouths", "hair", "brows", "lashes", "headwear", "glasses", "facialhair", "clothes", "costumes", "backdrops", "auras", "accessories"]);
 
 export default function AvatarEditor({ initialValue, nickname, onClose, onSave, onReload, inventory = null, onPurchase, onRefundQuote, onRefund, initialCategory = "base", maintenanceMode = false }) {
   const [draft, setDraft] = React.useState(() => initialValue ? normalizeAvatar(initialValue) : createBlankAvatar());
@@ -52,6 +53,7 @@ export default function AvatarEditor({ initialValue, nickname, onClose, onSave, 
   const mountedRef = React.useRef(true);
   const optionsRef = React.useRef(null);
   const categoryDrag = useAvatarDragScroll("x");
+  const categoryWheelRef = useAvatarWheelScroll();
   const optionsDrag = useAvatarDragScroll("y");
 
   React.useEffect(() => {
@@ -181,7 +183,7 @@ export default function AvatarEditor({ initialValue, nickname, onClose, onSave, 
         </div>
       </aside>
       <div className="avatar-editor-customize">
-        {baseChosen ? <nav className="avatar-categories" aria-label="Catégories de l’avatar" {...categoryDrag}>
+        {baseChosen ? <nav ref={categoryWheelRef} className="avatar-categories" aria-label="Catégories de l’avatar" {...categoryDrag}>
           {CATEGORIES.filter(([key]) => key !== "facialhair" || draft.base === "homme").map(([key, label, icon]) =>
             <button type="button" key={key} aria-pressed={category === key} onClick={() => setCategory(key)}><AvatarCategoryIcon category={key} fallback={icon} />{label}</button>
           )}
@@ -191,11 +193,12 @@ export default function AvatarEditor({ initialValue, nickname, onClose, onSave, 
             <div className="avatar-options-heading"><h3>{baseChosen ? categoryLabel : "Choisis ton visage"}</h3></div>
             {inventory && category !== "base" ? <p className="avatar-editor-note">Compose ton aperçu librement. Achète une pièce pour la porter aussitôt, ou utilise Acheter et porter en bas pour valider l’ensemble.</p> : null}
             {!baseChosen ? <p className="avatar-editor-note">Homme ou Femme : ce premier choix gratuit est enregistré automatiquement. Ajoute ensuite les pièces de ton choix.</p> : null}
-            {baseChosen && category !== "base" ? <AvatarEditorControls category={category} draft={draft} limits={resolution?.limits} incompatible={resolution?.incompatible} onChange={change} /> : null}
+            {baseChosen && category !== "base" ? <AvatarEditorControls category={category} draft={draft} selectedPart={parts.find(part => part.id === draft[category])} limits={resolution?.limits} incompatible={resolution?.incompatible} onChange={change} /> : null}
             {category === "base" ? <AvatarFaceOptions draft={draft} baseChosen={baseChosen} disabled={saving || purchasing || conflict}
               onSelectBase={part => selectFace({ base: part.id })} onSelectSkin={skinStyle => selectFace({ skinStyle })} onChange={change} /> : <>
               {category === "auras" ? <p className="avatar-editor-note">Or, argent, bronze : le podium de la course hebdo débloque son aura jusqu’au lundi suivant à 00 h, heure de Paris. L’aura des donateurs reste acquise.</p> : null}
               {category === "accessories" ? <p className="avatar-editor-note">Tu peux porter plusieurs accessoires ensemble. Touche un accessoire pour l’ajouter ou le retirer ; « Aucun » les retire tous.</p> : null}
+              {category === "costumes" ? <p className="avatar-editor-note">Le costume remplace tes vêtements à l’écran. Ta coiffure reste sous les capuches et les casques : ses mèches peuvent apparaître autour du visage. Tes vêtements et ton chapeau restent enregistrés et réapparaissent avec « Aucun ». Ton visage, tes lunettes et tes accessoires restent personnalisables.</p> : null}
               {category === "lashes" && lashesUnavailable ? <p className="avatar-editor-note">Débloque des yeux, puis choisis un modèle avec paupières pour ajouter des cils.</p> : null}
               <div className={`avatar-parts avatar-parts-${category}`}>
                 {OPTIONAL.has(category) ? <button type="button" className="avatar-choice avatar-choice-preview" data-selected={!selectedIds.length} aria-pressed={!selectedIds.length} onClick={() => change({ [category]: "" })}><span className="avatar-part-empty" aria-hidden="true">∅</span><span>{category === "clothes" ? "Tenue d’origine" : "Aucun"}</span></button> : null}

@@ -5,7 +5,7 @@ import { getWeeklyAvatarAura } from "./avatarWeeklyAuras.js";
 import { AVATAR_COSMETIC_PRICES } from "./avatarCosmetics.js";
 import { getAvatarPartIds } from "./avatarSelections.js";
 const EXPENSIVE_HATS = new Set(["cowboy", "trilby", "fedora", "boater", "bowler", "panama"]);
-const PRICES = { eyes: 1000, hair: 1000, brows: 500, nose: 500, mouths: 500, facialhair: 500, clothes: 5000, backdrops: 5000 };
+const PRICES = { eyes: 1000, hair: 1000, brows: 500, nose: 500, mouths: 500, facialhair: 500, clothes: 5000, costumes: 20000, backdrops: 5000 };
 export const CROWN_WINS_REQUIRED = 100;
 export const avatarUnlockKey = (family, id) => `${family}:${id}`;
 export const hasUnlockedAvatarEyes = inventory => Object.entries(inventory?.owned || {}).some(([key, owned]) => owned && key.startsWith("eyes:"));

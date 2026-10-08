@@ -1,0 +1,52 @@
+{
+  "mode": "built-in image_gen",
+  "date": "2026-10-08",
+  "operation": "precise-object-edit",
+  "input": "public/avatars/v1/costumes/2026-10-08/musketeer.png",
+  "output": "public/avatars/v1/costumes/2026-10-08/musketeer-v2.png",
+  "generatedSource": "C:/Users/Paul/.codex/generated_images/01a11b72-7e59-7ae0-a377-def8e07a795d/exec-f2b9c1a7-0b2b-4921-9731-ceaab52cba43.png",
+  "transparentBackground": true,
+  "copiedWithoutPostprocessing": true,
+  "width": 1254,
+  "height": 1254,
+  "bytes": 1577491,
+  "prompt": "Use case: precise-object-edit. Edit target: the attached existing transparent modular musketeer avatar costume PNG. Make one surgical deletion only: remove ALL of the brown hood/cowl framing the empty face opening, including both narrow vertical temple/cheek strips, the curved brown chin rim, and the brown neck insert between the white collar points. Delete these pixels to genuine alpha transparency. The brown cowl is the thin U-shaped contour descending from the inner hat brim down both sides of the empty face and around its chin; it is NOT part of the hat itself. After removal, the hat floats independently above the clothing, with an open transparent gap at both sides between hat brim and white lace collar. Do not draw ANY head-shaped outline, hood, neck, face, hair, skin, mannequin, substitute fabric, or black fill. Preserve the existing brown wide-brim feathered hat completely intact, including its crown, blue band, gold trim, fleur-de-lis, both wide curved brim sides and full white feather. Preserve the blue-and-gold musketeer shoulders, white lace collar, white puffed sleeves, chest fleur-de-lis and diagonal leather strap completely intact. Exact invariants: keep the original square canvas, registration, object scale, positions, edges, colors, shading, proportions and details of every retained pixel. Do not recenter, resize, crop or shift anything. Transparency outside all artwork stays transparent; the newly cleared face and neck gap must be real alpha transparency. One final production asset only, no background, shadow, label or other additions.",
+  "inspection": "Brown cheek/chin cowl and neck insert removed. Hat and feather remain separate above blue costume and lace collar. Composition and registration visually retained; generated output is not represented as pixel-identical outside the deletion. No skin, face or hair added.",
+  "alphaChecks": [
+    {
+      "point": [
+        400,
+        590
+      ],
+      "alpha": 0
+    },
+    {
+      "point": [
+        848,
+        590
+      ],
+      "alpha": 0
+    },
+    {
+      "point": [
+        625,
+        749
+      ],
+      "alpha": 0
+    },
+    {
+      "point": [
+        625,
+        795
+      ],
+      "alpha": 0
+    },
+    {
+      "point": [
+        0,
+        0
+      ],
+      "alpha": 0
+    }
+  ]
+}

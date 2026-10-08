@@ -12,5 +12,11 @@ export function getAvatarRenderState(value, catalog, { expression = "neutral", b
   if (blink) state.openness = .3;
   if (!hasAvatarEyelids(state.eyes)) { state.openness = 1; state.lashes = ""; }
   if (transparent) state.backdrops = "";
+  const costume = catalog.families.costumes?.find(part => part.id === state.costumes);
+  if (costume) {
+    state.clothes = "";
+    if (costume.hideHair) state.hair = "";
+    if (costume.hideHeadwear) state.headwear = "";
+  }
   return state;
 }

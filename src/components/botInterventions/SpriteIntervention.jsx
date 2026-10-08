@@ -17,6 +17,8 @@ import {
 import { mountTypedText } from "./interventionText.js";
 import { observeInterventionPlacement, updateInterventionPlacement } from "./spriteInterventionPlacement.js";
 import { getPresenterReactionAssets as getReactionAssets, playPresenterPunch } from "./presenterReactions.js";
+import { useOptionalApplicationKernel } from "../../app/react/ApplicationRuntimeProvider.jsx";
+import { reportPresenterHit } from "../../features/presenters/presenterHitReporter.js";
 import "./SpriteIntervention.css";
 
 const spritePreloadPromises = new Map();
@@ -85,6 +87,7 @@ function SpriteIntervention({
   roundId = null,
   subscribeInterventions,
 }) {
+  const kernel = useOptionalApplicationKernel();
   const [intervention, setIntervention] = React.useState(null);
   const [phase, setPhase] = React.useState("hidden");
   const [reaction, setReaction] = React.useState(null);
@@ -588,6 +591,7 @@ function SpriteIntervention({
       setReaction(hit);
       setPhase("hit");
       playPresenterPunch();
+      reportPresenterHit(kernel, config.key, { roundId: intervention.sourceEvent?.roundId ?? roundIdRef.current });
       schedulePresenterHitExit({
         schedule,
         showStars: () => {
@@ -609,6 +613,7 @@ function SpriteIntervention({
       completePresentation,
       config,
       intervention,
+      kernel,
       manualController,
       manualKey,
       manualMode,

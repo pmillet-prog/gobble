@@ -1,0 +1,411 @@
+{
+  "phase": "After costume hair clipping; earlier report.json and all-costumes sheets are BEFORE clipping.",
+  "cases": [
+    {
+      "base": "homme",
+      "costume": "dinosaur",
+      "hair": "longwaves",
+      "changedFace": 6022,
+      "changedTotal": 6022,
+      "changedOutsideClip": 0
+    },
+    {
+      "base": "homme",
+      "costume": "dinosaur",
+      "hair": "longstraight",
+      "changedFace": 1954,
+      "changedTotal": 1954,
+      "changedOutsideClip": 0
+    },
+    {
+      "base": "homme",
+      "costume": "dinosaur",
+      "hair": "afro",
+      "changedFace": 3656,
+      "changedTotal": 3656,
+      "changedOutsideClip": 0
+    },
+    {
+      "base": "homme",
+      "costume": "dinosaur",
+      "hair": "gobble_f05",
+      "changedFace": 3123,
+      "changedTotal": 3123,
+      "changedOutsideClip": 0
+    },
+    {
+      "base": "homme",
+      "costume": "knight",
+      "hair": "longwaves",
+      "changedFace": 5168,
+      "changedTotal": 5168,
+      "changedOutsideClip": 0
+    },
+    {
+      "base": "homme",
+      "costume": "knight",
+      "hair": "longstraight",
+      "changedFace": 3548,
+      "changedTotal": 3548,
+      "changedOutsideClip": 0
+    },
+    {
+      "base": "homme",
+      "costume": "knight",
+      "hair": "afro",
+      "changedFace": 4250,
+      "changedTotal": 4250,
+      "changedOutsideClip": 0
+    },
+    {
+      "base": "homme",
+      "costume": "knight",
+      "hair": "gobble_f05",
+      "changedFace": 4999,
+      "changedTotal": 4999,
+      "changedOutsideClip": 0
+    },
+    {
+      "base": "homme",
+      "costume": "musketeer",
+      "hair": "longwaves",
+      "changedFace": 13147,
+      "changedTotal": 23549,
+      "changedOutsideClip": 0
+    },
+    {
+      "base": "homme",
+      "costume": "musketeer",
+      "hair": "longstraight",
+      "changedFace": 7968,
+      "changedTotal": 12738,
+      "changedOutsideClip": 0
+    },
+    {
+      "base": "homme",
+      "costume": "musketeer",
+      "hair": "afro",
+      "changedFace": 7880,
+      "changedTotal": 8776,
+      "changedOutsideClip": 0
+    },
+    {
+      "base": "homme",
+      "costume": "musketeer",
+      "hair": "gobble_f05",
+      "changedFace": 5598,
+      "changedTotal": 5598,
+      "changedOutsideClip": 0
+    },
+    {
+      "base": "homme",
+      "costume": "clown",
+      "hair": "longwaves",
+      "changedFace": 29331,
+      "changedTotal": 94580,
+      "changedOutsideClip": null
+    },
+    {
+      "base": "homme",
+      "costume": "clown",
+      "hair": "longstraight",
+      "changedFace": 23087,
+      "changedTotal": 75046,
+      "changedOutsideClip": null
+    },
+    {
+      "base": "homme",
+      "costume": "clown",
+      "hair": "afro",
+      "changedFace": 19374,
+      "changedTotal": 33772,
+      "changedOutsideClip": null
+    },
+    {
+      "base": "homme",
+      "costume": "clown",
+      "hair": "gobble_f05",
+      "changedFace": 15732,
+      "changedTotal": 22496,
+      "changedOutsideClip": null
+    },
+    {
+      "base": "homme",
+      "costume": "vampire",
+      "hair": "longwaves",
+      "changedFace": 30866,
+      "changedTotal": 96852,
+      "changedOutsideClip": null
+    },
+    {
+      "base": "homme",
+      "costume": "vampire",
+      "hair": "longstraight",
+      "changedFace": 24878,
+      "changedTotal": 78079,
+      "changedOutsideClip": null
+    },
+    {
+      "base": "homme",
+      "costume": "vampire",
+      "hair": "afro",
+      "changedFace": 21700,
+      "changedTotal": 39627,
+      "changedOutsideClip": null
+    },
+    {
+      "base": "homme",
+      "costume": "vampire",
+      "hair": "gobble_f05",
+      "changedFace": 18087,
+      "changedTotal": 27995,
+      "changedOutsideClip": null
+    },
+    {
+      "base": "homme",
+      "costume": "rabbit",
+      "hair": "bob",
+      "changedFace": 4418,
+      "changedTotal": 4418,
+      "changedOutsideClip": 0
+    },
+    {
+      "base": "homme",
+      "costume": "rabbit",
+      "hair": "quiff",
+      "changedFace": 0,
+      "changedTotal": 0,
+      "changedOutsideClip": 0
+    },
+    {
+      "base": "homme",
+      "costume": "rabbit",
+      "hair": "longwaves",
+      "changedFace": 6137,
+      "changedTotal": 6137,
+      "changedOutsideClip": 0
+    },
+    {
+      "base": "homme",
+      "costume": "rabbit",
+      "hair": "afro",
+      "changedFace": 2335,
+      "changedTotal": 2335,
+      "changedOutsideClip": 0
+    },
+    {
+      "base": "femme",
+      "costume": "dinosaur",
+      "hair": "longwaves",
+      "changedFace": 6028,
+      "changedTotal": 6028,
+      "changedOutsideClip": 0
+    },
+    {
+      "base": "femme",
+      "costume": "dinosaur",
+      "hair": "longstraight",
+      "changedFace": 2348,
+      "changedTotal": 2348,
+      "changedOutsideClip": 0
+    },
+    {
+      "base": "femme",
+      "costume": "dinosaur",
+      "hair": "afro",
+      "changedFace": 3673,
+      "changedTotal": 3673,
+      "changedOutsideClip": 0
+    },
+    {
+      "base": "femme",
+      "costume": "dinosaur",
+      "hair": "gobble_f05",
+      "changedFace": 3129,
+      "changedTotal": 3129,
+      "changedOutsideClip": 0
+    },
+    {
+      "base": "femme",
+      "costume": "knight",
+      "hair": "longwaves",
+      "changedFace": 5190,
+      "changedTotal": 5190,
+      "changedOutsideClip": 0
+    },
+    {
+      "base": "femme",
+      "costume": "knight",
+      "hair": "longstraight",
+      "changedFace": 3553,
+      "changedTotal": 3553,
+      "changedOutsideClip": 0
+    },
+    {
+      "base": "femme",
+      "costume": "knight",
+      "hair": "afro",
+      "changedFace": 4283,
+      "changedTotal": 4283,
+      "changedOutsideClip": 0
+    },
+    {
+      "base": "femme",
+      "costume": "knight",
+      "hair": "gobble_f05",
+      "changedFace": 5008,
+      "changedTotal": 5008,
+      "changedOutsideClip": 0
+    },
+    {
+      "base": "femme",
+      "costume": "musketeer",
+      "hair": "longwaves",
+      "changedFace": 13191,
+      "changedTotal": 23598,
+      "changedOutsideClip": 0
+    },
+    {
+      "base": "femme",
+      "costume": "musketeer",
+      "hair": "longstraight",
+      "changedFace": 8519,
+      "changedTotal": 13295,
+      "changedOutsideClip": 0
+    },
+    {
+      "base": "femme",
+      "costume": "musketeer",
+      "hair": "afro",
+      "changedFace": 7999,
+      "changedTotal": 8895,
+      "changedOutsideClip": 0
+    },
+    {
+      "base": "femme",
+      "costume": "musketeer",
+      "hair": "gobble_f05",
+      "changedFace": 5609,
+      "changedTotal": 5609,
+      "changedOutsideClip": 0
+    },
+    {
+      "base": "femme",
+      "costume": "clown",
+      "hair": "longwaves",
+      "changedFace": 29748,
+      "changedTotal": 95037,
+      "changedOutsideClip": null
+    },
+    {
+      "base": "femme",
+      "costume": "clown",
+      "hair": "longstraight",
+      "changedFace": 24134,
+      "changedTotal": 76114,
+      "changedOutsideClip": null
+    },
+    {
+      "base": "femme",
+      "costume": "clown",
+      "hair": "afro",
+      "changedFace": 19383,
+      "changedTotal": 33781,
+      "changedOutsideClip": null
+    },
+    {
+      "base": "femme",
+      "costume": "clown",
+      "hair": "gobble_f05",
+      "changedFace": 15747,
+      "changedTotal": 22511,
+      "changedOutsideClip": null
+    },
+    {
+      "base": "femme",
+      "costume": "vampire",
+      "hair": "longwaves",
+      "changedFace": 31291,
+      "changedTotal": 97317,
+      "changedOutsideClip": null
+    },
+    {
+      "base": "femme",
+      "costume": "vampire",
+      "hair": "longstraight",
+      "changedFace": 25953,
+      "changedTotal": 79175,
+      "changedOutsideClip": null
+    },
+    {
+      "base": "femme",
+      "costume": "vampire",
+      "hair": "afro",
+      "changedFace": 21707,
+      "changedTotal": 39634,
+      "changedOutsideClip": null
+    },
+    {
+      "base": "femme",
+      "costume": "vampire",
+      "hair": "gobble_f05",
+      "changedFace": 18102,
+      "changedTotal": 28010,
+      "changedOutsideClip": null
+    },
+    {
+      "base": "femme",
+      "costume": "rabbit",
+      "hair": "bob",
+      "changedFace": 4421,
+      "changedTotal": 4421,
+      "changedOutsideClip": 0
+    },
+    {
+      "base": "femme",
+      "costume": "rabbit",
+      "hair": "quiff",
+      "changedFace": 0,
+      "changedTotal": 0,
+      "changedOutsideClip": 0
+    },
+    {
+      "base": "femme",
+      "costume": "rabbit",
+      "hair": "longwaves",
+      "changedFace": 6139,
+      "changedTotal": 6139,
+      "changedOutsideClip": 0
+    },
+    {
+      "base": "femme",
+      "costume": "rabbit",
+      "hair": "afro",
+      "changedFace": 2336,
+      "changedTotal": 2336,
+      "changedOutsideClip": 0
+    }
+  ],
+  "summary": {
+    "cases": 48,
+    "invisibleHair": [
+      {
+        "base": "homme",
+        "costume": "rabbit",
+        "hair": "quiff",
+        "changedFace": 0,
+        "changedTotal": 0,
+        "changedOutsideClip": 0
+      },
+      {
+        "base": "femme",
+        "costume": "rabbit",
+        "hair": "quiff",
+        "changedFace": 0,
+        "changedTotal": 0,
+        "changedOutsideClip": 0
+      }
+    ],
+    "outsideClip": []
+  }
+}

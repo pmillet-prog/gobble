@@ -2,8 +2,11 @@ import React from "react";
 import { useFeatureRuntime } from "../../app/react/useFeatureRuntime.js";
 import { playPresenterPunch } from "../../components/botInterventions/presenterReactions.js";
 import { getNextPresenterHitReaction, schedulePresenterHitExit } from "../../components/botInterventions/spriteInterventionAnimation.js";
+import { useOptionalApplicationKernel } from "../../app/react/ApplicationRuntimeProvider.jsx";
+import { reportPresenterHit } from "../presenters/presenterHitReporter.js";
 
-export default function useTargetQuizPresenterDismiss({ enabled, onDismiss, onHit }) {
+export default function useTargetQuizPresenterDismiss({ enabled, onDismiss, onHit, roundId, devPreview = false }) {
+  const kernel = useOptionalApplicationKernel();
   const preferences = useFeatureRuntime("preferences");
   const [reaction, setReaction] = React.useState(null);
   const timers = React.useRef(new Set());
@@ -24,6 +27,7 @@ export default function useTargetQuizPresenterDismiss({ enabled, onDismiss, onHi
     }
     clear();
     setReaction(getNextPresenterHitReaction(hitCount.current++));
+    reportPresenterHit(kernel, "foucault", { roundId, devPreview, surface: "quiz" });
     if (!preferences.store.getState().isSfxMuted) playPresenterPunch();
     const schedule = (callback, delay) => {
       const timer = setTimeout(() => { timers.current.delete(timer); callback(); }, delay);

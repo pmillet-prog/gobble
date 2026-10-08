@@ -1,5 +1,6 @@
 import { advanceTargetQuizPoints, normalizeTargetQuizPoints, TARGET_QUIZ_POINTS_GOAL, TARGET_QUIZ_GOBBLARS_REWARD } from "../../shared/targetQuizPoints.js";
 import { runSqliteImmediateTransaction } from "../sqliteQueue.js";
+import { initTargetQuizWeeklyStats, recordTargetQuizWeeklyPoints } from "../stats/targetQuizWeeklyStats.js";
 
 // Called inside the worker's serialized write queue, on the cursor connection.
 // Answers stay provisional until the round ends: a knockout can cancel the
@@ -23,6 +24,7 @@ export function createTargetQuizPointsRepository({ getDb, cursors, now = Date.no
         user_id INTEGER PRIMARY KEY, round_id TEXT NOT NULL, ends_at INTEGER NOT NULL,
         status TEXT NOT NULL, progression TEXT NOT NULL, last_token TEXT, last_result TEXT
       )`);
+      await initTargetQuizWeeklyStats(db, now());
       return db;
     })().catch(error => { ready = null; throw error; });
     return ready;
@@ -100,6 +102,10 @@ export function createTargetQuizPointsRepository({ getDb, cursors, now = Date.no
           VALUES (?, ?, ?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET
           total = excluded.total, points = excluded.points, cycles = excluded.cycles, updated_at = excluded.updated_at`,
         id, progression.after.total, progression.after.points, progression.after.cycles, at);
+        await recordTargetQuizWeeklyPoints(db, { userId: id,
+          points: progression.after.total - progression.before.total,
+          // Recovery after a restart must retain the round's original week.
+          occurredAt: Math.min(at, row.ends_at) });
       }
       await db.run("UPDATE target_quiz_pending SET status = ?, progression = ? WHERE user_id = ?", cancelled ? "cancelled" : "finished", JSON.stringify(progression), id);
       return progression;

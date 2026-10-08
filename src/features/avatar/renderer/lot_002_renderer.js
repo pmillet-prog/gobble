@@ -9,6 +9,14 @@ export default (function (skinRenderer, adjustments, backgrounds, auras) {
     const size = center.iris_diameter * scale * 256 / spriteDiameter;
     return { x: center.x + (center.side === 'left' ? -spacing : spacing) + dx - size / 2, y: center.y + dy - size / 2, size };
   }
+  function clipCostumeHair(ctx, clip) {
+    // The costume boundary stays in avatar coordinates; fitting and saved hair
+    // adjustments happen inside it when the individual hair layer is drawn.
+    ctx.save(); ctx.beginPath();
+    if (clip.ellipse) ctx.ellipse(...clip.ellipse, 0, 0, Math.PI * 2);
+    else ctx.rect(...clip.rect);
+    ctx.clip();
+  }
   function create(makeCanvas, manifest) {
     let facialhair = null, clothes = null, glasses = null, decorations = null, hair = null, mouths = null, headwear = null;
     const constraints = adjustments.create(makeCanvas);
@@ -113,10 +121,13 @@ export default (function (skinRenderer, adjustments, backgrounds, auras) {
       }
       const decorOnly = view === 'lashes' || view === 'brows';
       const isolated = decorOnly || view === 'isolated' || view === 'opening';
+      const costumeOverHair = options.drawCostume && options.hairUnderCostume;
+      const costumeHairClip = costumeOverHair ? options.costumeHairClip : null;
       const portraitOffsetY = options.portraitOffsetY ?? 128;
-      const hairTop=state.headwear&&state.headwearHair==='hide' ? 0 : hair?.top?.(assets,state,view==='portrait'?portraitOffsetY:0)||0;
-      const top=Math.min(headwear?.top(state)||0,hairTop);
-      let crop = decorOnly ? [290, 185, 444, 360] : isolated ? [316, 242, 392, 288] : view === 'face' ? (state.hair || state.headwear ? [130, top, 764, 764-top] : [230, 100, 564, 564]) : [0, top, 1024, 1024-top];
+      // Clipped hair stays inside the costume frame, including when adjusted.
+      const hairTop=costumeHairClip || state.headwear&&state.headwearHair==='hide' ? 0 : hair?.top?.(assets,state,view==='portrait'?portraitOffsetY:0)||0;
+      const top=Math.min(headwear?.top(state)||0,hairTop,options.costumeTop||0);
+      let crop = decorOnly ? [290, 185, 444, 360] : isolated ? [316, 242, 392, 288] : view === 'face' ? (state.hair || state.headwear || state.costumes ? [130, top, 764, 764-top] : [230, 100, 564, 564]) : [0, top, 1024, 1024-top];
       if(options.authoring){const size=1024/(options.zoom||1);crop=[512+(options.panX||0)-size/2,212+(options.panY||0)-size/2,size,size];}
       const ratio = Math.min(w / crop[2], h / crop[3]);
       // Profiles sit lower; podium portraits keep the full bust. All parts share this translation.
@@ -129,13 +140,31 @@ export default (function (skinRenderer, adjustments, backgrounds, auras) {
         if (!options.authoring) auras.draw(ctx, assets, state);
         if (!options.authoring) options.transformCharacter?.(ctx, canvas.gobbleViewport);
         if (headwear) headwear.draw(ctx, assets, state, 'back');
+        if (costumeHairClip) clipCostumeHair(ctx, costumeHairClip);
         if (headwear) headwear.drawHair(ctx, assets, state, hair, 'back'); else if (hair) hair.draw(ctx, assets, state, 'back');
+        if (costumeHairClip) ctx.restore();
         for (const role of ['bust', 'head']) {
-          if (role === 'head') options.drawAccessories?.(ctx, 'neck');
-          if (role === 'head' && options.drawSkin) { options.drawSkin(ctx); continue; }
+          if (role === 'head' && !options.drawCostume) options.drawAccessories?.(ctx, 'neck');
+          if (role === 'head' && options.headClip) {
+            ctx.save(); ctx.beginPath(); ctx.rect(...options.headClip); ctx.clip();
+          }
+          if (role === 'head' && options.drawSkin) {
+            options.drawSkin(ctx);
+            if (options.headClip) ctx.restore();
+            continue;
+          }
+          if (role === 'bust' && options.drawBust) {
+            const id = 'bust_' + (state.base || 'femme');
+            if (options.drawBust(ctx, skin.tinted(id, assets[id], 'bust', state.tone || 'native', assets[id + '_mask'], state.customColor, state.showMask))) continue;
+          }
           if(role==='bust'&&clothes&&clothes.draw(ctx,assets,state))continue;
           const id = role + '_' + (state.base || 'femme');
           ctx.drawImage(skin.tinted(id, assets[id], role, state.tone || 'native', assets[id + '_mask'], state.customColor, state.showMask), 0, 0);
+          if (role === 'head' && options.headClip) ctx.restore();
+        }
+        if (options.drawCostume && !costumeOverHair) {
+          options.drawCostume(ctx);
+          options.drawAccessories?.(ctx, 'neck');
         }
       }
       if (state.eyes && !decorOnly && state.visible !== false) ctx.drawImage(pair(part, assets, state, view === 'opening'), 0, 0);
@@ -146,10 +175,18 @@ export default (function (skinRenderer, adjustments, backgrounds, auras) {
       }
       if (!isolated && mouths) mouths.draw(ctx, assets, state);
       if (!isolated && facialhair) facialhair.draw(ctx, assets, state);
-      if (!isolated) options.drawAccessories?.(ctx, 'face');
+      if (!isolated && !costumeOverHair) options.drawAccessories?.(ctx, 'face');
       if (!isolated) {
+        if (costumeHairClip) clipCostumeHair(ctx, costumeHairClip);
         if (headwear) headwear.drawHair(ctx, assets, state, hair, 'front');
         else if (hair) hair.draw(ctx, assets, state, 'front');
+        if (costumeHairClip) ctx.restore();
+        if (costumeOverHair) {
+          options.drawCostume(ctx);
+          options.drawAccessories?.(ctx, 'neck');
+          options.drawAccessories?.(ctx, 'face');
+        }
+        options.drawCostumeHeadwear?.(ctx);
         if (glasses) glasses.draw(ctx, assets, state);
         if (headwear) headwear.draw(ctx, assets, state, 'front');
       }

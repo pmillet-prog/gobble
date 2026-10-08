@@ -105,7 +105,9 @@ test("opening and closing stats preserves the title, lobby and running game", as
       assert.equal(feature.store.getState().open, false);
       assert.strictEqual(kernel.getState(), underlyingState);
       feature.openOverlay();
-      assert.equal(feature.store.getState().activeIndex, 2);
+      assert.equal(feature.store.getState().activeIndex, 0);
+      assert.equal(feature.store.getState().category, "vocabulary");
+      assert.equal(feature.store.getState().boardKey, "weeklyVocab");
       feature.closeOverlay();
       assert.strictEqual(kernel.getState(), underlyingState);
     }

@@ -1,4 +1,5 @@
 import React from "react";
+import StatsTypewriterText from "./StatsTypewriterText.jsx";
 
 function WeeklyNickLine({
   crownIcon = null,
@@ -8,9 +9,12 @@ function WeeklyNickLine({
   showVocabLabel = true,
   vocabImageUrl = "",
   vocabLabel = "Niveau",
+  wrap = false,
+  typewriter = false,
 }) {
+  const nickname = typewriter ? <StatsTypewriterText>{nick}</StatsTypewriterText> : nick;
   return (
-    <div className="font-semibold truncate flex items-center gap-1 text-xs">
+    <div className={wrap ? "stats-nick-line" : "font-semibold truncate flex items-center gap-1 text-xs"}>
       {vocabImageUrl ? (
         <span className="inline-flex shrink-0 items-center gap-1">
           <img
@@ -30,17 +34,17 @@ function WeeklyNickLine({
         <button
           type="button"
           data-stats-profile-button="true"
-          className="min-w-0 truncate text-left hover:underline"
+          className={`${wrap ? "stats-nick" : "min-w-0 truncate"} text-left hover:underline`}
           style={{ touchAction: "pan-y" }}
           onClick={onOpenProfile}
         >
-          {nick}
+          {nickname}
         </button>
       ) : (
-        <span className="truncate">{nick}</span>
+        <span className={wrap ? "stats-nick" : "truncate"}>{nickname}</span>
       )}
       {crownIcon}
-      {metaLabel ? <span className="text-[10px] opacity-60 truncate">{metaLabel}</span> : null}
+      {metaLabel ? <span className={wrap ? "stats-row-details" : "text-[10px] opacity-60 truncate"}>{metaLabel}</span> : null}
     </div>
   );
 }

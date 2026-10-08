@@ -1,6 +1,7 @@
 import React from "react";
 import { getAvatarSliders } from "./avatarControls.js";
 import { hasAvatarEyelids } from "../../../shared/avatarEyes.js";
+import AvatarColorPalette from "./AvatarColorPalette.jsx";
 
 export const SKIN_COLORS = ["#ffdbc0", "#f6bd91", "#d89c70", "#ba8159", "#955f40", "#75482f", "#503427"];
 export const HAIR_COLORS = ["#292326", "#653a23", "#99532b", "#d4ad64", "#dfd7c9", "#963d69", "#477c96"];
@@ -9,20 +10,7 @@ export const BACKGROUND_COLORS = ["#204e63", "#37674c", "#74518a", "#96514a", "#
 const FABRIC_COLORS = ["#355a8b", "#35745d", "#9f3b47", "#c49c58", "#ece4d4", "#34323c", "#9b6bb1"];
 const LIP_COLORS = ["#c87b7b", "#ad6862", "#9a4c49", "#cf627a", "#93405f", "#714739"];
 
-function Palette({ label, colors, value, onChange, onOriginal }) {
-  return <fieldset className="avatar-palette">
-    <legend>{label}</legend>
-    <div>
-      {colors.map((color, index) => <button key={color} type="button" style={{ background: color }} aria-label={`${label} ${index + 1}`} aria-pressed={value === color} onClick={() => onChange(color)}>{value === color ? "✓" : ""}</button>)}
-      <label className="avatar-custom-color" title="Couleur personnalisée">+
-        <input aria-label={`${label} personnalisée`} type="color" value={value || colors[0]} onChange={event => onChange(event.target.value)} />
-      </label>
-    </div>
-    {onOriginal ? <button type="button" className="avatar-original-color" onClick={onOriginal}>Couleur d’origine</button> : null}
-  </fieldset>;
-}
-
-export default function AvatarEditorControls({ category, draft, limits, incompatible, onChange }) {
+export default function AvatarEditorControls({ category, draft, selectedPart, limits, incompatible, onChange }) {
   const sliders = getAvatarSliders(category, draft);
   let palette = null;
   if (category === "base") palette = { label: "Teinte de peau", colors: SKIN_COLORS, value: draft.tone === "native" ? "" : draft.customColor, onChange: color => onChange({ customColor: color, tone: "custom" }), onOriginal: () => onChange({ tone: "native" }) };
@@ -38,9 +26,14 @@ export default function AvatarEditorControls({ category, draft, limits, incompat
   if (category === "backdrops") palette = draft.backdrops
     ? { label: "Teinte du décor", colors: BACKGROUND_COLORS, value: draft.backdropColor, onChange: color => onChange({ backdropColor: color, backdropTint: draft.backdropTint || .2 }), onOriginal: () => onChange({ backdropTint: 0 }) }
     : { label: "Couleur du fond", colors: BACKGROUND_COLORS, value: draft.backgroundColor, onChange: color => onChange({ backgroundColor: color }) };
+  const clothingSlots = category === "clothes" && selectedPart?.colorSlots?.filter(({ key }) => ["clothesColor", "clothesSecondaryColor"].includes(key));
+  const palettes = clothingSlots?.length ? clothingSlots.map(({ key, label }) => ({
+    key, label, colors: FABRIC_COLORS, value: draft[key], originalColor: selectedPart.colorDefaults?.[key],
+    onChange: color => onChange({ [key]: color }), onOriginal: () => onChange({ [key]: "" }),
+  })) : palette ? [palette] : [];
 
   return <div className="avatar-controls">
-    {palette ? <Palette {...palette} /> : null}
+    {palettes.map(({ key, ...colors }, index) => <AvatarColorPalette key={key || index} {...colors} />)}
     {sliders.length > 0 && (category !== "backdrops" || draft.backdrops) ? <fieldset className="avatar-adjustments">
       <legend>Ajuster {category === "silhouette" ? "la silhouette" : category === "mouths" ? "la bouche" : category === "accessories" ? "la balafre" : "les proportions"}</legend>
       {sliders.map(control => {

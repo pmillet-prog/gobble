@@ -6,6 +6,8 @@ import { open } from "sqlite";
 import { runSerializedSqliteWrite } from "../sqliteQueue.js";
 import { createTargetQuizProgressRepository } from "./targetQuizProgressRepository.js";
 import { createTargetQuizPointsRepository } from "./targetQuizPointsRepository.js";
+import { createPlayerProgressBoardsRepository, normalizeProgressBoardsRequest } from "../stats/playerProgressBoardsRepository.js";
+import { createShortLivedRequestCache } from "../shortLivedRequestCache.js";
 
 const dataDir = process.env.GOBBLE_DATA_DIR
   ? path.resolve(process.env.GOBBLE_DATA_DIR)
@@ -22,6 +24,8 @@ async function getDb() {
 }
 const repository = createTargetQuizProgressRepository({ getDb });
 const points = createTargetQuizPointsRepository({ getDb, cursors: repository });
+const progressBoards = createPlayerProgressBoardsRepository({ getDb });
+const progressBoardsCache = createShortLivedRequestCache({ ttlMs: 5000, maxEntries: 24 });
 
 function ensureReady() {
   if (!ready) {
@@ -55,4 +59,13 @@ export async function saveTargetQuizAnswer(payload) {
 export async function finishTargetQuizPoints(payload) {
   await ensureReady();
   return runSerializedSqliteWrite(() => points.finish(payload), { label: "target-quiz-finish" });
+}
+
+export async function getPlayerProgressBoards(payload) {
+  const request = normalizeProgressBoardsRequest(payload);
+  return progressBoardsCache.getOrLoad(JSON.stringify(request), async () => {
+    await ensureReady();
+    // Read after pending writes, never inside another session's transaction.
+    return runSerializedSqliteWrite(() => progressBoards.read(request), { label: "player-progress-boards" });
+  });
 }

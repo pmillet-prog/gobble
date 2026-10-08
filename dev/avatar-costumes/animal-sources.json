@@ -1,0 +1,107 @@
+{
+  "mode": "built-in image_gen",
+  "date": "2026-10-08",
+  "reference": "public/avatars/v1/master/femme_homme_v02/head_homme.png",
+  "images": [
+    {
+      "id": "chicken",
+      "path": "public/avatars/v1/costumes/2026-10-08/chicken.png",
+      "source": "C:\\Users\\Paul\\.codex\\generated_images\\01a11b72-5367-75a1-b2ac-524784504411\\exec-52b64fa1-32bb-479f-a400-fbcc26b0e4b1.png",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 1024312,
+      "prompt": "Use case: stylized-concept. Asset type: one production modular avatar costume PNG, transparent RGBA, square 1024x1024. The reference is ONLY a scale/position/style guide for the existing avatar head; do NOT paint the reference skin or any human features into the output. Create Funny white chicken hooded costume, red comb on top, golden small beak above the face opening, red side wattles outside opening, white feather-textured shoulders and soft yellow chest.. Match the polished colorful hand-painted cartoon game rendering, soft dimensional shading and crisp contours of the reference. Front-facing perfectly symmetrical bust from crown to chest, no legs, no hands. Exact avatar coordinates on a 1024 square: face center x512 y400; empty face opening from x335 to689, y245 to620; hood encircles the outside of this opening, crown around y120 (ears/horns can reach y25); neck around x445..579 y615..695; shoulders from x155..869 at y740; torso ends y995. This is an EMPTY wearable costume overlay, NOT a character: the entire oval face opening must have REAL alpha transparency, showing no face, no skin, no eyes, no nose, no mouth, no hair, no mannequin, no gray fill. Animal eyes or decorative features may appear ONLY on top of hood above y220, never inside the human face opening. Include a matching generously wide shoulder-and-chest costume body covering the existing blue hoodie fully. No backdrop, no ground, no cast shadow, no border, no text, no watermark, no separate objects. Transparent outside the costume and inside the face opening. Keep all artwork within the canvas."
+    },
+    {
+      "id": "penguin",
+      "path": "public/avatars/v1/costumes/2026-10-08/penguin.png",
+      "source": "C:\\Users\\Paul\\.codex\\generated_images\\01a11b72-5367-75a1-b2ac-524784504411\\exec-2c507557-141b-4d05-ad68-7dfe9186c9d8.png",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 998937,
+      "prompt": "Use case: stylized-concept. Asset type: one production modular avatar costume PNG, transparent RGBA, square 1024x1024. The reference is ONLY a scale/position/style guide for the existing avatar head; do NOT paint the reference skin or any human features into the output. Create Black and white penguin hooded costume, tiny orange beak above face opening, black rounded hood, black shoulders, clean white chest and small orange bow tie.. Match the polished colorful hand-painted cartoon game rendering, soft dimensional shading and crisp contours of the reference. Front-facing perfectly symmetrical bust from crown to chest, no legs, no hands. Exact avatar coordinates on a 1024 square: face center x512 y400; empty face opening from x335 to689, y245 to620; hood encircles the outside of this opening, crown around y120 (ears/horns can reach y25); neck around x445..579 y615..695; shoulders from x155..869 at y740; torso ends y995. This is an EMPTY wearable costume overlay, NOT a character: the entire oval face opening must have REAL alpha transparency, showing no face, no skin, no eyes, no nose, no mouth, no hair, no mannequin, no gray fill. Animal eyes or decorative features may appear ONLY on top of hood above y220, never inside the human face opening. Include a matching generously wide shoulder-and-chest costume body covering the existing blue hoodie fully. No backdrop, no ground, no cast shadow, no border, no text, no watermark, no separate objects. Transparent outside the costume and inside the face opening. Keep all artwork within the canvas."
+    },
+    {
+      "id": "unicorn",
+      "path": "public/avatars/v1/costumes/2026-10-08/unicorn.png",
+      "source": "C:\\Users\\Paul\\.codex\\generated_images\\01a11b72-5367-75a1-b2ac-524784504411\\exec-8f5a4089-c67a-48b8-b4b6-78b69bff8448.png",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 1164033,
+      "prompt": "Use case: stylized-concept. Asset type: one production modular avatar costume PNG, transparent RGBA, square 1024x1024. The reference is ONLY a scale/position/style guide for the existing avatar head; do NOT paint the reference skin or any human features into the output. Create White unicorn hooded costume, single golden horn and two ears on crown, pastel pink and lavender mane along outside hood, white shoulders with pastel rainbow chest accent.. Match the polished colorful hand-painted cartoon game rendering, soft dimensional shading and crisp contours of the reference. Front-facing perfectly symmetrical bust from crown to chest, no legs, no hands. Exact avatar coordinates on a 1024 square: face center x512 y400; empty face opening from x335 to689, y245 to620; hood encircles the outside of this opening, crown around y120 (ears/horns can reach y25); neck around x445..579 y615..695; shoulders from x155..869 at y740; torso ends y995. This is an EMPTY wearable costume overlay, NOT a character: the entire oval face opening must have REAL alpha transparency, showing no face, no skin, no eyes, no nose, no mouth, no hair, no mannequin, no gray fill. Animal eyes or decorative features may appear ONLY on top of hood above y220, never inside the human face opening. Include a matching generously wide shoulder-and-chest costume body covering the existing blue hoodie fully. No backdrop, no ground, no cast shadow, no border, no text, no watermark, no separate objects. Transparent outside the costume and inside the face opening. Keep all artwork within the canvas."
+    },
+    {
+      "id": "bear",
+      "path": "public/avatars/v1/costumes/2026-10-08/bear.png",
+      "source": "C:\\Users\\Paul\\.codex\\generated_images\\01a11b72-5367-75a1-b2ac-524784504411\\exec-58334f6b-88f4-4d12-a9c8-60d536e3c1bb.png",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 1251718,
+      "prompt": "Use case: stylized-concept. Asset type: one production modular avatar costume PNG, transparent RGBA, square 1024x1024. The reference is ONLY a scale/position/style guide for the existing avatar head; do NOT paint the reference skin or any human features into the output. Create Warm brown teddy bear hooded costume, round fuzzy ears, little bear muzzle centered high above face opening, brown shoulders and soft cream belly.. Match the polished colorful hand-painted cartoon game rendering, soft dimensional shading and crisp contours of the reference. Front-facing perfectly symmetrical bust from crown to chest, no legs, no hands. Exact avatar coordinates on a 1024 square: face center x512 y400; empty face opening from x335 to689, y245 to620; hood encircles the outside of this opening, crown around y120 (ears/horns can reach y25); neck around x445..579 y615..695; shoulders from x155..869 at y740; torso ends y995. This is an EMPTY wearable costume overlay, NOT a character: the entire oval face opening must have REAL alpha transparency, showing no face, no skin, no eyes, no nose, no mouth, no hair, no mannequin, no gray fill. Animal eyes or decorative features may appear ONLY on top of hood above y220, never inside the human face opening. Include a matching generously wide shoulder-and-chest costume body covering the existing blue hoodie fully. No backdrop, no ground, no cast shadow, no border, no text, no watermark, no separate objects. Transparent outside the costume and inside the face opening. Keep all artwork within the canvas."
+    },
+    {
+      "id": "frog",
+      "path": "public/avatars/v1/costumes/2026-10-08/frog.png",
+      "source": "C:\\Users\\Paul\\.codex\\generated_images\\01a11b72-5367-75a1-b2ac-524784504411\\exec-5f7fc1af-2be6-446c-a8ba-e7eac11c582f.png",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 1085980,
+      "prompt": "Use case: stylized-concept. Asset type: one production modular avatar costume PNG, transparent RGBA, square 1024x1024. The reference is ONLY a scale/position/style guide for the existing avatar head; do NOT paint the reference skin or any human features into the output. Create Bright green frog hooded costume, two big rounded toy frog eyes perched on top of hood, pale lime throat and chest, green shoulders.. Match the polished colorful hand-painted cartoon game rendering, soft dimensional shading and crisp contours of the reference. Front-facing perfectly symmetrical bust from crown to chest, no legs, no hands. Exact avatar coordinates on a 1024 square: face center x512 y400; empty face opening from x335 to689, y245 to620; hood encircles the outside of this opening, crown around y120 (ears/horns can reach y25); neck around x445..579 y615..695; shoulders from x155..869 at y740; torso ends y995. This is an EMPTY wearable costume overlay, NOT a character: the entire oval face opening must have REAL alpha transparency, showing no face, no skin, no eyes, no nose, no mouth, no hair, no mannequin, no gray fill. Animal eyes or decorative features may appear ONLY on top of hood above y220, never inside the human face opening. Include a matching generously wide shoulder-and-chest costume body covering the existing blue hoodie fully. No backdrop, no ground, no cast shadow, no border, no text, no watermark, no separate objects. Transparent outside the costume and inside the face opening. Keep all artwork within the canvas."
+    },
+    {
+      "id": "shark",
+      "path": "public/avatars/v1/costumes/2026-10-08/shark.png",
+      "source": "C:\\Users\\Paul\\.codex\\generated_images\\01a11b72-5367-75a1-b2ac-524784504411\\exec-e3a016d6-da7e-4535-ac7b-c8085ba10a32.png",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 1084683,
+      "prompt": "Use case: stylized-concept. Asset type: one production modular avatar costume PNG, transparent RGBA, square 1024x1024. The reference is ONLY a scale/position/style guide for the existing avatar head; do NOT paint the reference skin or any human features into the output. Create Blue gray shark hooded costume, dorsal fin on crown, tiny shark eyes on hood, soft triangular white teeth framing the empty face opening without crossing it, pale chest and blue shoulders.. Match the polished colorful hand-painted cartoon game rendering, soft dimensional shading and crisp contours of the reference. Front-facing perfectly symmetrical bust from crown to chest, no legs, no hands. Exact avatar coordinates on a 1024 square: face center x512 y400; empty face opening from x335 to689, y245 to620; hood encircles the outside of this opening, crown around y120 (ears/horns can reach y25); neck around x445..579 y615..695; shoulders from x155..869 at y740; torso ends y995. This is an EMPTY wearable costume overlay, NOT a character: the entire oval face opening must have REAL alpha transparency, showing no face, no skin, no eyes, no nose, no mouth, no hair, no mannequin, no gray fill. Animal eyes or decorative features may appear ONLY on top of hood above y220, never inside the human face opening. Include a matching generously wide shoulder-and-chest costume body covering the existing blue hoodie fully. No backdrop, no ground, no cast shadow, no border, no text, no watermark, no separate objects. Transparent outside the costume and inside the face opening. Keep all artwork within the canvas."
+    },
+    {
+      "id": "panda",
+      "path": "public/avatars/v1/costumes/2026-10-08/panda.png",
+      "source": "C:\\Users\\Paul\\.codex\\generated_images\\01a11b72-5367-75a1-b2ac-524784504411\\exec-86250585-6f0a-4407-9581-80c03a7418b3.png",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 1087409,
+      "prompt": "Use case: stylized-concept. Asset type: one production modular avatar costume PNG, transparent RGBA, square 1024x1024. The reference is ONLY a scale/position/style guide for the existing avatar head; do NOT paint the reference skin or any human features into the output. Create White and black panda hooded costume, black round ears and black decorative eye spots high on hood, white hood around transparent human face opening, black shoulders and white belly.. Match the polished colorful hand-painted cartoon game rendering, soft dimensional shading and crisp contours of the reference. Front-facing perfectly symmetrical bust from crown to chest, no legs, no hands. Exact avatar coordinates on a 1024 square: face center x512 y400; empty face opening from x335 to689, y245 to620; hood encircles the outside of this opening, crown around y120 (ears/horns can reach y25); neck around x445..579 y615..695; shoulders from x155..869 at y740; torso ends y995. This is an EMPTY wearable costume overlay, NOT a character: the entire oval face opening must have REAL alpha transparency, showing no face, no skin, no eyes, no nose, no mouth, no hair, no mannequin, no gray fill. Animal eyes or decorative features may appear ONLY on top of hood above y220, never inside the human face opening. Include a matching generously wide shoulder-and-chest costume body covering the existing blue hoodie fully. No backdrop, no ground, no cast shadow, no border, no text, no watermark, no separate objects. Transparent outside the costume and inside the face opening. Keep all artwork within the canvas."
+    },
+    {
+      "id": "bee",
+      "path": "public/avatars/v1/costumes/2026-10-08/bee.png",
+      "source": "C:\\Users\\Paul\\.codex\\generated_images\\01a11b72-5367-75a1-b2ac-524784504411\\exec-4da7b20e-5c95-4030-927e-0c2908589f90.png",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 1112352,
+      "prompt": "Use case: stylized-concept. Asset type: one production modular avatar costume PNG, transparent RGBA, square 1024x1024. The reference is ONLY a scale/position/style guide for the existing avatar head; do NOT paint the reference skin or any human features into the output. Create Golden yellow and charcoal bee hooded costume with two short antennae, rounded yellow hood, horizontal black and yellow striped chest, small translucent wing tips outside shoulders.. Match the polished colorful hand-painted cartoon game rendering, soft dimensional shading and crisp contours of the reference. Front-facing perfectly symmetrical bust from crown to chest, no legs, no hands. Exact avatar coordinates on a 1024 square: face center x512 y400; empty face opening from x335 to689, y245 to620; hood encircles the outside of this opening, crown around y120 (ears/horns can reach y25); neck around x445..579 y615..695; shoulders from x155..869 at y740; torso ends y995. This is an EMPTY wearable costume overlay, NOT a character: the entire oval face opening must have REAL alpha transparency, showing no face, no skin, no eyes, no nose, no mouth, no hair, no mannequin, no gray fill. Animal eyes or decorative features may appear ONLY on top of hood above y220, never inside the human face opening. Include a matching generously wide shoulder-and-chest costume body covering the existing blue hoodie fully. No backdrop, no ground, no cast shadow, no border, no text, no watermark, no separate objects. Transparent outside the costume and inside the face opening. Keep all artwork within the canvas."
+    },
+    {
+      "id": "rabbit",
+      "path": "public/avatars/v1/costumes/2026-10-08/rabbit.png",
+      "source": "C:\\Users\\Paul\\.codex\\generated_images\\01a11b72-5367-75a1-b2ac-524784504411\\exec-cf7f59f3-07d5-4274-921d-c16ad655538f.png",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 972836,
+      "prompt": "Use case: stylized-concept. Asset type: one production modular avatar costume PNG, transparent RGBA, square 1024x1024. The reference is ONLY a scale/position/style guide for the existing avatar head; do NOT paint the reference skin or any human features into the output. Create Soft ivory rabbit hooded costume, two tall rounded pink-lined ears kept within canvas, ivory hood and shoulders, pale pink belly patch.. Match the polished colorful hand-painted cartoon game rendering, soft dimensional shading and crisp contours of the reference. Front-facing perfectly symmetrical bust from crown to chest, no legs, no hands. Exact avatar coordinates on a 1024 square: face center x512 y400; empty face opening from x335 to689, y245 to620; hood encircles the outside of this opening, crown around y120 (ears/horns can reach y25); neck around x445..579 y615..695; shoulders from x155..869 at y740; torso ends y995. This is an EMPTY wearable costume overlay, NOT a character: the entire oval face opening must have REAL alpha transparency, showing no face, no skin, no eyes, no nose, no mouth, no hair, no mannequin, no gray fill. Animal eyes or decorative features may appear ONLY on top of hood above y220, never inside the human face opening. Include a matching generously wide shoulder-and-chest costume body covering the existing blue hoodie fully. No backdrop, no ground, no cast shadow, no border, no text, no watermark, no separate objects. Transparent outside the costume and inside the face opening. Keep all artwork within the canvas."
+    },
+    {
+      "id": "cow",
+      "path": "public/avatars/v1/costumes/2026-10-08/cow.png",
+      "source": "C:\\Users\\Paul\\.codex\\generated_images\\01a11b72-5367-75a1-b2ac-524784504411\\exec-c42a8b21-a4f3-4441-bfc3-c884f925b024.png",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 1223930,
+      "prompt": "Use case: stylized-concept. Asset type: one production modular avatar costume PNG, transparent RGBA, square 1024x1024. The reference is ONLY a scale/position/style guide for the existing avatar head; do NOT paint the reference skin or any human features into the output. Create White cow hooded costume with black patches, small cream horns and pink-lined cow ears, tiny pink muzzle at crown above face opening, black and white shoulders with a small brass bell at collar.. Match the polished colorful hand-painted cartoon game rendering, soft dimensional shading and crisp contours of the reference. Front-facing perfectly symmetrical bust from crown to chest, no legs, no hands. Exact avatar coordinates on a 1024 square: face center x512 y400; empty face opening from x335 to689, y245 to620; hood encircles the outside of this opening, crown around y120 (ears/horns can reach y25); neck around x445..579 y615..695; shoulders from x155..869 at y740; torso ends y995. This is an EMPTY wearable costume overlay, NOT a character: the entire oval face opening must have REAL alpha transparency, showing no face, no skin, no eyes, no nose, no mouth, no hair, no mannequin, no gray fill. Animal eyes or decorative features may appear ONLY on top of hood above y220, never inside the human face opening. Include a matching generously wide shoulder-and-chest costume body covering the existing blue hoodie fully. No backdrop, no ground, no cast shadow, no border, no text, no watermark, no separate objects. Transparent outside the costume and inside the face opening. Keep all artwork within the canvas."
+    },
+    {
+      "id": "rabbit-v2",
+      "path": "public/avatars/v1/costumes/2026-10-08/rabbit-v2.png",
+      "source": "C:\\Users\\Paul\\.codex\\generated_images\\01a11b72-5367-75a1-b2ac-524784504411\\exec-e2fb91c8-f82c-4bb0-a0e5-84bcb8cb9655.png",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 1004564,
+      "prompt": "Use case: precise-object-edit. Edit target Image 1: ivory rabbit avatar costume overlay. Image 2: dinosaur costume, exact geometry/position reference ONLY. Image 3: existing avatar head, alignment guide ONLY, NEVER paint skin/head into result. Correct rabbit costume alignment. Keep ivory/plush rabbit design, pink ears and belly, shoulders and chest positions anchored unchanged. Rebuild ONLY hood geometry to match Image 2: crown rises to y110 on a 1024 square instead of current low y230, face opening is centered at x512 y430 and spans x335..689, y245..620, with a snug chin edge. This means RAISE the entire face opening about 90 pixels, extend hood crown to cover the reference scalp completely, and raise its chin rim. Shorten rabbit ears as needed to fit above the elevated crown while retaining clear long rabbit ears within canvas. Do not leave the original scalp exposed between ears; solid ivory hood crown covers it. Keep the hole above eyebrows and around sides/chin; preserve generous shoulder/chest width and exact lower body silhouette. This is an EMPTY wearable overlay, no human face skin features eyes nose mouth or mannequin. True alpha transparency outside costume AND inside the entire face opening. Square canvas. Polished soft dimensional hand-painted colorful game rendering, no backdrop, no border, no text, no cast shadow, no other objects.",
+      "status": "selected; composite validated on both avatar bases with catalog headClip"
+    }
+  ]
+}

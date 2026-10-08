@@ -47,7 +47,7 @@ export default function TargetQuizPlayground({
   const stageRef = React.useRef(null);
   const cardsRef = React.useRef(null);
   const feedbackRef = React.useRef(null);
-  const { reaction, hit } = useTargetQuizPresenterDismiss({ enabled: active && phase !== "finished", onDismiss,
+  const { reaction, hit } = useTargetQuizPresenterDismiss({ enabled: active && phase !== "finished", onDismiss, roundId, devPreview,
     onHit: async () => { const accepted = await controller.dismiss(); if (accepted) stopQuizSounds(); return accepted; } });
   const playing = !reaction && (phase === "running" || phase === "submitting" || phase === "feedback");
   const shown = !!question && phase !== "idle" && phase !== "finished";

@@ -4,7 +4,7 @@ import AvatarAccessoryPreview from "./AvatarAccessoryPreview.jsx";
 
 export default function AvatarPartThumbnail({ part, nickname }) {
   const [failed, setFailed] = React.useState(false);
-  const url = `/avatars/v1/${part.layers?.thumbnail || part.file}`;
+  const url = `/avatars/v1/${part.thumbnail || part.layers?.thumbnail || part.file}`;
   const retry = async event => {
     const target = event.currentTarget;
     if (target.dataset.retried) { setFailed(true); return; }

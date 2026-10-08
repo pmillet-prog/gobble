@@ -134,6 +134,7 @@ import {
   getPreviousWeeklyVocabPodium,
   getWeeklyAvatarAuraPeriod,
   getWeeklyStats,
+  getAllTimeGobbleCandidates,
   recordBestSpecial3Score,
   recordBestRoundScore,
   recordBestTargetTime,
@@ -223,6 +224,8 @@ import { loadTargetQuizCatalog } from "./targetMiniGame/targetQuizCatalog.js";
 import { createTargetQuizService } from "./targetMiniGame/targetQuizService.js";
 import { getTargetQuizResult } from "./targetMiniGame/targetQuizRoundResults.js";
 import { createTargetQuizSocketHandlers } from "./targetMiniGame/registerTargetQuizHandlers.js";
+import { createPresenterHitsService } from "./presenterHits/presenterHitsService.js";
+import { registerPresenterHitHandlers } from "./presenterHits/registerPresenterHitHandlers.js";
 import {
   clearBroadcastMessage,
   getActiveBroadcast,
@@ -273,6 +276,8 @@ await applyPendingScoreRecordRollback()
 
 const computePool = createComputePool();
 const persistenceClient = createPersistenceClient();
+const presenterHits = createPresenterHitsService();
+await presenterHits.ready;
 const targetQuizService = createTargetQuizService({
   loadCatalog: loadTargetQuizCatalog,
   loadProgress: playerKey => persistenceClient.loadTargetQuizProgress({ playerKey }),
@@ -813,7 +818,15 @@ async function buildWeeklyStatsResponse(topN) {
         }
       }
     }
-    const vocabularyFallback = await getVocabularyLeaderboard(payload?.topN || topN || 50);
+    const [vocabularyFallback, weeklyVocabularyFallback, progressBoards] = await Promise.all([
+      getVocabularyLeaderboard(payload?.topN || topN || 50),
+      getWeeklyVocabularyLeaderboard(payload?.weekStartTs || Date.now(), null),
+      persistenceClient.getPlayerProgressBoards({
+        weekStartTs: payload.weekStartTs, nextResetTs: payload.nextResetTs,
+        topN: payload.topN || topN || 50,
+        historicalGobbles: getAllTimeGobbleCandidates(payload.topN || topN || 50),
+      }),
+    ]);
     for (const entry of vocabularyFallback) {
       const key = canonicalizeVocabPlayerKey("", entry?.installId);
       const nickLower = normalizeWeeklyNick(entry?.nick);
@@ -821,10 +834,6 @@ async function buildWeeklyStatsResponse(topN) {
         installKeyByNick.set(nickLower, key);
       }
     }
-    const weeklyVocabularyFallback = await getWeeklyVocabularyLeaderboard(
-      payload?.weekStartTs || Date.now(),
-      null
-    );
     for (const entry of weeklyVocabularyFallback) {
       const key = canonicalizeVocabPlayerKey("", entry?.installId);
       const nickLower = normalizeWeeklyNick(entry?.nick);
@@ -938,7 +947,13 @@ async function buildWeeklyStatsResponse(topN) {
         ])
       ),
     };
-  return { ...payload, boards: filteredBoards };
+  return {
+    ...payload,
+    boards: { ...filteredBoards, ...progressBoards.boards,
+      presenterHits: presenterHits.getWeeklyBoard(payload.weekStartTs) },
+    allTimeBoards: progressBoards.allTimeBoards,
+    trackingStartTs: { ...progressBoards.trackingStartTs, presenterHits: presenterHits.getTrackingStartTs() },
+  };
 }
 
 const weeklyStatsResponseCache = createShortLivedRequestCache({
@@ -3049,7 +3064,15 @@ async function getCachedDuelStatus(rawInstallId, { dateId = null, force = false 
     key,
     ttlMs: DUEL_STATUS_RESPONSE_CACHE_TTL_MS,
     force,
-    task: () => getDuelStatus(installId, { dateId }),
+    task: async () => {
+      const status = await getDuelStatus(installId, { dateId });
+      if (!status?.lastWeekSummary) return status;
+      return { ...status, lastWeekSummary: {
+        ...status.lastWeekSummary,
+        presenterHits: presenterHits.getWeeklyBoard(status.lastWeekSummary.weekStartTs),
+        presenterHitsTrackingStartTs: presenterHits.getTrackingStartTs(),
+      } };
+    },
   });
 }
 
@@ -11687,6 +11710,7 @@ io.on("connection", (socket) => {
   emitMaintenanceStatus(socket, isMaintenanceModeActive());
   emitRoomsStats();
   targetQuizHandlers.register(socket);
+  registerPresenterHitHandlers(socket, { service: presenterHits, getRoom, getSocketPlayerIdentity });
 
   registerSessionUtilityHandlers(socket, {
     addPlaytimeUsage,

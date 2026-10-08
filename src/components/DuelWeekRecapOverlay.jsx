@@ -3,6 +3,7 @@ import PlayerProfileLink from "./profile/PlayerProfileLink.jsx";
 import { createPortal } from "react-dom";
 import { resolveWeeklyRecapPodium } from "../utils/weeklyRecap.js";
 import WeeklyRecapAvatar, { WeeklyRecapAvatars } from "../features/avatar/WeeklyRecapAvatar.jsx";
+import PresenterHitsRecap from "./weeklyRecap/PresenterHitsRecap.jsx";
 
 const TEAM_LABELS = {
   red: "Rouges",
@@ -345,6 +346,7 @@ export default function DuelWeekRecapOverlay({
                 formatNumber={formatNumber}
                 getValue={(entry) => entry?.totalScore}
               />
+              <PresenterHitsRecap entries={summary.presenterHits} trackingStartTs={summary.presenterHitsTrackingStartTs} weekStartTs={summary.weekStartTs} />
             </div>
           ) : (
             podium.length ? (

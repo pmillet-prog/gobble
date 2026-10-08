@@ -3,8 +3,10 @@ import { useFeatureFields, useFeatureRuntime } from "../../app/react/useFeatureR
 import { clampValue, formatNumber } from "../../utils/numbers.js";
 import { getVocabLevelMeta } from "../../vocabRanks.js";
 import { getStatsImageUrl as getImageUrl } from "./statsPresentation.js";
+import StatsTypewriterText from "../../components/stats/StatsTypewriterText.jsx";
 
-export default function VocabularyProgressPanel({ darkMode = false, panelClassName = "", showDelta = true, showHeading = true }) {
+export default function VocabularyProgressPanel({ darkMode = false, panelClassName = "", showDelta = true, showHeading = true, typewriter = false }) {
+  const Text = typewriter ? StatsTypewriterText : React.Fragment;
   const stats = useFeatureRuntime("stats");
   const { vocabCount, vocabLoading, vocabRoundDelta, vocabWeeklyCount } = useFeatureFields(stats, ["vocabCount", "vocabLoading", "vocabRoundDelta", "vocabWeeklyCount"]);
   const vocabDeltaValue = Number.isFinite(vocabRoundDelta) ? Math.max(0, vocabRoundDelta) : 0;
@@ -64,11 +66,11 @@ export default function VocabularyProgressPanel({ darkMode = false, panelClassNa
     >
       {showHeading ? (
         <div className="text-[11px] uppercase tracking-[0.22em] opacity-70">
-          Vocabulaire
+          <Text>Vocabulaire</Text>
         </div>
       ) : null}
       {showDelta ? (
-        <div className="text-4xl font-black tabular-nums">{vocabDeltaLabel}</div>
+        <div className="text-4xl font-black tabular-nums"><Text>{vocabDeltaLabel}</Text></div>
       ) : null}
       <div
         className={
@@ -77,11 +79,11 @@ export default function VocabularyProgressPanel({ darkMode = false, panelClassNa
             : "text-lg font-extrabold tabular-nums"
         }
       >
-        {vocabTotalLabel}
+        <Text>{vocabTotalLabel}</Text>
       </div>
       {vocabWeeklyLabel ? (
         <div className="text-[11px] font-semibold opacity-65 -mt-1">
-          {vocabWeeklyLabel}
+          <Text>{vocabWeeklyLabel}</Text>
         </div>
       ) : null}
       <div className="mt-2 w-full max-w-lg flex flex-col items-center gap-2">
@@ -95,13 +97,13 @@ export default function VocabularyProgressPanel({ darkMode = false, panelClassNa
             />
             {vocabLevelUp ? (
               <div className="absolute -top-2 -right-3 rotate-6 rounded-full bg-red-500 text-white text-[9px] font-extrabold px-2 py-0.5 shadow-lg animate-pulse">
-                nouveau !!
+                <Text>nouveau !!</Text>
               </div>
             ) : null}
           </div>
         ) : (
           <div className="text-sm font-extrabold uppercase tracking-widest">
-            {vocabLevel?.label || "Niveau"}
+            <Text>{vocabLevel?.label || "Niveau"}</Text>
           </div>
         )}
         <div className="w-full">

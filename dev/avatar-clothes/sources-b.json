@@ -1,0 +1,21 @@
+{
+  "mode": "built-in image_gen",
+  "date": "2026-10-08",
+  "promptSet": "dev/avatar-clothes/generation.json",
+  "promptComposition": "Replace GARMENT_DESCRIPTION in prompt with garments[id], with no additional suffix.",
+  "reference": "public/avatars/v1/master/femme_homme_v02/bust_homme.png",
+  "transparentBackground": true,
+  "outputDirectory": "dev/avatar-clothes/sources",
+  "sourceDirectory": "C:/Users/Paul/.codex/generated_images/01a11b72-7e59-7ae0-a377-def8e07a795d",
+  "width": 1254,
+  "height": 1254,
+  "originalsUnchanged": true,
+  "validation": "All five visually inspected: empty neckline, no skin or mannequin, teal primary fabric and coral secondary fabric. Alpha at x=50%, y=50% and top-left corner equals zero. Raw collar tops vary around 44-53% of canvas and require export registration to the reference bust.",
+  "assets": [
+    { "id": "sherpa", "source": "exec-f95786fd-8f90-4a17-8d47-c23ffff431d8.png", "bytes": 1009539 },
+    { "id": "sweater_vest", "source": "exec-7f3af43d-ca83-45b7-81e7-ddd127bced51.png", "bytes": 1021951 },
+    { "id": "bow_blouse", "source": "exec-fd4f323a-46db-4083-8c01-ad174fcda18a.png", "bytes": 734424 },
+    { "id": "waistcoat", "source": "exec-b5e9c6fb-c857-4e5a-bedb-fda32b77462b.png", "bytes": 695670 },
+    { "id": "track_jacket", "source": "exec-051d4906-77c3-4628-9a1e-1f5ce53a872b.png", "bytes": 639439 }
+  ]
+}
