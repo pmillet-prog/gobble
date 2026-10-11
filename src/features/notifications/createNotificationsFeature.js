@@ -37,6 +37,7 @@ export function createNotificationsFeature(
       id: Date.now() + Math.random(),
       message: text,
       avatarReward: options?.avatarReward || null,
+      achievementReward: options?.achievementReward || null,
       position: options?.position === "top-left" ? "top-left" : "top-right",
     });
     store.set("toasts", (current) => [...current, toast].slice(-6));

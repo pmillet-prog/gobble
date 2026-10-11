@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Trophées Gobble — niveau et assiduité</title>
+<style>
+:root{color-scheme:light dark;--bg:#f5f3ed;--surface:#fffefa;--ink:#22322f;--muted:#61706a;--line:#d8ded4;--soft:#eceee6;--accent:#23654c;--insight:#e3efe4;--warning:#865817;--warning-bg:#fff2d6;--shadow:0 7px 30px #233b2910}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.5}main{max-width:1180px;margin:auto;padding:36px 28px 48px}h1,h2,h3,p{margin:0}h1{font-size:clamp(27px,3.7vw,44px);line-height:1.16;max-width:970px;font-weight:760;letter-spacing:-.035em}h2{font-size:21px;line-height:1.25;letter-spacing:-.025em}h3{font-size:16px}.kicker{color:var(--accent);font-size:12px;font-weight:750;letter-spacing:.09em;text-transform:uppercase;margin-bottom:14px}.intro{max-width:860px;margin-top:14px;color:var(--muted);font-size:16px}.controls{margin-top:26px;display:grid;grid-template-columns:1fr 1fr 1.5fr 1fr;gap:14px;padding:20px;background:var(--surface);border:1px solid var(--line);border-radius:17px;box-shadow:var(--shadow)}label{font-size:12px;font-weight:750;display:block}select{width:100%;max-width:100%;min-width:0;margin-top:7px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--ink);font:inherit;font-size:14px;padding:11px 30px 11px 10px;min-height:44px}select:focus-visible,input:focus-visible,summary:focus-visible{outline:3px solid #5b9cad;outline-offset:3px}.hypothesis{grid-column:1/-1;font-size:12px;color:var(--muted);font-weight:450;line-height:1.5}.player-key{display:inline-block;width:9px;height:9px;margin-right:6px;border-radius:50%;background:var(--player-color)}.scenario{margin:20px 0 16px;padding:17px 20px;display:grid;grid-template-columns:1fr minmax(210px,350px);gap:16px;align-items:center;background:var(--insight);border-radius:14px}.scenario p{font-size:13px;color:var(--muted)}.scenario strong{display:block;font-size:15px;color:var(--ink);margin-bottom:3px}.range-label{display:flex;justify-content:space-between;gap:8px;font-size:12px;font-weight:600}.range-label output{font-weight:800;font-size:14px;color:var(--ink)}input[type=range]{width:100%;margin:9px 0 0;accent-color:var(--accent);cursor:pointer;height:24px}.range-ends{display:flex;justify-content:space-between;font-size:11px;color:var(--muted)}.charts{display:grid;grid-template-columns:1fr 1fr;gap:18px}.chart-card{background:var(--surface);border:1px solid var(--line);border-radius:17px;padding:22px;box-shadow:var(--shadow);min-width:0}.chart-kicker{font-size:11px;font-weight:800;letter-spacing:.07em;color:var(--muted);text-transform:uppercase;margin-bottom:7px}.chart-description{font-size:13px;color:var(--muted);margin-top:8px;min-height:39px}.chart-area{width:100%;margin-top:12px;min-height:284px}.chart-area svg{display:block;width:100%;height:284px;overflow:visible}.chart-area text{font-family:inherit;fill:var(--ink)}.chart-area .svg-muted{fill:var(--muted)}.chart-area .bar-track{fill:var(--soft)}.chart-area .threshold{stroke:var(--ink);stroke-width:2;stroke-dasharray:3 3}.chart-area .axis{stroke:var(--line);stroke-width:1}.chart-conclusion{border-top:1px solid var(--line);padding-top:13px;font-size:15px;font-weight:750;min-height:59px}.chart-conclusion small{display:block;font-size:12px;color:var(--muted);font-weight:450;margin-top:4px}.unavailable{height:284px;display:flex;flex-direction:column;justify-content:center;align-items:flex-start;gap:9px;color:var(--muted);font-size:14px;max-width:340px}.unavailable strong{color:var(--ink);font-size:17px}.chart-note{margin-top:12px;font-size:12px;color:var(--muted)}.dash{display:inline-block;width:20px;border-top:2px dashed var(--ink);vertical-align:middle;margin-right:6px}.evidence{margin-top:19px;display:grid;grid-template-columns:1fr 1fr;gap:18px}.player-card{padding:17px 20px;border:1px solid var(--line);border-radius:13px;min-width:0}.player-card h3{display:flex;align-items:center}.player-card p{color:var(--muted);font-size:13px;margin-top:5px}.player-card strong{color:var(--ink)}.delay-section{margin-top:32px}.delay-section>p{font-size:13px;color:var(--muted);margin-top:8px}.delay-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:15px}.delay-player{padding:19px 20px;background:var(--surface);border:1px solid var(--line);border-radius:14px;min-width:0}.delay-player h3{margin-bottom:16px}.tiers{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.tier{padding-left:12px;border-left:3px solid var(--line);min-width:0}.tier.bronze{border-color:#b17a48}.tier.argent{border-color:#99a8af}.tier.or{border-color:#d2ae3d}.tier-name{font-size:11px;font-weight:700;color:var(--muted)}.tier-time{display:block;font-size:21px;line-height:1.35;font-weight:780;margin-top:5px;letter-spacing:-.02em}.tier-threshold{display:block;color:var(--muted);font-size:11px;margin-top:3px}.tier.selected{background:var(--soft);border-radius:0 5px 5px 0;padding-top:5px;padding-bottom:5px;margin-top:-5px;margin-bottom:-5px}.warning{color:var(--warning);background:var(--warning-bg);padding:11px 14px;border-radius:9px;font-size:12px;margin-top:13px}.warning[hidden]{display:none}.interpretation{padding:19px 21px;border-left:4px solid var(--accent);margin-top:25px;background:var(--insight);border-radius:0 12px 12px 0}.interpretation h2{font-size:17px;margin-bottom:7px}.interpretation p{font-size:14px;max-width:990px}.method{margin-top:25px;border-top:1px solid var(--line);padding-top:16px;color:var(--muted);font-size:12px}.method summary{cursor:pointer;font-weight:750;color:var(--ink);font-size:13px;padding:4px 0}.method p{margin-top:10px;max-width:1050px}.footnote{color:var(--muted);font-size:11px;margin-top:18px}.selected-label{font-weight:750;color:var(--ink)}
+.tier-time.unavailable-time{font-size:13px;line-height:1.6;overflow-wrap:anywhere}
+@media(prefers-color-scheme:dark){:root{--bg:#161f1c;--surface:#202b26;--ink:#e7ede7;--muted:#a9b7ad;--line:#39483e;--soft:#2e3b33;--accent:#96d6ab;--insight:#263d2d;--warning:#e3c17f;--warning-bg:#3e3524;--shadow:none}}
+@media(max-width:850px){.controls{grid-template-columns:1fr 1fr}.charts{grid-template-columns:1fr 1fr;gap:14px}.chart-card{padding:18px}.chart-description{min-height:59px}.chart-conclusion{min-height:78px}.evidence,.delay-grid{gap:14px}.tier-time{font-size:19px}.delay-player{padding:17px 15px}.tier{padding-left:8px}}
+@media(max-width:630px){main{padding:24px 16px 32px}.charts,.evidence,.delay-grid{grid-template-columns:1fr}.controls{padding:14px;gap:12px}.controls .category-control{grid-column:1/-1}.controls .tier-control{grid-column:1/-1}.scenario{grid-template-columns:1fr;padding:15px}.chart-description{min-height:0}.chart-conclusion{min-height:0}.chart-card{padding:19px}.intro{font-size:14px}.evidence{gap:10px}.tier-time{font-size:20px}.chart-note{line-height:1.6}}
+@media(prefers-reduced-motion:no-preference){select{transition:border-color .15s}select:hover{border-color:var(--muted)}}
+</style>
+</head>
+<body>
+<main>
+<header>
+<p class="kicker">Gobble · atelier du barème</p>
+<h1 id="headline">Beerman domine par manche. Nicole passe devant au rythme réel.</h1>
+<p class="intro">Le même trophée, deux façons de comparer : <strong>1 000 manches chacun</strong>, puis <strong>une même durée avec leurs habitudes de jeu</strong>. C’est là que l’assiduité peut faire la différence.</p>
+</header>
+<section class="controls" aria-label="Choisir la comparaison">
+<label><span class="player-key" id="key-a"></span>Joueur A<select id="player-a" aria-label="Joueur A"></select></label>
+<label><span class="player-key" id="key-b"></span>Joueur B<select id="player-b" aria-label="Joueur B"></select></label>
+<label class="category-control">Cumul comparé<select id="category" aria-label="Cumul comparé"></select></label>
+<label class="tier-control">Palier à essayer<select id="tier" aria-label="Palier à essayer"><option value="bronze">Bronze · 10 %</option><option value="argent">Argent · 30 %</option><option value="or">Or · 100 %</option></select></label>
+<p class="hypothesis"><strong>Hypothèse de travail :</strong> bronze = 10 %, argent = 30 %, or = seuil actuel. Aucun barème de points n’est fixé. On compte les exemplaires du seul palier sélectionné, sans additionner les trois couleurs.</p>
+</section>
+<section class="scenario" aria-label="Durée de la projection">
+<div><strong id="threshold-label"></strong><p id="scale-note">Les deux graphiques utilisent la même échelle et partent de zéro.</p></div>
+<div>
+<label for="days" class="range-label"><span>Durée au rythme observé</span><output id="days-output" for="days">30 jours</output></label>
+<input id="days" type="range" min="7" max="90" step="1" value="30" aria-label="Durée de la projection en jours">
+<div class="range-ends"><span>7 jours</span><span>90 jours</span></div>
+</div>
+</section>
+<section class="charts" aria-label="Niveau et assiduité">
+<article class="chart-card">
+<p class="chart-kicker">01 · Même nombre de manches</p>
+<h2>À jeu égal</h2>
+<p class="chart-description" id="equal-description">1 000 manches pour chaque joueur : on compare leur rendement.</p>
+<div class="chart-area" id="equal-chart"></div>
+<p class="chart-conclusion" id="equal-conclusion"></p>
+</article>
+<article class="chart-card">
+<p class="chart-kicker">02 · Même durée écoulée</p>
+<h2 id="calendar-title">Après 30 jours</h2>
+<p class="chart-description" id="calendar-description">Chaque joueur conserve sa cadence observée, jours sans jeu compris.</p>
+<div class="chart-area" id="calendar-chart"></div>
+<p class="chart-conclusion" id="calendar-conclusion"></p>
+</article>
+</section>
+<p class="chart-note"><span class="dash"></span><span id="threshold-note"></span> Les barres représentent le cumul projeté ; les comptes de trophées sont indicatifs.</p>
+<div class="warning" id="category-warning" hidden></div>
+<section class="evidence" id="player-evidence" aria-label="Ce qui explique la différence"></section>
+<section class="delay-section" aria-label="Délais estimés">
+<h2>Quand arriverait le premier trophée ?</h2>
+<p>Jours calendaires à leur rythme observé, en repartant de zéro pour chaque couleur. Le palier sélectionné est surligné.</p>
+<div class="delay-grid" id="delay-grid"></div>
+</section>
+<section class="interpretation">
+<h2>Ce que cela dit du futur classement</h2>
+<p id="interpretation"></p>
+</section>
+<details class="method">
+<summary>D’où viennent ces estimations et quelles sont leurs limites ?</summary>
+<p><strong>Données relevées le 11 octobre 2026.</strong> Ce sont des cumuls enregistrés, pas un historique complet de cinq manches. La cadence récente et les points de jeu portent sur environ 27 jours (14 pour SEB33114, suivi plus récent). Les mots, gobbles et cibles combinent le rendement historique de chaque joueur avec sa cadence récente. Les moyennes peuvent donc masquer des changements de niveau ou d’habitude.</p>
+<p><strong>Présentateurs :</strong> environ 20 jours de suivi pour Julien (14 pour SEB33114), et seulement 2 jours pour FouKro. Les estimations FouKro sont très fragiles. Aucune moyenne par manche n’est inventée pour ces deux catégories. Un rythme nul rend le délai non estimable ; il ne prouve pas qu’un trophée est impossible.</p>
+<p><strong>Calcul :</strong> rendement par manche × 1 000, ou cumul moyen par jour × durée choisie. Le nombre indicatif d’exemplaires vaut le cumul projeté divisé par le seuil choisi, arrondi à l’entier inférieur. Ce calcul déterministe n’est pas une probabilité ni une garantie d’obtention. Les délais supposent une cadence constante, sans mesurer les heures de jeu effectives.</p>
+<p><strong>Règles en discussion :</strong> les seuils 10 / 30 / 100 % illustrent dix catégories de cumuls. Les trophées de podium et les exploits ponctuels nécessitent d’autres règles, faute de fréquences fiables. La répétition d’un palier ne décide pas comment bronze, argent et or se cumuleront entre eux. Le score du futur classement reste à définir. Aucun trophée existant n’est attribué rétroactivement.</p>
+<p><strong>Comptage :</strong> seuls les identifiants de comptes confirmés sont utilisés. Les doubles gobbles sont séparés des simples ; l’hypothèse historique d’un double compté pour deux a été utilisée pour les distinguer. Les manches sans activité ne figurent pas toutes dans les compteurs. Les scores récents ramènent une cible trouvée à 1 000 points.</p>
+</details>
+<p class="footnote">Comparateur local · 11 joueurs · aucune modification du jeu ni attribution de trophée.</p>
+</main>
+<script>
+'use strict';
+const DATA = {"categories":[{"id":"marathon_10000","label":"Manches jouées","threshold":10000},{"id":"words_100000","label":"Mots validés","threshold":100000},{"id":"total_score_10000000","label":"Points de jeu","threshold":10000000},{"id":"gobbles_10000","label":"Gobbles simples","threshold":10000},{"id":"double_gobbles_1000","label":"Doubles gobbles","threshold":1000},{"id":"targets_1000","label":"Mots cibles trouvés","threshold":1000},{"id":"mini_gold_5000","label":"Médailles d’or de mini-tournoi","threshold":5000},{"id":"medals_5000","label":"Médailles de mini-tournoi, toutes couleurs","threshold":5000},{"id":"julien_1000","label":"Bonnes réponses à Julien","threshold":1000},{"id":"foukro_500000","label":"Points confirmés chez FouKro","threshold":500000}],"players":[{"id":22,"name":"Beerman","group":"fort","roundsDay":28.35421648899791,"days":27.01538236111111,"metrics":{"marathon_10000":[1,28.35421648899791],"words_100000":[55.96465076660988,1586.8338235676192],"total_score_10000000":[2616.537859007833,74189.88090596719],"gobbles_10000":[0.23580352072685973,6.686024075557286],"double_gobbles_1000":[0.13202725724020442,3.743529434237373],"targets_1000":[0.1030664395229983,2.9223681389853042],"mini_gold_5000":[0.10443864229765012,2.9612758735245857],"medals_5000":[0.16579634464751958,4.70102544922028],"julien_1000":[null,0.9818138562587264],"foukro_500000":[null,1771.364985638616]}},{"id":17,"name":"Tokyo","group":"fort","roundsDay":60.44704376832061,"days":27.01538236111111,"metrics":{"marathon_10000":[1,60.44704376832061],"words_100000":[50.22800677583286,3036.134523974273],"total_score_10000000":[2341.638089406001,141545.1000798912],"gobbles_10000":[0.2302653867871259,13.918861913450675],"double_gobbles_1000":[0.1319028797289667,7.973139144144379],"targets_1000":[0.10592885375494071,6.403086059252934],"mini_gold_5000":[0.11635027556644213,7.0330301996208915],"medals_5000":[0.1745254133496632,10.549545299431339],"julien_1000":[null,2.6508974118985615],"foukro_500000":[null,2451.7568344269584]}},{"id":183,"name":"Voggle","group":"fort","roundsDay":46.2329195754026,"days":27.01538236111111,"metrics":{"marathon_10000":[1,46.2329195754026],"words_100000":[56.809855730264225,2626.4854910675303],"total_score_10000000":[2332.0064051240993,107815.4645774262],"gobbles_10000":[0.23601880369589884,10.911838369555225],"double_gobbles_1000":[0.09985410925595721,4.6165470025041335],"targets_1000":[0.10228562165667045,4.728962919772903],"mini_gold_5000":[0.13851080864691753,6.403759076496917],"medals_5000":[0.19135308246597277,8.8468116721547],"julien_1000":[null,3.485439189718479],"foukro_500000":[null,4035.427516951549]}},{"id":13,"name":"Warzowie","group":"fort","roundsDay":54.00626874340464,"days":27.01538236111111,"metrics":{"marathon_10000":[1,54.00626874340464],"words_100000":[65.27207542159076,3525.101246658207],"total_score_10000000":[2378.7498286497603,128467.40251938668],"gobbles_10000":[0.17514274332757934,9.45880606460639],"double_gobbles_1000":[0.07170362501659806,3.872445242522707],"targets_1000":[0.09587040233700704,5.177602713150731],"mini_gold_5000":[0.09664153529814942,5.219248727087083],"medals_5000":[0.17135023989033585,9.253987104764331],"julien_1000":[null,3.092713647214988],"foukro_500000":[null,3026.5706377136617]}},{"id":5,"name":"NADYEJDA","group":"moyen_fort","roundsDay":102.83030470814126,"days":27.01538236111111,"metrics":{"marathon_10000":[1,102.83030470814126],"words_100000":[63.213945398169855,6500.30926709761],"total_score_10000000":[1917.1594672426206,197142.09219065643],"gobbles_10000":[0.16622551614610906,17.093020475572448],"double_gobbles_1000":[0.059215004159419195,6.089096921006927],"targets_1000":[0.07222264236557513,7.426676321279202],"mini_gold_5000":[0.04859611231101512,4.9971530365727395],"medals_5000":[0.14650827933765298,15.065491006556332],"julien_1000":[null,3.190895032840861],"foukro_500000":[null,1161.358500518033]}},{"id":28,"name":"isa1958","group":"moyen","roundsDay":55.74601831910033,"days":27.01538236111111,"metrics":{"marathon_10000":[1,55.74601831910033],"words_100000":[43.19248759744862,2407.8092048548847],"total_score_10000000":[1397.9541832669322,77930.37950966135],"gobbles_10000":[0.11226080793763288,6.258093055808286],"double_gobbles_1000":[0.030333097094259392,1.690949386291633],"targets_1000":[0.08476257973068746,4.725176322441105],"mini_gold_5000":[0.0451527224435591,2.517084492495898],"medals_5000":[0.11354581673306773,6.329727179658802],"julien_1000":[null,1.669083555639835],"foukro_500000":[null,504.4284396189436]}},{"id":21,"name":"Pounie","group":"moyen","roundsDay":28.835423818445655,"days":27.01538236111111,"metrics":{"marathon_10000":[1,28.835423818445655],"words_100000":[40.204422869471415,1159.3115728172172],"total_score_10000000":[1387.9935815147626,40023.38318026048],"gobbles_10000":[0.10140237324703344,2.9239804087744243],"double_gobbles_1000":[0.03505933117583603,1.0109506732464766],"targets_1000":[0.10248112189859762,2.9550865833358544],"mini_gold_5000":[0.010269576379974325,0.2961275873524586],"medals_5000":[0.07188703465982028,2.0728931114672102],"julien_1000":[null,1.7672649412657075],"foukro_500000":[null,915.0097276808744]}},{"id":24,"name":"Steph","group":"moyen","roundsDay":38.496586355819616,"days":27.01538236111111,"metrics":{"marathon_10000":[1,38.496586355819616],"words_100000":[47.14108761329305,1814.7709502123944],"total_score_10000000":[2081.060576923077,80113.72821121103],"gobbles_10000":[0.16827794561933535,6.47812646531466],"double_gobbles_1000":[0.06948640483383686,2.6749893842412424],"targets_1000":[0.08746223564954683,3.3669975075558245],"mini_gold_5000":[0.03173076923076923,1.2215262978288917],"medals_5000":[0.11153846153846154,4.29385001661065],"julien_1000":[null,0.39272554250349057],"foukro_500000":[null,551.35201539745]}},{"id":29,"name":"Nicole","group":"moyen_faible","roundsDay":47.010254492202804,"days":27.01538236111111,"metrics":{"marathon_10000":[1,47.010254492202804],"words_100000":[41.49622783855149,1950.7482311567362],"total_score_10000000":[1662.588188976378,78158.6938795101],"gobbles_10000":[0.14969194014837167,7.037056201806543],"double_gobbles_1000":[0.047843581038601785,2.2491389204429986],"targets_1000":[0.0950584685024519,4.468722795939309],"mini_gold_5000":[0.03543307086614173,1.6657176788575796],"medals_5000":[0.11023622047244094,5.182232778668026],"julien_1000":[null,3.1418043400279245],"foukro_500000":[null,1959.0592887526414]}},{"id":299,"name":"SEB33114","group":"faible","roundsDay":70.76480351885816,"days":14.484601793981481,"metrics":{"marathon_10000":[1,70.76480351885816],"words_100000":[29.804054054054053,2109.078029200563],"total_score_10000000":[892.9678048780488,63190.6912608612],"gobbles_10000":[0.04247104247104247,3.0054549757044002],"double_gobbles_1000":[0.007722007722007722,0.5464463592189819],"targets_1000":[0.09555984555984556,6.762273695334901],"mini_gold_5000":[0,0],"medals_5000":[0.011707317073170732,0.8284659924159004],"julien_1000":[null,0.759410946822342],"foukro_500000":[null,1677.517834081603]}},{"id":221,"name":"serge","group":"faible","roundsDay":45.751712245954856,"days":27.01538236111111,"metrics":{"marathon_10000":[1,45.751712245954856],"words_100000":[13.989421720733427,640.0399970543064],"total_score_10000000":[760.3487055016182,34787.25518069431],"gobbles_10000":[0.076163610719323,3.4846156012433886],"double_gobbles_1000":[0.013399153737658674,0.6130342261446702],"targets_1000":[0.07404795486600846,3.3878207234310715],"mini_gold_5000":[0,0],"medals_5000":[0.0048543689320388345,0.22209569051434394],"julien_1000":[null,2.258171869395071],"foukro_500000":[null,0]}}]};
+const FACTORS = {bronze:.1,argent:.3,or:1};
+const TIER_NAMES = {bronze:'Bronze',argent:'Argent',or:'Or'};
+const GROUPS = {fort:'fort',moyen_fort:'moyen fort',moyen:'moyen',moyen_faible:'moyen faible',faible:'faible'};
+const COLORS = {22:'#338fa6',17:'#806cc9',183:'#c65c77',13:'#498348',5:'#9f7945',28:'#7b8ebc',21:'#bc7660',24:'#569787',29:'#d08b3d',299:'#be669d',221:'#788640'};
+const UNITS = {marathon_10000:'manches',words_100000:'mots',total_score_10000000:'points',gobbles_10000:'gobbles simples',double_gobbles_1000:'doubles gobbles',targets_1000:'cibles',mini_gold_5000:'médailles d’or',medals_5000:'médailles',julien_1000:'bonnes réponses',foukro_500000:'points FouKro'};
+const CATEGORY_NAMES = {marathon_10000:'Marathonien · manches',words_100000:'Collectionneur · mots',total_score_10000000:'Multimillionnaire · points',gobbles_10000:'Gobbles simples',double_gobbles_1000:'GG · doubles gobbles',targets_1000:'Dans le mile · cibles',mini_gold_5000:'Or de mini-tournoi',medals_5000:'Habitué du podium · médailles',julien_1000:'Julien · bonnes réponses',foukro_500000:'FouKro · points'};
+const el = id => document.getElementById(id);
+const fmt = n => new Intl.NumberFormat('fr-FR',{maximumFractionDigits:0}).format(n);
+const fmtRate = n => new Intl.NumberFormat('fr-FR',{maximumFractionDigits:n<10?2:0}).format(n);
+const compact = n => new Intl.NumberFormat('fr-FR',{notation:'compact',maximumFractionDigits:1}).format(n);
+const text = (tag, attrs, value) => {const node=document.createElementNS('http://www.w3.org/2000/svg',tag);for(const [key,val]of Object.entries(attrs))node.setAttribute(key,String(val));if(value!==undefined)node.textContent=value;return node;};
+const add = (parent,tag,attrs,value) => {const node=text(tag,attrs,value);parent.appendChild(node);return node;};
+const safe = s => String(s).replace(/[&<>"']/g, ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+let lastState=null;
+DATA.players.forEach(player=>{
+  for(const id of ['player-a','player-b']){
+    const option=document.createElement('option');option.value=player.id;option.textContent=player.name;el(id).appendChild(option);
+  }
+});
+DATA.categories.forEach(category=>{const option=document.createElement('option');option.value=category.id;option.textContent=CATEGORY_NAMES[category.id]||category.label;el('category').appendChild(option);});
+el('player-a').value='22';el('player-b').value='29';el('category').value='total_score_10000000';
+function status(values, players){
+  if(values.some(v=>v===null||v<=0))return null;
+  if(Math.abs(values[0]-values[1])<Math.max(...values)*.00001)return {tie:true};
+  const winner=values[0]>values[1]?0:1,loser=1-winner;
+  return {winner,loser,name:players[winner].name,other:players[loser].name,advantage:100*(values[winner]/values[loser]-1)};
+}
+function percent(n){return new Intl.NumberFormat('fr-FR',{maximumFractionDigits:1}).format(n)+' %';}
+function dayText(days){
+  if(!Number.isFinite(days)||days<=0)return 'Non estimable';
+  if(days<1)return '< 1 jour';
+  if(days<=730)return '≈ '+fmt(Math.ceil(days))+' j';
+  return '> 2 ans';
+}
+function renderChart(id, values, state, mode){
+  const container=el(id),width=Math.max(1,Math.floor(container.getBoundingClientRect().width));
+  container.replaceChildren();
+  if(values.some(v=>v===null)){
+    const box=document.createElement('div');box.className='unavailable';
+    box.innerHTML='<strong>Pas de comparaison par manche</strong><span>Le suivi de ce présentateur couvre une autre période. Seule la projection en jours peut être estimée.</span>';container.appendChild(box);return;
+  }
+  const svg=add(container,'svg',{viewBox:'0 0 '+width+' 284',width,height:284,role:'img','aria-label':(mode==='equal'?'Projection sur 1 000 manches':'Projection sur '+state.days+' jours')+' : '+state.players.map((p,i)=>p.name+', '+(values[i]>0?fmt(values[i])+' '+state.unit:'non estimable')).join(' ; ')});
+  const left=1,right=1,plotWidth=Math.max(1,width-left-right);
+  state.players.forEach((player,index)=>{
+    const value=values[index],base=15+index*119,color=COLORS[player.id]||'#338fa6';
+    add(svg,'circle',{cx:5,cy:base-4,r:4,fill:color});
+    add(svg,'text',{x:16,y:base,'font-size':14,'font-weight':750},player.name);
+    add(svg,'text',{x:left,y:base+23,'font-size':17,'font-weight':750},value>0?'≈ '+fmt(value)+' '+state.unit:'Non estimable');
+    add(svg,'rect',{x:left,y:base+34,width:plotWidth,height:25,rx:5,class:'bar-track'});
+    if(value>0){
+      const count=Math.floor(value/state.threshold),progress=(value/state.threshold-count)*100;
+      const mark=add(svg,'rect',{x:left,y:base+34,width:Math.max(1,value/state.domain*plotWidth),height:25,rx:5,fill:color,'data-player-id':player.id,'data-value':value,'data-trophy-count':count,'data-mode':mode});
+      add(mark,'title',{},player.name+' : '+fmt(value)+' '+state.unit+' ; '+count+' exemplaire(s) du palier '+TIER_NAMES[state.tier]+'.');
+      const progressLabel=percent(Math.min(99.9,progress));
+      add(svg,'text',{x:left,y:base+79,'font-size':12,class:'svg-muted'},fmt(count)+' trophée'+(count>1?'s':'')+' · '+progressLabel+' vers '+(count?'le suivant':'le premier'));
+    }else{
+      const marker=add(svg,'g',{'data-player-id':player.id,'data-value':'0','data-trophy-count':'','data-mode':mode});
+      add(marker,'text',{x:left,y:base+79,'font-size':12,class:'svg-muted'},'Aucun gain observé sur cette période.');
+    }
+    if(state.threshold<=state.domain){
+      const x=left+state.threshold/state.domain*plotWidth;
+      const marker=add(svg,'line',{x1:x,y1:base+29,x2:x,y2:base+64,class:'threshold'});
+      add(marker,'title',{},'Premier trophée : '+fmt(state.threshold)+' '+state.unit);
+    }
+  });
+  add(svg,'line',{x1:left,y1:263,x2:width-right,y2:263,class:'axis'});
+  add(svg,'text',{x:left,y:280,'font-size':11,class:'svg-muted'},'0');
+  add(svg,'text',{x:width-right,y:280,'font-size':11,class:'svg-muted','text-anchor':'end'},compact(state.domain)+' '+state.unit);
+}
+function renderConclusions(state){
+  const equal=status(state.equal,state.players),calendar=status(state.calendar,state.players);
+  const eq=el('equal-conclusion'),cal=el('calendar-conclusion');
+  eq.replaceChildren();cal.replaceChildren();
+  function conclusion(node,result,values,context){
+    if(values.some(v=>v===null)){node.textContent='Rendement par manche inconnu.';return;}
+    if(!result){node.textContent='Comparaison insuffisante.';const small=document.createElement('small');small.textContent='Aucun gain observé pour au moins un joueur.';node.appendChild(small);return;}
+    node.appendChild(document.createTextNode(result.tie?'Même cumul projeté.':result.name+' : +'+percent(result.advantage)));
+    const small=document.createElement('small');small.textContent=result.tie?context:'de '+state.unit+' par rapport à '+result.other+' '+context;node.appendChild(small);
+  }
+  conclusion(eq,equal,state.equal,'pour 1 000 manches chacun.');
+  conclusion(cal,calendar,state.calendar,'sur '+state.days+' jours.');
+  if(state.players[0].id===state.players[1].id){
+    el('headline').textContent='Un même joueur, deux façons de mesurer sa progression.';
+  }else if(equal&&calendar&&!equal.tie&&!calendar.tie&&equal.winner!==calendar.winner){
+    el('headline').textContent=equal.name+' domine par manche. '+calendar.name+' passe devant au rythme réel.';
+  }else if(equal&&calendar&&!equal.tie&&!calendar.tie){
+    el('headline').textContent=equal.name+' avance plus vite par manche et au rythme réel.';
+  }else if(equal&&equal.tie&&calendar&&!calendar.tie){
+    el('headline').textContent='Même rendement par manche. '+calendar.name+' avance plus vite en jouant davantage.';
+  }else if(calendar&&!calendar.tie){
+    el('headline').textContent=calendar.name+' accumule davantage au rythme observé.';
+  }else{
+    el('headline').textContent='Comparer le rendement et le temps consacré au jeu.';
+  }
+  let insight;
+  if(equal&&calendar&&!equal.tie&&!calendar.tie&&equal.winner!==calendar.winner){
+    insight='Ici, '+calendar.name+' compense son rendement plus faible par davantage de manches. Un trophée de cumul récompense donc aussi l’assiduité. Baisser le seuil rend la première récompense plus proche, mais ne change pas à lui seul ce rapport entre les joueurs.';
+  }else if(equal&&equal.tie&&calendar&&!calendar.tie){
+    insight='Ce cumul récompense directement l’assiduité : à nombre de manches égal, les deux joueurs progressent autant. À leur rythme réel, '+calendar.name+' avance davantage. C’est une piste pour donner du poids au temps investi dans le classement.';
+  }else{
+    insight='Le palier bronze peut rendre une récompense accessible plus tôt. Les joueurs forts l’obtiendront eux aussi : multiplier les couleurs ne suffit donc pas à équilibrer le classement. Il faudra comparer la valeur des trophées d’assiduité à celle des exploits.';
+  }
+  el('interpretation').textContent=insight;
+}
+function renderEvidence(state){
+  el('player-evidence').innerHTML=state.players.map(player=>{
+    const rate=player.metrics[state.category.id][0];
+    return '<article class="player-card"><h3><span class="player-key" style="--player-color:'+COLORS[player.id]+'"></span>'+safe(player.name)+'</h3><p>Profil choisi : '+safe(GROUPS[player.group]||player.group)+'.</p><p><strong>≈ '+fmt(player.roundsDay*7)+' manches / semaine</strong><br>'+(rate===null?'Rendement par manche indisponible pour ce suivi.':'≈ '+fmtRate(rate)+' '+safe(state.unit)+' / manche')+'</p></article>';
+  }).join('');
+}
+function renderDelays(state){
+  el('delay-grid').innerHTML=state.players.map(player=>{
+    const rate=player.metrics[state.category.id][1];
+    return '<article class="delay-player"><h3><span class="player-key" style="--player-color:'+COLORS[player.id]+'"></span>'+safe(player.name)+'</h3><div class="tiers">'+Object.entries(FACTORS).map(([tier,factor])=>{
+      const threshold=state.category.threshold*factor,days=rate>0?threshold/rate:null;
+      return '<div class="tier '+tier+(tier===state.tier?' selected':'')+'" data-delay-player="'+player.id+'" data-delay-tier="'+tier+'" data-days="'+(days===null?'':days)+'"><span class="tier-name">'+TIER_NAMES[tier]+'</span><strong class="tier-time'+(days===null?' unavailable-time':'')+'" title="'+(days===null?'Aucun rythme positif observé':fmt(Math.ceil(days))+' jours, projection fragile si très longue')+'">'+dayText(days)+'</strong><span class="tier-threshold">'+compact(threshold)+' '+safe(state.unit)+'</span></div>';
+    }).join('')+'</div></article>';
+  }).join('');
+}
+function redraw(){
+  if(!lastState)return;
+  renderChart('equal-chart',lastState.equal,lastState,'equal');
+  renderChart('calendar-chart',lastState.calendar,lastState,'calendar');
+}
+function update(){
+  const players=[el('player-a'),el('player-b')].map(select=>DATA.players.find(p=>String(p.id)===select.value));
+  const category=DATA.categories.find(c=>c.id===el('category').value),tier=el('tier').value,days=Number(el('days').value);
+  const equal=players.map(p=>p.metrics[category.id][0]===null?null:p.metrics[category.id][0]*1000);
+  const calendar=players.map(p=>p.metrics[category.id][1]*days);
+  const threshold=category.threshold*FACTORS[tier];
+  const state={players,category,tier,days,equal,calendar,threshold,unit:UNITS[category.id],domain:Math.max(1,...equal.filter(v=>v!==null),...calendar)*1.08};
+  lastState=state;
+  el('key-a').style.setProperty('--player-color',COLORS[players[0].id]);
+  el('key-b').style.setProperty('--player-color',COLORS[players[1].id]);
+  el('days-output').textContent=days+' jours';el('calendar-title').textContent='Après '+days+' jours';
+  el('threshold-label').textContent=TIER_NAMES[tier]+' : 1 trophée tous les '+fmt(threshold)+' '+state.unit;
+  el('threshold-note').textContent='Repère du premier trophée : '+fmt(threshold)+' '+state.unit+'.'+(threshold>state.domain?' Ce seuil est au-delà du graphique.':'');
+  el('calendar-description').textContent=category.id==='julien_1000'||category.id==='foukro_500000'?'Chacun garde son rythme propre au suivi de ce présentateur.':players.map(p=>p.name+' ≈ '+fmt(p.roundsDay*days)+' manches').join(' · ')+'.';
+  const warning=el('category-warning');
+  if(category.id==='foukro_500000'){
+    warning.hidden=false;warning.textContent='FouKro : seulement 2 jours de suivi. Ces projections sont très fragiles et ne permettent pas encore de fixer un barème fiable.';
+  }else if(category.id==='julien_1000'){
+    warning.hidden=false;warning.textContent='Julien : environ 20 jours de suivi, 14 pour SEB33114. La cadence utilisée est celle des bonnes réponses observées sur cette période.';
+  }else{warning.hidden=true;warning.textContent='';}
+  renderConclusions(state);renderEvidence(state);renderDelays(state);redraw();
+}
+for(const id of ['player-a','player-b','category','tier'])el(id).addEventListener('change',update);
+el('days').addEventListener('input',update);
+const resizeObserver=new ResizeObserver(redraw);resizeObserver.observe(el('equal-chart'));resizeObserver.observe(el('calendar-chart'));
+update();
+</script>
+</body>
+</html>

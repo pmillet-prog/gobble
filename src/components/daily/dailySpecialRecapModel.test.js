@@ -35,3 +35,14 @@ test("a matching nickname cannot reopen a recap from someone else's ranking row"
   assert.equal(isOwnDailyEntry({ nick: "Tigre" }, identity), true);
   assert.equal(isOwnDailyEntry({ installId: "17", isPalier: true }, identity), false);
 });
+
+test("Gobble metadata survives the recap only for validated words", () => {
+  const review = getDailySpecialWordReview({ wordReview: [
+    { word: "chat", valid: true, points: 42, gobble: true, doubleGobble: true },
+    { word: "chaz", valid: false, points: 999, gobble: true, doubleGobble: true },
+    { word: "rat", valid: true, points: 12 },
+  ] });
+  assert.deepEqual(review.map(entry => [entry.gobble, entry.doubleGobble]), [[true, true], [false, false], [false, false]]);
+  const legacy = getDailySpecialWordReview({ words: ["chat"], wordSubmissions: [{ word: "chat" }], gobbles: 2 });
+  assert.equal(legacy[0].gobble, false, "an old aggregate Gobble count does not identify a word");
+});

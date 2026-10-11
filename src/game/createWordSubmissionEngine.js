@@ -1140,13 +1140,6 @@ export function createWordSubmissionEngine({
       return;
     }
     const pts = scored.pts || 0;
-    const wordLen = normalizeWord(display || raw || "").length || 0;
-    const special3MaxPossibleLen =
-      Number.isFinite(roundStats?.maxLen) && roundStats.maxLen > 0
-        ? Number(roundStats.maxLen)
-        : bestGridMaxLenRef.current || 0;
-    const isSpecial3LenGobbleNow =
-      special3MaxPossibleLen > 0 && wordLen > 0 && wordLen === special3MaxPossibleLen;
     const nextSlots = slots.map((slot) => ({ ...slot }));
     if (!nextSlots[targetSlot]) {
       nextSlots[targetSlot] = { id: targetSlot, word: "", display: "", path: [] };
@@ -1165,13 +1158,6 @@ export function createWordSubmissionEngine({
       syncLiveSpecial3WordsState(nextSlots, dailySpecialPlacements);
     }
     playScoreSound(pts);
-    if (isSpecial3LenGobbleNow) {
-      playGobbleVoice();
-      triggerPraiseFlash("GOBBLE !", {
-        kind: "gobble",
-        shakeGrid: true,
-      });
-    }
     setStatusMessageWithHold(`+${pts} pts`, 700);
     clearSelection();
   }

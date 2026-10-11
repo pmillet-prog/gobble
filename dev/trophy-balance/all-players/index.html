@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Trophées Gobble — les joueurs réguliers</title>
+  <link rel="stylesheet" href="./style.css">
+  <script defer src="./data.js"></script>
+  <script defer src="./app.js"></script>
+</head>
+<body>
+<main>
+  <nav aria-label="Comparatifs"><span>Ensemble des joueurs</span><a href="../?v=2" target="_blank" rel="noopener">Ouvrir le comparatif des 11 joueurs ↗</a></nav>
+  <header>
+    <p class="kicker">Atelier du barème · Gobble</p>
+    <h1>Qui gagnerait les trophées ?</h1>
+    <p class="intro">L’activité et les points par manche de tous les profils retenus, puis la répartition des récompenses projetées. Choisis un trophée pour voir à combien de joueurs il serait accessible.</p>
+    <p class="snapshot" id="observation">Chargement de l’observation…</p>
+    <p class="snapshot">Le comparatif initial est conservé. Cette collecte par compte inclut les anciens pseudos ; elle corrige notamment une semaine de Nicole enregistrée sous NicoleC.</p>
+    <p class="calibration-goal" id="calibration-goal"></p>
+    <a class="summary-link" href="#gold-thresholds">Voir les 10 seuils recalibrés ↓</a>
+    <p><a class="summary-link" href="../scoring/" target="_blank" rel="noopener">Comparer les propositions de barème ↗</a></p>
+  </header>
+  <section class="controls" aria-label="Paramètres de la simulation">
+    <label>Joueurs retenus<select id="cohort"><option value="regular">Réguliers · 100 manches / 2 semaines</option><option value="frequent">Assidus · 200 manches / 3 semaines</option><option value="all">Tous les actifs · 1 manche</option></select></label>
+    <label>Trophée<select id="category"></select></label>
+    <label>Palier<select id="tier"><option value="bronze">Bronze · 30 % · unique</option><option value="argent">Argent · 60 % · unique</option><option value="or">Or · 100 % · répétable</option></select></label>
+    <label>Comparer sur<select id="horizon"><option value="30">30 jours au rythme observé</option><option value="90">90 jours au rythme observé</option><option value="365">365 jours au rythme observé</option><option value="rounds">1 000 manches chacun</option></select></label>
+    <p class="control-note" id="cohort-definition"></p>
+    <p class="control-note">Départ à zéro, sans rétroactivité. Pour les cumuls, bronze à 30 % et argent à 60 % sont obtenus une seule fois ; l’or reste répétable. Ces seuils et le barème « Conseillé » sont retenus pour le jeu. Cette page projette le nombre de trophées obtenus.</p>
+    <div class="calibration-controls"><button type="button" id="reset-calibration">Revenir à la référence : réguliers · or · 90 jours</button><span id="calibration-context"></span></div>
+  </section>
+  <section class="headline" aria-live="polite" aria-atomic="true">
+    <div><strong id="reach-number">—</strong><span id="reach-label">joueurs atteindraient le premier trophée</span></div>
+    <p id="threshold-note"></p>
+  </section>
+  <section class="charts" aria-label="Répartition des joueurs et des trophées">
+    <article class="chart-card">
+      <p class="chart-kicker">Un point = un joueur</p>
+      <h2>Rendement et assiduité</h2>
+      <p class="chart-intro">À droite, davantage de manches jouées. En haut, davantage de points par manche.</p>
+      <div id="scatter" class="chart-area"></div>
+      <div class="legend"><span><i class="dot earned"></i>Palier atteint</span><span><i class="dot pending"></i>Seuil non atteint</span><span><i class="dot unknown"></i>Non estimable</span></div>
+      <p class="chart-note">Clique ou touche un point pour consulter le joueur. La liste ci-dessous permet aussi de le sélectionner au clavier.</p>
+    </article>
+    <article class="chart-card">
+      <p class="chart-kicker">À la fin de la période choisie</p>
+      <h2 id="distribution-title">La répartition des récompenses</h2>
+      <p class="chart-intro" id="distribution-intro"></p>
+      <div id="distribution" class="chart-area"></div>
+      <p class="chart-note" id="distribution-note"></p>
+      <p class="conclusion" id="delay-summary"></p>
+    </article>
+  </section>
+  <section class="player-detail" aria-label="Joueur sélectionné">
+    <label>Explorer un joueur<select id="player"></select></label>
+    <div id="player-detail" aria-live="polite" aria-atomic="true"></div>
+  </section>
+  <p class="source-note" id="source-note"></p>
+  <section class="calibration" id="gold-thresholds" aria-labelledby="calibration-title">
+    <h2 id="calibration-title">Les 10 seuils recalibrés pour 90 jours</h2>
+    <p id="calibration-summary"></p>
+    <p class="calibration-caption">Pour obtenir des nombres faciles à retenir, on suit la suite 1, 2, 5, 10, 20, 50, 100… On retient le plus grand de ces seuils permettant encore à au moins la moitié des réguliers d’atteindre l’or en 90 jours. Exception retenue : 50 médailles d’or de mini-tournoi, même si la projection reste sous 50 %.</p>
+    <p class="calibration-caution">FouKro reste très provisoire : environ 2 jours observés seulement. Julien repose sur environ 20 jours. Les exploits et les podiums suivent les règles distinctes ci-dessous.</p>
+    <div class="table-wrap"><table class="calibration-table"><thead><tr><th scope="col">Catégorie · explorer</th><th scope="col">Ancien or</th><th scope="col">Bronze<br>30 % · unique</th><th scope="col">Argent<br>60 % · unique</th><th scope="col">Nouvel or<br>répétable</th><th scope="col">Or à 90 jours<br>ancien → nouveau</th></tr></thead><tbody id="calibration-rows"></tbody></table></div>
+    <p class="calibration-caption">Les nombres de joueurs restent ceux des 66 réguliers de référence, même si tu explores un autre groupe ci-dessus. Une donnée non estimable ne compte pas comme une réussite ; elle n’est pas assimilée à un échec.</p>
+  </section>
+  <section class="event-rules" id="exception-rules" aria-labelledby="event-rules-title">
+    <h2 id="event-rules-title">Exploits et podiums : leurs propres règles</h2>
+    <p>Ces catégories restent hors de la cible de 50 % à 90 jours. Leur fréquence n’est pas mesurée : aucune projection n’est affichée, et cette absence de mesure ne signifie pas zéro obtention.</p>
+    <p class="event-qualifier">Les mentions « rare », « ultra rare » et « rareté modérée » expriment l’intention de conception retenue, pas une probabilité mesurée. Aucun point de classement n’est encore attribué.</p>
+    <div id="event-rules-list" class="event-rules-list"></div>
+  </section>
+  <details class="roster">
+    <summary id="roster-summary">Voir les données de tous les joueurs</summary>
+    <div class="table-controls"><label>Ordre du tableau<select id="sort"><option value="name">Pseudo · A à Z</option><option value="activity">Manches par semaine · décroissant</option><option value="performance">Points par manche · décroissant</option><option value="trophies">Trophées projetés · décroissant</option></select></label></div>
+    <div class="table-wrap"><table><thead><tr><th scope="col">Joueur</th><th scope="col">Manches / semaine</th><th scope="col">Points / manche</th><th scope="col" id="reward-column">Palier projeté</th><th scope="col">Premier trophée</th></tr></thead><tbody id="rows"></tbody></table></div>
+  </details>
+  <details class="method">
+    <summary>Lire les hypothèses et les limites</summary>
+    <div class="method-body">
+      <p>Les délais sont des jours calendaires au rythme observé, pas des heures de jeu. Chaque joueur repart fictivement de zéro. Pour les dix catégories cumulatives, le bronze est obtenu une seule fois à 30 % du seuil d’or, puis l’argent une seule fois à 60 %. L’or est obtenu à 100 %, puis se répète à chaque nouvelle tranche du seuil d’or. Les jalons bronze et argent ne se réinitialisent pas après un or.</p>
+      <p>On affiche uniquement le palier choisi, sans additionner les récompenses bronze, argent et or. Pour l’or, le nombre d’exemplaires est le cumul projeté divisé par le seuil d’or, arrondi à l’entier inférieur. La progression vers un bronze ou un argent est plafonnée à 100 %. Les seuils et les proportions 30 / 60 / 100 % sont retenus. Le barème « Conseillé » additionne les points de chaque récompense acquise ; sa projection se consulte dans l’atelier du barème.</p>
+      <p>La comparaison sur 1 000 manches donne le même volume de jeu à tous. La comparaison en jours conserve la fréquence de jeu propre à chaque joueur : elle rend visible la récompense de l’assiduité.</p>
+      <p>Les points, les médailles de mini-tournoi et l’activité proviennent des agrégats hebdomadaires ; la semaine en cours est partielle. Pour les mots, gobbles et cibles, les fréquences historiques par manche sont combinées à l’activité récente. Les manches positives des agrégats hebdomadaires et les manches comptabilisées dans les compteurs historiques peuvent légèrement différer. La durée d’exposition est raccourcie pour les comptes apparus en cours de période.</p>
+      <p>Julien et FouKro ont leurs propres périodes de suivi. Leur cadence par manche n’est pas connue : ils ne sont donc pas projetables sur 1 000 manches. FouKro repose sur une période particulièrement courte ; sa projection est très fragile. Un taux nul ou non positif ne permet pas d’estimer un délai, sans signifier que le trophée est impossible.</p>
+      <p>Ces calculs supposent une fréquence constante. Ils servent à comparer des seuils ; une projection lointaine n’est pas une prédiction. La médiane des délais porte uniquement sur les joueurs dont le taux observé est strictement positif. La part de joueurs récompensés utilise tout le groupe sélectionné comme dénominateur : les projections inconnues n’ajoutent aucun succès, mais restent signalées séparément.</p>
+      <p>La référence de calibrage est fixe : neuf catégories cumulatives visent au moins 33 des 66 joueurs réguliers obtenant un premier or en 90 jours, à rythme constant. Le trophée des médailles d’or de mini-tournoi fait exception : son seuil est fixé à 50 médailles, atteint par 28 des 66 joueurs dans la projection, soit environ 42 %. Ce ne sont pas nécessairement les mêmes joueurs d’une catégorie à l’autre. Les autres filtres servent à explorer les conséquences ; ils ne recalibrent pas les seuils.</p>
+      <p id="coverage-note"></p>
+      <p id="unprojected-note"></p>
+    </div>
+  </details>
+  <p id="load-error" role="alert" hidden>Les données de la simulation n’ont pas pu être chargées. Recharge cette page.</p>
+</main>
+</body>
+</html>

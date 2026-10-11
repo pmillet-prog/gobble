@@ -375,6 +375,7 @@ function RankingWidgetMobile({
   showNickDecorations = true,
   stackNickDecorations = false,
   showGobbleWordAwards = true,
+  hideGobbleAwards = false,
   showScores = true,
   compactRoller = false,
   compactRollerHeight = 0,
@@ -785,6 +786,7 @@ function RankingWidgetMobile({
     return (awards.bestWord ? 1 : 0) + (awards.longestWord ? 1 : 0);
   };
   const renderGobbleCountBadge = (count, keyPrefix = "gobble-count", className = "ml-1") => {
+    if (hideGobbleAwards) return null;
     const safeCount = Math.max(0, Math.min(2, Math.trunc(Number(count) || 0)));
     if (!safeCount) return null;
     return (
@@ -1810,6 +1812,7 @@ function areRankingWidgetPropsEqual(prev, next) {
   if ((prev.showNickDecorations ?? true) !== (next.showNickDecorations ?? true)) return false;
   if (!!prev.stackNickDecorations !== !!next.stackNickDecorations) return false;
   if ((prev.showGobbleWordAwards ?? true) !== (next.showGobbleWordAwards ?? true)) return false;
+  if (!!prev.hideGobbleAwards !== !!next.hideGobbleAwards) return false;
   if ((prev.showScores ?? true) !== (next.showScores ?? true)) return false;
   if (!!prev.compactRoller !== !!next.compactRoller) return false;
   if ((prev.compactRollerHeight || 0) !== (next.compactRollerHeight || 0)) return false;

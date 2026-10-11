@@ -16,7 +16,7 @@ import { createCelebrationFeature } from "../../src/features/celebration/createC
 import { CelebrationRuntimeProvider } from "../../src/features/celebration/CelebrationRuntime.jsx";
 import GameCelebrationDomOverlay from "../../src/components/GameCelebrationDomOverlay.jsx";
 import useTargetQuizTargetSource from "../../src/components/targetQuiz/useTargetQuizTargetSource.js";
-import { advanceTargetQuizPoints, normalizeTargetQuizPoints } from "../../shared/targetQuizPoints.js";
+import { advanceTargetQuizPoints, normalizeTargetQuizPoints, TARGET_QUIZ_GOBBLARS_REWARD } from "../../shared/targetQuizPoints.js";
 import { createNotificationsFeature } from "../../src/features/notifications/createNotificationsFeature.js";
 import NotificationToastLayer from "../../src/features/notifications/NotificationToastLayer.jsx";
 import ProfileTargetQuiz from "../../src/components/profile/ProfileTargetQuiz.jsx";
@@ -140,7 +140,7 @@ function createFixtureSocket(options, roundId, endsAt) {
         stats.score += delta;
         const progress = advanceTargetQuizPoints(progression.after, delta);
         progression = { before: initialPoints, after: progress.after, steps: [...progression.steps, delta],
-          rewards: [...progression.rewards, ...(progress.amount ? [{ amount: progress.amount, balance: 500 + progress.after.cycles * 50, receipt: `${roundId}:${index}` }] : [])] };
+          rewards: [...progression.rewards, ...(progress.amount ? [{ amount: progress.amount, balance: 500 + progress.after.cycles * TARGET_QUIZ_GOBBLARS_REWARD, receipt: `${roundId}:${index}` }] : [])] };
         stats.bestStreak = Math.max(stats.bestStreak, stats.streak);
         stats.correctCount += correct ? 1 : 0;
         stats.wrongCount += correct ? 0 : 1;

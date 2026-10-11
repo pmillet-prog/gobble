@@ -629,6 +629,10 @@ export function getPreviousWeeklyVocabPodium(now = Date.now(), limit = 3) {
   const currentWeekStart = state.weekStartTs || getWeekStartTs(now);
   const previousWeekStart = getWeekStartTs(currentWeekStart - 60 * 1000);
   const previousWeek = history.get(previousWeekStart);
+  return buildWeeklyVocabPodium(previousWeek, limit);
+}
+
+function buildWeeklyVocabPodium(previousWeek, limit = 3) {
   if (!previousWeek?.weeklyVocab || previousWeek.weeklyVocab.size === 0) return [];
   return Array.from(previousWeek.weeklyVocab.values())
     .filter((entry) => Number(entry?.weeklyVocabCount) > 0)
@@ -654,6 +658,13 @@ export function getPreviousWeeklyVocabPodium(now = Date.now(), limit = 3) {
         weekStartTs: Number(previousWeek.weekStartTs) || 0,
       };
     });
+}
+
+export function getCompletedWeeklyVocabPodiums() {
+  ensureCurrentWeek();
+  return [...history.values()].flatMap(week => buildWeeklyVocabPodium(week).map(entry => ({
+    ...entry, awardedAt: getNextResetTs(week.weekStartTs),
+  })));
 }
 
 export function getPreviousWeeklyVocabChampion(now = Date.now()) {

@@ -152,3 +152,44 @@ test("live feed owns scoped announcements, effects and socket cleanup", () => {
   scope.dispose();
   assert.equal(handlers.size, 0);
 });
+
+test("three-word play hides Gobble announcements before sound, celebration and feed insertion", () => {
+  let handlers;
+  const sounds = [], praise = [];
+  const scope = createResourceScope("test:three-words-feed");
+  const socket = { bind: next => { handlers = next; return () => {}; } };
+  const feature = createLiveFeedFeature({ scope, ports: { realtime: socket } });
+  const config = {
+    appViewRef: { current: "live" },
+    isLoggedInRef: { current: true },
+    currentRoomIdRef: { current: "room-1" },
+    liveSessionReadyRef: { current: true },
+    phaseRef: { current: "playing" },
+    isSpecial3WordsMode: true,
+    nicknameRef: { current: "Tigre" },
+    maybePlayAnnouncementSound: entry => sounds.push(entry.type),
+    triggerPraiseFlash: (...args) => praise.push(args),
+  };
+  feature.configureRealtime(config);
+  feature.start();
+  const longest = { type: "longest_possible", nick: "Tigre", roomId: "room-1" };
+  const best = { type: "best_possible_score", nick: "Tigre", roomId: "room-1" };
+
+  handlers.announcement(longest);
+  handlers.announcement(best);
+  handlers.announcements([longest, best]);
+  assert.deepEqual(sounds, []);
+  assert.deepEqual(praise, []);
+  assert.deepEqual(feature.store.getState().announcements, []);
+
+  handlers.announcement({ type: "player_joined", nick: "Test", roomId: "room-1" });
+  assert.deepEqual(sounds, ["player_joined"], "ordinary announcements still work");
+  assert.equal(feature.store.getState().announcements.length, 1);
+
+  feature.configureRealtime({ ...config, isSpecial3WordsMode: false });
+  handlers.announcements([longest, best]);
+  assert.deepEqual(sounds, ["player_joined", "longest_possible", "best_possible_score"]);
+  assert.equal(praise.length, 2, "other round types still celebrate their Gobbles");
+  assert.equal(feature.store.getState().announcements.length, 3);
+  scope.dispose();
+});

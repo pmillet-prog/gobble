@@ -13,7 +13,6 @@ function DesktopSpecial3WordsPanel({
   isDailyPlay = false,
   onSelectSlot = null,
   onSubmit = null,
-  renderLengthBadge = null,
   renderPreviewTiles = null,
   resolveLiveTrace = null,
   slots = [],
@@ -25,7 +24,6 @@ function DesktopSpecial3WordsPanel({
     typeof resolveLiveTrace === "function" ? resolveLiveTrace(snapshot) || {} : {};
   const highlightPath = Array.isArray(liveTrace.highlightPath) ? liveTrace.highlightPath : [];
   const liveWord = String(liveTrace.liveWord || "");
-  const normalizedWord = String(liveTrace.normalizedWord || "");
   const blockedReason = String(liveTrace.blockedReason || "");
   const valid = Boolean(liveTrace.valid);
   const score = Number.isFinite(liveTrace.score) ? liveTrace.score : null;
@@ -129,11 +127,6 @@ function DesktopSpecial3WordsPanel({
                     >
                       {numericScoreLabel || scoreLabel}
                     </span>
-                    {slotWord
-                      ? renderLengthBadge?.(slotWord)
-                      : showLiveWord && valid
-                      ? renderLengthBadge?.(normalizedWord)
-                      : null}
                   </span>
                 </span>
                 {slotWord ? (

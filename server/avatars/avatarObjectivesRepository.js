@@ -2,6 +2,7 @@ import { runSqliteImmediateTransaction } from "../sqliteQueue.js";
 import { AVATAR_OBJECTIVES } from "../../shared/avatarObjectives.js";
 import { avatarUnlockKey } from "../../shared/avatarUnlocks.js";
 import { DONOR_AVATAR_REWARD } from "../../shared/supportDonors.js";
+import { recordAchievementProgress } from "../stats/achievementProgress.js";
 
 export function createAvatarObjectivesRepository({ getDb, runWrite, loadCatalog }) {
   async function describe(row) {
@@ -22,6 +23,7 @@ export function createAvatarObjectivesRepository({ getDb, runWrite, loadCatalog 
       const result = await runWrite(() => runSqliteImmediateTransaction(db, async () => {
         let recorded = 0;
         const rewards = [];
+        const achievementAwards = [];
         for (const event of valid) {
           const { userId, objective, eventKey, occurredAt } = event;
           const accepted = await db.run(`INSERT OR IGNORE INTO avatar_objective_events (user_id, objective, event_key, recorded_at)
@@ -30,6 +32,10 @@ export function createAvatarObjectivesRepository({ getDb, runWrite, loadCatalog 
           userId, objective, eventKey, occurredAt, userId, occurredAt, objective);
           if (!accepted.changes) continue;
           recorded++;
+          if (objective === "lepers_correct_answers") {
+            achievementAwards.push(...await recordAchievementProgress(db, { userId, eventKey: `julien:${eventKey}`,
+              changes: { julien: 1 }, occurredAt, roundId: event.achievementRoundId || null }));
+          }
           const progress = await db.get(`INSERT INTO avatar_objective_progress (user_id, objective, value) VALUES (?, ?, 1)
             ON CONFLICT(user_id, objective) DO UPDATE SET value = value + 1 RETURNING value`, userId, objective);
           const reward = AVATAR_OBJECTIVES[objective];
@@ -40,9 +46,10 @@ export function createAvatarObjectivesRepository({ getDb, runWrite, loadCatalog 
           await db.run("INSERT OR IGNORE INTO avatar_reward_notifications (user_id, item_key, objective, unlocked_at) VALUES (?, ?, ?, ?)", userId, key, objective, occurredAt);
           rewards.push({ userId, item_key: key, objective, unlocked_at: occurredAt });
         }
-        return { recorded, rewards };
+        return { recorded, rewards, achievementAwards };
       }, { label: "avatar-objectives" }));
-      return { recorded: result.recorded, rewards: await Promise.all(result.rewards.map(async row => ({ userId: row.userId, reward: await describe(row) }))) };
+      return { recorded: result.recorded, achievementAwards: result.achievementAwards,
+        rewards: await Promise.all(result.rewards.map(async row => ({ userId: row.userId, reward: await describe(row) }))) };
     },
     async pending(userId) {
       const rows = await (await getDb()).all("SELECT item_key, objective, unlocked_at FROM avatar_reward_notifications WHERE user_id = ? AND acknowledged_at IS NULL ORDER BY unlocked_at LIMIT 32", userId);

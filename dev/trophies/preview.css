@@ -1,0 +1,16 @@
+body{margin:0;background:#07131f;color:#e1eaf0;font-family:system-ui,sans-serif}
+.trophy-preview{max-width:850px;margin:0 auto;padding:24px 16px 50px}
+.trophy-preview h1{font-size:24px;margin:0 0 5px;font-weight:850;color:#f1d8a3}
+.trophy-preview>p{font-size:12px;color:#99adbd;margin:0 0 16px}
+.trophy-preview-controls,.trophy-preview-actions{display:flex;gap:7px;flex-wrap:wrap;margin:10px 0}
+.trophy-preview button:not(.trophy-shelf-slot){padding:8px 12px;border:1px solid #3c5364;border-radius:8px;background:#182d3e;color:#dce6ed;font:inherit;font-size:12px;cursor:pointer}
+.trophy-preview button[aria-pressed=true]:not(.trophy-shelf-slot){border-color:#d3ab66;background:#463a24;color:#ffe5af}
+.trophy-preview button:focus-visible{outline:2px solid #f0c778;outline-offset:3px}
+.trophy-preview-stage{width:min(100%,650px);margin:20px auto;display:grid;gap:14px}
+.trophy-preview-stage.is-compact{width:min(100%,360px)}
+.trophy-preview-card{background:#102333;padding:22px;border-radius:22px;border:1px solid #52697a55;min-width:0}
+.trophy-preview-stage.is-compact .trophy-preview-card{padding:12px}
+.trophy-preview-result{border:1px solid #405767;background:#122536;padding:15px;border-radius:15px}
+.trophy-preview-result h2{font-size:13px;font-weight:800;margin:0 0 6px}
+.trophy-preview-result>p{font-size:11px;color:#99adbd;margin:0}
+.trophy-preview-toast{border:1px solid #405767;background:#122536;border-radius:12px;padding:10px 14px;justify-self:center}

@@ -23,7 +23,6 @@ function MobileSpecial3Playing(props) {
     dailyInvalidPulseKey = 0,
     dailyInvalidSlot = -1,
     dailyLiveWordBlockedReason: fallbackBlockedReason = "",
-    dailyLiveWordNorm: fallbackNormalizedWord = "",
     dailyLiveWordScore: fallbackScore = 0,
     dailyLiveWordValid: fallbackValid = false,
     dailyTotalScore = 0,
@@ -51,7 +50,6 @@ function MobileSpecial3Playing(props) {
     trainingControls = null,
     trainingFeedBannerText,
     getNickClassName = null,
-    renderSpecial3LengthGobbleBadge = null,
     renderSpecialChip = null,
     renderWordPreviewTiles = null,
     resolveLiveTrace = null,
@@ -109,9 +107,6 @@ function MobileSpecial3Playing(props) {
     ? resolvedTrace.highlightPath
     : fallbackHighlightPath;
   const liveWord = String(resolvedTrace.liveWord ?? fallbackLiveWord ?? "");
-  const dailyLiveWordNorm = String(
-    resolvedTrace.normalizedWord ?? fallbackNormalizedWord ?? ""
-  );
   const dailyLiveWordBlockedReason = String(
     resolvedTrace.blockedReason ?? fallbackBlockedReason ?? ""
   );
@@ -452,11 +447,6 @@ function MobileSpecial3Playing(props) {
                       >
                         <span className="inline-flex items-center justify-end gap-1">
                           <span>{scoreLabel}</span>
-                          {slotWord
-                            ? renderSpecial3LengthGobbleBadge?.(slotWord)
-                            : showLiveWord && dailyLiveWordValid
-                            ? renderSpecial3LengthGobbleBadge?.(dailyLiveWordNorm)
-                            : null}
                         </span>
                       </span>
                     </div>

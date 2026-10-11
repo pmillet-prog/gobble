@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Gobble — atelier du barème des trophées</title>
+  <link rel="stylesheet" href="./style.css">
+  <script src="../all-players/data.js"></script>
+  <script type="module" src="./app.js"></script>
+</head>
+<body>
+<main>
+  <nav aria-label="Ateliers des trophées"><span>Atelier du barème</span><div><a href="../all-players/" target="_blank" rel="noopener">Les 66 réguliers ↗</a><a href="../?v=2" target="_blank" rel="noopener">Le comparatif initial ↗</a></div></nav>
+  <header>
+    <p class="kicker">Trophées Gobble · simulation</p>
+    <h1>Quel barème pour les trophées ?</h1>
+    <p class="intro">Compare trois pistes sur les 66 joueurs réguliers, puis ajuste les points par récompense. Les seuils d’obtention et la valeur d’un trophée sont deux réglages distincts.</p>
+    <p class="notice">Le barème <strong>« Conseillé » est retenu pour le jeu</strong>. Les réglages effectués dans cet atelier restent des simulations. Les résultats sont des <strong>sous-totaux partiels</strong> : la fréquence des exploits et des podiums n’est pas connue.</p>
+  </header>
+  <section class="scenario" aria-label="Barème et période">
+    <div class="preset-group" role="group" aria-label="Barème à explorer">
+      <button type="button" data-preset="equal" aria-pressed="false">Tous égaux</button>
+      <button type="button" data-preset="recommended" aria-pressed="true">Conseillé</button>
+      <button type="button" data-preset="attendance" aria-pressed="false">Assiduité renforcée</button>
+    </div>
+    <div class="scenario-fields">
+      <label>Comparer sur<select id="horizon"><option value="days90">90 jours au rythme observé</option><option value="rounds1000">1 000 manches chacun</option><option value="rounds5000">5 000 manches chacun</option></select></label>
+      <div class="presenters-control"><label class="check-label"><input id="presenters" type="checkbox"><span>Inclure Julien et FouKro</span></label><p id="presenters-note">Option provisoire : leurs périodes d’observation sont courtes.</p></div>
+    </div>
+    <p id="active-description" class="scenario-description"></p>
+  </section>
+  <section class="summary" aria-live="polite" aria-atomic="true">
+    <div><p class="eyebrow">Barème exploré</p><h2 id="active-name">Conseillé</h2></div>
+    <p id="model-summary"></p>
+  </section>
+  <section class="comparison" aria-labelledby="comparison-title">
+    <p class="eyebrow">Trois groupes de 22 joueurs</p>
+    <h2 id="comparison-title">Comment les points se répartissent</h2>
+    <p class="chart-description">Les groupes sont définis par les points moyens par manche observés. Ils décrivent un rendement sur cet échantillon, pas un niveau absolu.</p>
+    <div id="comparison-chart" class="chart-area"></div>
+    <div id="comparison-legend" class="legend"></div>
+    <p id="comparison-conclusion" class="chart-conclusion"></p>
+    <p id="comparison-coverage" class="fine-print"></p>
+  </section>
+  <section class="player-section" aria-label="Détail d’un joueur">
+    <div class="player-heading"><label>Explorer un joueur<select id="player"></select></label><div id="player-summary" aria-live="polite" aria-atomic="true"></div></div>
+    <div id="player-chart" class="player-chart"></div>
+    <p id="player-coverage" class="fine-print"></p>
+  </section>
+  <details class="editor" open>
+    <summary>Régler les points des 19 catégories</summary>
+    <p class="editor-description">Chaque valeur représente les points gagnés pour une obtention. Bronze et argent des cumuls sont uniques ; l’or se répète. Modifier ces valeurs ne change pas les seuils requis.</p>
+    <div class="editor-actions"><p id="editor-state">Les modifications restent dans cet atelier.</p><button id="restore-preset" type="button">Rétablir ce barème</button></div>
+    <div class="table-wrap editor-wrap"><table class="weights-table"><thead><tr><th scope="col">Catégorie</th><th scope="col">Bronze</th><th scope="col">Argent</th><th scope="col">Or</th><th scope="col">Par obtention</th></tr></thead><tbody id="weight-rows"></tbody></table></div>
+  </details>
+  <section class="rare-section" aria-labelledby="rare-title">
+    <h2 id="rare-title">Ce que peut ajouter un exploit</h2>
+    <p>On peut comparer la valeur d’une obtention, sans inventer combien de fois elle arrivera. Ces neuf catégories ne sont pas intégrées aux sous-totaux projetés.</p>
+    <div id="rare-values" class="rare-values"></div>
+  </section>
+  <details class="roster">
+    <summary>Voir les sous-totaux partiels des 66 joueurs</summary>
+    <div class="roster-controls"><label>Trier les joueurs<select id="sort"><option value="name">Pseudo · A à Z</option><option value="points">Sous-total partiel · décroissant</option><option value="activity">Manches par semaine · décroissant</option><option value="performance">Points par manche · décroissant</option></select></label></div>
+    <div class="table-wrap"><table><thead><tr><th scope="col">Joueur</th><th scope="col">Manches / semaine</th><th scope="col">Points / manche</th><th scope="col">Sous-total partiel</th><th scope="col">Couverture</th></tr></thead><tbody id="player-rows"></tbody></table></div>
+  </details>
+  <details class="method">
+    <summary>Hypothèses et limites du calcul</summary>
+    <div class="method-body">
+      <p>La cohorte reste fixée aux 66 comptes ayant au moins 100 manches et de l’activité sur au moins deux des quatre semaines observées. Les trois groupes contiennent chacun 22 joueurs, ordonnés selon leurs points moyens par manche.</p>
+      <p>Sur 90 jours, chaque joueur conserve son rythme observé. Sur un nombre de manches identique, le volume de jeu est le même pour tous. Les deux vues répondent à des questions différentes : effet de l’assiduité et effet du rendement par manche.</p>
+      <p>Le calcul part de zéro, sans rétroactivité. Pour les dix catégories cumulatives, le bronze est acquis une seule fois à 30 % du seuil d’or et l’argent à 60 %. Un or est acquis à chaque tranche entière du seuil d’or. Les points des trois couleurs acquises s’additionnent.</p>
+      <p>Huit cumuls sont projetés par défaut. Julien et FouKro sont optionnels sur 90 jours ; ils reposent respectivement sur environ 20 et 2 jours de suivi. Ils ne sont pas extrapolés sur un nombre de manches, faute de cadence par manche disponible.</p>
+      <p>Les exploits et les podiums ont des règles et des valeurs éditables, mais aucune fréquence fiable dans ces données. Leur contribution future est inconnue. Les sous-totaux ne constituent donc pas un classement total prédit ; une donnée indisponible n’est pas un gain nul.</p>
+      <p id="method-observation"></p>
+    </div>
+  </details>
+  <p id="load-error" role="alert" hidden>L’atelier n’a pas pu charger ses données. Recharge cette page.</p>
+</main>
+</body>
+</html>

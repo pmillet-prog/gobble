@@ -260,7 +260,7 @@ for (const cancelled of [false, true]) test(`real client, socket and SQLite reta
     now = round.endsAt;
     await handlers.closeRoomRound("live", 42);
     assert.deepEqual(await points.load("user:7"), { total: 10175, points: 175, cycles: 1 });
-    assert.equal((await db.get("SELECT balance FROM gobblar_profiles WHERE installId = '7'")).balance, 50);
-    assert.equal(round.targetQuizResults.get("user:7").progression.rewards[0].amount, 50);
+    assert.equal((await db.get("SELECT balance FROM gobblar_profiles WHERE installId = '7'")).balance, 500);
+    assert.equal(round.targetQuizResults.get("user:7").progression.rewards[0].amount, 500);
   }
 });

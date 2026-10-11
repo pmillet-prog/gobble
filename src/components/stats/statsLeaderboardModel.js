@@ -36,6 +36,10 @@ export function getStatsRowDetails(boardKey, entry) {
     case "presenterHits": value = count(entry.hits); unit = "coups reçus"; break;
     case "qpugAnswers": value = count(entry.correctCount); unit = "bonnes réponses"; break;
     case "targetQuizPoints": value = `${Number(entry.points) > 0 ? "+" : ""}${count(entry.points)}`; unit = "points"; break;
+    case "achievementPoints":
+      value = count(entry.points); unit = "points";
+      details.push(`${count(entry.totalCount)} trophées obtenus`);
+      break;
   }
   if (RECORD_BOARDS.has(boardKey) && entry.achievedAt) details.push(formatWeeklyDate(entry.achievedAt));
   return { value, unit, details, word: WORD_BOARDS.has(boardKey) ? entry.word : null };

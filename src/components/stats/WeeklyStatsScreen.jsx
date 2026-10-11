@@ -7,6 +7,7 @@ import StatsLeaderboardRow from "./StatsLeaderboardRow.jsx";
 import StatsBoardSelect from "./StatsBoardSelect.jsx";
 import StatsTypewriterText from "./StatsTypewriterText.jsx";
 import useStatsPageSwipe from "../../features/stats/useStatsPageSwipe.js";
+import { TROPHY_REWARDS } from "../../../shared/trophyCatalog.js";
 
 export default function WeeklyStatsScreen({ runtime }) {
   const { navigation, entries, onPeriodChange, onCategoryChange, onBoardChange, onPageChange, isMobileLayout,
@@ -64,6 +65,7 @@ export default function WeeklyStatsScreen({ runtime }) {
               boardKey={board.key} entry={entry} index={index} runtime={runtime} />)}
           </ol> : <div className="stats-empty"><span><StatsTypewriterText>{loading ? "Chargement…" : error ? "Les statistiques sont indisponibles pour le moment." :
             board.key === "top3" ? "Pas encore de manches avec un score supérieur à 0 pour ce type." :
+              board.key === "achievementPoints" ? (TROPHY_REWARDS.every(trophy => Number.isFinite(trophy.points) && trophy.points >= 0) ? "Pas encore de trophées classés." : "Collectionnez vos trophées dès maintenant. Le classement ouvrira avec l’annonce du barème.") :
               tab === "weekly" ? "Pas encore de résultats cette semaine." : "Pas encore de progression enregistrée."}</StatsTypewriterText></span></div>}
         </>}
       </div>

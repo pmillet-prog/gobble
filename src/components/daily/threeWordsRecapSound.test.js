@@ -12,3 +12,14 @@ test("revealing a valid word plays the coin, an invalid word the invalid sample,
   assert.equal(getThreeWordsRecapSound({ word: "chat", valid: true }, { ...prefs, soundValidationEnabled: false }), null);
   assert.equal(getThreeWordsRecapSound({ word: "chaz", valid: false }, { ...prefs, soundInvalidErrorEnabled: false }), null);
 });
+
+test("only a confirmed Gobble gets its voice, respecting both sound switches", () => {
+  const prefs = { soundValidationEnabled: true, soundGobbleEnabled: true, soundInvalidErrorEnabled: true };
+  const gobble = { word: "chats", valid: true, gobble: true };
+  assert.equal(getThreeWordsRecapSound(gobble, prefs).key, SFX_KEYS.gobbleVoice);
+  assert.equal(getThreeWordsRecapSound({ ...gobble, doubleGobble: true }, prefs).key, SFX_KEYS.doubleGobbleVoice);
+  assert.equal(getThreeWordsRecapSound(gobble, { ...prefs, soundValidationEnabled: false }).key, SFX_KEYS.gobbleVoice);
+  assert.equal(getThreeWordsRecapSound(gobble, { ...prefs, soundGobbleEnabled: false }).key, SFX_KEYS.vocabCling);
+  assert.equal(getThreeWordsRecapSound(gobble, { ...prefs, isSfxMuted: true }), null);
+  assert.equal(getThreeWordsRecapSound({ ...gobble, valid: false }, prefs).key, SFX_KEYS.invalidWord);
+});

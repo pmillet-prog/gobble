@@ -1,0 +1,17 @@
+.trophy-metal-lighting {
+  --trophy-light: 255 195 41;
+  --trophy-glow: 212 125 0;
+  --trophy-star: 255 201 54;
+}
+
+.trophy-metal-lighting[data-trophy-metal="bronze"] {
+  --trophy-light: 217 142 82;
+  --trophy-glow: 153 81 39;
+  --trophy-star: 236 169 111;
+}
+
+.trophy-metal-lighting[data-trophy-metal="silver"] {
+  --trophy-light: 170 181 192;
+  --trophy-glow: 112 128 145;
+  --trophy-star: 195 204 212;
+}

@@ -45,7 +45,7 @@ test("lobby popup coordinator gives patch notes first priority", () => {
 });
 
 test("reading the previous release does not hide the new patch notes from home", () => {
-  const seen = new Set([buildPatchNotesSeenMarker("2026-09-20"), buildPatchNotesSeenMarker("2026-09-23"), buildPatchNotesSeenMarker("2026-09-27"), buildPatchNotesSeenMarker("2026-10-03"), buildPatchNotesSeenMarker("2026-10-06")]);
+  const seen = new Set([buildPatchNotesSeenMarker("2026-09-20"), buildPatchNotesSeenMarker("2026-09-23"), buildPatchNotesSeenMarker("2026-09-27"), buildPatchNotesSeenMarker("2026-10-03"), buildPatchNotesSeenMarker("2026-10-06"), buildPatchNotesSeenMarker("2026-10-08")]);
   const action = resolveLobbyPopupAction(eligibleConfig({ accountSeenMarkers: seen }));
   assert.deepEqual(action, {
     marker: buildPatchNotesSeenMarker(PATCH_NOTES_VERSION),
@@ -60,11 +60,11 @@ test("reading the previous release does not hide the new patch notes from home",
   );
 });
 
-test("the October major release includes existing accounts and excludes new players", () => {
-  for (const createdAt of [Date.parse("2026-10-04T12:00:00+02:00"), PATCH_NOTES_RELEASE_TS - 1]) {
+test("the October 11 release includes existing accounts and excludes new players", () => {
+  for (const createdAt of [Date.parse("2026-10-04T12:00:00+02:00"), Date.parse("2026-10-10T12:00:00+02:00"), PATCH_NOTES_RELEASE_TS - 1]) {
     assert.equal(resolveLobbyPopupAction(eligibleConfig({ accountCreatedAt: createdAt }))?.type, "patch-notes");
   }
-  for (const createdAt of [PATCH_NOTES_RELEASE_TS, PATCH_NOTES_RELEASE_TS + 1, Date.parse("2026-10-07T12:00:00+02:00")]) {
+  for (const createdAt of [PATCH_NOTES_RELEASE_TS, PATCH_NOTES_RELEASE_TS + 1, Date.parse("2026-10-12T12:00:00+02:00")]) {
     assert.notEqual(resolveLobbyPopupAction(eligibleConfig({ accountCreatedAt: createdAt }))?.type, "patch-notes");
   }
   for (const override of [{ isNewPlayerPopupQuiet: true }, { shouldShowTutorial: true }, { accountSeenReady: false }, { isAccountAuthenticated: false }, { phase: "playing" }]) {

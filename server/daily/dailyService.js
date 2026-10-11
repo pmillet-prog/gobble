@@ -3,7 +3,7 @@ import { fileURLToPath } from "url";
 import { promises as fs } from "fs";
 import { spawn } from "child_process";
 import { DAILY_GENERATION_VERSION } from "./dailyGeneration.js";
-import { evaluateDailySpecialWords } from "./dailySpecialReview.js";
+import { evaluateDailySpecialWords, annotateDailySpecialGobbles } from "./dailySpecialReview.js";
 import { canRecoverDailyLaunch, normalizeDailyLaunchId } from "./dailyLaunchPolicy.js";
 import {
   buildPathWordVariants,
@@ -1882,6 +1882,7 @@ export async function submitDailyResult({
     modeThresholds.maxWordPts,
     modeThresholds.maxWordLen
   );
+  const finalWordReview = wordReview ? annotateDailySpecialGobbles(wordReview, modeThresholds) : null;
   let fakeTwinsCompletionBonus = 0;
   let fakeTwinWordsFound = 0;
   let fakeTwinWordsTotal = 0;
@@ -1913,7 +1914,7 @@ export async function submitDailyResult({
     gobbles,
     words: validatedWords,
     wordSubmissions: submittedWords,
-    ...(wordReview && (submittedWords.length > 0 || !foundWords?.length) ? { wordReview } : {}),
+    ...(finalWordReview && (submittedWords.length > 0 || !foundWords?.length) ? { wordReview: finalWordReview } : {}),
     fakeTwinsCompletionBonus,
     fakeTwinWordsFound,
     fakeTwinWordsTotal,

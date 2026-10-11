@@ -1,0 +1,16 @@
+.trophy-dev-controls{margin-top:10px;text-shadow:none}
+.trophy-dev-actions{display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap}
+.trophy-spotlight .trophy-dev-controls .trophy-dev-actions button{min-height:36px;padding:7px 14px;border:1px solid #dca43699;border-radius:9px;font:750 12px/1.2 system-ui,sans-serif;cursor:pointer;transition:background .15s,opacity .15s;box-shadow:0 2px 6px #06101840}
+.trophy-dev-controls .trophy-dev-actions .trophy-dev-grant{background:#e6ad3b;color:#241b0c;text-shadow:none}
+.trophy-dev-controls .trophy-dev-actions .trophy-dev-grant:hover{background:#f2bf57}
+.trophy-dev-controls .trophy-dev-actions .trophy-dev-reset{background:#112536e8;color:#e8c58a;font-size:11px;border-color:#b38b484f}
+.trophy-dev-controls .trophy-dev-actions .trophy-dev-reset:hover{background:#29404b}
+.trophy-dev-controls .trophy-dev-actions button:focus-visible{outline:2px solid #ffc249;outline-offset:3px}
+.trophy-dev-controls .trophy-dev-actions button:disabled{opacity:.55;cursor:wait}
+.trophy-dev-controls .trophy-dev-note{margin:7px 0 0;color:#c3ad87;font:400 10px/1.35 system-ui,sans-serif;letter-spacing:0}
+.trophy-dev-controls .trophy-dev-error{margin:6px 0 0;color:#ffc3a7;font:500 11px/1.3 system-ui,sans-serif;letter-spacing:0}
+.trophy-spotlight:has(.trophy-dev-controls){display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:38px 0 14px;box-sizing:border-box}
+.trophy-spotlight:has(.trophy-dev-controls) .trophy-spotlight-figure{position:relative;left:auto;top:auto;flex:1 1 auto;min-height:0;max-height:330px;aspect-ratio:auto;transform:none;animation:trophy-spotlight-veil .25s ease-out both}
+.trophy-spotlight:has(.trophy-dev-controls) .trophy-spotlight-caption{position:relative;left:auto;top:auto;flex:0 0 auto;transform:none}
+@media(max-width:480px){.trophy-spotlight:has(.trophy-dev-controls){gap:4px;padding:34px 0 10px}.trophy-spotlight:has(.trophy-dev-controls) .trophy-spotlight-figure{max-height:160px}.trophy-spotlight:has(.trophy-dev-controls) .trophy-spotlight-caption{width:88%;padding:6px 8px}.trophy-dev-controls{margin-top:7px}.trophy-dev-actions{gap:6px}.trophy-spotlight .trophy-dev-controls .trophy-dev-actions button{padding:7px 10px;min-height:34px}.trophy-dev-controls .trophy-dev-note{margin-top:5px}}
+@media(prefers-reduced-motion:reduce){.trophy-spotlight:has(.trophy-dev-controls) .trophy-spotlight-figure{animation:none}.trophy-dev-controls .trophy-dev-actions button{transition:none}}

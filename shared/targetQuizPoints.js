@@ -1,5 +1,5 @@
 export const TARGET_QUIZ_POINTS_GOAL = 10000;
-export const TARGET_QUIZ_GOBBLARS_REWARD = 50;
+export const TARGET_QUIZ_GOBBLARS_REWARD = 500;
 
 const integer = value => Number.isSafeInteger(Number(value)) ? Number(value) : 0;
 

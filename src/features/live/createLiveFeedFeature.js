@@ -119,9 +119,18 @@ export function createLiveFeedFeature(context) {
     maybeShowCultureThemeToast(entry);
   }
 
+  function isDeferredThreeWordsGobble(entry) {
+    return (
+      realtimeConfig.isSpecial3WordsMode &&
+      realtimeConfig.phaseRef?.current === "playing" &&
+      (entry.type === "best_possible_score" || entry.type === "longest_possible")
+    );
+  }
+
   function onAnnouncement(entry) {
     if (!entry || !shouldHandleRealtimeEvent(entry.roomId, entry.roundId)) return;
     if (entry.type === "big_word" || entry.type === "long_word") return;
+    if (isDeferredThreeWordsGobble(entry)) return;
     processAnnouncement(entry);
     appendAnnouncements([entry]);
   }
@@ -133,7 +142,8 @@ export function createLiveFeedFeature(context) {
         entry &&
         shouldHandleRealtimeEvent(entry.roomId, entry.roundId) &&
         entry.type !== "big_word" &&
-        entry.type !== "long_word"
+        entry.type !== "long_word" &&
+        !isDeferredThreeWordsGobble(entry)
     );
     if (!filtered.length) return;
     filtered.forEach(processAnnouncement);

@@ -8,13 +8,15 @@ export function buildTrainingThreeWordsResult({ training, wordSlots, placements,
     return { id, word: normalizeWord(slot?.word || ""),
       display: slot?.display || slot?.word || "", path: [...(slot?.path || [])] };
   });
+  const dictionary = new Set((training.solutions || []).map(entry =>
+    normalizeWord((Array.isArray(entry) ? entry[0] : entry?.word) || "")));
+  const maxWordLength = [...dictionary].reduce((longest, word) => Math.max(longest, word.length), 0);
   const review = evaluateDailySpecialWords(slots, {
-    grid: applyDailySpecialPlacements(training.grid, placements),
-    dictionary: new Set((training.solutions || []).map(entry =>
-      normalizeWord((Array.isArray(entry) ? entry[0] : entry?.word) || ""))),
+    grid: applyDailySpecialPlacements(training.grid, placements), dictionary,
   });
   const specialWordSlots = slots.map((slot, id) => ({
     ...slot, valid: review[id].valid, reason: review[id].reason, pts: review[id].points,
+    gobble: review[id].valid && maxWordLength > 0 && slot.word.length === maxWordLength,
   }));
   const accepted = specialWordSlots.filter(slot => slot.word && slot.valid);
   return {

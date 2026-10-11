@@ -1,0 +1,44 @@
+{
+  "tool": "builtin:image_gen",
+  "mode": "precise-object-edit",
+  "transparentBackground": true,
+  "version": "v3",
+  "notes": "Threshold numerals are removed. Decorative game-letter tiles and the central target letter are intentionally preserved as pictorial motifs. Original masters remain unchanged. Gold artwork is shared by the bronze/silver/gold CSS presentation.",
+  "assets": [
+    {
+      "id": "marathon_10000",
+      "source": "public/trophies/v1/marathon_10000.png",
+      "destination": "public/trophies/v1/marathon_10000-v3.png",
+      "generatedSource": "C:\\Users\\Paul\\.codex\\generated_images\\01a129f7-7cc0-7fe1-b553-bbb5b1cde922\\exec-fbf8d0e0-baae-49f7-b575-800cd3badfab.png",
+      "prompt": "Use case: precise-object-edit. Asset type: Gobble game profile trophy, transparent PNG. Input image is the edit target. Change only the numbered plaque: remove the engraved 10000 completely and replace it with one small elegant embossed gold laurel-sprig symbol centered on the existing navy plaque, with no letters or numerals. Preserve the winged running shoe, gold laurels, checkered finish ribbon, navy enamel, dark walnut circular pedestal, polished warm gold material, lighting, exact object silhouette, camera angle, centered composition, scale and generous transparent margins. Keep the whole trophy visible and preserve the original premium stylized 3D Gobble aesthetic. No new threshold value, no captions, no logo, no watermark, no surrounding scene, no glow or shadow outside the cutout. Genuine transparent alpha background."
+    },
+    {
+      "id": "words_100000",
+      "source": "public/trophies/v1/words_100000.png",
+      "destination": "public/trophies/v1/words_100000-v3.png",
+      "generatedSource": "C:\\Users\\Paul\\.codex\\generated_images\\01a129f7-7cc0-7fe1-b553-bbb5b1cde922\\exec-d313c1d3-282b-471f-b118-4edd3c1cdc75.png",
+      "prompt": "Use case: precise-object-edit. Asset type: Gobble game profile trophy, transparent PNG. Input image is the edit target. Change only the numbered pedestal plaque: remove the engraved 100000 completely and replace it with one small embossed gold open-book pictogram centered on the existing navy plaque, with no letters or numerals on that plaque. Preserve the open treasure chest, books, magnifying glass, existing decorative game letter tiles A B C, navy enamel, gold ornamentation, dark walnut circular pedestal, polished warm gold material, lighting, exact object silhouette, camera angle, centered composition and scale. Keep the whole trophy visible with generous transparent margins, preserving the original premium stylized 3D Gobble aesthetic. No new threshold value, no captions or new lettering, no logo, no watermark, no surrounding scene, no glow or shadow outside the cutout. Genuine transparent alpha background."
+    },
+    {
+      "id": "total_score_10000000",
+      "source": "public/trophies/v1/total_score_10000000.png",
+      "destination": "public/trophies/v1/total_score_10000000-v3.png",
+      "generatedSource": "C:\\Users\\Paul\\.codex\\generated_images\\01a129f7-7cc0-7fe1-b553-bbb5b1cde922\\exec-801f5172-2fc0-4b6d-b920-f34858049c51.png",
+      "prompt": "Use case: precise-object-edit. Asset type: Gobble game profile trophy, transparent PNG. Input image is the edit target. Change only the large central shield inscription: remove the engraved 10 M completely and replace it with a small embossed gold rising-bar-chart pictogram on the existing navy shield, without letters or numerals. Preserve the tall gold columns, prominent faceted star, laurels, fleur-de-lis ornaments, existing decorative game letter tiles at the foot, navy enamel, dark walnut circular pedestal, polished warm gold material, lighting, exact silhouette, camera angle, centered composition and scale. Keep the whole trophy visible with generous transparent margins, preserving the original premium stylized 3D Gobble aesthetic. No new threshold value, no captions or new lettering, no logo, no watermark, no surrounding scene, no glow or shadow outside the cutout. Genuine transparent alpha background."
+    },
+    {
+      "id": "targets_1000",
+      "source": "public/trophies/v1/targets_1000.png",
+      "destination": "public/trophies/v1/targets_1000-v3.png",
+      "generatedSource": "C:\\Users\\Paul\\.codex\\generated_images\\01a129f7-7cc0-7fe1-b553-bbb5b1cde922\\exec-27b6918b-8db3-4b32-a98f-5f229c919aa9.png",
+      "prompt": "Use case: precise-object-edit. Asset type: Gobble game profile trophy, transparent PNG. Input image is the edit target. Change only the numbered pedestal plaque: remove the engraved 1000 completely and replace it with one small embossed gold bullseye pictogram made of concentric circles centered on the existing navy plaque, without letters or numerals on the plaque. Preserve the large circular navy and ivory target, its decorative central letter A, the arrow striking the center, the gold rim and stem, dark walnut circular pedestal, polished warm gold material, lighting, exact silhouette, camera angle, centered composition and scale. Keep the whole trophy visible with generous transparent margins, preserving the original premium stylized 3D Gobble aesthetic. No new threshold value, no captions or new lettering, no logo, no watermark, no surrounding scene, no glow or shadow outside the cutout. Genuine transparent alpha background."
+    },
+    {
+      "id": "medals_5000",
+      "source": "public/trophies/v1/medals_5000.png",
+      "destination": "public/trophies/v1/medals_5000-v3.png",
+      "generatedSource": "C:\\Users\\Paul\\.codex\\generated_images\\01a129f7-7cc0-7fe1-b553-bbb5b1cde922\\exec-bf6d2675-f80d-46f1-bb40-d55b09f789fe.png",
+      "prompt": "Use case: precise-object-edit. Asset type: Gobble game profile trophy, transparent PNG. Input image is the edit target. Change only the numbered navy plaque on the central podium step: remove the engraved 5000 completely and replace it with one small embossed gold laurel-wreath pictogram centered on the existing plaque, without letters or numerals. Preserve the three stepped podium blocks, the gold central medal, silver left medal and bronze right medal, their stars and navy ribbon loops, navy enamel, lower gold laurels, dark walnut circular pedestal, polished metal materials, lighting, exact silhouette, camera angle, centered composition and scale. Keep the whole trophy visible with generous transparent margins, preserving the original premium stylized 3D Gobble aesthetic. No new threshold value, no captions, no logo, no watermark, no surrounding scene, no glow or shadow outside the cutout. Genuine transparent alpha background."
+    }
+  ]
+}

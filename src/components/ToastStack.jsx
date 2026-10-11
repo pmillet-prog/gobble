@@ -1,5 +1,7 @@
 import React from "react";
+import { createPortal } from "react-dom";
 import AvatarRewardToast from "../features/avatar/AvatarRewardToast.jsx";
+import TrophyRewardToast from "../features/trophies/TrophyRewardToast.jsx";
 import "../features/avatar/avatarRewardToast.css";
 
 export default function ToastStack({ toasts = [], darkMode = false }) {
@@ -10,11 +12,13 @@ export default function ToastStack({ toasts = [], darkMode = false }) {
   const renderToastGroup = (items, position = "top-right") => {
     if (!items.length) return null;
     const isLeft = position === "top-left";
-    return (
+    const aboveProfile = items.some(toast => toast?.achievementReward);
+    const group = (
       <div
         className={`fixed top-3 z-[21050] pointer-events-none flex flex-col gap-2 max-w-[min(90vw,420px)] ${
           isLeft ? "left-3 items-start" : "right-3 items-end"
         }`}
+        style={aboveProfile ? { zIndex: 26050 } : undefined}
       >
         {items.map((toast) => (
           <div
@@ -34,7 +38,7 @@ export default function ToastStack({ toasts = [], darkMode = false }) {
               ["--toast-shift-x"]: isLeft ? "-10px" : "10px",
             }}
           >
-            {toast?.avatarReward ? <AvatarRewardToast reward={toast.avatarReward} /> : <span className="inline-flex items-center gap-2">
+            {toast?.achievementReward ? <TrophyRewardToast reward={toast.achievementReward} /> : toast?.avatarReward ? <AvatarRewardToast reward={toast.avatarReward} /> : <span className="inline-flex items-center gap-2">
               {toast?.iconSrc ? (
                 <img
                   src={toast.iconSrc}
@@ -48,6 +52,7 @@ export default function ToastStack({ toasts = [], darkMode = false }) {
         ))}
       </div>
     );
+    return aboveProfile && typeof document !== "undefined" ? createPortal(group, document.body) : group;
   };
   return (
     <>

@@ -10,10 +10,11 @@ const root = fileURLToPath(new URL("../../", import.meta.url));
 const output = path.join(root, ".tmp/stats-verification");
 const origin = process.env.STATS_ORIGIN || "http://127.0.0.1:8774";
 const menusOnly = process.argv.includes("--menus-only");
+const touchOnly = process.argv.includes("--touch-only");
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 await fs.mkdir(output, { recursive: true });
-const errors = [], cases = [];
-let checks = 0, chrome, socket, cdp;
+const errors = [], cases = [], touchTraces = [];
+let checks = 0, chrome, socket, cdp, touchInput = false;
 async function until(read, label) {
   for (let index = 0; index < 160; index++) {
     try { const value = await read(); if (value) return value; } catch {}
@@ -51,6 +52,12 @@ function check(label, condition, detail) { checks++; assert.ok(condition, `${lab
 const settle = () => delay(120);
 async function reset(options = {}) { await call("reset", options); await settle(); }
 async function openMenu(label) {
+  if (touchInput) {
+    const picker = (await snapshot()).selects.find(item => item.label === label);
+    if (!picker) throw new Error(`Missing combobox: ${label}`);
+    if (!picker.expanded) await tap(`[role="combobox"][aria-label=${JSON.stringify(label)}]`, { scrollIntoView: true });
+    return;
+  }
   await evaluate(`(() => {
     const el = [...document.querySelectorAll('.stats-panel button[role="combobox"]')].find(el => el.getAttribute("aria-label") === ${JSON.stringify(label)});
     if (!el) throw new Error("Missing combobox: " + ${JSON.stringify(label)});
@@ -62,6 +69,11 @@ async function openMenu(label) {
 }
 async function select(label, value) {
   await openMenu(label);
+  if (touchInput) {
+    await touchScrollMenuTo(value);
+    await tap(`[role="listbox"] [role="option"][data-value=${JSON.stringify(value)}]`);
+    return;
+  }
   await evaluate(`(() => {
     const el = [...document.querySelectorAll('.stats-panel button[role="combobox"]')].find(el => el.getAttribute("aria-label") === ${JSON.stringify(label)});
     const menu = document.getElementById(el.getAttribute("aria-controls"));
@@ -87,6 +99,70 @@ async function clickElement(selector) {
   await cdp("Input.dispatchMouseEvent", { type: "mousePressed", button: "left", clickCount: 1, ...point });
   await cdp("Input.dispatchMouseEvent", { type: "mouseReleased", button: "left", clickCount: 1, ...point });
   await settle();
+}
+async function tap(selector, { scrollIntoView = false } = {}) {
+  const point = await evaluate(`(() => {
+    const el = document.querySelector(${JSON.stringify(selector)});
+    if (!el) throw new Error("Missing tap target: " + ${JSON.stringify(selector)});
+    if (${scrollIntoView}) el.scrollIntoView({ block: "nearest", inline: "nearest" });
+    const rect = el.getBoundingClientRect(), menu = el.closest('[role="listbox"]')?.getBoundingClientRect();
+    const left = Math.max(0, rect.left, menu?.left || 0), right = Math.min(innerWidth, rect.right, menu?.right || innerWidth);
+    const top = Math.max(0, rect.top, menu?.top || 0), bottom = Math.min(innerHeight, rect.bottom, menu?.bottom || innerHeight);
+    if (right <= left || bottom <= top) throw new Error("Tap target is not visible: " + ${JSON.stringify(selector)});
+    const x = (left + right) / 2, y = (top + bottom) / 2;
+    if (!el.contains(document.elementFromPoint(x, y))) throw new Error("Tap target is covered: " + ${JSON.stringify(selector)});
+    return { x, y };
+  })()`);
+  await cdp("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ ...point, id: 1, radiusX: 2, radiusY: 2, force: 1 }] });
+  await delay(55);
+  await cdp("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+  await settle();
+}
+async function dragTouch(point, dx, dy) {
+  await cdp("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ ...point, id: 1, radiusX: 2, radiusY: 2, force: 1 }] });
+  for (let step = 1; step <= 8; step++) {
+    await delay(35);
+    await cdp("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: point.x + dx * step / 8, y: point.y + dy * step / 8,
+      id: 1, radiusX: 2, radiusY: 2, force: 1 }] });
+  }
+  await cdp("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+  await delay(450);
+}
+async function touchScrollMenuTo(value) {
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const state = await snapshot(), menu = state.menus[0];
+    const option = menu?.options.find(item => item.key === value);
+    if (!option) throw new Error(`Missing touchscreen option: ${value}`);
+    if (option.rect.y >= menu.rect.y + 2 && option.rect.bottom <= menu.rect.bottom - 2) return;
+    const down = option.rect.bottom > menu.rect.bottom;
+    const distance = Math.min(210, menu.rect.height * 0.65);
+    await dragTouch({ x: menu.rect.x + menu.rect.width * 0.65,
+      y: down ? menu.rect.bottom - 18 : menu.rect.y + 18 }, 0, down ? -distance : distance);
+    const next = await snapshot();
+    check("Touch scrolling does not select or change the underlying page", next.menus.length === 1 && next.boardKey === state.boardKey &&
+      next.selects.every(item => item.value === state.selects.find(previous => previous.label === item.label)?.value),
+    { boardBefore: state.boardKey, boardAfter: next.boardKey, selects: next.selects, menus: next.menus.length });
+  }
+  throw new Error(`Touch scrolling did not reveal option: ${value}`);
+}
+async function startTouchTrace() {
+  await evaluate(`(() => {
+    window.stopStatsTouchTrace?.();
+    const events = [], types = ['pointerdown', 'touchstart', 'pointerup', 'touchend', 'mousedown', 'focusout', 'focusin', 'mouseup', 'click'];
+    const describe = el => el ? [el.tagName, el.getAttribute?.('role'), el.getAttribute?.('aria-label'), el.getAttribute?.('data-value')].filter(Boolean).join(':') : null;
+    const capture = event => events.push({ type: event.type, pointerType: event.pointerType || null,
+      target: describe(event.target.closest?.('[role="option"], [role="combobox"], [role="dialog"]') || event.target),
+      focus: describe(document.activeElement), menus: document.querySelectorAll('[role="listbox"]').length });
+    types.forEach(type => document.addEventListener(type, capture, true));
+    window.statsTouchTrace = events;
+    window.stopStatsTouchTrace = () => types.forEach(type => document.removeEventListener(type, capture, true));
+  })()`);
+}
+async function saveTouchTrace(label) {
+  const events = await evaluate("window.stopStatsTouchTrace(); window.statsTouchTrace");
+  const state = await snapshot();
+  touchTraces.push({ label, boardKey: state.boardKey, selects: state.selects, events });
+  return { state, events };
 }
 async function click(text) {
   await evaluate(`(() => { const el = [...document.querySelectorAll("button")].find(el => el.textContent.trim() === ${JSON.stringify(text)} || el.getAttribute("aria-label") === ${JSON.stringify(text)}); if (!el) throw new Error("Missing button: " + ${JSON.stringify(text)}); el.scrollIntoView({ block: "nearest", inline: "nearest" }); el.click(); })()`);
@@ -229,6 +305,46 @@ async function verifyMenus(device) {
   check("Type-menu Escape leaves the statistics and chosen type intact", state.menus.length === 0 && !!state.panel && state.closes === 0 && state.selects.find(item => item.label === "Type de manche")?.value === picker.options.at(-1).key, state);
 }
 
+async function verifyTouchMenus(device) {
+  await reset({ category: "rounds", boardKey: "bestSpecial3Score" });
+  await startTouchTrace();
+  await tap('[role="combobox"][aria-label="Classement"]', { scrollIntoView: true });
+  await assertOpenMenu("Classement", device);
+  await tap('[role="listbox"] [role="option"][data-value="bestTimeTargetLong"]');
+  let { state, events } = await saveTouchTrace(`${device.name}-ranking-tap`);
+  check("Real touchscreen tap commits a ranking", state.boardKey === "bestTimeTargetLong" && state.menus.length === 0 && state.closes === 0,
+    { boardKey: state.boardKey, menus: state.menus.length, closes: state.closes, events });
+  await tap('[role="combobox"][aria-label="Classement"]');
+  await tap(".stats-binder-name strong");
+  state = await snapshot();
+  check("Outside touchscreen tap dismisses only the menu", state.boardKey === "bestTimeTargetLong" && state.menus.length === 0 && !!state.panel && state.closes === 0,
+    { boardKey: state.boardKey, menus: state.menus.length, closes: state.closes });
+
+  await select("Classement", "top3");
+  state = await snapshot();
+  check("Touchscreen ranking selection reaches Top 3", state.boardKey === "top3" && state.menus.length === 0, { boardKey: state.boardKey, menus: state.menus.length });
+  await openMenu("Type de manche");
+  let { menu } = await assertOpenMenu("Type de manche", device);
+  check("Touchscreen round-type menu exposes eleven scrollable choices", menu.options.length === 11 && menu.scrollHeight > menu.clientHeight + 1, menu);
+  await capture(`${device.name}-touch-round-types`);
+  const firstVisible = menu.options.find(option => option.rect.y >= menu.rect.y + 2 && option.rect.bottom <= menu.rect.bottom - 2);
+  await dragTouch({ x: firstVisible.rect.x + firstVisible.rect.width * 0.65, y: firstVisible.rect.y + firstVisible.rect.height / 2 }, -95, 0);
+  state = await snapshot();
+  check("Real horizontal touch on an option preserves the page and round type", state.boardKey === "top3" && state.menus.length === 1 &&
+    state.selects.find(item => item.label === "Type de manche")?.value === "normal", { boardKey: state.boardKey, selects: state.selects, menus: state.menus.length });
+  await touchScrollMenuTo("finale");
+  ({ menu } = await assertOpenMenu("Type de manche", device));
+  check("Touch scrolling reaches Finale", menu.scrollTop > 0 && menu.options.at(-1).key === "finale" && menu.options.at(-1).rect.bottom <= menu.rect.bottom + 1, menu);
+  await capture(`${device.name}-touch-round-types-scrolled`);
+  await startTouchTrace();
+  await tap('[role="listbox"] [role="option"][data-value="finale"]');
+  ({ state, events } = await saveTouchTrace(`${device.name}-finale-tap`));
+  check("Touchscreen tap after scrolling selects Finale", state.boardKey === "top3" && state.selects.find(item => item.label === "Type de manche")?.value === "finale" &&
+    state.text.includes("18 top 3 / 25 manches") && state.menus.length === 0 && state.closes === 0,
+  { boardKey: state.boardKey, selects: state.selects, menus: state.menus.length, events });
+  await capture(`${device.name}-touch-finale-selected`);
+}
+
 try {
   let executable;
   for (const candidate of [process.env.CHROME_PATH, "C:/Program Files/Google/Chrome/Application/chrome.exe", "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe"].filter(Boolean)) {
@@ -249,12 +365,16 @@ try {
   cdp = attach(socket); await cdp("Page.enable"); await cdp("Runtime.enable"); await cdp("Network.enable");
   await cdp("Network.setBlockedURLs", { urls: ["https://gobble.fr/*", "http://gobble.fr/*", "*/api/*"] });
   for (const device of [{ name: "desktop", width: 1280, height: 900 }, { name: "mobile", width: 390, height: 844 }, { name: "small-mobile", width: 320, height: 568 }]) {
+    if (touchOnly && device.name === "desktop") continue;
+    touchInput = device.name !== "desktop";
     await cdp("Emulation.setDeviceMetricsOverride", { width: device.width, height: device.height, deviceScaleFactor: 1, mobile: device.name !== "desktop" });
     await cdp("Emulation.setTouchEmulationEnabled", { enabled: device.name !== "desktop" });
     await cdp("Page.navigate", { url: `${origin}/dev/stats/` });
     await until(() => evaluate("!!window.statsFixture"), "fixture");
     await reset();
     await evaluate("document.fonts.ready.then(() => true)");
+    if (device.name !== "desktop") await verifyTouchMenus(device);
+    if (touchOnly) continue;
     await verifyMenus(device);
     if (menusOnly) continue;
     await reset();
@@ -383,11 +503,12 @@ try {
     await click("Suivant"); await click("Fermer");
   }
   check("No uncaught browser exceptions", errors.length === 0, errors);
-  console.log(JSON.stringify({ mode: menusOnly ? "menus-only" : "full", checks, screenshots: cases.length, errors }));
+  console.log(JSON.stringify({ mode: touchOnly ? "touch-only" : menusOnly ? "menus-only" : "full", checks, screenshots: cases.length, errors }));
 } catch (error) {
   process.exitCode = 1; console.error(error.stack);
 } finally {
-  await fs.writeFile(path.join(output, menusOnly ? "verification-menus.json" : "verification.json"), JSON.stringify({ checks, cases, errors }, null, 2));
+  await fs.writeFile(path.join(output, touchOnly ? "verification-touch.json" : menusOnly ? "verification-menus.json" : "verification.json"), JSON.stringify({ checks, cases, errors }, null, 2));
+  if (touchTraces.length) await fs.writeFile(path.join(output, "touch-traces.json"), JSON.stringify(touchTraces, null, 2));
   if (cdp) await cdp("Browser.close").catch(() => {});
   socket?.close(); if (chrome?.exitCode === null) chrome.kill();
 }

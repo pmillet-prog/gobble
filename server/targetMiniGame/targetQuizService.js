@@ -244,7 +244,7 @@ export function createTargetQuizService({
             throw new Error("target_quiz_round_finished");
           }
           session = {
-            playerKey, roundId, endsAt, roundEndsAt, catalog, cursor, pendingInterruptionAt: null,
+            playerKey, roundId, endsAt, roundEndsAt, startedAt: now(), catalog, cursor, pendingInterruptionAt: null,
             phase: "stopped", question: null, shownAt: null, feedback: null, feedbackQuestion: null,
             previousQuestionToken: null,
             score: 0, streak: 0, bestStreak: 0, correctCount: 0, wrongCount: 0,
@@ -315,7 +315,8 @@ export function createTargetQuizService({
         const delta = correct ? Math.min(200, 100 + (streak - 1) * 25) : -75;
         if (saveAnswer) {
           const progress = { version: session.catalog.version, ...session.catalog.advance(session.cursor) };
-          const receipt = await saveAnswer({ playerKey, roundId, questionToken, delta, progress, endsAt: session.endsAt });
+          const receipt = await saveAnswer({ playerKey, roundId, questionToken, delta, progress, endsAt: session.endsAt,
+            startedAt: session.startedAt });
           session.cursor = progress;
           if (receipt) {
             session.progression = {

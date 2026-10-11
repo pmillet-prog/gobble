@@ -3,10 +3,10 @@ import DailySpecialRecapDialog from "../../components/daily/DailySpecialRecapDia
 import { getLiveThreeWordsRecap } from "./liveThreeWordsRecap.js";
 import { useFeatureRuntime } from "../../app/react/useFeatureRuntime.js";
 
-export default function LiveThreeWordsRecap({ roundId, results, userId, nickname, training = false }) {
+export default function LiveThreeWordsRecap({ roundId, results, userId, nickname, maxWordLength, training = false }) {
   const liveUi = useFeatureRuntime("liveUi");
   const [closedRound, setClosedRound] = React.useState(null);
-  const recap = React.useMemo(() => getLiveThreeWordsRecap(results, { userId, nickname }), [results, userId, nickname]);
+  const recap = React.useMemo(() => getLiveThreeWordsRecap(results, { userId, nickname, maxWordLength }), [results, userId, nickname, maxWordLength]);
   const visible = !!roundId && closedRound !== roundId && !!recap;
   React.useLayoutEffect(() => {
     liveUi.set("threeWordsRecapOpen", visible);

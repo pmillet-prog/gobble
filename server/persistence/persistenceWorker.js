@@ -1,4 +1,5 @@
 import { parentPort } from "worker_threads";
+import { achievementCollectionJob } from "../stats/achievementCollectionStore.js";
 import { avatarInventory } from "../auth/authService.js";
 import { loadTargetQuizProgress, saveTargetQuizProgress, loadTargetQuizPoints, saveTargetQuizAnswer, finishTargetQuizPoints, getPlayerProgressBoards } from "../targetMiniGame/targetQuizProgressStore.js";
 
@@ -40,10 +41,15 @@ async function handleJob(type, payload) {
   if (type === "loadTargetQuizProgress") return loadTargetQuizProgress(payload);
   if (type === "saveTargetQuizProgress") return saveTargetQuizProgress(payload);
   await ensureReady();
+  if (type === "achievementCollection") return achievementCollectionJob(payload);
   if (type === "loadTargetQuizPoints") return loadTargetQuizPoints(payload);
   if (type === "finishTargetQuizPoints") return finishTargetQuizPoints(payload);
   if (type === "saveTargetQuizAnswer") return saveTargetQuizAnswer(payload);
-  if (type === "getPlayerProgressBoards") return getPlayerProgressBoards(payload);
+  if (type === "getPlayerProgressBoards") {
+    const result = await getPlayerProgressBoards(payload);
+    const achievementPoints = await achievementCollectionJob({ action: "leaderboard", topN: payload?.topN });
+    return achievementPoints === null ? result : { ...result, allTimeBoards: { ...result.allTimeBoards, achievementPoints } };
+  }
   if (type === "recordAvatarObjectives") return avatarInventory.objectives.recordBatch(payload);
   if (type === "recordPlayerRoundStats") {
     return recordPlayerRoundStats(payload || {});

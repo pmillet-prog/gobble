@@ -131,7 +131,7 @@ async function mediaCacheFirst(request, url) {
   }
 }
 
-async function chalkboardTextureCache(request, url) {
+async function validatedImageCache(request, url) {
   const key = makeCacheKey(url, true);
   const valid = response => response?.ok && /^image\//i.test(response.headers.get("content-type") || "");
   let cached;
@@ -139,8 +139,8 @@ async function chalkboardTextureCache(request, url) {
     const cache = await caches.open(name);
     const candidate = await cache.match(key);
     if (valid(candidate)) cached = candidate;
-    // A SPA fallback can return HTML with status 200 for a missing asset.
-    // Previously that response could remain cached forever as the texture.
+    // A SPA fallback can return HTML with status 200 while an image is missing.
+    // Recover after that image is added instead of keeping the broken response.
     else if (candidate) await cache.delete(key);
   }
   if (cached && request.cache !== "reload") return cached;
@@ -148,7 +148,7 @@ async function chalkboardTextureCache(request, url) {
     const network = await fetch(request, { cache: "reload" });
     if (!valid(network)) {
       if (cached) return cached;
-      return new Response("Texture unavailable", { status: 503 });
+      return new Response("Image unavailable", { status: 503 });
     }
     await putInCache(MEDIA_CACHE, key, network);
     await trimCache(MEDIA_CACHE);
@@ -301,8 +301,9 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  if (url.pathname === "/chalkboard/surface/patinee-v2.webp") {
-    event.respondWith(chalkboardTextureCache(request, url));
+  const isTrophyImage = url.pathname.startsWith("/trophies/") && /\.(?:png|webp)$/i.test(url.pathname);
+  if (url.pathname === "/chalkboard/surface/patinee-v2.webp" || isTrophyImage) {
+    event.respondWith(validatedImageCache(request, url));
     return;
   }
 

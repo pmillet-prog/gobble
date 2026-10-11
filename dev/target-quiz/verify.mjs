@@ -144,8 +144,8 @@ async function verifyRewards() {
     await until(() => evaluate("!!document.querySelector('.target-quiz-recap .target-quiz-progress')"), "recap progress");
     check("Recap keeps all four round statistics", await evaluate("document.querySelectorAll('.target-quiz-recap__stats dd').length === 4"));
     await until(() => evaluate("document.querySelector('.target-quiz-recap [role=progressbar]').getAttribute('aria-valuenow') === '10000'"), "full milestone gauge");
-    const reward = await until(() => call("reward"), "50 gobblars toast");
-    check("Reward toast shows the earned fifty gobblars", reward.amount === 50 && reward.label === "Qui veut gagner des Gobblars", reward);
+    const reward = await until(() => call("reward"), "500 gobblars toast");
+    check("Reward toast shows the earned five hundred gobblars", reward.amount === 500 && reward.label === "Qui veut gagner des Gobblars", reward);
     await capture(`rewards-${profile.layout}-milestone`);
     await until(() => evaluate("document.querySelector('.target-quiz-recap [role=progressbar]')?.getAttribute('aria-valuenow') === '50'"), "surplus after wrap");
     check("Recap preserves a negative lifetime total", await evaluate("document.querySelector('.target-quiz-recap .target-quiz-progress__total').textContent.includes('−200')"));

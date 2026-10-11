@@ -8,6 +8,7 @@ import {
   getWeeklyMetricValue,
   hasWeeklyChanges,
 } from "./weeklyStatsModel.js";
+import { getStatsRowDetails } from "./statsLeaderboardModel.js";
 
 test("weekly entry keys prefer the stable player key", () => {
   assert.equal(getWeeklyEntryKey({ playerKey: "user:42", nick: "Tigre" }), "user:42");
@@ -19,6 +20,20 @@ test("weekly metric values keep score and target-time semantics", () => {
   assert.equal(getWeeklyMetricValue("totalScore", { totalScore: 1234 }), 1234);
   assert.equal(getWeeklyMetricValue("weeklyVocab", { weeklyVocabCount: 87 }), 87);
   assert.equal(getWeeklyMetricValue("bestTimeTargetLong", { ms: "2500" }), 2500);
+});
+
+test("trophy ranking orders points instead of collection size and retains stable player identities", () => {
+  const model = createWeeklyStatsRuntimeModel({ current: "" }, { current: "" }, null);
+  const ranked = model.dedupeWeeklyEntries("achievementPoints", [
+    { userId: 1, nick: "Tigre", points: 20, totalCount: 10 },
+    { userId: 2, nick: "Test", points: 50, totalCount: 2 },
+    { userId: 1, nick: "Tigre", points: 30, totalCount: 11 },
+  ]);
+  assert.deepEqual(ranked.map(entry => entry.userId), [2, 1]);
+  assert.equal(getWeeklyMetricValue("achievementPoints", ranked[1]), 30);
+  assert.deepEqual(getStatsRowDetails("achievementPoints", ranked[0]), {
+    value: "50", unit: "points", details: ["2 trophées obtenus"], word: null,
+  });
 });
 
 test("presenter progress rankings keep negative balances and deduplicate by stable identity", () => {

@@ -112,6 +112,7 @@ import { createChatMessageMutations } from "./chat/chatMessageMutations.js";
 import { registerChatAuditHandlers } from "./realtime/registerChatAuditHandlers.js";
 import { registerModerationHandlers } from "./realtime/registerModerationHandlers.js";
 import { registerDevHandlers } from "./realtime/registerDevHandlers.js";
+import { registerAchievementDevHandlers } from "./realtime/registerAchievementDevHandlers.js";
 import { emitMaintenanceStatus } from "./realtime/emitMaintenanceStatus.js";
 import { registerReportHandlers } from "./realtime/registerReportHandlers.js";
 import { registerPlayerProgressHandlers } from "./realtime/registerPlayerProgressHandlers.js";
@@ -132,6 +133,7 @@ import {
   getWeekStartTs,
   getPreviousWeeklyVocabChampion,
   getPreviousWeeklyVocabPodium,
+  getCompletedWeeklyVocabPodiums,
   getWeeklyAvatarAuraPeriod,
   getWeeklyStats,
   getAllTimeGobbleCandidates,
@@ -238,6 +240,7 @@ import { isAdminAccount } from "./admin/adminAccess.js";
 import { isAccountUnderMaintenance } from "./admin/accountMaintenance.js";
 import { contentExclusions, registerContentReference } from "./admin/contentExclusions.js";
 import { createAvatarObjectiveBatcher } from "./avatars/avatarObjectiveBatcher.js";
+import { createAchievementRuntime } from "./stats/achievementRuntime.js";
 import { getPlayerProfileAppearance } from "./avatars/playerProfileAppearance.js";
 import {
   avatarStarterGrant,
@@ -276,15 +279,28 @@ await applyPendingScoreRecordRollback()
 
 const computePool = createComputePool();
 const persistenceClient = createPersistenceClient();
+const achievementRuntime = createAchievementRuntime({ persistence: persistenceClient, getIo: () => io,
+  getWeeklyPodiums: getCompletedWeeklyVocabPodiums });
+async function loadTargetQuizPointsWithAchievements(playerKey) {
+  const result = await persistenceClient.loadTargetQuizPoints({ playerKey });
+  if (!result?.achievementAwards) return result;
+  const { achievementAwards, ...points } = result;
+  achievementRuntime.publish(achievementAwards);
+  return points;
+}
 const presenterHits = createPresenterHitsService();
 await presenterHits.ready;
 const targetQuizService = createTargetQuizService({
   loadCatalog: loadTargetQuizCatalog,
   loadProgress: playerKey => persistenceClient.loadTargetQuizProgress({ playerKey }),
   saveProgress: (playerKey, progress) => persistenceClient.saveTargetQuizProgress({ playerKey, progress }),
-  loadPoints: playerKey => persistenceClient.loadTargetQuizPoints({ playerKey }),
+  loadPoints: loadTargetQuizPointsWithAchievements,
   saveAnswer: payload => persistenceClient.saveTargetQuizAnswer(payload),
-  finishPoints: payload => persistenceClient.finishTargetQuizPoints(payload),
+  finishPoints: async payload => {
+    const result = await persistenceClient.finishTargetQuizPoints(payload);
+    achievementRuntime.publish(result?.achievementAwards);
+    return result;
+  },
   onReward: ({ playerKey, reward }) => {
     for (const client of io.sockets.sockets.values()) {
       if (`user:${client.data?.authUser?.id}` === playerKey) client.emit("gobblarsAwarded", { ...reward, kind: "target_quiz_milestone" });
@@ -297,7 +313,11 @@ const targetQuizHandlers = createTargetQuizSocketHandlers({
 });
 void loadTargetQuizCatalog().catch(error => console.warn("[target-quiz] bank unavailable", error.message));
 const avatarObjectiveProgress = createAvatarObjectiveBatcher({
-  persist: events => persistenceClient.recordAvatarObjectives(events),
+  persist: async events => {
+    const result = await persistenceClient.recordAvatarObjectives(events);
+    achievementRuntime.publish(result?.achievementAwards);
+    return result;
+  },
   onRewards: rewards => {
     for (const { userId, reward } of rewards) for (const client of io.sockets.sockets.values()) {
       if (Number(client.data?.authUser?.id) === userId) client.emit("avatarRewardsUnlocked", { userId, rewards: [reward] });
@@ -480,12 +500,13 @@ app.get("/api/player-profile/user/:userId", async (req, res) => {
     const fallbackNick = String(req.query?.nick || "");
     const cacheKey = `${userId}|${safeViewerUserId || 0}|${fallbackNick.slice(0, 48)}`;
     const cachedProfile = getCachedPlayerProfile(cacheKey);
-    const [appearance, targetQuiz] = await Promise.all([
+    const [appearance, targetQuiz, achievements] = await Promise.all([
       getPlayerProfileAppearance(userId),
-      persistenceClient.loadTargetQuizPoints({ playerKey: `user:${userId}` }),
+      loadTargetQuizPointsWithAchievements(`user:${userId}`),
+      achievementRuntime.profile(userId),
     ]);
     if (cachedProfile) {
-      return res.json({ ok: true, profile: { ...cachedProfile, ...appearance, targetQuiz } });
+      return res.json({ ok: true, profile: { ...cachedProfile, ...appearance, targetQuiz, achievements } });
     }
     const profile = await getPublicPlayerProfileByUserId(userId, {
       fallbackNick,
@@ -495,7 +516,7 @@ app.get("/api/player-profile/user/:userId", async (req, res) => {
       return res.status(404).json({ ok: false, error: "profile_not_found" });
     }
     setCachedPlayerProfile(cacheKey, profile);
-    return res.json({ ok: true, profile: { ...profile, ...appearance, targetQuiz } });
+    return res.json({ ok: true, profile: { ...profile, ...appearance, targetQuiz, achievements } });
   } catch (err) {
     console.warn("Player profile route failed", err);
     return res.status(500).json({ ok: false, error: "profile_unavailable" });
@@ -4568,6 +4589,8 @@ function addMedal(room, nick, type, tournamentKey = null, tournament = room?.tou
     bronze: Math.min(9999, current.bronze + (type === "bronze" ? 1 : 0)),
   });
   recordMedal(key, nick, type, Date.now());
+  achievementRuntime.medal({ room, userId: key.replace(/^install:/, ""), type,
+    tournamentKey: tournamentKey || (tournament?.id ? `${room.id}:${tournament.id}` : null) });
   if (key.startsWith("install:")) {
     room.medalExpiry.set(key, getNextMidnightTs());
   } else {
@@ -4576,7 +4599,8 @@ function addMedal(room, nick, type, tournamentKey = null, tournament = room?.tou
   const installId = getInstallIdForNick(room, nick);
   if (installId) {
     if (type === "gold" && tournamentKey) {
-      avatarObjectiveProgress.record({ userId: Number(installId), eventKey: tournamentKey, occurredAt: Date.now(), objective: "mini_tournament_wins" });
+      avatarObjectiveProgress.record({ userId: Number(installId), eventKey: tournamentKey, occurredAt: Date.now(), objective: "mini_tournament_wins",
+        achievementRoundId: room.currentRound ? `${room.id}#${room.currentRound.id}` : null });
     }
     void recordTournamentMedalPoints({
       installId,
@@ -8832,7 +8856,8 @@ function submitWordForNick(
   });
   if (lepersBonusAwarded && persistentProgressAllowed && !isBotPlayer && playerInstallId) {
     avatarObjectiveProgress.record({ userId: Number(playerInstallId), objective: "lepers_correct_answers",
-      eventKey: `${room.id}:${room.currentRound.lepersChallenge.id}`, occurredAt: Date.now() });
+      eventKey: `${room.id}:${room.currentRound.lepersChallenge.id}`, occurredAt: Date.now(),
+      achievementRoundId: `${room.id}#${room.currentRound.id}` });
   }
   if (persistentProgressAllowed && !isBotPlayer && playerKey && !isTargetRound) {
     const achievedAt = Date.now();
@@ -8842,6 +8867,8 @@ function submitWordForNick(
     }
     recordLongestWord(playerKey, resolvedNick, norm, len, achievedAt);
   }
+  if (persistentProgressAllowed && !isBotPlayer) achievementRuntime.word({ room, userId: playerInstallId,
+    words: [norm, ...extraAcceptedWords.map(entry => entry.word)], wordsCount: data.words.size, score: data.score });
 
   // Records du mini-tournoi
   const t = room.tournament;
@@ -8936,6 +8963,7 @@ function submitWordForNick(
         targetFoundAt: foundAt,
       });
       if (persistentProgressAllowed && !isBotPlayer && playerKey) {
+        achievementRuntime.target({ room, userId: playerInstallId, elapsed });
         recordBestTargetTime(
           specialType,
           playerKey,
@@ -11572,6 +11600,10 @@ async function endRoundForRoom(room) {
   const nextSpecialForBreak = nextPlanForBreak?.isSpecial ? nextPlanForBreak : null;
   await prepareResultsWordPresentation(room);
   const lepersResult = buildLepersRoundResult(room.currentRound);
+  if (!isTrainingRound) {
+    await avatarObjectiveProgress.flush();
+    await achievementRuntime.settleRound(room, results).catch(error => console.warn("Achievement round settlement failed", error));
+  }
   const roundEndedPayload = {
     roomId: room.id,
     roundId: room.currentRound.id,
@@ -11706,6 +11738,8 @@ async function endRoundForRoom(room) {
 }
 
 io.on("connection", (socket) => {
+  achievementRuntime.register(socket);
+  registerAchievementDevHandlers(socket, { requireDevToolsAccess, getRoom });
   console.log("Client connecté", socket.id);
   emitMaintenanceStatus(socket, isMaintenanceModeActive());
   emitRoomsStats();
@@ -11966,7 +12000,11 @@ botManager = createBotManager({
 });
 
 const PORT = 4000;
-weeklyAvatarAuras.start({ getPeriod: getWeeklyAvatarAuraPeriod, onUpdate: snapshot => io.emit("avatar:weekly-auras", snapshot) });
+await achievementRuntime.bootstrap();
+weeklyAvatarAuras.start({ getPeriod: getWeeklyAvatarAuraPeriod, onUpdate: snapshot => {
+  io.emit("avatar:weekly-auras", snapshot);
+  void achievementRuntime.reconcileWeekly(snapshot);
+} });
 server.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running on *:${PORT}`);
 });

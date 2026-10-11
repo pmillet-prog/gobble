@@ -66,6 +66,7 @@ export function getWeeklyMetricValue(boardKey, entry) {
   if (boardKey === "presenterHits") return Number(entry.hits) || 0;
   if (boardKey === "qpugAnswers") return Number(entry.correctCount) || 0;
   if (boardKey === "targetQuizPoints") return Number(entry.points) || 0;
+  if (boardKey === "achievementPoints") return Number(entry.points) || 0;
   return null;
 }
 
@@ -133,6 +134,7 @@ export function createWeeklyStatsRuntimeModel(
       case "qpugAnswers":
         return Number(entry.correctCount) || 0;
       case "targetQuizPoints":
+      case "achievementPoints":
         return Number(entry.points) || 0;
       default:
         return null;

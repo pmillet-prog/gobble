@@ -123,6 +123,9 @@ export function createPersistenceClient() {
   ensureWorker();
 
   return {
+    achievementCollection(payload) {
+      return call("achievementCollection", payload);
+    },
     recordPlayerRoundStats(payload) {
       enqueue("recordPlayerRoundStats", payload);
     },

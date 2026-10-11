@@ -1,6 +1,7 @@
 import React from "react";
 import { createPortal } from "react-dom";
 import useThreeWordsRecapSound from "./useThreeWordsRecapSound.js";
+import ThreeWordsGobbleCelebration from "./ThreeWordsGobbleCelebration.jsx";
 import "./dailySpecialRecap.css";
 
 export default function DailySpecialRecapDialog({ result, review, animate = false, onClose,
@@ -13,6 +14,13 @@ export default function DailySpecialRecapDialog({ result, review, animate = fals
   const [revealed, setRevealed] = React.useState(() =>
     animate && typeof window !== "undefined" && !window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? 0 : review.length
   );
+  const [gobbleIndex, setGobbleIndex] = React.useState(null);
+
+  const revealVerdict = React.useCallback(index => {
+    const entry = review[index];
+    playVerdictSound(entry);
+    if (entry?.valid && entry.gobble) setGobbleIndex(index);
+  }, [review, playVerdictSound]);
 
   React.useLayoutEffect(() => {
     const dialog = dialogRef.current;
@@ -23,11 +31,11 @@ export default function DailySpecialRecapDialog({ result, review, animate = fals
   React.useEffect(() => {
     if (revealed >= review.length) return;
     const timer = window.setTimeout(() => {
-      playVerdictSound(review[revealed]);
+      revealVerdict(revealed);
       setRevealed(count => count + 1);
     }, 550);
     return () => window.clearTimeout(timer);
-  }, [revealed, review, playVerdictSound]);
+  }, [revealed, review, revealVerdict]);
 
   const complete = revealed >= review.length;
   const validCount = review.filter(entry => entry.valid).length;
@@ -46,7 +54,12 @@ export default function DailySpecialRecapDialog({ result, review, animate = fals
           return <li key={index} className={`daily-special-recap-word is-${status}`}>
             <div className="daily-special-recap-word-heading">
               <span className="daily-special-recap-number" aria-hidden="true">{index + 1}</span>
-              <strong>{entry.word || "Emplacement vide"}</strong>
+              <span className="daily-special-recap-word-title">
+                <strong>{entry.word || "Emplacement vide"}</strong>
+                {visible && entry.valid && entry.gobble ? <span className="daily-special-recap-gobble-badge">
+                  {entry.doubleGobble ? "Double Gobble" : "Gobble"}
+                </span> : null}
+              </span>
               <span className="daily-special-recap-points">{visible ? entry.points == null ? "—" : `${entry.points} pts` : "…"}</span>
             </div>
             <div className="daily-special-recap-verdict">
@@ -54,6 +67,8 @@ export default function DailySpecialRecapDialog({ result, review, animate = fals
               <b>{visible ? entry.label : "Révélation…"}</b>
               {visible && entry.explanation ? <p>{entry.explanation}</p> : null}
             </div>
+            {gobbleIndex === index ? <ThreeWordsGobbleCelebration key={index}
+              doubleGobble={entry.doubleGobble} onComplete={() => setGobbleIndex(null)} /> : null}
           </li>;
         })}
       </ol>
@@ -64,7 +79,11 @@ export default function DailySpecialRecapDialog({ result, review, animate = fals
       {complete && review.some(entry => entry.valid && entry.points == null) ?
         <p className="daily-special-recap-note">Le détail des points par mot n’a pas été conservé pour cette ancienne partie.</p> : null}
       {footerNote ? <p className="daily-special-recap-note">{footerNote}</p> : null}
-      <button type="button" className="daily-special-recap-done" onClick={complete ? onClose : () => setRevealed(review.length)}>
+      <button type="button" className="daily-special-recap-done" onClick={complete ? onClose : () => {
+        const nextGobble = review.findIndex((entry, index) => index >= revealed && entry.valid && entry.gobble);
+        if (nextGobble >= 0) revealVerdict(nextGobble);
+        setRevealed(review.length);
+      }}>
         {complete ? doneLabel : "Tout afficher"}
       </button>
     </dialog>, document.body

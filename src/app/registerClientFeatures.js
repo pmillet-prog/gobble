@@ -33,8 +33,10 @@ import { createStandaloneTrainingFeature } from "../features/training/createStan
 import { createTutorialFeature } from "../features/tutorial/createTutorialFeature.js";
 import { createTraceFeature } from "../features/trace/createTraceFeature.js";
 import { createTargetQuizFeature } from "../features/targetQuiz/createTargetQuizFeature.js";
+import { createTrophiesFeature } from "../features/trophies/createTrophiesFeature.js";
 
 const FEATURE_FACTORIES = Object.freeze({
+  achievements: createTrophiesFeature,
   activity: createPlayerActivityFeature,
   admin: createAdminFeature,
   accountAdmin: createAccountAdminFeature,

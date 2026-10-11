@@ -4631,6 +4631,7 @@ export default function GobbleApplication() {
       currentRoomIdRef,
       gameplaySession: gameplaySessionFeature,
       isLoggedInRef,
+      isSpecial3WordsMode,
       lastGobbleAtRef,
       liveSessionReadyRef,
       maybePlayAnnouncementSound,
@@ -7845,21 +7846,6 @@ function handleTouchEnd() {
     isSpecial3RoundForResults,
     isSpeedRoundForResults,
   ]);
-  const special3LongestWordLen =
-    isSpecial3WordsMode && Number.isFinite(roundStats?.maxLen) ? Number(roundStats.maxLen) : 0;
-  const renderSpecial3LengthGobbleBadge = (word) => {
-    if (!gobbleBadgeUrl || !special3LongestWordLen || !word) return null;
-    const len = normalizeWord(String(word || "")).length;
-    if (len <= 0 || len !== special3LongestWordLen) return null;
-    return (
-      <img
-        src={gobbleBadgeUrl}
-        alt="G"
-        className="block h-3.5 w-auto"
-        style={{ imageRendering: "auto" }}
-      />
-    );
-  };
   const renderGobbleCandidate = (word) => {
     const meta = gobbleCandidates.get(word);
     if (!meta) return null;
@@ -9231,6 +9217,7 @@ function handleTouchEnd() {
   }
 
   function renderGobbleWordAwardsInline(nick, countOverride = null) {
+    if (isSpecial3WordsMode && phase === "playing") return null;
     const resolvedNick = nick ? String(nick).trim() : "";
     const liveAwards = resolvedNick ? gobbleAwardsForLive?.get?.(resolvedNick) || null : null;
     const count =
@@ -12095,7 +12082,7 @@ function handleTouchEnd() {
         <Suspense fallback={null}>
           <LiveThreeWordsRecap roundId={standaloneTrainingSession?.sessionId || standaloneTrainingSession?.gridId || roundId}
             training={!!standaloneTrainingSession} results={finalResults}
-            userId={authenticatedUserId} nickname={nickname} />
+            userId={authenticatedUserId} nickname={nickname} maxWordLength={roundStats?.maxLen} />
         </Suspense>
       ) : null}
       {tutorialOverlay}
@@ -12754,7 +12741,6 @@ function handleTouchEnd() {
             handleTouchStart,
             normalizeLetterKey,
             openSettingsPanel,
-            renderSpecial3LengthGobbleBadge,
             requestOpenChat,
             resolveSpecial3LiveTrace,
             setDailyActiveSlot,
@@ -13146,7 +13132,6 @@ function handleTouchEnd() {
             renderNickSuffix,
             renderRankDelta,
             renderSpecial3BonusChipButton,
-            renderSpecial3LengthGobbleBadge,
             renderSpecial3PreviewTiles,
             resolveSpecial3LiveTrace,
             resultsPathGradientIdRef,

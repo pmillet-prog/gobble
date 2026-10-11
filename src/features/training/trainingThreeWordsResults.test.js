@@ -21,6 +21,7 @@ test("training reveals valid, invalid and empty slots through the live recap wit
     ["CHAT", true, result.score], ["ez", false, 0], ["", false, 0],
   ]);
   assert.match(recap.review[1].explanation, /dictionnaire/);
+  assert.deepEqual(recap.review.map(entry => entry.gobble), [true, false, false]);
   assert.equal(slots[0].pts, 999, "finalization does not mutate the provisional slots");
   assert.equal(grid[1].bonus, null);
 });
@@ -32,9 +33,11 @@ test("training rejects duplicate words, reused start tiles and invalid paths", (
     { word: "cha", path: [0, 1, 2] },
   ]);
   assert.deepEqual(result.specialWordSlots.map(slot => slot.reason), [null, "duplicate_word", "duplicate_start"]);
+  assert.deepEqual(result.specialWordSlots.map(slot => slot.gobble), [true, false, false]);
   const invalid = finish([{ word: "chat", path: [3, 2, 1, 0] }]);
   assert.equal(invalid.score, 0);
   assert.equal(invalid.specialWordSlots[0].reason, "invalid_path");
+  assert.equal(invalid.specialWordSlots[0].gobble, false);
   assert.deepEqual(invalid.words, []);
 });
 
@@ -46,4 +49,12 @@ test("an empty round still has a recap, and compact training solutions are accep
   assert.ok(finish([{ word: "chat", path: [0, 1, 2, 3] }], {}, {
     grid, solutions: [["chat", 999, [0, 1, 2, 3]]],
   }).score > 0);
+});
+
+test("a valid training proposal below the solved maximum has no Gobble", () => {
+  const result = finish([{ word: "cha", path: [0, 1, 2] }]);
+  assert.equal(result.specialWordSlots[0].valid, true);
+  assert.equal(result.specialWordSlots[0].gobble, false);
+  const recap = getLiveThreeWordsRecap([result], { userId: 7, maxWordLength: 3 });
+  assert.equal(recap.review[0].gobble, false, "the final training verdict takes priority over external round metadata");
 });

@@ -10,6 +10,7 @@ import {
 
 export default function NotificationToastLayer({ darkMode = false }) {
   const notifications = useFeatureRuntime("notifications");
+  useFeatureRuntime("achievements");
   const toasts = useFeatureSelector(notifications, (state) => state.toasts);
   const reward = useFeatureSelector(notifications, (state) => state.gobblarsReward);
   const celebration = reward ? <GobblarsRewardCelebration key={reward.id} reward={reward} /> : null;

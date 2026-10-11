@@ -32,6 +32,8 @@ export function getDailySpecialWordReview(result) {
       word,
       valid,
       points: valid ? (Number.isFinite(entry.points) ? entry.points : null) : 0,
+      gobble: valid && entry.gobble === true,
+      doubleGobble: valid && entry.gobble === true && entry.doubleGobble === true,
       label: !word ? "Non proposé" : valid ? "Validé" : "Non retenu",
       explanation: !word ? REASONS.empty : valid ? "" : REASONS[entry.reason] || REASONS.not_counted,
     };

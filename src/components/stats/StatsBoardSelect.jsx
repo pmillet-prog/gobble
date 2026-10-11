@@ -67,12 +67,13 @@ export default function StatsBoardSelect({ label, options, value, onChange }) {
     </button>
     {position ? createPortal(<div ref={menuRef} id={`${id}-options`} role="listbox" aria-label={label}
       className="stats-board-menu" style={position.style}>
-      {options.map((option, index) => <div id={`${id}-option-${index}`} key={option.key} role="option"
+      {/* Touch taps must focus an option inside the popup, not its parent dialog. */}
+      {options.map((option, index) => <button type="button" tabIndex={-1} id={`${id}-option-${index}`} key={option.key} role="option"
         aria-selected={option.key === value} data-value={option.key} data-active={index === active}
         className="stats-board-option" onPointerMove={event => { if (event.pointerType === "mouse") setActive(index); }}
         onPointerDown={event => { if (event.pointerType === "mouse") event.preventDefault(); }} onClick={() => choose(index)}>
         <span><StatsTypewriterText>{option.label}</StatsTypewriterText></span><span className="stats-board-check" aria-hidden="true">{option.key === value ? "✓" : ""}</span>
-      </div>)}
+      </button>)}
     </div>, position.host) : null}
   </div>;
 }

@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Gobble · Une place, trois métaux</title>
+  <link rel="stylesheet" href="/src/features/trophies/trophyMetalLighting.css">
+  <style>
+    *{box-sizing:border-box}
+    body{margin:0;background:#071720;color:#dfebf3;font:15px/1.5 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+    button,a{-webkit-tap-highlight-color:transparent}
+    button{font:inherit;cursor:pointer}
+    button:focus-visible,a:focus-visible{outline:3px solid #ffd46a;outline-offset:3px}
+    [hidden]{display:none!important}
+    main{max-width:760px;padding:24px 20px 36px;margin:auto}
+    a{color:#abdbea;text-underline-offset:3px}
+    h1{font-size:26px;line-height:1.2;margin:20px 0 10px;letter-spacing:-.025em}
+    .intro{color:#b6cbd9;margin:0 0 18px;max-width:640px}
+    .notice{border-left:3px solid #bda16a;padding:9px 13px;margin-bottom:24px;background:#152835;color:#d4c7aa;font-size:12px}
+    .profile{padding:18px;border:1px solid #294352;border-radius:18px;background:linear-gradient(145deg,#163346,#0b202d);box-shadow:0 16px 70px #0003}
+    .heading{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin:0 0 8px}
+    .heading h2{font-size:16px;margin:0;color:#efce8a}
+    .heading small{font-size:12px;color:#b9ceda;text-align:right}
+    .stage{position:relative;isolation:isolate;container-type:inline-size;border-radius:14px}
+    .shelf{position:relative;width:100%;aspect-ratio:1;container-type:inline-size}
+    .shelf-art{width:100%;height:100%;display:block;object-fit:contain;pointer-events:none}
+    .slot{position:absolute;left:var(--x);top:var(--base);width:13.3%;height:16.8%;transform:translate(-50%,-100%);border:0;border-radius:12px;background:transparent;padding:0}
+    .slot:hover,.slot.is-selected{background:radial-gradient(ellipse at 50% 86%,#ffb30095,#de84004d 42%,#bd5c0000 80%)}
+    .art{width:100%;height:100%;object-fit:contain;object-position:center bottom;filter:drop-shadow(0 3px 3px #0007)}
+    .art.bronze{filter:sepia(.9) saturate(.85) hue-rotate(-18deg) brightness(.78) contrast(1.1) drop-shadow(0 3px 3px #0007)}
+    .art.silver{filter:grayscale(1) brightness(.9) contrast(1.16) drop-shadow(0 3px 3px #0008)}
+    .art.locked{filter:grayscale(1) brightness(.53) contrast(.75) drop-shadow(0 3px 3px #0007);opacity:.54}
+    .count,.vacant{position:absolute;left:var(--x);top:var(--medal);transform:translate(-50%,-50%);width:7%;text-align:center;font-size:clamp(7px,1.8cqi,11px);font-weight:800;color:#ffe5a8;line-height:1;pointer-events:none;font-variant-numeric:tabular-nums}
+    .count{font-size:min(clamp(7px,1.8cqi,11px),calc(5cqi / var(--digits,1)))}
+    .count.locked{color:#83929b}
+    .vacant{color:#9eb0bb;font-size:17px}
+    .shelf-help{color:#b9ceda;font-size:13px;margin:10px 0 0}
+    .shelf-help strong{font-weight:650;color:#f2d79e}
+    .spot-overlay{position:absolute;inset:0 0 auto;aspect-ratio:1;border-radius:14px;z-index:3;overflow:hidden;background:radial-gradient(ellipse at 50% 48%,#07131d9e,#07131d70 70%,#07131d50);backdrop-filter:blur(1px);animation:appear .2s ease-out}
+    .close{position:absolute;right:5%;top:5%;z-index:4;display:grid;place-items:center;width:38px;height:38px;padding:0;border:1px solid #e7a32b80;border-radius:50%;background:#101f2cee;color:#ffc349;font-size:28px;line-height:1}
+    .figure{position:absolute;left:50%;top:44%;width:62%;max-width:350px;aspect-ratio:1;transform:translate(-50%,-50%);pointer-events:none}
+    .large-art{position:relative;z-index:1;object-position:center;filter:drop-shadow(0 12px 12px #0009) drop-shadow(0 0 13px rgb(var(--trophy-glow)/.33))}
+    .halo{position:absolute;inset:-20%;background:radial-gradient(ellipse,rgb(var(--trophy-light)/.04) 12%,rgb(var(--trophy-light)/.24) 36%,rgb(var(--trophy-glow)/.2) 48%,rgb(var(--trophy-glow)/.08) 60%,transparent 73%)}
+    .halo:before{content:"";position:absolute;inset:18%;border-radius:50%;border:1px solid rgb(var(--trophy-glow)/.19);box-shadow:0 0 24px rgb(var(--trophy-light)/.23),inset 0 0 20px rgb(var(--trophy-glow)/.17);transform:scaleY(.92) rotate(-12deg)}
+    .spark{position:absolute;width:var(--size);height:var(--size);border-radius:50%;background:rgb(var(--trophy-light));box-shadow:0 0 5px rgb(var(--trophy-light)/.75),0 0 12px rgb(var(--trophy-glow)/.44);opacity:.68;transform:translate(-50%,-50%);animation:shimmer var(--duration) ease-in-out var(--delay) infinite}
+    .spark.star{width:calc(var(--size) + 5px);height:calc(var(--size) + 5px);border-radius:0;background:rgb(var(--trophy-star));clip-path:polygon(50% 0,61% 36%,100% 50%,61% 63%,50% 100%,38% 63%,0 50%,38% 36%)}
+    .caption{position:absolute;bottom:7%;left:7%;width:86%;padding:10px;text-align:center;background:linear-gradient(90deg,transparent,#112636ef 15%,#112636ef 85%,transparent);border-block:1px solid #d8a13655;text-shadow:0 2px 3px #07121c;pointer-events:none}
+    .caption h3{font-size:clamp(16px,3.3cqi,22px);line-height:1.2;color:#f7c663;margin:0}
+    .caption p{font-size:clamp(12px,2.2cqi,14px);color:#ead2a6;margin:5px 0 0}
+    .detail{padding-top:16px}
+    .tiers{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
+    .tier{padding:8px 5px 10px;display:flex;flex-direction:column;align-items:center;gap:4px;border:1px solid #3a5261;border-radius:10px;background:#0b202e;color:#d9e6ed;min-width:0}
+    .tier[aria-pressed="true"]{border-color:#edb959;background:#314238;box-shadow:0 0 0 1px #edb95944}
+    .tier img{width:65px;max-width:100%;height:65px}
+    .tier span{font-weight:600;font-size:14px;line-height:1.35;text-align:center}
+    .tier small{font-size:11px;color:#a9bfcc;white-space:nowrap}
+    .condition{margin:12px 0 0;font-size:13px;color:#c4d4df}
+    .collection-note{font-size:12px;color:#97adba;margin:6px 0 0}
+    .legend{font-size:12px;color:#b2c5d1;margin:15px 0 0}
+    @keyframes appear{from{opacity:0}to{opacity:1}}
+    @keyframes shimmer{0%,100%{opacity:.2;transform:translate(-50%,-50%) scale(.55)}48%{opacity:1;transform:translate(calc(-50% + var(--dx)),calc(-50% + var(--dy))) scale(1.12)}74%{opacity:.58;transform:translate(-50%,-50%) scale(.78)}}
+    @media(max-width:480px){main{padding:16px 10px 28px}h1{font-size:22px}.profile{padding:10px;border-radius:12px}.heading{gap:8px}.heading h2{font-size:14px}.heading small{font-size:11px}.close{width:34px;height:34px;font-size:26px}.tier span{font-size:12px}.tiers{gap:6px}.tier img{width:58px;height:58px}.caption{padding:8px}.notice{margin-bottom:16px}}
+    @media(prefers-reduced-motion:reduce){.spark,.spot-overlay{animation:none}.spark{opacity:.8}}
+  </style>
+</head>
+<body>
+<main id="profile-tiers-demo">
+  <a href="../all-players/">← Analyse des joueurs réguliers</a>
+  <p><a href="../scoring/" target="_blank" rel="noopener">Comparer les propositions de barème ↗</a></p>
+  <h1>Une place sur l’étagère, trois métaux</h1>
+  <p class="intro">La meilleure version obtenue occupe la place. Un clic révèle les jalons bronze et argent, puis les ors accumulés.</p>
+  <aside class="notice"><strong>Maquette avec comptes fictifs.</strong> Pour les cumuls, bronze à 30 % et argent à 60 % sont deux jalons uniques ; l’or à 100 % est répétable. Manche magistrale suit ses propres seuils : 2 000 / 4 000 / 5 000 points hors finales. <span id="calibration-note">Les seuils sont ceux du simulateur.</span> Les visuels à paliers ne portent plus de nombre gravé : la condition figure dans leur fiche. <a href="/dev/trophies/">Essayer l’étagère intégrée au profil</a> · <a href="../all-players/#gold-thresholds">Voir les seuils dans le simulateur</a>.</aside>
+  <section class="profile" aria-label="Exemple de collection de trophées">
+    <div class="heading"><h2>L’étagère des exploits</h2><small id="total-count"></small></div>
+    <div class="stage" id="stage">
+      <div class="shelf" id="shelf"><img class="shelf-art" src="/trophies/v1/shelf.webp" alt="" draggable="false"></div>
+      <section id="spotlight" class="trophy-metal-lighting" role="dialog" aria-modal="false" aria-labelledby="spot-title" aria-describedby="spot-status" hidden>
+        <div class="spot-overlay" id="spot-overlay">
+          <button class="close" id="spot-close" type="button" aria-label="Fermer le trophée agrandi">×</button>
+          <div class="figure"><div class="halo" id="sparkles" aria-hidden="true"></div><img class="art large-art" id="large-art" alt="" draggable="false"></div>
+          <div class="caption"><h3 id="spot-title"></h3><p id="spot-status" aria-live="polite"></p></div>
+        </div>
+        <div class="detail">
+          <div class="tiers" id="tier-buttons" aria-label="Versions du trophée"></div>
+          <p class="condition" id="tier-condition"></p>
+          <p class="collection-note" id="collection-note"></p>
+        </div>
+      </section>
+    </div>
+    <p class="shelf-help" id="shelf-help">Clique sur un trophée. Essaie <strong>Collectionneur</strong>, tout en bas à gauche : le bronze et l’argent sont acquis, et 2 ors ont été obtenus.</p>
+    <p class="legend">Le médaillon indique ✓ pour une récompense unique acquise, puis compte les exemplaires des récompenses répétables. Le total additionne les récompenses obtenues, chaque jalon unique une seule fois. Les trophées éteints restent à conquérir.</p>
+  </section>
+</main>
+<script type="module">
+  import { TROPHY_CATALOG, TROPHY_SLOT_COUNT } from '/shared/trophyCatalog.js';
+  import { getWorkshopTrophyRule } from '../trophy-rules.mjs';
+  import '../all-players/data.js';
+
+  const root = document.getElementById('profile-tiers-demo');
+  const shelf = root.querySelector('#shelf');
+  const spot = root.querySelector('#spotlight');
+  const tierButtons = root.querySelector('#tier-buttons');
+  const closeButton = root.querySelector('#spot-close');
+  const metals = ['bronze','silver','gold'];
+  const names = {bronze:'Bronze',silver:'Argent',gold:'Or'};
+  const model = window.GOBBLE_POPULATION;
+  const simulationCategories = new Map(model.categories.map(category => [category.id,category]));
+  const fractions = {bronze:model.scenario.fractions.bronze,silver:model.scenario.fractions.argent,gold:model.scenario.fractions.or};
+  const number = value => value.toLocaleString('fr-FR',{maximumFractionDigits:0});
+  const calibration = model.scenario.calibration;
+  const medalCalibration=simulationCategories.get('mini_gold_5000')?.calibration;
+  const targetCategories=model.categories.filter(category=>category.calibration?.newReachedPlayers>=calibration.requiredPlayers).length;
+  root.querySelector('#calibration-note').textContent=`Les seuils cumulatifs sont arrondis vers le bas sur la suite 1, 2, 5, 10, 20, 50, 100… : ${number(targetCategories)} catégories visent au moins ${number(calibration.targetShare*100)} % des réguliers obtenant l’or en ${number(calibration.horizonDays)} jours au rythme observé. Exception retenue : 50 médailles d’or de mini-tournoi, atteintes par ${number(medalCalibration.newReachedPlayers)} des ${number(medalCalibration.totalPlayers)} joueurs, soit environ ${number(medalCalibration.newReachedPlayers/medalCalibration.totalPlayers*100)} %.`;
+  const columns = [15.15,29.1,43,57.2,71.1,85.1];
+  const rows = [{base:24.5,medal:27.1},{base:47.2,medal:49.7},{base:69.7,medal:72.8},{base:89.8,medal:92.8}];
+  const examples = {
+    weekly_gold: [0,0,1], weekly_silver: [0,2,0], weekly_bronze: [3,0,0],
+    volume_100:[0,0,true], word_16:[0,0,0], word_17:[0,0,0],
+    mini_gold_5000:[true,false,0], three_words_1000:[0,0,1], target_under_2s:[0,0,2],
+    julien_1000:[true,true,0], round_5000:[true,true,0], gobbles_10000:[true,false,0],
+    foukro_500000:[false,false,0], marathon_10000:[true,true,0], total_score_10000000:[true,true,0],
+    double_gobbles_1000:[true,false,0], targets_1000:[true,true,0], medals_5000:[true,true,0], words_100000:[true,true,2],
+  };
+  let selected = null;
+  let returnFocus = null;
+  const countsFor = trophy => examples[trophy.id] || [0,0,0];
+  const totalFor = trophy => countsFor(trophy).reduce((sum,value) => sum + Number(value),0);
+  const tiersFor = trophy => trophy.repeat==='cumulative'
+    ? metals.map(metal=>({metal,threshold:simulationCategories.get(trophy.id).threshold*fractions[metal],repeatable:metal==='gold'}))
+    : getWorkshopTrophyRule(trophy.id)?.tiers || [];
+  const uniqueFor = (trophy,metal) => {
+    const tier=tiersFor(trophy).find(tier=>tier.metal===metal);
+    return tier ? !tier.repeatable : getWorkshopTrophyRule(trophy.id)?.repeatable===false;
+  };
+  const bestFor = trophy => {
+    if(trophy.repeat === 'weekly') return trophy.id.replace('weekly_','');
+    if(!tiersFor(trophy).length) return 'gold';
+    const counts = countsFor(trophy);
+    return metals[Math.max(0,counts.findLastIndex(value => value > 0))];
+  };
+  const artClass = (metal,count,extra='') => `art ${extra} ${metal}${count ? '' : ' locked'}`;
+
+  root.querySelector('#total-count').textContent = `${TROPHY_CATALOG.reduce((sum,trophy) => sum + totalFor(trophy),0)} trophées · tous métaux`;
+  for(let index=0;index<TROPHY_SLOT_COUNT;index++){
+    const trophy = TROPHY_CATALOG[index];
+    const row = rows[Math.floor(index/6)];
+    const position = `--x:${columns[index%6]}%;--base:${row.base}%;--medal:${row.medal}%`;
+    if(!trophy){
+      const vacant = document.createElement('span');
+      vacant.className='vacant';vacant.style.cssText=position;vacant.textContent='·';vacant.setAttribute('aria-hidden','true');shelf.append(vacant);continue;
+    }
+    const metal = bestFor(trophy);
+    const count = countsFor(trophy)[metals.indexOf(metal)];
+    const button = document.createElement('button');
+    button.type='button';button.id=`slot-${trophy.id}`;button.className='slot';button.style.cssText=position;
+    button.dataset.trophy=trophy.id;button.dataset.metal=metal;
+    const unique=uniqueFor(trophy,metal);
+    button.setAttribute('aria-label',`${trophy.name} · ${count ? `${names[metal]} obtenu${unique?'':` ${count} fois`}` : 'Pas encore obtenu'}`);
+    button.setAttribute('aria-haspopup','dialog');button.setAttribute('aria-expanded','false');
+    button.title=trophy.name;
+    const img=document.createElement('img');img.src=trophy.image;img.alt='';img.draggable=false;img.className=artClass(metal,count);button.append(img);
+    button.addEventListener('click',()=>openTrophy(trophy,button));shelf.append(button);
+    const displayed=unique?(count?'✓':'—'):count;
+    const medal=document.createElement('span');medal.className=`count${count ? '' : ' locked'}`;medal.style.cssText=`${position};--digits:${String(displayed).length}`;medal.textContent=displayed;medal.setAttribute('aria-hidden','true');medal.dataset.countFor=trophy.id;shelf.append(medal);
+  }
+  for(let index=0;index<32;index++){
+    const angle=index*2.3999632297;
+    const radius=31+(index%5)*3.6;
+    const spark=document.createElement('i');spark.className=`spark${index%4===0?' star':''}`;
+    spark.style.cssText=`left:${50+Math.cos(angle)*radius}%;top:${50+Math.sin(angle)*radius*.91}%;--size:${2+index%5}px;--dx:${Math.cos(angle)*(5+index%4)}px;--dy:${Math.sin(angle)*(5+index%4)-3}px;--duration:${1.65+index%7*.23}s;--delay:${-index*.31}s`;
+    root.querySelector('#sparkles').append(spark);
+  }
+  function chooseMetal(metal){
+    const trophy=selected;
+    spot.dataset.trophyMetal=metal;
+    const count=countsFor(trophy)[metals.indexOf(metal)];
+    const image=root.querySelector('#large-art');
+    image.className=artClass(metal,count,'large-art');
+    const large=trophy.image.replace(/\.webp$/,'-large.webp');
+    image.onerror=()=>{image.onerror=null;image.src=trophy.image;};
+    image.src=large;
+    root.querySelector('#spot-title').textContent=trophy.name;
+    const unique=uniqueFor(trophy,metal);
+    root.querySelector('#spot-status').textContent=`${names[metal]} · ${count ? unique?'Obtenu':`Obtenu ${count} fois` : 'Pas encore obtenu'}`;
+    tierButtons.querySelectorAll('button').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.metal===metal)));
+    const hasTiers=tiersFor(trophy).length>0;
+    const rule=getWorkshopTrophyRule(trophy.id);
+    const roundTier=rule?.tiers?.find(tier=>tier.metal===metal);
+    const category=simulationCategories.get(trophy.id);
+    const condition=root.querySelector('#tier-condition');
+    if(trophy.repeat==='cumulative'&&category){
+      const threshold=category.threshold*fractions[metal];
+      condition.textContent=metal==='gold'
+        ? `Or · Un exemplaire par tranche de ${number(threshold)} ${category.unit}. ${count ? `Prochain or à ${number(threshold*(Number(count)+1))} ${category.unit} cumulés.` : `Premier or à ${number(threshold)} ${category.unit}.`}`
+        : `${names[metal]} · ${number(threshold)} ${category.unit} (${number(fractions[metal]*100)} % du seuil d’or), une seule fois.`;
+    }else if(roundTier){
+      condition.textContent=`${names[metal]} · Atteindre au moins ${number(roundTier.threshold)} points en une manche, hors finales. ${roundTier.repeatable?'Un or par manche réussie.':'À obtenir une seule fois.'}`;
+    }else condition.textContent=rule?.conditionLabel || trophy.description;
+    root.querySelector('#collection-note').textContent=roundTier
+      ? 'Bronze et argent restent acquis. Une manche à 10 000 points donne un seul or : les scores de plusieurs manches ne se cumulent pas pour ce défi.'
+      : hasTiers ? `${totalFor(trophy)} récompenses dans cette catégorie. Bronze et argent restent acquis ; seuls les ors s’accumulent.`
+      : rule?.repeatabilityLabel ? rule.repeatabilityLabel
+      : unique ? 'Récompense unique : elle reste acquise et ne peut pas être gagnée une deuxième fois.'
+      : trophy.repeat==='weekly' ? 'Cette récompense du podium hebdomadaire est répétable et conserve son propre emplacement.'
+      : 'Cet exploit est répétable, avec une condition unique.';
+  }
+  function openTrophy(trophy,button){
+    selected=trophy;returnFocus=button;
+    shelf.querySelectorAll('.slot').forEach(slot=>{slot.classList.toggle('is-selected',slot===button);slot.setAttribute('aria-expanded',String(slot===button));});
+    tierButtons.replaceChildren();
+    const tiers=tiersFor(trophy);
+    const hasTiers=tiers.length>0;
+    tierButtons.hidden=!hasTiers;
+    if(hasTiers) tiers.forEach(tier=>{
+      const metal=tier.metal;
+      const index=metals.indexOf(metal);
+      const count=countsFor(trophy)[index];
+      const choice=document.createElement('button');choice.type='button';choice.className='tier';choice.id=`tier-${metal}`;choice.dataset.metal=metal;
+      const image=document.createElement('img');image.src=trophy.image;image.alt='';image.draggable=false;image.className=artClass(metal,count);
+      const label=document.createElement('span');label.textContent=metal==='gold'?`Or ×${count}`:`${names[metal]} · ${count?'Obtenu':'À conquérir'}`;
+      const state=document.createElement('small');state.textContent=trophy.repeat==='cumulative'
+        ? metal==='gold'?'Répétable':`${number(fractions[metal]*100)} % · unique`
+        : `${number(tier.threshold)} points`;
+      choice.append(image,label,state);choice.addEventListener('click',()=>chooseMetal(metal));tierButtons.append(choice);
+    });
+    chooseMetal(bestFor(trophy));spot.hidden=false;shelf.inert=true;
+    root.querySelector('#shelf-help').hidden=true;closeButton.focus({preventScroll:true});
+  }
+  function closeTrophy(){
+    if(spot.hidden)return;
+    spot.hidden=true;shelf.inert=false;
+    shelf.querySelectorAll('.slot').forEach(slot=>{slot.classList.remove('is-selected');slot.setAttribute('aria-expanded','false');});
+    root.querySelector('#shelf-help').hidden=false;
+    returnFocus?.focus({preventScroll:true});selected=null;
+  }
+  closeButton.addEventListener('click',closeTrophy);
+  root.querySelector('#spot-overlay').addEventListener('click',event=>{if(event.target===event.currentTarget)closeTrophy();});
+  window.addEventListener('keydown',event=>{if(event.key==='Escape'&&!spot.hidden){event.preventDefault();closeTrophy();}});
+</script>
+</body>
+</html>

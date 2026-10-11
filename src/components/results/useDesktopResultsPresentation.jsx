@@ -1,4 +1,5 @@
 import React from "react";
+import RoundTrophyAwards from "../../features/trophies/RoundTrophyAwards.jsx";
 import PlayerProfileLink from "../profile/PlayerProfileLink.jsx";
 import IntermissionTenSecondOverlay from "../../features/intermission/IntermissionTenSecondOverlay.jsx";
 import { MASSIVE_BOGGLE_TYPE } from "../../game/specialRoundTypes.js";
@@ -814,6 +815,7 @@ export default function useDesktopResultsPresentation(runtime) {
           <div className="text-center text-[11px] uppercase tracking-[0.2em] font-extrabold mb-1">
             Bilan cible
           </div>
+          {!standaloneTrainingSession ? <RoundTrophyAwards /> : null}
           <div className="text-center text-xl sm:text-2xl font-black tracking-tight">{word}</div>
           <div className={`text-center text-xs font-semibold mt-1 ${mutedClass}`}>
             {wordLength ? `${wordLength} lettres` : "Longueur inconnue"}
@@ -887,6 +889,7 @@ export default function useDesktopResultsPresentation(runtime) {
         <div className="text-center text-[11px] uppercase tracking-[0.2em] font-extrabold">
           Bilan manche
         </div>
+        {!standaloneTrainingSession ? <RoundTrophyAwards /> : null}
         <div
           className={`rounded-lg border px-2 py-1 ${
             darkMode

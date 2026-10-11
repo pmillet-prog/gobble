@@ -39,3 +39,17 @@ test("all-invalid submissions remain visible and explain why the final score is 
   assert.equal(recap.review[0].word, "chaz");
   assert.equal(recap.review[0].label, "Non retenu");
 });
+
+test("Gobble uses the official grid maximum only after the final word verdict", () => {
+  const results = [{ userId: 7, words: ["zebre", "chat"], score: 30, specialWordSlots: [
+    { word: "zebre", display: "ZÈBRE", valid: true, pts: 20 },
+    { word: "chazz", valid: false, pts: 999, reason: "not_in_dictionary", gobble: true },
+    { word: "chat", valid: true, pts: 10 },
+  ] }];
+  const recap = getLiveThreeWordsRecap(results, { userId: 7, maxWordLength: 5 });
+  assert.deepEqual(recap.review.map(entry => entry.gobble), [true, false, false]);
+  assert.ok(recap.review.every(entry => !entry.doubleGobble), "live 3 words awards no score Gobble");
+  assert.ok(getLiveThreeWordsRecap(results, { userId: 7, maxWordLength: 6 }).review.every(entry => !entry.gobble));
+  assert.ok(getLiveThreeWordsRecap(results, { userId: 7 }).review.every(entry => !entry.gobble),
+    "the longest proposal alone cannot establish a Gobble");
+});

@@ -1,6 +1,7 @@
 import { advanceTargetQuizPoints, normalizeTargetQuizPoints, TARGET_QUIZ_POINTS_GOAL, TARGET_QUIZ_GOBBLARS_REWARD } from "../../shared/targetQuizPoints.js";
 import { runSqliteImmediateTransaction } from "../sqliteQueue.js";
 import { initTargetQuizWeeklyStats, recordTargetQuizWeeklyPoints } from "../stats/targetQuizWeeklyStats.js";
+import { recordAchievementProgress } from "../stats/achievementProgress.js";
 
 // Called inside the worker's serialized write queue, on the cursor connection.
 // Answers stay provisional until the round ends: a knockout can cancel the
@@ -22,8 +23,12 @@ export function createTargetQuizPointsRepository({ getDb, cursors, now = Date.no
       )`);
       await db.exec(`CREATE TABLE IF NOT EXISTS target_quiz_pending (
         user_id INTEGER PRIMARY KEY, round_id TEXT NOT NULL, ends_at INTEGER NOT NULL,
-        status TEXT NOT NULL, progression TEXT NOT NULL, last_token TEXT, last_result TEXT
+        status TEXT NOT NULL, progression TEXT NOT NULL, last_token TEXT, last_result TEXT, started_at INTEGER
       )`);
+      if (!(await db.all("PRAGMA table_info(target_quiz_pending)")).some(column => column.name === "started_at")) {
+        // An old pending session deliberately keeps NULL: it predates rollout.
+        await db.exec("ALTER TABLE target_quiz_pending ADD COLUMN started_at INTEGER");
+      }
       await initTargetQuizWeeklyStats(db, now());
       return db;
     })().catch(error => { ready = null; throw error; });
@@ -38,14 +43,16 @@ export function createTargetQuizPointsRepository({ getDb, cursors, now = Date.no
     if (!id) return null; // No rewards in the developer simulation or guest cursor.
     const db = await init();
     const pending = await db.get("SELECT * FROM target_quiz_pending WHERE user_id = ?", id);
+    let recoveredAwards;
     // Recover an orphaned session after a process interruption. Normal endings
     // are settled by the game service, including requests queued at the buzzer.
     if (pending?.status === "pending" && pending.ends_at + 60_000 <= now()) {
-      await finish({ playerKey, roundId: pending.round_id });
+      recoveredAwards = (await finish({ playerKey, roundId: pending.round_id }))?.achievementAwards;
     }
-    return normalizeTargetQuizPoints(await db.get("SELECT total, points, cycles FROM target_quiz_points WHERE user_id = ?", id));
+    const points = normalizeTargetQuizPoints(await db.get("SELECT total, points, cycles FROM target_quiz_points WHERE user_id = ?", id));
+    return recoveredAwards?.length ? { ...points, achievementAwards: recoveredAwards } : points;
   }
-  async function answer({ playerKey, progress, questionToken, delta, roundId, endsAt }) {
+  async function answer({ playerKey, progress, questionToken, delta, roundId, endsAt, startedAt = now() }) {
     const id = userId(playerKey);
     if (!id) { await cursors.save(playerKey, progress); return null; }
     if (typeof questionToken !== "string" || !questionToken || questionToken.length > 128 ||
@@ -63,11 +70,13 @@ export function createTargetQuizPointsRepository({ getDb, cursors, now = Date.no
       const progression = { ...session, after: result.after, steps: [...session.steps, delta] };
       const receipt = { before: result.before, after: result.after, reward: null };
       await cursors.save(playerKey, progress);
-      await db.run(`INSERT INTO target_quiz_pending (user_id, round_id, ends_at, status, progression, last_token, last_result)
-        VALUES (?, ?, ?, 'pending', ?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET
+      await db.run(`INSERT INTO target_quiz_pending (user_id, round_id, ends_at, status, progression, last_token, last_result, started_at)
+        VALUES (?, ?, ?, 'pending', ?, ?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET
+        started_at = CASE WHEN target_quiz_pending.round_id = excluded.round_id THEN target_quiz_pending.started_at ELSE excluded.started_at END,
         round_id = excluded.round_id, ends_at = excluded.ends_at, status = excluded.status,
         progression = excluded.progression, last_token = excluded.last_token, last_result = excluded.last_result`,
-      id, String(roundId), endsAt, JSON.stringify(progression), questionToken, JSON.stringify(receipt));
+      id, String(roundId), endsAt, JSON.stringify(progression), questionToken, JSON.stringify(receipt),
+      Number.isFinite(startedAt) ? startedAt : null);
       return receipt;
     }, { label: "target-quiz-answer" });
   }
@@ -95,13 +104,19 @@ export function createTargetQuizPointsRepository({ getDb, cursors, now = Date.no
           const { balance } = await db.get("SELECT balance FROM gobblar_profiles WHERE installId = ?", String(id));
           const entry = await db.run("INSERT INTO gobblar_ledger (installId, ts, delta, reason, meta) VALUES (?, ?, ?, ?, ?)",
             String(id), at, amount, "target_quiz_milestone", JSON.stringify({ roundId, cycle: progression.after.cycles, target: TARGET_QUIZ_POINTS_GOAL }));
-          // One receipt per threshold lets the recap display each +50 toast.
+          // One receipt per threshold lets the recap display each reward toast.
           for (let index = 0; index < amount / TARGET_QUIZ_GOBBLARS_REWARD; index += 1) progression.rewards.push({ amount: TARGET_QUIZ_GOBBLARS_REWARD, balance, receipt: `target-quiz:${entry.lastID}:${index}` });
         }
         await db.run(`INSERT INTO target_quiz_points (user_id, total, points, cycles, updated_at)
           VALUES (?, ?, ?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET
           total = excluded.total, points = excluded.points, cycles = excluded.cycles, updated_at = excluded.updated_at`,
         id, progression.after.total, progression.after.points, progression.after.cycles, at);
+        // Only this session's confirmed delta counts. The collection's signed
+        // counter and peak start at zero, independently of lifetime points.
+        const achievementAwards = await recordAchievementProgress(db, { userId: id, eventKey: `foukro:${roundId}`,
+          changes: { foukro: progression.after.total - progression.before.total },
+          occurredAt: Math.min(at, row.ends_at), sourceStartedAt: row.started_at, roundId });
+        if (achievementAwards.length) progression.achievementAwards = achievementAwards;
         await recordTargetQuizWeeklyPoints(db, { userId: id,
           points: progression.after.total - progression.before.total,
           // Recovery after a restart must retain the round's original week.

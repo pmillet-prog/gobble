@@ -1,8 +1,13 @@
+import { TROPHY_REWARDS } from "../../../shared/trophyCatalog.js";
+
+const TROPHY_SCORING_READY = TROPHY_REWARDS.every(trophy => Number.isFinite(trophy.points) && trophy.points >= 0);
+
 export const STATS_CATEGORIES = Object.freeze([
   { key: "vocabulary", label: "Vocabulaire" },
   { key: "rounds", label: "Manches" },
   { key: "words", label: "Mots" },
   { key: "presenters", label: "Présentateurs" },
+  { key: "trophies", label: "Trophées" },
 ]);
 
 const board = (key, label, description, navLabel = label) => ({ key, label, description, navLabel });
@@ -32,6 +37,7 @@ export const STATS_PAGES = Object.freeze({
     ],
   },
   season: {
+    trophies: [board("achievementPoints", "Collection de trophées", `Les points des trophées obtenus, exemplaires répétés compris.${TROPHY_SCORING_READY ? "" : " Le barème sera annoncé prochainement."}`, "Trophées")],
     vocabulary: [
       board("vocab", "Vocabulaire cumulé", "Tous les mots uniques trouvés depuis vos débuts."),
       board("vocab_personal", "Ma progression", "Vos paliers de vocabulaire et vos récompenses."),

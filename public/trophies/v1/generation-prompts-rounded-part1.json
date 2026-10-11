@@ -1,0 +1,55 @@
+{
+  "tool": "built-in image_gen",
+  "date": "2026-10-11",
+  "purpose": "Masters sans seuil gravé, communs aux paliers bronze / argent / or.",
+  "assets": [
+    {
+      "key": "mini",
+      "id": "mini_gold_5000",
+      "reference": "mini_gold_5000.png",
+      "source": "C:\\Users\\Paul\\.codex\\generated_images\\01a124ed-15ad-74d3-9d24-312bc622d90b\\exec-000fe3e7-51c5-4dcf-af7f-43464a708658.png",
+      "destination": "C:/Users/Paul/Desktop/gobble-main/public/trophies/v1/mini_gold_5000-v3.png",
+      "prompt": "Use case: precise-object-edit. Asset type: transparent trophy sprite for the Gobble game. Input image is the edit target. Preserve this exact stylized 3D gold trophy made of three star medals with navy blue ribbons, its wooden circular base, gold trim, lighting, silhouette, and centered full-object framing. Change ONLY the large engraved digits '5000' on the front navy plaque: remove them completely and replace them with a small elegant gold laurel sprig ornament centered on the plaque. The ornament should leave breathing space. No numerals or text anywhere. Keep all other artwork unchanged. Transparent RGBA background, clean alpha edges, no floor, no backdrop, no surrounding glow or new cast shadow, nothing cropped. This single gold master will also be recolored for bronze and silver, so never engrave an acquisition threshold."
+    },
+    {
+      "key": "single",
+      "id": "gobbles_10000",
+      "reference": "gobbles_10000-v2.png",
+      "source": "C:\\Users\\Paul\\.codex\\generated_images\\01a124ed-15ad-74d3-9d24-312bc622d90b\\exec-00ca6483-e691-46a0-8860-8d6ec0e4ccaa.png",
+      "destination": "C:/Users/Paul/Desktop/gobble-main/public/trophies/v1/gobbles_10000-v3.png",
+      "prompt": "Use case: precise-object-edit. Asset type: transparent trophy sprite for the Gobble game. Input image is the edit target. Keep the exact large gold letter G, navy blue accents, star and laurel leaves, wooden base, polished stylized 3D art, lighting, framing and proportions. Change ONLY the digits '10000' on the curved navy ribbon: completely remove the digits and replace them with a small symmetrical gold laurel sprig ornament centered on the ribbon. The main G is essential and must remain unchanged. No numeric inscription or added words anywhere. Preserve a transparent RGBA background, clean alpha edges, entire object visible. No backdrop, floor, external glow, or cast shadow."
+    },
+    {
+      "key": "double",
+      "id": "double_gobbles_1000",
+      "reference": "double_gobbles_1000.png",
+      "source": "C:\\Users\\Paul\\.codex\\generated_images\\01a124ed-15ad-74d3-9d24-312bc622d90b\\exec-079c0aef-7019-492d-b10e-a8a76fc7e8a2.png",
+      "destination": "C:/Users/Paul/Desktop/gobble-main/public/trophies/v1/double_gobbles_1000-v3.png",
+      "prompt": "Use case: precise-object-edit. Asset type: transparent trophy sprite for the Gobble game. Input image is the edit target. Preserve exactly the two prominent gold letters GG, navy star, gold laurel branches, wooden round base, metal trims, stylized 3D gold appearance, lighting, framing and silhouette. Change ONLY the front navy plaque on the base: remove all digits '1000' and replace with a small elegant gold symmetrical laurel sprig ornament. Keep the large GG absolutely unchanged and readable. No numerals or added words anywhere. True transparent RGBA background and clean edges, no scene, no floor, no external glow, no new cast shadow, full object not cropped."
+    },
+    {
+      "key": "julien",
+      "id": "julien_1000",
+      "reference": "julien_1000.png",
+      "source": "C:\\Users\\Paul\\.codex\\generated_images\\01a124ed-15ad-74d3-9d24-312bc622d90b\\exec-71d33a30-dd56-46cd-81bb-1f0e255217af.png",
+      "destination": "C:/Users/Paul/Desktop/gobble-main/public/trophies/v1/julien_1000-v3.png",
+      "prompt": "Use case: precise-object-edit. Asset type: transparent Gobble game trophy. Input image is the exact edit target. Preserve the identical friendly game-show host statuette, face and hair identity, blue eyes, OK hand gesture, question-mark card, navy suit, red tie, gold sculpture treatment, circular wooden base, proportions and original lighting. Change ONLY the digits '1000' on the navy plaque of the base: remove them fully and replace with a small symmetrical elegant gold laurel sprig motif. Keep the question mark on the card unchanged. No numerals, names or added words anywhere. Retain the transparent RGBA background and original entire-object framing, clean alpha edges. No floor, background, external halo, or new cast shadow."
+    },
+    {
+      "key": "foukro",
+      "id": "foukro_500000",
+      "reference": "foukro_500000.png",
+      "source": "C:\\Users\\Paul\\.codex\\generated_images\\01a124ed-15ad-74d3-9d24-312bc622d90b\\exec-e98cac77-b4aa-4fa0-88eb-f52e6cc66567.png",
+      "destination": "C:/Users/Paul/Desktop/gobble-main/public/trophies/v1/foukro_500000-v3.png",
+      "prompt": "Use case: precise-object-edit. Asset type: transparent Gobble game trophy. Input image is the exact edit target. Preserve the identical thoughtful game-show host statuette, face and hairstyle identity, hand on chin, navy suit, surrounding gold coins with crowns and question-mark card, circular wooden base, gold sculptural treatment, lighting, framing and proportions. Change ONLY the large digits '500000' on the base plaque: remove them completely, replace with a small centered gold laurel sprig motif. Keep the question mark card and coin symbols intact. No numeric inscription, names or new text anywhere. Transparent RGBA background, clean alpha edges, complete uncropped trophy. No floor, backdrop, external glow or new cast shadow."
+    },
+    {
+      "key": "round",
+      "id": "round_5000",
+      "reference": "round_5000.png",
+      "source": "C:\\Users\\Paul\\.codex\\generated_images\\01a124ed-15ad-74d3-9d24-312bc622d90b\\exec-055d8698-e90a-491b-a0c5-d193edc71a63.png",
+      "destination": "C:/Users/Paul/Desktop/gobble-main/public/trophies/v1/round_5000-v3.png",
+      "prompt": "Use case: precise-object-edit. Asset type: transparent trophy sprite for Gobble, category exceptional score in one round. Input image is the edit target. Preserve this exact ornate golden trophy: large sunburst, navy shield, laurel branches, ruby, wooden circular base, cream letter tiles reading A R T E S, stylized premium 3D gold rendering, lighting, framing and proportions. Change ONLY the central inscription '5000': remove all digits completely and replace with a sculpted gold royal crown with three clearly defined points, centered elegantly on the navy shield below the small existing fleur-de-lis. The crown occupies approximately the same visual space as the old digits, with navy negative space around it. Preserve the cream A R T E S tiles and other ornaments unchanged. No numerals or extra text. True transparent RGBA background, clean alpha edges, whole object visible, no scene, floor, external glow or new cast shadow."
+    }
+  ]
+}

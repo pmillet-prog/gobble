@@ -88,7 +88,6 @@ export default function MobileSpecial3Scene({ state, refs, actions, content, con
     handleTouchStart,
     normalizeLetterKey,
     openSettingsPanel,
-    renderSpecial3LengthGobbleBadge,
     requestOpenChat,
     resolveSpecial3LiveTrace,
     setDailyActiveSlot,
@@ -614,7 +613,6 @@ export default function MobileSpecial3Scene({ state, refs, actions, content, con
           maxDurationSec={maxDurationSec}
           trainingControls={trainingSessionControls}
           getNickClassName={getLiveNickClassName}
-          renderSpecial3LengthGobbleBadge={renderSpecial3LengthGobbleBadge}
           renderSpecialChip={renderSpecialChip}
           renderWordPreviewTiles={renderWordPreviewTiles}
           resolveLiveTrace={resolveSpecial3LiveTrace}

@@ -19,10 +19,21 @@ test("period changes preserve compatible categories and metrics", () => {
   assert.equal(changeStatsPeriod({ category: "words", boardKey: "mostGobbles" }, "season").boardKey, "gobbles");
   assert.equal(changeStatsPeriod({ category: "vocabulary", boardKey: "vocab_personal" }, "weekly").boardKey, "weeklyVocab");
   assert.equal(changeStatsPeriod({ category: "rounds", boardKey: "top3" }, "season").boardKey, "vocab");
-  assert.deepEqual(getStatsNavigation({ tab: "season" }).categories.map(({ key }) => key), ["vocabulary", "words", "presenters"]);
+  assert.deepEqual(getStatsNavigation({ tab: "season" }).categories.map(({ key }) => key), ["vocabulary", "words", "presenters", "trophies"]);
 });
 
 test("invalid or old navigation selections resolve to an available page", () => {
   assert.equal(getStatsNavigation({ category: "unknown", boardKey: "missing" }).board.key, "weeklyVocab");
   assert.equal(getStatsNavigation({ tab: "season", category: "words", boardKey: "bestWord" }).board.key, "gobbles");
+});
+
+test("trophy collection ranking belongs only to the all-time register", () => {
+  const allTime = getStatsNavigation({ tab: "season", category: "trophies" });
+  assert.equal(allTime.board.key, "achievementPoints");
+  assert.doesNotMatch(allTime.board.description, /barème sera annoncé|barème à venir/i);
+  assert.match(allTime.board.description, /exemplaires répétés compris/);
+  assert.ok(!getStatsNavigation({ tab: "weekly" }).categories.some(({ key }) => key === "trophies"));
+  assert.deepEqual(changeStatsPeriod({ category: "trophies", boardKey: "achievementPoints" }, "weekly"), {
+    tab: "weekly", category: "vocabulary", boardKey: "weeklyVocab",
+  });
 });

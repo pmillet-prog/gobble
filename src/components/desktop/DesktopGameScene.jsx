@@ -199,7 +199,6 @@ export default function DesktopGameScene({ runtime }) {
     renderNickSuffix,
     renderRankDelta,
     renderSpecial3BonusChipButton,
-    renderSpecial3LengthGobbleBadge,
     renderSpecial3PreviewTiles,
     resolveSpecial3LiveTrace,
     resultsPathGradientIdRef,
@@ -737,6 +736,7 @@ export default function DesktopGameScene({ runtime }) {
       {!standaloneTrainingSession && !isTargetRound && !isOcidRound && (
         <DesktopLiveRankingSatellite
           rosterConfig={rosterConfig}
+          hideGobbleAwards={isSpecial3WordsMode}
           selfNick={selfNick}
           darkMode={darkMode}
           expanded={!isMobileLayout}
@@ -1354,7 +1354,6 @@ export default function DesktopGameScene({ runtime }) {
               isDailyPlay={isDailyPlay}
               onSelectSlot={setDailyActiveSlot}
               onSubmit={submitDailyScore}
-              renderLengthBadge={renderSpecial3LengthGobbleBadge}
               renderPreviewTiles={renderSpecial3PreviewTiles}
               resolveLiveTrace={resolveSpecial3LiveTrace}
               slots={special3Slots}
