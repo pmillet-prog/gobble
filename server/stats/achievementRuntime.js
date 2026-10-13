@@ -129,6 +129,10 @@ export function createAchievementRuntime({ persistence, getIo, getWeeklyPodiums,
     await weeklyTask;
     return persistence.achievementCollection({ action: "read", userId });
   }
+  async function weeklyRecap(weekStartTs) {
+    await weeklyTask;
+    return persistence.achievementCollection({ action: "weeklyRecap", weekStartTs });
+  }
   const bootstrap = () => persistence.achievementCollection({ action: "bootstrap" });
   function reconcileWeekly(period) {
     if (weeklyPeriod === period.weekStartTs) return weeklyTask;
@@ -170,5 +174,5 @@ export function createAchievementRuntime({ persistence, getIo, getWeeklyPodiums,
       catch { reply({ ok: false, error: "achievement_unavailable" }); }
     });
   }
-  return { word, target, medal, settleRound, profile, publish, bootstrap, reconcileWeekly, register };
+  return { word, target, medal, settleRound, profile, weeklyRecap, publish, bootstrap, reconcileWeekly, register };
 }

@@ -356,6 +356,86 @@ test("weekly eligibility includes exact Paris Monday activation, but excludes ac
   }
 });
 
+test("weekly recap groups real event deltas by reward and account within the Paris week", async t => {
+  const { db, repository } = await fixture(t);
+  const start = getNextResetTs(FIRST_FULL_WEEK), end = getNextResetTs(start);
+  assert.equal(end - start, 169 * 60 * 60 * 1000, "the autumn Paris week includes the extra hour");
+  const word = (userId, eventKey, earnedAt) => repository.record({ userId, earnedAt,
+    events: [{ id: "word_16", eventKey }] });
+  await word(1, "before", start - 1);
+  await word(1, "start", start);
+  await word(1, "last-millisecond", end - 1);
+  await word(1, "next-week", end);
+  await word(2, "same-reward", start + 1);
+  await repository.record({ userId: 1, earnedAt: start - 1,
+    progress: { eventKey: "old-marathon", changes: { rounds: 6000 } } });
+  await repository.record({ userId: 1, earnedAt: start + 2,
+    progress: { eventKey: "two-weekly-tranches", changes: { rounds: 4000, words: 50000 } } });
+  await repository.record({ userId: 1, earnedAt: end,
+    progress: { eventKey: "next-marathon", changes: { rounds: 2000 } } });
+  await repository.acknowledge(1, (await repository.pending(1)).map(award => award.eventId));
+  // A displayed collection total is not a weekly receipt (and dev trials never create receipts).
+  await db.run("INSERT INTO achievement_collection_v2(user_id,trophy_id,count) VALUES(1,'word_17',999)");
+  assert.deepEqual(await repository.weeklyRecap(start), [
+    { id: "word_16", recipients: [{ userId: 2, nick: "Test", count: 1 }, { userId: 1, nick: "Tigre", count: 2 }] },
+    { id: "marathon_10000", recipients: [{ userId: 1, nick: "Tigre", count: 2 }] },
+    { id: "words_100000:bronze", recipients: [{ userId: 1, nick: "Tigre", count: 1 }] },
+    { id: "words_100000:silver", recipients: [{ userId: 1, nick: "Tigre", count: 1 }] },
+    { id: "words_100000", recipients: [{ userId: 1, nick: "Tigre", count: 1 }] },
+  ]);
+});
+
+test("weekly podium trophies belong to their competition week even when published at the next reset or later", async t => {
+  const { repository } = await fixture(t);
+  const start = FIRST_FULL_WEEK, previous = getWeekStartTs(start - 1), end = getNextResetTs(start);
+  const podium = (userId, id, weekStartTs, earnedAt) => repository.record({ userId, earnedAt, sourceStartedAt: weekStartTs,
+    events: [{ id, eventKey: `week:${weekStartTs}` }] });
+  await podium(1, "weekly_gold", previous, start);
+  await podium(1, "weekly_gold", start, end);
+  await podium(2, "weekly_silver", start, end + 60_000);
+  await podium(1, "weekly_gold", end, getNextResetTs(end));
+  assert.deepEqual(await repository.weeklyRecap(start), [
+    { id: "weekly_gold", recipients: [{ userId: 1, nick: "Tigre", count: 1 }] },
+    { id: "weekly_silver", recipients: [{ userId: 2, nick: "Test", count: 1 }] },
+  ]);
+  assert.deepEqual(await repository.weeklyRecap(end), [
+    { id: "weekly_gold", recipients: [{ userId: 1, nick: "Tigre", count: 1 }] },
+  ], "the previous podium cannot appear twice by its publication date");
+});
+
+test("a partial activation week can recap new exploits, but never its own podium or prior history", async t => {
+  const start = FIRST_FULL_WEEK, end = getNextResetTs(start), activation = start + 86400000;
+  const { repository } = await fixture(t, undefined, activation);
+  await repository.record({ userId: 1, earnedAt: activation + 1, events: [{ id: "word_16", eventKey: "new-exploit" }] });
+  // Simulate a receipt written by the earlier partial-week prototype.
+  await repository.record({ userId: 1, earnedAt: end, events: [{ id: "weekly_gold", eventKey: `week:${start}` }] });
+  assert.deepEqual(await repository.weeklyRecap(start), [
+    { id: "word_16", recipients: [{ userId: 1, nick: "Tigre", count: 1 }] },
+  ]);
+  assert.deepEqual(await repository.weeklyRecap(getWeekStartTs(start - 1)), []);
+});
+
+test("the recap read waits for existing weekly podium reconciliation", async () => {
+  const calls = [];
+  let finishAward;
+  const runtime = createAchievementRuntime({
+    persistence: { achievementCollection: payload => {
+      calls.push(payload);
+      if (payload.action === "record") return new Promise(resolve => { finishAward = resolve; });
+      return Promise.resolve([]);
+    } },
+    getIo: () => ({ sockets: { sockets: new Map() } }),
+    getWeeklyPodiums: () => [{ installId: "1", rank: 1, weekStartTs: FIRST_FULL_WEEK, awardedAt: getNextResetTs(FIRST_FULL_WEEK) }],
+  });
+  runtime.reconcileWeekly({ weekStartTs: getNextResetTs(FIRST_FULL_WEEK) });
+  const recap = runtime.weeklyRecap(FIRST_FULL_WEEK);
+  await Promise.resolve();
+  assert.deepEqual(calls.map(call => call.action), ["record"]);
+  finishAward([]);
+  assert.deepEqual(await recap, []);
+  assert.deepEqual(calls.at(-1), { action: "weeklyRecap", weekStartTs: FIRST_FULL_WEEK });
+});
+
 test("a double gobble never advances singles, while validated target rounds advance every applicable counter once", async t => {
   const { db, repository } = await fixture(t);
   await repository.record({ userId: 1, progress: { eventKey: "earlier", changes: {

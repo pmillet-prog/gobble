@@ -1,5 +1,6 @@
 import { TROPHY_REWARDS, TROPHY_BY_ID } from "../../shared/trophyCatalog.js";
 import { runSqliteImmediateTransaction } from "../sqliteQueue.js";
+import { getWeekStartTs, getNextResetTs } from "./parisWeek.js";
 import { initAchievementSchema, getAchievementActivation, grantAchievement, recordAchievementProgress, publicAchievementAward } from "./achievementProgress.js";
 
 const integer = value => Math.max(0, Math.trunc(Number(value) || 0));
@@ -68,6 +69,34 @@ export function createAchievementCollectionRepository({ getDb, catalog = TROPHY_
     const db = await init();
     return (await db.all("SELECT * FROM achievement_events_v2 WHERE round_id=? ORDER BY id", String(roundId))).map(publicAchievementAward);
   }
+  async function weeklyRecap(weekStartTs) {
+    if (!Number.isFinite(weekStartTs)) return [];
+    const start = getWeekStartTs(weekStartTs), end = getNextResetTs(start);
+    const db = await init(), activation = await getAchievementActivation(db);
+    if (activation === null || end <= activation) return [];
+    const weeklyIds = TROPHY_REWARDS.filter(reward => reward.repeat === "weekly").map(reward => reward.id);
+    const placeholders = weeklyIds.map(() => "?").join(",");
+    // Podiums belong to their competition week, even though the receipt is
+    // earned at the next reset. All other rewards use their actual event date.
+    const rows = await db.all(`SELECT e.trophy_id AS id,u.id AS userId,u.username_display AS nick,SUM(e.delta) AS count
+      FROM achievement_events_v2 e JOIN users u ON u.id=e.user_id
+      WHERE e.delta>0 AND e.earned_at>=? AND (
+        (e.earned_at>=? AND e.earned_at<? AND e.trophy_id NOT IN (${placeholders}))
+        OR (e.earned_at>=? AND e.trophy_id IN (${placeholders}) AND e.event_key=? AND ?>=?))
+      GROUP BY e.trophy_id,u.id`, Math.max(start, activation), start, end, ...weeklyIds,
+    end, ...weeklyIds, `week:${start}`, start, activation);
+    const byId = new Map();
+    for (const { id, userId, nick, count } of rows) {
+      if (!byId.has(id)) byId.set(id, []);
+      byId.get(id).push({ userId, nick, count });
+    }
+    return catalog.flatMap(({ id }) => {
+      const recipients = byId.get(id);
+      if (!recipients?.length) return [];
+      recipients.sort((a, b) => String(a.nick || "").localeCompare(String(b.nick || ""), "fr", { sensitivity: "base" }) || a.userId - b.userId);
+      return [{ id, recipients }];
+    });
+  }
   async function leaderboard(topN = 50) {
     if (!catalog.every(item => Number.isFinite(item.points) && item.points >= 0)) return null;
     const db = await init();
@@ -79,5 +108,5 @@ export function createAchievementCollectionRepository({ getDb, catalog = TROPHY_
       FROM achievement_collection_v2 c JOIN users u ON u.id=c.user_id JOIN scores s ON s.trophy_id=c.trophy_id
       GROUP BY u.id ORDER BY points DESC,totalCount DESC,u.id LIMIT ?`, ...values.flat(), Math.min(200, Math.max(1, integer(topN))));
   }
-  return { init, bootstrap, record, snapshot, pending, acknowledge, roundAwards, leaderboard };
+  return { init, bootstrap, record, snapshot, pending, acknowledge, roundAwards, weeklyRecap, leaderboard };
 }

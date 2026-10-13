@@ -1,4 +1,5 @@
 const MAX_WEEK_GAP_MS = 8.5 * 24 * 60 * 60 * 1000;
+export const WEEKLY_RECAP_PAGE_COUNT = 4;
 
 function normalizePodium(entries) {
   return (Array.isArray(entries) ? entries : [])

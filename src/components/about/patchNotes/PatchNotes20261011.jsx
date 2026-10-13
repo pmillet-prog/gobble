@@ -55,9 +55,11 @@ export default function PatchNotes20261011({ menuDarkMode = false }) {
           <strong>Un nouveau classement récompense votre collection.</strong> Retrouvez-le
           dans le <strong>Registre des records → Depuis toujours → Trophées</strong>.
           Chaque récompense obtenue ajoute les points de son barème, y compris les nouveaux
-          exemplaires des trophées répétables. Une notification annonce chaque acquisition ;
-          les trophées remportés pendant une manche apparaissent également dans son bilan,
-          avec les points gagnés.
+          exemplaires des trophées répétables. Une notification personnelle annonce chaque
+          acquisition, avec les points gagnés.
+          Dans le <strong>Récap semaine</strong>, une nouvelle page félicite les joueurs
+          récompensés pendant la semaine, avec une miniature de chaque trophée et sa
+          version bronze, argent ou or. Les obtentions répétées sont regroupées par joueur.
         </li>
         <li>
           <strong>Tout le monde commence à zéro pour les trophées.</strong> Seules les

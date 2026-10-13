@@ -3088,8 +3088,15 @@ async function getCachedDuelStatus(rawInstallId, { dateId = null, force = false 
     task: async () => {
       const status = await getDuelStatus(installId, { dateId });
       if (!status?.lastWeekSummary) return status;
+      let trophyAwards = null;
+      try {
+        trophyAwards = await achievementRuntime.weeklyRecap(status.lastWeekSummary.weekStartTs);
+      } catch (error) {
+        console.warn("Weekly trophy recap unavailable", error);
+      }
       return { ...status, lastWeekSummary: {
         ...status.lastWeekSummary,
+        trophyAwards,
         presenterHits: presenterHits.getWeeklyBoard(status.lastWeekSummary.weekStartTs),
         presenterHitsTrackingStartTs: presenterHits.getTrackingStartTs(),
       } };

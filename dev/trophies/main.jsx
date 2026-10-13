@@ -8,7 +8,6 @@ import { createNotificationsFeature } from "../../src/features/notifications/cre
 import NotificationToastLayer from "../../src/features/notifications/NotificationToastLayer.jsx";
 import { createTrophiesFeature } from "../../src/features/trophies/createTrophiesFeature.js";
 import ProfileTrophyShelf from "../../src/features/trophies/ProfileTrophyShelf.jsx";
-import RoundTrophyAwards from "../../src/features/trophies/RoundTrophyAwards.jsx";
 import TrophyRewardToast from "../../src/features/trophies/TrophyRewardToast.jsx";
 import "../../src/index.css";
 import "../../src/components/profile/playerProfile.css";
@@ -74,10 +73,9 @@ function PreviewStage({ mode, compact, devAllowed }) {
       roundId: "preview-round", userId: 7, earnedAt: Date.now() });
   };
   return <ApplicationRuntimeProvider kernel={kernel}>
-    <div className="trophy-preview-actions"><button type="button" onClick={demo}>Obtenir un trophée · toast et bilan</button></div>
+    <div className="trophy-preview-actions"><button type="button" onClick={demo}>Obtenir un trophée · notification</button></div>
     <div className={`trophy-preview-stage${compact ? " is-compact" : ""}`}>
       <div className="trophy-preview-card"><ProfileTrophyShelf achievements={{ counts }} userId={7} /></div>
-      <div className="trophy-preview-result"><h2>Bilan de manche</h2><p>Les trophées de démonstration apparaissent ici au clic sur le bouton.</p><RoundTrophyAwards /></div>
       <div className="trophy-preview-toast"><TrophyRewardToast reward={{ id: "word_17", count: 1, delta: 1 }} /></div>
     </div>
     <NotificationToastLayer darkMode />

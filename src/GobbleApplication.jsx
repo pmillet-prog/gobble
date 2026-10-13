@@ -353,6 +353,7 @@ import {
 } from "./utils/accountSeenMarkers.js";
 import {
   isWeeklyRecapPodiumReady,
+  WEEKLY_RECAP_PAGE_COUNT,
 } from "./utils/weeklyRecap.js";
 import CapelloIntervention from "./components/capello/CapelloIntervention.jsx";
 import PivotIntervention from "./components/pivot/PivotIntervention.jsx";
@@ -11934,7 +11935,7 @@ function handleTouchEnd() {
     setDuelWeekRecapPreviewMode(false);
   }, [duelWeekRecapPreviewMode, duelWeekSummary?.weekId, markAccountSeen]);
   const nextDuelWeekRecapPage = React.useCallback(() => {
-    setDuelWeekRecapPage((prev) => Math.min(prev + 1, 2));
+    setDuelWeekRecapPage((prev) => Math.min(prev + 1, WEEKLY_RECAP_PAGE_COUNT - 1));
   }, []);
   const duelWeekRecapOverlay = duelWeekRecapOpen ? (
     <Suspense fallback={null}>

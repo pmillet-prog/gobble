@@ -1,9 +1,10 @@
 import React from "react";
 import PlayerProfileLink from "./profile/PlayerProfileLink.jsx";
 import { createPortal } from "react-dom";
-import { resolveWeeklyRecapPodium } from "../utils/weeklyRecap.js";
+import { resolveWeeklyRecapPodium, WEEKLY_RECAP_PAGE_COUNT } from "../utils/weeklyRecap.js";
 import WeeklyRecapAvatar, { WeeklyRecapAvatars } from "../features/avatar/WeeklyRecapAvatar.jsx";
 import PresenterHitsRecap from "./weeklyRecap/PresenterHitsRecap.jsx";
+import WeeklyTrophiesRecap from "./weeklyRecap/WeeklyTrophiesRecap.jsx";
 
 const TEAM_LABELS = {
   red: "Rouges",
@@ -222,7 +223,7 @@ export default function DuelWeekRecapOverlay({
   const records = summary?.weeklyRecords || {};
   const podium = getTop(resolveWeeklyRecapPodium(summary, weeklyStats), 3);
   const winnerNick = podium[0]?.nick || "Joueur";
-  const pagesCount = 3;
+  const pagesCount = WEEKLY_RECAP_PAGE_COUNT;
   const safePage = Math.max(0, Math.min(page, pagesCount - 1));
   const isLastPage = safePage >= pagesCount - 1;
 
@@ -260,6 +261,8 @@ export default function DuelWeekRecapOverlay({
                   : "Egalite parfaite"
                 : safePage === 1
                 ? "Records de la semaine"
+                : safePage === 2
+                ? "Les trophées de la semaine"
                 : "Course hebdomadaire"}
             </div>
             <div className="mt-1 text-xs opacity-70">{summary.weekId}</div>
@@ -269,7 +272,7 @@ export default function DuelWeekRecapOverlay({
           </div>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+        <div key={safePage} className="min-h-0 flex-1 overflow-y-auto px-4 py-4" data-weekly-recap-page={safePage}>
           {safePage === 0 ? (
             <div className="space-y-4">
               <div className="grid grid-cols-[1fr,auto,1fr] items-center gap-2">
@@ -348,6 +351,8 @@ export default function DuelWeekRecapOverlay({
               />
               <PresenterHitsRecap entries={summary.presenterHits} trackingStartTs={summary.presenterHitsTrackingStartTs} weekStartTs={summary.weekStartTs} />
             </div>
+          ) : safePage === 2 ? (
+            <WeeklyTrophiesRecap awards={summary.trophyAwards} />
           ) : (
             podium.length ? (
               <RacePodiumFinale

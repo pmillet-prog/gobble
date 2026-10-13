@@ -1,0 +1,17 @@
+.weekly-trophies-recap{min-width:0}
+.weekly-trophies-intro{margin:0 0 14px;color:#e2e8f0;font-size:12px;line-height:1.5}
+.weekly-trophy-list{display:grid;gap:10px;list-style:none;margin:0;padding:0}
+.weekly-trophy-card{--weekly-trophy-color:#fde68a;--weekly-trophy-glow:rgba(251,191,36,.12);display:grid;grid-template-columns:76px minmax(0,1fr);align-items:center;gap:12px;padding:12px;border:1px solid rgba(255,255,255,.13);border-radius:14px;background:linear-gradient(110deg,var(--weekly-trophy-glow),rgba(2,6,23,.24))}
+.weekly-trophy-card[data-trophy-metal="bronze"]{--weekly-trophy-color:#fdba74;--weekly-trophy-glow:rgba(234,133,63,.12)}
+.weekly-trophy-card[data-trophy-metal="silver"]{--weekly-trophy-color:#e2e8f0;--weekly-trophy-glow:rgba(203,213,225,.12)}
+.weekly-trophy-portrait{display:grid;place-items:center;width:76px;height:82px;border-radius:50%;background:radial-gradient(ellipse,var(--weekly-trophy-glow),transparent 70%)}
+.weekly-trophy-art{display:block;width:76px;height:82px;object-fit:contain;filter:var(--trophy-metal-filter) drop-shadow(0 4px 5px rgba(0,0,0,.3))}
+.weekly-trophy-content{min-width:0}
+.weekly-trophy-name{margin:0;color:#fffbeb;font-size:14px;font-weight:850;line-height:1.25;overflow-wrap:anywhere}
+.weekly-trophy-metal{margin-top:4px;color:var(--weekly-trophy-color);font-size:10px;font-weight:850;letter-spacing:.1em;text-transform:uppercase}
+.weekly-trophy-winners{margin:8px 0 0;color:#f8fafc;font-size:12px;line-height:1.75;overflow-wrap:anywhere}
+.weekly-trophy-congratulations{color:var(--weekly-trophy-color);font-weight:700}
+.weekly-trophy-nick{display:inline;max-width:100%;font:inherit;font-weight:700;color:inherit;white-space:normal;overflow-wrap:anywhere}
+.weekly-trophy-count{color:var(--weekly-trophy-color);white-space:nowrap;font-variant-numeric:tabular-nums;font-weight:850}
+.weekly-trophies-empty{margin:0;border:1px solid rgba(255,255,255,.12);border-radius:14px;background:rgba(2,6,23,.24);padding:24px 16px;text-align:center;font-size:14px;line-height:1.6;color:#e2e8f0}
+@media(max-width:380px){.weekly-trophy-card{grid-template-columns:58px minmax(0,1fr);gap:9px;padding:10px}.weekly-trophy-portrait,.weekly-trophy-art{width:58px;height:68px}.weekly-trophy-name{font-size:13px}}

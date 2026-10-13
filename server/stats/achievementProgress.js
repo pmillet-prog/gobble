@@ -20,6 +20,7 @@ export async function initAchievementSchema(db) {
       UNIQUE(user_id,trophy_id,event_key));
     CREATE INDEX IF NOT EXISTS idx_achievement_v2_pending ON achievement_events_v2(user_id,acknowledged_at,id);
     CREATE INDEX IF NOT EXISTS idx_achievement_v2_round ON achievement_events_v2(round_id,user_id);
+    CREATE INDEX IF NOT EXISTS idx_achievement_v2_earned_at ON achievement_events_v2(earned_at);
     CREATE TABLE IF NOT EXISTS achievement_progress_v2 (
       user_id INTEGER NOT NULL,metric TEXT NOT NULL,value INTEGER NOT NULL DEFAULT 0,peak INTEGER NOT NULL DEFAULT 0,
       PRIMARY KEY(user_id,metric));
