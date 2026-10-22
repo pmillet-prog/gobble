@@ -8,6 +8,7 @@ import MobileHeader from "../MobileHeader.jsx";
 import MobileWordPreview from "../MobileWordPreview.jsx";
 import MobileTargetHintPanel from "./MobileTargetHintPanel.jsx";
 import { TargetQuizMobileScore, TargetQuizMobileStats } from "../targetQuiz/TargetQuizMobileStatus.jsx";
+import { GotusMobileWords, GotusMobileProgress } from "../gotus/GotusMobileStatus.jsx";
 import OcidVoteOptionsGrid from "../ocid/OcidVoteOptionsGrid.jsx";
 import { MobileLiveRankingPanel } from "../../features/live/LiveRosterSatellites.jsx";
 import MobilePresenterActionBar from "../../features/presenters/MobilePresenterActionBar.jsx";
@@ -117,6 +118,7 @@ function MobileStandardPlaying(props) {
     specialRound = null,
     specialSolvedOverlay = null,
     targetScoreMax = 0,
+    targetMiniGameKind = "quiz",
     targetWaitDevActive = false,
     onTargetWaitDevGridHostChange = null,
     onTargetWaitDevSideHostChange = null,
@@ -315,7 +317,7 @@ function MobileStandardPlaying(props) {
 
           {!isOcidRound ? (
             <MobileWordPreview
-              contentOverride={targetWaitDevActive ? <TargetQuizMobileScore /> : null}
+              contentOverride={targetWaitDevActive ? targetMiniGameKind === "gotus" ? <GotusMobileWords /> : <TargetQuizMobileScore /> : null}
               countdownLines={countdownLines}
               darkMode={darkMode}
               getTraceCellLabel={getTraceCellLabel}
@@ -391,7 +393,7 @@ function MobileStandardPlaying(props) {
               className={`rounded-xl border border-slate-200 dark:border-slate-700 bg-white/90 dark:bg-slate-900/90 px-3 ${compactFeed ? "py-0.5" : "py-2"} shadow-sm flex-1 min-h-0 overflow-hidden box-border`}
               style={hasReservedFeed ? { minHeight: mobileLayoutSizing.liveFeedMinHeight } : undefined}
             >
-              {targetWaitDevActive ? <TargetQuizMobileStats /> : <LiveFeedSatellite
+              {targetWaitDevActive ? targetMiniGameKind === "gotus" ? <GotusMobileProgress /> : <TargetQuizMobileStats /> : <LiveFeedSatellite
                 darkMode={darkMode}
                 maxHeight="100%"
                 getNickClassName={getNickClassName}

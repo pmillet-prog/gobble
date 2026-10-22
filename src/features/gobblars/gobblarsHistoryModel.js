@@ -14,6 +14,7 @@ const labels = {
   global_bonus: "Bonus offert",
   weekly_duel_winner: "Prime · équipe gagnante du duel hebdomadaire",
   target_quiz_milestone: "Qui veut gagner des Gobblars · palier de 10 000 points",
+  gotus_milestone: "Gotus · 10 mots trouvés",
 };
 const dayLabel = day => /^\d{4}-\d{2}-\d{2}$/.test(day || "") ? day.split("-").reverse().join("/") : "";
 const avatarFamilies = {

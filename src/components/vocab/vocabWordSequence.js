@@ -8,24 +8,31 @@ export function createVocabWordSequence(words, seasonWords = []) {
     .sort((a, b) => a.localeCompare(b, "fr", { sensitivity: "base" }));
   const seasonSet = new Set(uniqueWords(seasonWords));
   let displayed = 0;
+  let committed = 0;
   let seasonDisplayed = 0;
   let lastDisplayAt = -Infinity;
   return {
     length: orderedWords.length,
     seasonLength: orderedWords.filter(word => seasonSet.has(word)).length,
+    commit(wordIndex, now) {
+      if (wordIndex !== displayed || wordIndex <= committed) return;
+      committed = wordIndex;
+      lastDisplayAt = now;
+    },
     advance(progress, now) {
       const due = Math.round(orderedWords.length * Math.max(0, Math.min(1, progress)));
       // A delayed frame must never skip words or emit several verdicts at once.
-      const changed = displayed < due && now - lastDisplayAt >= 80;
+      // RAF can run again while React is still rendering a previous update.
+      // Wait for its DOM commit so pending words cannot overwrite each other.
+      const changed = displayed === committed && displayed < due && now - lastDisplayAt >= 80;
       if (changed) {
         displayed += 1;
         if (seasonSet.has(orderedWords[displayed - 1])) seasonDisplayed += 1;
-        lastDisplayAt = now;
       }
       return {
         changed, displayed, word: orderedWords[displayed - 1] || "",
         isSeasonNew: seasonSet.has(orderedWords[displayed - 1]), seasonDisplayed,
-        complete: displayed === orderedWords.length,
+        complete: committed === orderedWords.length,
       };
     },
   };

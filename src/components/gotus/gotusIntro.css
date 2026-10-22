@@ -1,0 +1,2 @@
+.gotus-intro { position:fixed; inset:0; z-index:21300; display:grid; place-items:center; overflow:hidden; background:#17101df5; touch-action:none; }
+.gotus-intro__logo { display:block; width:min(70vw,620px); height:auto; max-width:none; transform-origin:center; will-change:transform; pointer-events:none; user-select:none; }

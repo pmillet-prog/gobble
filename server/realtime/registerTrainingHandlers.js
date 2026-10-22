@@ -205,7 +205,7 @@ export function registerTrainingHandlers(
     if (!identity) return;
     const room = getRoom(payload?.roomId || socket.roomId || "room-4x4");
     const sessionId = String(payload?.sessionId || "").trim();
-    const mode = normalizeTrainingMode(payload?.type);
+    const mode = payload?.type === "gotus" ? "gotus" : normalizeTrainingMode(payload?.type);
     if (!room || !sessionId || !mode) {
       cb?.({ ok: false, error: "invalid_training_presence" });
       return;
@@ -237,7 +237,7 @@ export function registerTrainingHandlers(
     if (!identity) return;
     const room = getRoom(payload?.roomId || socket.roomId || "room-4x4");
     const sessionId = String(payload?.sessionId || "").trim();
-    const mode = normalizeTrainingMode(payload?.type);
+    const mode = payload?.type === "gotus" ? "gotus" : normalizeTrainingMode(payload?.type);
     if (!room || !sessionId || !mode) {
       cb?.({ ok: false, error: "invalid_training_presence" });
       return;

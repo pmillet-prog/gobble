@@ -1,5 +1,6 @@
 import { parentPort } from "worker_threads";
 import { achievementCollectionJob } from "../stats/achievementCollectionStore.js";
+import { recordGotusWin, getGotusProfile } from "../stats/gotusStatsService.js";
 import { avatarInventory } from "../auth/authService.js";
 import { loadTargetQuizProgress, saveTargetQuizProgress, loadTargetQuizPoints, saveTargetQuizAnswer, finishTargetQuizPoints, getPlayerProgressBoards } from "../targetMiniGame/targetQuizProgressStore.js";
 
@@ -42,6 +43,8 @@ async function handleJob(type, payload) {
   if (type === "saveTargetQuizProgress") return saveTargetQuizProgress(payload);
   await ensureReady();
   if (type === "achievementCollection") return achievementCollectionJob(payload);
+  if (type === "recordGotusWin") return recordGotusWin(payload);
+  if (type === "getGotusProfile") return getGotusProfile(payload);
   if (type === "loadTargetQuizPoints") return loadTargetQuizPoints(payload);
   if (type === "finishTargetQuizPoints") return finishTargetQuizPoints(payload);
   if (type === "saveTargetQuizAnswer") return saveTargetQuizAnswer(payload);

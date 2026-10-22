@@ -3,7 +3,7 @@ import { TROPHY_BY_ID, getTrophyRewards } from "../../shared/trophyCatalog.js";
 export const ACHIEVEMENT_METRICS = Object.freeze({
   mini_gold_5000: "gold", gobbles_10000: "singleGobbles", julien_1000: "julien", foukro_500000: "foukro",
   marathon_10000: "rounds", total_score_10000000: "score", double_gobbles_1000: "doubleGobbles",
-  targets_1000: "targets", medals_5000: "medals", words_100000: "words",
+  targets_1000: "targets", medals_5000: "medals", words_100000: "words", gotus_100: "gotus",
 });
 const allowedMetrics = new Set(Object.values(ACHIEVEMENT_METRICS));
 export const publicAchievementRoundId = value => value ? String(value).slice(String(value).indexOf("#") + 1) : null;

@@ -22,6 +22,18 @@ test("weekly metric values keep score and target-time semantics", () => {
   assert.equal(getWeeklyMetricValue("bestTimeTargetLong", { ms: "2500" }), 2500);
 });
 
+test("Gotus ranks live words found and displays no score", () => {
+  const model = createWeeklyStatsRuntimeModel({ current: "" }, { current: "" }, null);
+  const ranked = model.dedupeWeeklyEntries("gotusWins", [
+    { userId: 1, nick: "Tigre", wins: 9 },
+    { userId: 2, nick: "Pounie", wins: 10 },
+    { userId: 1, nick: "Tigre", wins: 12 },
+  ]);
+  assert.deepEqual(ranked.map(row => [row.userId, row.wins]), [[1, 12], [2, 10]]);
+  assert.equal(getWeeklyMetricValue("gotusWins", ranked[0]), 12);
+  assert.deepEqual(getStatsRowDetails("gotusWins", ranked[0]), { value: "12", unit: "mots trouvés", details: [], word: null });
+});
+
 test("trophy ranking orders points instead of collection size and retains stable player identities", () => {
   const model = createWeeklyStatsRuntimeModel({ current: "" }, { current: "" }, null);
   const ranked = model.dedupeWeeklyEntries("achievementPoints", [

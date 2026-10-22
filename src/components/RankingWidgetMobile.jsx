@@ -1,7 +1,7 @@
 import React from "react";
 import AssetManager from "../assets/assetManager";
 import { IMAGE_KEYS } from "../assets/assetKeys";
-import TrainingPlayerBadge from "./training/TrainingPlayerBadge.jsx";
+import TrainingPlayerBadge, { GotusTrainingBadge } from "./training/TrainingPlayerBadge.jsx";
 import PlayerProfileLink from "./profile/PlayerProfileLink.jsx";
 import AvatarThumbnail from "../features/avatar/AvatarThumbnail.jsx";
 import { playerProfileUserId } from "../features/overlays/playerProfileTarget.js";
@@ -968,7 +968,7 @@ function RankingWidgetMobile({
             AFK
           </span>
         ) : null;
-        const trainingBadge = entry?.inTraining ? <TrainingPlayerBadge /> : null;
+        const trainingBadge = entry?.inTraining && entry?.trainingMode !== "gotus" ? <TrainingPlayerBadge trainingMode={entry.trainingMode} /> : null;
         const gobbleWordBadges = showGobbleWordAwards && gobbles <= 0 && roundGobbles <= 0
           ? renderGobbleWordBadges(entry.nick)
           : null;
@@ -1028,6 +1028,7 @@ function RankingWidgetMobile({
                   ) : null}
                 </span>
                 {showAvatars && playerProfileUserId(entry) ? <AvatarThumbnail userId={playerProfileUserId(entry)} size={24} className="self-center" showPlaceholder /> : null}
+                <GotusTrainingBadge player={entry} compact />
                 <span className="min-w-0 flex-1">
                   {shouldStackNickDecorations ? (
                       <span className="min-w-0 flex flex-col items-start gap-0.5">
@@ -1674,12 +1675,13 @@ function RankingWidgetMobile({
                           compactWheelActive ? "items-center" : "items-baseline"
                         }`}
                       >
+                        <GotusTrainingBadge player={labelEntry} compact />
                         <span
                           className={["truncate", wheelNickClassName].filter(Boolean).join(" ")}
                         >
                           {row.type === "empty" ? "" : displayNick}
                         </span>
-                      {labelEntry?.inTraining ? <TrainingPlayerBadge compact /> : null}
+                      {labelEntry?.inTraining ? <TrainingPlayerBadge compact trainingMode={labelEntry.trainingMode} /> : null}
                       {showNickDecorations && renderNickSuffix && row.type !== "empty" ? (
                         <span className="flex-none">
                           {renderNickSuffix(

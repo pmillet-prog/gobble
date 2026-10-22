@@ -6,7 +6,7 @@ import {
   useFeatureSelector,
 } from "../../app/react/useFeatureRuntime.js";
 import FantasyPanelShell from "../home/FantasyPanelShell.jsx";
-import TrainingPlayerBadge from "../training/TrainingPlayerBadge.jsx";
+import TrainingPlayerBadge, { GotusTrainingBadge } from "../training/TrainingPlayerBadge.jsx";
 import LepersBonusBadge from "../results/LepersBonusBadge.jsx";
 import {
   formatApproximateMinutes,
@@ -223,6 +223,7 @@ export default function PlayersOverlay({ actions, appearance, directory, rendere
                         </span>
                       ) : null}
                       <div className="min-w-0 flex items-center gap-2">
+                        <GotusTrainingBadge player={entry} />
                         <span className={`font-semibold truncate ${renderers.nickClassName(entry, nick)}`}>
                           {nick || "Joueur"}
                         </span>
@@ -240,7 +241,7 @@ export default function PlayersOverlay({ actions, appearance, directory, rendere
                             AFK
                           </span>
                         ) : null}
-                        {entry?.inTraining ? <TrainingPlayerBadge /> : null}
+                        {entry?.inTraining ? <TrainingPlayerBadge trainingMode={entry.trainingMode} /> : null}
                         {isReady ? (
                           <span className="rounded-full border border-emerald-500/55 bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-black tracking-wide text-emerald-700 dark:text-emerald-300">
                             PRÊT

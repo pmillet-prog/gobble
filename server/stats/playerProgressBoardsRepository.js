@@ -1,4 +1,5 @@
 import { getWeekStartTs, getNextResetTs } from "./parisWeek.js";
+import { createGotusStatsRepository } from "./gotusStatsRepository.js";
 
 export function normalizeProgressBoardsRequest({ weekStartTs, nextResetTs, topN, historicalGobbles } = {}, now = Date.now()) {
   const start = Number.isFinite(weekStartTs) ? getWeekStartTs(weekStartTs) : getWeekStartTs(now);
@@ -20,6 +21,7 @@ export function normalizeProgressBoardsRequest({ weekStartTs, nextResetTs, topN,
 // Existing objective events already provide authoritative, deduplicated QPUG
 // history; there is no second counter or extra message for every correct answer.
 export function createPlayerProgressBoardsRepository({ getDb }) {
+  const gotus = createGotusStatsRepository({ getDb });
   let ready;
   async function init() {
     if (!ready) ready = (async () => {
@@ -43,7 +45,7 @@ export function createPlayerProgressBoardsRepository({ getDb }) {
     const request = normalizeProgressBoardsRequest(rawRequest);
     const db = await init();
     const { weekStartTs, nextResetTs, topN, historicalGobbles } = request;
-    const [qpugAnswers, targetQuizPoints, allQpugAnswers, allTargetQuizPoints, gobbles, doubleGobbles, qpugEpoch, targetQuizEpoch, historicGobbles] = await Promise.all([
+    const [qpugAnswers, targetQuizPoints, allQpugAnswers, allTargetQuizPoints, gobbles, doubleGobbles, qpugEpoch, targetQuizEpoch, historicGobbles, gotusBoards] = await Promise.all([
       db.all(`SELECT ${identity}, COUNT(*) AS correctCount
         FROM avatar_objective_events e JOIN users u ON u.id = e.user_id
         WHERE e.objective = 'lepers_correct_answers' AND e.recorded_at >= ? AND e.recorded_at < ?
@@ -65,6 +67,7 @@ export function createPlayerProgressBoardsRepository({ getDb }) {
         FROM historic h JOIN users u ON u.id = h.user_id
         LEFT JOIN player_lifetime_stats s ON s.installId = CAST(u.id AS TEXT)`,
       ...historicalGobbles.flatMap(row => [row.userId, row.gobbles])) : [],
+      gotus.boards(request),
     ]);
     const gobbleTotals = new Map();
     for (const row of [...gobbles, ...historicGobbles]) {
@@ -72,9 +75,9 @@ export function createPlayerProgressBoardsRepository({ getDb }) {
     }
     const mergedGobbles = [...gobbleTotals.values()].sort((a, b) => b.gobbles - a.gobbles || a.userId - b.userId).slice(0, topN);
     return {
-      boards: { qpugAnswers, targetQuizPoints },
-      allTimeBoards: { qpugAnswers: allQpugAnswers, targetQuizPoints: allTargetQuizPoints, gobbles: mergedGobbles, doubleGobbles },
-      trackingStartTs: { qpugAnswers: qpugEpoch?.started_at ?? null, targetQuizPoints: targetQuizEpoch?.started_at ?? null },
+      boards: { qpugAnswers, targetQuizPoints, ...gotusBoards.boards },
+      allTimeBoards: { qpugAnswers: allQpugAnswers, targetQuizPoints: allTargetQuizPoints, gobbles: mergedGobbles, doubleGobbles, ...gotusBoards.allTimeBoards },
+      trackingStartTs: { qpugAnswers: qpugEpoch?.started_at ?? null, targetQuizPoints: targetQuizEpoch?.started_at ?? null, ...gotusBoards.trackingStartTs },
     };
   }
   return { init, read };

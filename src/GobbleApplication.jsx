@@ -89,6 +89,11 @@ import useMobileRoundIntro from "./hooks/useMobileRoundIntro.js";
 import useMobileExperience from "./features/mobile/useMobileExperience.js";
 import useTargetQuizPlacement from "./features/targetQuiz/useTargetQuizPlacement.js";
 import TargetQuizRecapSatellite from "./components/targetQuiz/TargetQuizRecapSatellite.jsx";
+import useGotusPlacement from "./features/gotus/useGotusPlacement.js";
+import useGotusWaiting from "./features/gotus/useGotusWaiting.js";
+import GotusWaitingSatellite from "./components/gotus/GotusWaitingSatellite.jsx";
+import GotusRecapSatellite from "./components/gotus/GotusRecapSatellite.jsx";
+import { getTournamentPodiumMedals, resolveTournamentPodiumSummary } from "./features/celebration/tournamentPodiumModel.js";
 import MobileExitConfirmDialog from "./features/mobile/MobileExitConfirmDialog.jsx";
 import { capturePlayersOverlaySnapshot } from "./features/overlays/playersOverlaySnapshot.js";
 import useGridTransitionEffects from "./hooks/useGridTransitionEffects.js";
@@ -420,6 +425,7 @@ const loadMobileResultsScreen = () => import("./components/mobile/MobileResultsS
 const TargetQuizPlayground = React.lazy(() =>
   import("./components/targetQuiz/TargetQuizPlayground.jsx")
 );
+const GotusPlayground = React.lazy(() => import("./components/gotus/GotusPlayground.jsx"));
 const loadVocabProgressOverlay = () =>
   import("./components/vocab/VocabProgressOverlay.jsx");
 const VocabProgressOverlay = React.lazy(loadVocabProgressOverlay);
@@ -2201,6 +2207,7 @@ export default function GobbleApplication() {
   }
 
   function returnToLobby() {
+    gotusWaiting.controller.close();
     if (standaloneTrainingSessionRef.current?.tutorial && isTutorialOpen) {
       tutorialGame.disposeSession();
       tutorialGame.returnToMenu();
@@ -5719,6 +5726,15 @@ export default function GobbleApplication() {
     });
   }, [breakKind, isMobileLayout, nextStartAt, phase, resultsFeature, roundId]);
 
+  const gotusWaiting = useGotusWaiting({
+    socket, roomsStats, authenticated: isAccountAuthenticated,
+    ensureConnection: connectSocketWithAuth,
+    ensureAuthenticated: () => ensureAuthenticated({ source: "training" }),
+    getIdentity: () => ({ installId: installIdRef.current, nick: nicknameRef.current.trim(), roomId: roomIdRef.current }),
+    onPrepareTraining: prepareGotusTraining,
+    onJoinLive: joinStandaloneTrainingLive,
+    showToast,
+  });
   useEffect(() => {
     dailyFeature.configureTransport({
       ensureConnection: connectSocketWithAuth,
@@ -5753,11 +5769,11 @@ export default function GobbleApplication() {
       roomIdRef,
       scheduleBatchFlush,
       sessionRef,
-      standaloneTrainingActive: !!standaloneTrainingSession,
+      standaloneTrainingActive: !!standaloneTrainingSession || !!gotusWaiting.state.session,
       subscribePageShow: (listener) =>
         layoutFeature.subscribeViewport(listener, [VIEWPORT_EVENTS.PAGE_SHOW]),
     });
-  }, [connectionFeature, layoutFeature, standaloneTrainingSession]);
+  }, [connectionFeature, layoutFeature, standaloneTrainingSession, gotusWaiting.state.session]);
 
   function openTutorial({ pendingLogin = false } = {}) {
     setTutorialPendingLogin(pendingLogin);
@@ -5769,7 +5785,7 @@ export default function GobbleApplication() {
     setTutorialPendingLogin(false);
     markAccountSeen(ACCOUNT_SEEN_MARKERS.mainTutorial);
     if (tutorialPendingLogin) {
-      handleLogin();
+      gotusWaiting.controller.requestEntry(handleLogin);
     }
   }
 
@@ -5788,7 +5804,7 @@ export default function GobbleApplication() {
       openTutorial({ pendingLogin: true });
       return;
     }
-    handleLogin();
+    gotusWaiting.controller.requestEntry(handleLogin);
   }
 
   function handleResumeFromPrompt(e) {
@@ -6321,6 +6337,7 @@ export default function GobbleApplication() {
     isLoggedInRef,
     lastLoginPayloadRef,
     liveSessionReadyRef,
+    onIdleExit: returnToLobby,
     persistSession,
     reconnectAttemptRef,
     requestTrophyStatus,
@@ -7055,7 +7072,30 @@ function handleTouchEnd() {
 
   function startStandaloneTrainingFromHome(type, label, durationMs) {
     if (!ensureAuthenticated({ source: "training" })) return;
+    if (type === "gotus") { gotusWaiting.controller.startTraining(); return; }
     standaloneTrainingController.start(type, label, durationMs);
+  }
+
+  function prepareGotusTraining() {
+    liveEntryFeature.cancelLoginAttempt();
+    liveResumeFeature.cancelAll();
+    standaloneTrainingController.clearSession();
+    gameplaySessionFeature.cancel("gotus_training");
+    connectionFeature.cancelDisconnectGrace();
+    connectionFeature.cancelForegroundRetry();
+    isLoggedInRef.current = false;
+    liveSessionReadyRef.current = false;
+    currentRoundTrainingRef.current = false;
+    phaseRef.current = "lobby";
+    appViewRef.current = "home";
+    setIsLoggedIn(false);
+    setPhase("lobby");
+    sessionPersistenceFeature.setAutoResumeEnabled(false);
+    clearSavedSession();
+    setResumeSnapshot(null);
+    setCanResumeSession(false);
+    manualDisconnectRef.current = false;
+    setAppView("home");
   }
 
   function launchStandaloneTraining(training, liveStatus = null) {
@@ -8743,7 +8783,7 @@ function handleTouchEnd() {
       Array.isArray(tournamentSummary.ranking) &&
       tournamentSummary.ranking.length > 0
     ) {
-      return tournamentSummary;
+      return resolveTournamentPodiumSummary(tournamentSummary);
     }
     if (Array.isArray(tournamentRanking) && tournamentRanking.length > 0) {
       const getRankingPoints = (entry) =>
@@ -8804,26 +8844,16 @@ function handleTouchEnd() {
           weeklyVocabPodiumRank: Number(entry.weeklyVocabPodiumRank) || 0,
           isWeeklyVocabChampion: !!entry.isWeeklyVocabChampion,
         }));
-      return {
-        winnerNick: ranking[0]?.nick || null,
+      return resolveTournamentPodiumSummary({
         ranking,
         records: {},
-      };
+      });
     }
     return null;
   }, [tournamentSummary, tournamentRanking]);
 
   const tournamentFinaleMedals = React.useMemo(() => {
-    const ranking = tournamentFinaleSummary?.ranking;
-    if (!Array.isArray(ranking) || !ranking.length) return null;
-    const medalOrder = ["gold", "silver", "bronze"];
-    const map = {};
-    medalOrder.forEach((medal, index) => {
-      const entry = ranking[index];
-      if (!entry?.nick) return;
-      map[entry.nick] = { [medal]: 1 };
-    });
-    return map;
+    return getTournamentPodiumMedals(tournamentFinaleSummary);
   }, [tournamentFinaleSummary]);
 
   const devSelfSilverNickEnabled = !!devControls?.enabled && !!devControls?.selfSilverNick;
@@ -10828,7 +10858,7 @@ function handleTouchEnd() {
   const closeDevMenu = React.useCallback(() => {
     setIsDevMenuOpen(false);
   }, []);
-  const quiz = useTargetQuizPlacement({
+  const targetMiniGameContext = {
     appView, gamePresentationView, phase, isLoggedIn, roundId,
     roomId: currentRoomId || roomId, userId: authenticatedUserId, nickname,
     endsAt: serverEndsAt, getNowServerMs, socket,
@@ -10836,7 +10866,11 @@ function handleTouchEnd() {
     currentRoundTraining: currentRoundTrainingRef.current,
     standaloneTrainingSession, phaseLoopTestEnabled,
     devPreviewActiveRoundId: targetWaitDevActiveRoundId,
-  });
+  };
+  const quiz = useTargetQuizPlacement(targetMiniGameContext);
+  const miniGameKind = quiz.devPreview ? "quiz" : specialRound?.targetMiniGame?.kind;
+  const gotus = useGotusPlacement({ quizPlacement: quiz, miniGameKind, roundId, context: targetMiniGameContext });
+  const targetMiniGameActive = miniGameKind === "gotus" ? gotus.active : quiz.active;
   const openTargetWaitDevPlayground = React.useCallback(() => {
     setIsDevMenuOpen(false);
     setIsSettingsOpen(false);
@@ -12090,7 +12124,14 @@ function handleTouchEnd() {
       {authDialogView}
       {specialTutorialOverlay}
       {settingsMenuView}
-      {quiz.active ? (
+      {gotus.active ? (
+        <Suspense fallback={null}>
+          <GotusPlayground active gridHost={quiz.gridHost} sideHost={quiz.sideHost}
+            socket={socket} darkMode={darkMode} roundId={roundId} endsAt={serverEndsAt}
+            getNowServerMs={getNowServerMs} compact={isMobileLayout}
+            onSessionStateChange={gotus.onSessionStateChange} onDismiss={gotus.onDismiss} />
+        </Suspense>
+      ) : quiz.active && miniGameKind !== "gotus" ? (
         <Suspense fallback={null}>
           <TargetQuizPlayground
             active
@@ -12113,6 +12154,7 @@ function handleTouchEnd() {
       ) : null}
       {aboutModalView}
       <TargetQuizRecapSatellite />
+      <GotusRecapSatellite />
       <ChatReactionToastSatellite />
       <NotificationToastLayer darkMode={darkMode} />
     </>
@@ -12258,6 +12300,7 @@ function handleTouchEnd() {
   if (!isLoggedIn && !isDailyPlay) {
     return (
       <>
+        <GotusWaitingSatellite waiting={gotusWaiting} darkMode={menuDarkMode} compact={isMobileLayout} />
         {teamTintOverlay}
         {appView === "daily" ? chatOverlays : (
           <>
@@ -12597,7 +12640,7 @@ function handleTouchEnd() {
     useUltraCompactLayout &&
     phase === "playing" &&
     !isSpecial3WordsMode &&
-    !quiz.active &&
+    !targetMiniGameActive &&
     !standaloneTrainingSession
   ) {
     return (
@@ -12854,7 +12897,8 @@ function handleTouchEnd() {
             suppressWordListScores,
             targetScoreMax,
             targetSummary,
-            targetWaitDevActive: quiz.active,
+            targetMiniGameKind: miniGameKind,
+            targetWaitDevActive: targetMiniGameActive,
             tileColorPreset,
             tileMaterialClass,
             totalScoreLabel,
@@ -13204,7 +13248,7 @@ function handleTouchEnd() {
             submitOcidProposal,
             submitOcidVote,
             suppressWordListScores,
-            targetWaitDevActive: quiz.active,
+            targetWaitDevActive: targetMiniGameActive,
             tileColorPreset,
             tileFontPx,
             tileGapPx,

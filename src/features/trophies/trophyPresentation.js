@@ -1,4 +1,5 @@
 import { TROPHY_REWARDS, TROPHY_BY_ID, getTrophyRewards } from "../../../shared/trophyCatalog.js";
+import { getTrophyCollectionPoints } from "../../../shared/trophyCollectionScoring.js";
 
 export const trophyCount = value => Number.isFinite(Number(value)) ? Math.max(0, Math.trunc(Number(value))) : 0;
 export const trophyRewardCount = (rewardOrId, value) => {
@@ -20,7 +21,16 @@ export function getTrophyAwardPoints(award) {
   const reward = TROPHY_BY_ID[award?.id];
   if (!reward || !Number.isFinite(reward.points)) return null;
   if (award.dev === true) return 0;
-  return trophyRewardCount(reward, Math.min(trophyCount(award.delta), trophyCount(award.count))) * reward.points;
+  const count = trophyRewardCount(reward, award.count);
+  const delta = Math.min(count, trophyRewardCount(reward, award.delta));
+  if (!delta) return 0;
+  const rewards = getTrophyRewards(reward);
+  const preceding = rewards[rewards.findIndex(item => item.id === reward.id) - 1];
+  // Real grants cross tiers in bronze/silver/gold order. Stored count/delta
+  // also identify the first gold when a pending receipt is replayed later.
+  const previousPoints = count === delta && preceding ? preceding.points : 0;
+  if (!Number.isFinite(previousPoints)) return null;
+  return delta * reward.points - previousPoints;
 }
 
 export function normalizeTrophyAward(value) {
@@ -37,9 +47,7 @@ export function getTrophyCollection(achievements, liveCounts = {}, devCounts = {
   ]));
   const counts = Object.fromEntries(TROPHY_REWARDS.map(({ id }) => [id, trophyRewardCount(id, earnedCounts[id] + trophyCount(devCounts[id]))]));
   const totalCount = Object.values(counts).reduce((sum, count) => sum + count, 0);
-  const hasScoring = TROPHY_REWARDS.every(trophy => Number.isFinite(trophy.points) && trophy.points >= 0);
-  const points = hasScoring ? TROPHY_REWARDS.reduce((sum, trophy) =>
-    sum + earnedCounts[trophy.id] * (Number.isFinite(trophy.points) ? trophy.points : 0), 0) : null;
+  const points = getTrophyCollectionPoints(earnedCounts);
   return { counts, totalCount, points };
 }
 

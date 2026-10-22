@@ -33,11 +33,12 @@ export const STATS_PAGES = Object.freeze({
     presenters: [
       board("qpugAnswers", "Questions pour un Gobble", "Les bonnes réponses cumulées cette semaine avec Julien Lechéper.", "QPUG"),
       board("targetQuizPoints", "Qui veut gagner des Gobblars", "Le cumul des bonus et malus de la semaine. Assommer FouKro annule les points du mini-jeu en cours.", "Gobblars"),
+      board("gotusWins", "Gotus", "Les mots trouvés cette semaine avec Baccardo. L’entraînement ne compte pas."),
       board("presenterHits", "Tête à claques", "Les présentateurs les plus frappés, tous joueurs et salons réunis."),
     ],
   },
   season: {
-    trophies: [board("achievementPoints", "Collection de trophées", `Les points des trophées obtenus, exemplaires répétés compris.${TROPHY_SCORING_READY ? "" : " Le barème sera annoncé prochainement."}`, "Trophées")],
+    trophies: [board("achievementPoints", "Collection de trophées", `Pour les trophées à paliers, seul le plus haut atteint compte. Chaque or supplémentaire rapporte sa pleine valeur. Les autres trophées s’additionnent à chaque obtention.${TROPHY_SCORING_READY ? "" : " Le barème sera annoncé prochainement."}`, "Trophées")],
     vocabulary: [
       board("vocab", "Vocabulaire cumulé", "Tous les mots uniques trouvés depuis vos débuts."),
       board("vocab_personal", "Ma progression", "Vos paliers de vocabulaire et vos récompenses."),
@@ -49,6 +50,7 @@ export const STATS_PAGES = Object.freeze({
     presenters: [
       board("qpugAnswers", "Questions pour un Gobble", "Toutes les bonnes réponses cumulées avec Julien Lechéper.", "QPUG"),
       board("targetQuizPoints", "Qui veut gagner des Gobblars", "La balance totale de points, bonus et malus compris.", "Gobblars"),
+      board("gotusWins", "Gotus", "Tous les mots trouvés avec Baccardo en partie live. L’entraînement ne compte pas."),
     ],
   },
 });

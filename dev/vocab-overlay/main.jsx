@@ -1,4 +1,4 @@
-import React, { Profiler, useRef, useState } from "react";
+import React, { Profiler, Suspense, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { flushSync } from "react-dom";
 import "./style.css";
@@ -19,7 +19,9 @@ const Overlay = source.default;
 let current = null;
 let sequence = 0;
 let previousFrame = null;
+let pendingCommit = null;
 window.__vocabViewRender = () => { if (current) current.viewRenders++; };
+window.__vocabRenderGate = () => { if (pendingCommit) throw pendingCommit; };
 const rounded = value => Math.round(value * 100) / 100;
 const NativeResizeObserver = window.ResizeObserver;
 window.ResizeObserver = class FixtureResizeObserver extends NativeResizeObserver {
@@ -105,6 +107,12 @@ function App() {
     start, skip: () => controller.current.skip(), stop: () => controller.current.stop(),
     noise: count => { for (let index = 0; index < count; index++) flushSync(() => setNoiseRevision(revision => revision + 1)); },
     changeImageUrl: () => flushSync(() => setImageRevision(revision => revision + 1)),
+    deferCommits: durationMs => {
+      pendingCommit = new Promise(resolve => setTimeout(() => {
+        pendingCommit = null;
+        resolve();
+      }, durationMs));
+    },
     snapshot: () => {
       const dialog = document.querySelector('[role="dialog"]');
       const rect = element => {
@@ -124,7 +132,7 @@ function App() {
   };
   return <>
     <main className="fixture-controls"><h1>Animation vocabulaire — {baseline ? "avant" : "courante"}</h1><p>Composant réel, données en mémoire, aucun serveur de jeu.</p><div>{["normal", "zero", "many", "levelup"].map(name => <button key={name} onClick={() => start(name)}>{name}</button>)}</div></main>
-    <Profiler id="vocab" onRender={profile}><Overlay ref={controller} request={request} darkMode={darkMode} isMobileLayout={mobile} getImageUrl={key => `${imageUrl(key)}${imageRevision ? `?fixtureRevision=${imageRevision}` : ""}`} onVisibilityChange={value => visible(value)} playVocabOverlayTickSound={(...args) => { tick(...args); if (current) current.callbackVersions.push(noiseRevision); }} playVocabOverlayClingSound={() => noop()} playVocabOverlayZeroSound={() => noop()} playCloseSound={() => noop()} triggerConfettiBurst={() => { if (current) current.confetti++; }} /></Profiler>
+    <Profiler id="vocab" onRender={profile}><Suspense fallback={null}><Overlay ref={controller} request={request} darkMode={darkMode} isMobileLayout={mobile} getImageUrl={key => `${imageUrl(key)}${imageRevision ? `?fixtureRevision=${imageRevision}` : ""}`} onVisibilityChange={value => visible(value)} playVocabOverlayTickSound={(...args) => { tick(...args); if (current) current.callbackVersions.push(noiseRevision); }} playVocabOverlayClingSound={() => noop()} playVocabOverlayZeroSound={() => noop()} playCloseSound={() => noop()} triggerConfettiBurst={() => { if (current) current.confetti++; }} /></Suspense></Profiler>
   </>;
 }
 createRoot(document.getElementById("root")).render(<App />);

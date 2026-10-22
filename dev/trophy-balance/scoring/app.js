@@ -42,7 +42,7 @@ function renderEditor() {
     const isPresenter = definition.id === 'julien_1000' || definition.id === 'foukro_500000';
     const note = definition.scope !== 'cumulative' ? '<small class="unknown-frequency">Fréquence inconnue · hors projection</small>' : isPresenter ? '<small>Projection optionnelle et provisoire</small>' : '';
     const cells = ['bronze', 'silver', 'gold', 'single'].map((tier) => definition.tiers.includes(tier)
-      ? `<td data-label="${tierLabels[tier]}"><input type="number" min="0" max="1000000" step="1" inputmode="numeric" value="${state.points[definition.id][tier]}" data-weight-category="${escape(definition.id)}" data-weight-tier="${tier}" aria-label="${escape(definition.name)} : ${tierLabels[tier]}, points par obtention"></td>`
+      ? `<td data-label="${tierLabels[tier]}"><input type="number" min="0" max="1000000" step="1" inputmode="numeric" value="${state.points[definition.id][tier]}" data-weight-category="${escape(definition.id)}" data-weight-tier="${tier}" aria-label="${escape(definition.name)} : ${tierLabels[tier]}, ${tier === 'single' ? 'points par obtention' : 'total de points à ce palier'}"></td>`
       : '<td class="not-applicable" aria-label="Sans objet">—</td>').join('');
     return `<tr data-weight-row="${escape(definition.id)}"><th scope="row">${escape(definition.name)}<small>${escape(definition.condition)}</small>${note}</th>${cells}</tr>`;
   }).join('');
@@ -89,7 +89,7 @@ function renderRareValues() {
   el('rare-values').innerHTML = SCORING_DEFINITIONS.filter((definition) => definition.scope !== 'cumulative').map((definition) => {
     const points = state.points[definition.id];
     const value = definition.tiers.includes('single') ? `${format(points.single)} points` : `${format(points.bronze)} / ${format(points.silver)} / ${format(points.gold)} points`;
-    const detail = definition.tiers.includes('single') ? 'Pour une obtention.' : 'Bronze / argent / or : points par couleur obtenue.';
+    const detail = definition.tiers.includes('single') ? 'Pour une obtention.' : 'Bronze / argent / or : valeur totale du meilleur palier. Chaque or suivant ajoute sa valeur entière.';
     return `<article class="rare-value" data-rare-category="${escape(definition.id)}"><h3>${escape(definition.name)}</h3><strong>${value}</strong><p>${detail} ${escape(definition.condition)}</p></article>`;
   }).join('');
 }

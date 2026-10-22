@@ -1,5 +1,6 @@
 import { isSessionRoundDisplayable } from "./sessionSnapshotState.js";
 import { getSocketDeviceKind } from "./clientDeviceKind.js";
+import { getPlayerLastActivityAt } from "./createPlayerInactivityController.js";
 
 export function registerSessionHandlers(
   socket,
@@ -34,6 +35,7 @@ export function registerSessionHandlers(
     markPresenceJoinAnnounced,
     normalizeInstallId,
     persistenceClient,
+    playerInactivity,
     pushSystemChatMessage,
     refreshInstallDuelCache,
     requireSocketPlayerIdentity,
@@ -47,6 +49,11 @@ export function registerSessionHandlers(
     }
     const identity = requireSocketPlayerIdentity(socket, cb);
     if (!identity) return;
+    const idleExit = playerInactivity?.getIdleExit(identity);
+    if (idleExit) {
+      cb?.({ ...idleExit, ok: false, available: false });
+      return;
+    }
     const activeBan = getActiveModerationBan(identity);
     if (activeBan) {
       cb?.(buildModerationBanResponse(activeBan));
@@ -77,6 +84,10 @@ export function registerSessionHandlers(
       cb?.({ ok: true, available: false });
       return;
     }
+    if (playerInactivity?.expirePlayerIfIdle(room, match.socketId, match.player)) {
+      cb?.({ ...playerInactivity.getIdleExit(identity), ok: false, available: false });
+      return;
+    }
     const now = Date.now();
     const takeover = !!payload?.takeover;
     let player = match.player;
@@ -100,7 +111,8 @@ export function registerSessionHandlers(
         installId,
         connected: true,
         lastSeenAt: now,
-        lastActivityAt: now,
+        // Restoring a socket is transport maintenance, not player interaction.
+        lastActivityAt: getPlayerLastActivityAt(player) || now,
       };
       room.players.set(socket.id, player);
       schedulePlayerAfkTransition(room, socket.id, player);
@@ -136,6 +148,11 @@ export function registerSessionHandlers(
   socket.on("login", async (payload, cb) => {
     const identity = requireSocketPlayerIdentity(socket, cb);
     if (!identity) return;
+    const idleExit = playerInactivity?.getIdleExit(identity);
+    if (payload?.automaticResume && idleExit) {
+      cb?.({ ...idleExit, ok: false });
+      return;
+    }
     const activeBan = getActiveModerationBan(identity);
     if (activeBan) {
       cb?.(buildModerationBanResponse(activeBan));
@@ -188,9 +205,15 @@ export function registerSessionHandlers(
       return;
     }
 
+    const resumedPlayer = resumeSocketId ? room.players.get(resumeSocketId) : null;
+    if (payload?.automaticResume && resumedPlayer &&
+        playerInactivity?.expirePlayerIfIdle(room, resumeSocketId, resumedPlayer)) {
+      cb?.({ ...playerInactivity.getIdleExit(identity), ok: false });
+      return;
+    }
+    clearPlayerAfkTimer(resumedPlayer);
     if (resumeSocketId && resumeSocketId !== socket.id) {
       clearPendingDisconnect(room, resumeSocketId);
-      clearPlayerAfkTimer(room.players.get(resumeSocketId));
       room.players.delete(resumeSocketId);
       const oldSocket = io.sockets.sockets.get(resumeSocketId);
       if (oldSocket) {
@@ -204,6 +227,7 @@ export function registerSessionHandlers(
     // Réservation de pseudo désactivée (trop gênant sur mobile lors des retours d'appli)
     cleanupExpiredMedals(room);
     const isResumeLogin = !!resumeSocketId;
+    playerInactivity?.clearIdleExit(identity);
 
     room.players.set(socket.id, {
       deviceKind: getSocketDeviceKind(socket),
@@ -213,7 +237,7 @@ export function registerSessionHandlers(
       installId,
       connected: true,
       lastSeenAt: now,
-      lastActivityAt: now,
+      lastActivityAt: payload?.automaticResume ? getPlayerLastActivityAt(resumedPlayer) || now : now,
     });
     schedulePlayerAfkTransition(room, socket.id, room.players.get(socket.id));
     room.nickToInstallId.set(trimmed, installId);

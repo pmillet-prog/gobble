@@ -1,0 +1,6 @@
+.gotus-mobile-words { display: inline-flex; align-items: center; justify-content: center; gap: 8px; white-space: nowrap; }
+.gotus-mobile-words img { flex: none; object-fit: contain; }
+.gotus-mobile-words strong { font-size: 13px; line-height: 1; font-weight: 850; }
+.gotus-mobile-progress { display: flex; align-items: center; height: 100%; min-height: 30px; font-size: 11px; }
+.gotus-mobile-progress .gotus-progress__heading { gap: 4px; margin-bottom: 4px; }
+.gotus-mobile-progress .gotus-progress__track { height: 8px; }

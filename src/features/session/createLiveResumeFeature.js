@@ -36,6 +36,7 @@ export function createLiveResumeFeature(
   let config = {};
   let nextReconnectId = 1;
   let reconnectResetTimerId = null;
+  let unbindIdleExit = null;
 
   function getKernelCommands() {
     try {
@@ -112,6 +113,10 @@ export function createLiveResumeFeature(
     const commands = getKernelCommands();
     if (!isSameSavedSession(identity) || config.isLoggedInRef?.current) {
       commands?.session?.setResumeSnapshot?.(null);
+      return;
+    }
+    if (response?.error === "player_idle") {
+      handleIdleExit(response);
       return;
     }
     if (response?.error === "auth_required") {
@@ -264,6 +269,19 @@ export function createLiveResumeFeature(
     getKernelCommands()?.session?.patch?.(patch);
   }
 
+  function handleIdleExit(response = {}) {
+    const message = response.message || "Retour à l’accueil après 5 minutes sans activité.";
+    cancelAll();
+    safeInvoke(config.onIdleExit);
+    safeInvoke(config.clearSavedSession);
+    if (config.appViewRef) config.appViewRef.current = "home";
+    getKernelCommands()?.transition?.apply?.({
+      navigation: { view: "home" },
+      session: { canResumeSession: false, resumeSnapshot: null },
+    });
+    setLoggedOutFailure(message, { loginError: message });
+  }
+
   function commitRestoredSession(
     identity,
     response,
@@ -331,6 +349,7 @@ export function createLiveResumeFeature(
     socket?.emit?.(
       "login",
       {
+        automaticResume: true,
         nick: identity.nick,
         roomId: identity.roomId,
         installId: identity.installId,
@@ -339,6 +358,10 @@ export function createLiveResumeFeature(
         if (activeResume !== attempt) return;
         activeResume = null;
         if (!response?.ok) {
+          if (response?.error === "player_idle") {
+            handleIdleExit(response);
+            return;
+          }
           getKernelCommands()?.session?.patch?.({
             connectionError: LIVE_CONNECTION_INTERRUPTED_MESSAGE,
             isConnecting: false,
@@ -358,6 +381,10 @@ export function createLiveResumeFeature(
     const { identity } = attempt;
     if (!isSameSavedSession(identity)) {
       releaseResumeTransport(attempt);
+      return;
+    }
+    if (response?.error === "player_idle") {
+      handleIdleExit(response);
       return;
     }
     if (response?.error === "auth_required") {
@@ -581,12 +608,18 @@ export function createLiveResumeFeature(
   }
 
   function configure(nextConfig = {}) {
+    if (config.socket !== nextConfig.socket) {
+      unbindIdleExit?.();
+      unbindIdleExit = nextConfig.socket?.bind?.({ "session:idle": handleIdleExit }) || null;
+    }
     config = nextConfig;
   }
 
   function start() {
     scope.add(() => {
       cancelAll();
+      unbindIdleExit?.();
+      unbindIdleExit = null;
       config = {};
     });
   }

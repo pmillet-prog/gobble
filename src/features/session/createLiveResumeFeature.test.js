@@ -10,14 +10,24 @@ function createSocket({ connected = true } = {}) {
   const listeners = new Map();
   return {
     connected,
+    bind(handlers) {
+      for (const [eventName, handler] of Object.entries(handlers)) {
+        const bucket = listeners.get(eventName) || new Set();
+        bucket.add(handler);
+        listeners.set(eventName, bucket);
+      }
+      return () => {
+        for (const [eventName, handler] of Object.entries(handlers)) listeners.get(eventName)?.delete(handler);
+      };
+    },
     emit(eventName, payload, acknowledge) {
       emitted.push({ acknowledge, eventName, payload });
     },
     emitted,
-    fire(eventName) {
+    fire(eventName, payload) {
       const bucket = [...(listeners.get(eventName) || [])];
       listeners.delete(eventName);
-      for (const listener of bucket) listener();
+      for (const listener of bucket) listener(payload);
     },
     listenerCount(eventName) {
       return listeners.get(eventName)?.size || 0;
@@ -68,6 +78,7 @@ function createHarness({ connected = true } = {}) {
     flushed: 0,
     persisted: [],
     trophies: 0,
+    idleExits: 0,
   };
   feature.configure({
     appViewRef,
@@ -86,6 +97,7 @@ function createHarness({ connected = true } = {}) {
     isLoggedInRef,
     lastLoginPayloadRef: { current: null },
     liveSessionReadyRef,
+    onIdleExit: () => { calls.idleExits += 1; },
     persistSession: (session) => calls.persisted.push(session),
     reconnectAttemptRef,
     requestTrophyStatus: () => {
@@ -200,6 +212,7 @@ test("live resume falls back to a room login when no resumable session is attach
   });
   assert.equal(harness.socket.emitted.length, 2);
   assert.equal(harness.socket.emitted[1].eventName, "login");
+  assert.equal(harness.socket.emitted[1].payload.automaticResume, true);
   harness.socket.emitted[1].acknowledge({
     ok: true,
     roomId: "room-5x5",
@@ -228,6 +241,31 @@ test("live resume cleanup cancels probe listeners, resume timeout and reconnect 
   harness.scope.dispose();
   assert.equal(harness.socket.listenerCount("connect"), 0);
   assert.equal(harness.socket.listenerCount("connect_error"), 0);
+  assert.equal(harness.socket.listenerCount("session:idle"), 0);
   assert.equal(harness.timers.size, 0);
   assert.equal(harness.reconnectAttemptRef.current, false);
 });
+
+for (const source of ["event", "resume", "fallback", "probe"]) {
+  test(`idle ${source} returns home, clears resume state and cancels pending reconnects`, () => {
+    const h = createHarness();
+    const notice = { error: "player_idle", message: "Retour après inactivité." };
+    if (source === "probe") h.feature.probeResume();
+    else h.feature.resume("socket_connect");
+    if (source === "event") h.socket.fire("session:idle", notice);
+    else if (source === "fallback") {
+      h.socket.emitted[0].acknowledge({ ok: true, available: false });
+      h.socket.emitted[1].acknowledge({ ...notice, ok: false });
+    } else h.socket.emitted[0].acknowledge({ ...notice, ok: false });
+    assert.equal(h.calls.idleExits, 1);
+    assert.equal(h.sessionRef.current, null);
+    assert.equal(h.kernel.getState().navigation.view, "home");
+    assert.equal(h.kernel.getState().session.loginError, notice.message);
+    assert.equal(h.kernel.getState().session.isLoggedIn, false);
+    assert.equal(h.kernel.getState().session.canResumeSession, false);
+    assert.equal(h.timers.size, 0);
+    assert.equal(h.feature.resume("online"), false);
+    h.scope.dispose();
+    assert.equal(h.socket.listenerCount("session:idle"), 0);
+  });
+}

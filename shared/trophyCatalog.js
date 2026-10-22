@@ -40,6 +40,7 @@ export const TROPHY_CATALOG = Object.freeze([
   trophy("round_5000", "Manche magistrale", "Sur une seule manche, hors finales : bronze à 2 000 points, argent à 4 000, chacun une seule fois ; or à 5 000, répétable une fois par manche.", 5000, "round", "round_5000-v3"),
   cumulative("gobbles_10000", "La moisson de gobbles", "gobbles simples", 200, "Les doubles gobbles sont exclus."),
   cumulative("foukro_500000", "Le grand jeu de FouKro", "points confirmés à Qui veut gagner des Gobblars", 20000),
+  Object.freeze({ ...trophy("gotus_100", "Gotus", "Trouver 100 mots à Gotus en partie live. L’entraînement ne compte pas. Trophée unique.", 100, "once", "gotus_100-v1"), acquisition: "cumulative" }),
   cumulative("marathon_10000", "Marathonien", "manches jouées", 2000),
   cumulative("total_score_10000000", "Multimillionnaire", "points de jeu", 2000000),
   cumulative("double_gobbles_1000", "Double impact", "doubles gobbles", 50, "Un double compte une fois ici et ne compte pas parmi les gobbles simples."),

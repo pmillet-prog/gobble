@@ -46,7 +46,7 @@ import MiniTournamentStartOverlay from "../live/MiniTournamentStartOverlay.jsx";
 import TraceAwareDesktopPreviewContent from "../live/TraceAwareDesktopPreviewContent.jsx";
 import OcidVoteOptionsGrid from "../ocid/OcidVoteOptionsGrid.jsx";
 import DesktopOcidPanel from "../ocid/DesktopOcidPanel.jsx";
-import TrainingPlayerBadge from "../training/TrainingPlayerBadge.jsx";
+import TrainingPlayerBadge, { GotusTrainingBadge } from "../training/TrainingPlayerBadge.jsx";
 import useDesktopSceneLayout from "./useDesktopSceneLayout.js";
 
 export default function DesktopGameScene({ runtime }) {
@@ -876,8 +876,9 @@ export default function DesktopGameScene({ runtime }) {
                   }`;
                   const content = (
                     <>
+                      <GotusTrainingBadge player={p} compact />
                       <span className={nickClassName}>{p.nick}</span>
-                      {p?.inTraining ? <span className="ml-1 inline-flex align-middle"><TrainingPlayerBadge compact /></span> : null}
+                      {p?.inTraining ? <span className="ml-1 inline-flex align-middle"><TrainingPlayerBadge compact trainingMode={p.trainingMode} /></span> : null}
                       {p?.afk ? (
                         <span className="ml-1 text-[10px] font-extrabold italic text-red-600">
                           AFK

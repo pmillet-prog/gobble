@@ -1,0 +1,175 @@
+{
+  "generator": "built-in image_gen",
+  "presenter": {
+    "file": "thierry-baccardo.webp",
+    "source": "thierry-baccardo-cleaned.png",
+    "size": [
+      2170,
+      530
+    ],
+    "frameSize": [
+      310,
+      530
+    ],
+    "frameCount": 7,
+    "hasAlpha": true,
+    "neutralFrame": 6,
+    "blinkFrame": 5,
+    "mouthSequence": [
+      0,
+      1,
+      2,
+      1,
+      4,
+      3,
+      1,
+      0,
+      2,
+      4,
+      1,
+      3,
+      0
+    ],
+    "frames": [
+      "o",
+      "speaking-small",
+      "a",
+      "pursed",
+      "speaking-wide",
+      "wink",
+      "neutral-smile"
+    ],
+    "processing": "Seven alpha-connected silhouettes isolated before packing; neighbouring fragments and loose specks excluded. Native contour alpha retained. Shared scale and vertical alignment; centered 310x530 cells with at least 8px of transparent padding after export.",
+    "sourceFigures": [
+      {
+        "id": 1,
+        "pixels": 113495,
+        "bounds": [
+          9,
+          107,
+          318,
+          617
+        ]
+      },
+      {
+        "id": 2,
+        "pixels": 113865,
+        "bounds": [
+          323,
+          107,
+          631,
+          617
+        ]
+      },
+      {
+        "id": 3,
+        "pixels": 113691,
+        "bounds": [
+          636,
+          107,
+          941,
+          617
+        ]
+      },
+      {
+        "id": 4,
+        "pixels": 113756,
+        "bounds": [
+          946,
+          107,
+          1253,
+          617
+        ]
+      },
+      {
+        "id": 5,
+        "pixels": 113196,
+        "bounds": [
+          1258,
+          107,
+          1563,
+          617
+        ]
+      },
+      {
+        "id": 6,
+        "pixels": 113073,
+        "bounds": [
+          1564,
+          107,
+          1868,
+          617
+        ]
+      },
+      {
+        "id": 7,
+        "pixels": 112255,
+        "bounds": [
+          1872,
+          107,
+          2170,
+          617
+        ]
+      }
+    ],
+    "exportedAlphaBounds": [
+      [
+        10,
+        26,
+        300,
+        503
+      ],
+      [
+        11,
+        27,
+        300,
+        503
+      ],
+      [
+        12,
+        26,
+        298,
+        503
+      ],
+      [
+        11,
+        27,
+        299,
+        503
+      ],
+      [
+        12,
+        26,
+        298,
+        503
+      ],
+      [
+        12,
+        26,
+        297,
+        503
+      ],
+      [
+        15,
+        26,
+        295,
+        503
+      ]
+    ]
+  },
+  "studio": {
+    "file": "studio.webp",
+    "source": "studio-generated.png",
+    "size": [
+      1672,
+      941
+    ],
+    "boardBoundsPercent": {
+      "left": 20.9,
+      "top": 49.4,
+      "right": 78.1,
+      "bottom": 100
+    },
+    "processing": "WebP conversion only."
+  }
+}

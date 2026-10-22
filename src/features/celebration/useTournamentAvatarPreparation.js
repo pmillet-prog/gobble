@@ -11,6 +11,6 @@ export default function useTournamentAvatarPreparation({ enabled, tournamentId, 
   React.useEffect(() => {
     if (!key || phase !== "results" || breakKind !== "tournament_end" || !summary?.ranking?.length) return;
     preloadTournamentFinale();
-    resources?.preparePodium(podiumKey, getTournamentPodiumEntries(summary.ranking, { userId, nick, knownPlayers }));
+    resources?.preparePodium(podiumKey, getTournamentPodiumEntries(summary, { userId, nick, knownPlayers }));
   }, [resources, key, phase, breakKind, podiumKey, summary, userId, nick, knownPlayers]);
 }

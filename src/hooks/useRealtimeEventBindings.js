@@ -147,6 +147,7 @@ useEffect(() => {
       status: roundStatus = "running",
       gridSize: payloadSize,
       special = null,
+      targetMiniGame = null,
       gridQuality = null,
       roundNumber = null,
       nextSpecial = null,
@@ -279,6 +280,7 @@ useEffect(() => {
           solutions,
           lepersChallenge,
           cultureThemeChallenge,
+          targetMiniGame,
         }
       );
     }

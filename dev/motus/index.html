@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#063b71">
+  <title>Motus · Thierry Baccardo</title>
+  <link rel="stylesheet" href="./style.css">
+  <script type="module" src="./app.mjs"></script>
+</head>
+<body>
+  <main>
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Motus, accueil"><span>M</span><span>O</span><span>T</span><span>U</span><span>S</span></a>
+      <div class="masthead-copy"><strong>Avec Thierry Baccardo</strong><span>Le bon mot, à la bonne place.</span></div>
+      <span class="prototype-badge">ATELIER · 6 LETTRES</span>
+    </header>
+
+    <section class="studio" aria-label="Le plateau de Motus">
+      <div class="studio-tint"></div>
+      <div class="on-air"><i></i> À VOUS DE JOUER</div>
+      <div class="host-area">
+        <div class="presenter" role="img" aria-label="Thierry Baccardo" data-expression="idle"></div>
+        <div class="speech" id="speech">Six lettres, six essais.<br>À vous de trouver le mot !</div>
+      </div>
+      <div class="board-surround">
+        <div class="board-top"><span>LE MOT MYSTÈRE</span><span id="attempt-counter">1 / 6</span></div>
+        <div class="board" id="board" role="table" aria-label="Grille de six essais, six lettres"></div>
+        <div class="board-bottom"><span id="round-label">LA PREMIÈRE LETTRE VOUS EST OFFERTE</span><span class="studio-lights">● ● ●</span></div>
+      </div>
+    </section>
+
+    <section class="play-panel" aria-label="Votre proposition">
+      <div class="feedback" id="feedback" role="status" aria-live="polite">Préparation des mots…</div>
+      <form id="guess-form" autocomplete="off">
+        <label class="sr-only" for="guess">Votre mot de six lettres</label>
+        <input id="guess" name="guess" type="text" inputmode="text" maxlength="12" spellcheck="false" autocomplete="off" autocapitalize="characters" aria-describedby="feedback" placeholder="VOTRE MOT" disabled>
+        <button id="submit" class="button-primary" type="submit" disabled>PROPOSER <span aria-hidden="true">↵</span></button>
+        <button id="new-round" type="button" class="button-secondary" disabled>Nouveau mot <span aria-hidden="true">↻</span></button>
+      </form>
+      <div id="keyboard" class="keyboard" aria-label="Clavier à l’écran"></div>
+      <div class="legend">
+        <span><i class="sample correct">A</i> Bien placée</span>
+        <span><i class="sample present">B</i> Mal placée</span>
+        <span><i class="sample known">C</i> Déjà trouvée</span>
+        <span><i class="sample unknown">·</i> À trouver</span>
+      </div>
+      <label class="checkbox sound-control"><input id="sound-enabled" type="checkbox" checked> Activer les sons</label>
+    </section>
+
+    <footer>
+      <details class="rules"><summary>Comment jouer ?</summary><p>Trouvez un mot de six lettres en six essais. La première lettre est donnée comme indice : vous pouvez l’effacer dans la saisie et proposer un mot du dictionnaire commençant par une autre lettre. Les carrés rouge orangé indiquent les lettres bien placées ; les cercles jaunes, celles présentes ailleurs. Une lettre ne peut être signalée plus de fois qu’elle n’existe dans le mot.</p><p>Sur la ligne suivante, les lettres déjà trouvées apparaissent en blanc sur bleu et les autres emplacements portent un point. Les accents sont ignorés. Les verbes conjugués sont acceptés dans vos propositions, mais seuls les infinitifs, participes passés et mots ayant un emploi non verbal attesté peuvent être tirés au sort.</p></details>
+      <details class="workshop"><summary>Atelier de test</summary><div class="workshop-controls"><form id="seed-form"><label for="seed-word">Choisir un mot à trouver</label><div><input id="seed-word" placeholder="Ex. BALLON" maxlength="12" autocomplete="off"><button type="submit">Charger</button></div></form><button id="give-up" type="button">Voir la solution</button><label class="checkbox"><input id="fast" type="checkbox"> Révélation rapide</label></div><p id="seed-status" role="status"></p><p id="bank-info"></p><p>Prototype local, en solo, sans chronomètre.</p></details>
+      <p class="credits">MOTUS · LABORATOIRE GOBBLE <span>Classification des mots : <a href="https://fr.wiktionary.org/" target="_blank" rel="noreferrer">Wiktionnaire</a> (CC BY-SA / GFDL).</span></p>
+    </footer>
+  </main>
+</body>
+</html>

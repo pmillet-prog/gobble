@@ -1,0 +1,13 @@
+{
+  "tool": "built-in image_gen",
+  "presenter": {
+    "useCase": "style-transfer",
+    "inputImages": [
+      ".tmp/motus/bec.jpg",
+      ".tmp/motus/bec2.jpg",
+      ".tmp/motus/bec3.jpg",
+      "public/bots/lepers-sprite.webp"
+    ],
+    "prompt": "Use case: style-transfer.\nAsset type: production transparent 7-frame horizontal presenter sprite sheet for Gobble's standalone Motus prototype.\nInput images 1-3: identity and clothing reference photos of the same host, called Thierry Baccardo in the game. Image 4: existing Julien presenter sprite sheet, STRICT cartoon rendering and sheet-layout reference only, do not reproduce its man's face, curly hair, gesture, cue card or clothes.\nPrimary request: create Thierry Baccardo as a recognizable polished humorous cartoon caricature from the three photos. Preserve his short straight dark brown hair with receding hairline, long slightly angular face, prominent smile, slender build and ears. Charcoal suit jacket and open-neck white shirt, no tie. Chest-up bust, head large like reference, both shoulders and small amount of torso visible. Hands outside the crop. Clean dark outline, warm painted shading, detailed expressive face, crisp game-ready artwork matching reference style. Friendly and witty.\nComposition: one image with EXACTLY SEVEN equal-width cells in a SINGLE horizontal row, no second row. Each cell contains the SAME bust, SAME scale, SAME head position, SAME shoulders, SAME hair, SAME clothes, SAME crop. The only differences are mouth and eyelids, suitable for animation without jitter. Center each bust precisely in its cell, full artwork separated from neighboring cells by transparent margin. Use wide 3:1 canvas ideally 2688x896, divided into seven equal cells. Keep transparent space above and below so every entire bust fits.\nFrame order from left to right, zero-indexed: 0 small round O mouth speaking; 1 slightly open talking mouth teeth visible; 2 wide open A mouth; 3 narrow pursed mouth; 4 medium-wide laughing/talking mouth; 5 single eye winking with mouth closed in a friendly smile; 6 relaxed neutral friendly closed-mouth smile.\nConstraints: REAL transparent alpha background throughout, no color backdrop, no checkerboard, no shadows detached from bust, no cell dividers, no numbers, no text, no symbols, no logos, no watermarks. Do not crop heads or shoulders or merge frames. Do not add props or hands. Identity and body alignment stay identical across all frames."
+  }
+}

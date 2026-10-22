@@ -5,6 +5,7 @@ import { getLiveTeamImageKey, getUiImageUrl } from "../../assets/uiAssetManifest
 import TrainingDurationPicker from "./TrainingDurationPicker.jsx";
 
 const TRAINING_ROUNDS = Object.freeze([
+  { value: "gotus", label: "Gotus" },
   { value: "normal", label: "Classique" },
   { value: "finale", label: "Finale · bonus ×2" },
   { value: "self_specials_3_words", label: "3 mots" },
@@ -92,14 +93,17 @@ export default function StandaloneTrainingPicker({
                         key={entry.value}
                         type="button"
                         disabled={busy}
-                        onClick={() => setSelectedRound(entry)}
+                        onClick={() => {
+                          if (entry.value === "gotus") { onStart?.("gotus", "Gotus"); close(); }
+                          else setSelectedRound(entry);
+                        }}
                         className={`rounded-xl border px-2 py-3 text-xs font-bold transition disabled:opacity-50 ${
                           darkMode
                             ? "border-slate-600 bg-slate-900 hover:bg-slate-800"
                             : "border-amber-200 bg-amber-50/70 hover:bg-amber-100"
                         }`}
                       >
-                        {entry.label}
+                        {entry.value === "gotus" ? <img src="/gotus/gotus-logo.webp" alt="Gotus" className="mx-auto h-9 w-24 object-contain" /> : entry.label}
                       </button>
                     ))}
                   </div>

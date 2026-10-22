@@ -35,6 +35,7 @@ export function getStatsRowDetails(boardKey, entry) {
     case "doubleGobbles": value = count(entry.doubleGobbles); unit = "double gobbles"; break;
     case "presenterHits": value = count(entry.hits); unit = "coups reçus"; break;
     case "qpugAnswers": value = count(entry.correctCount); unit = "bonnes réponses"; break;
+    case "gotusWins": value = count(entry.wins); unit = "mots trouvés"; break;
     case "targetQuizPoints": value = `${Number(entry.points) > 0 ? "+" : ""}${count(entry.points)}`; unit = "points"; break;
     case "achievementPoints":
       value = count(entry.points); unit = "points";

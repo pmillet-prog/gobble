@@ -1,4 +1,5 @@
 import { TROPHY_REWARDS, TROPHY_BY_ID } from "../../shared/trophyCatalog.js";
+import { getTrophyCollectionPoints, TROPHY_SCORING_TIER_RANK } from "../../shared/trophyCollectionScoring.js";
 import { runSqliteImmediateTransaction } from "../sqliteQueue.js";
 import { getWeekStartTs, getNextResetTs } from "./parisWeek.js";
 import { initAchievementSchema, getAchievementActivation, grantAchievement, recordAchievementProgress, publicAchievementAward } from "./achievementProgress.js";
@@ -44,9 +45,8 @@ export function createAchievementCollectionRepository({ getDb, catalog = TROPHY_
     const rows = validUser(userId) ? await db.all("SELECT trophy_id,count FROM achievement_collection_v2 WHERE user_id=?", Number(userId)) : [];
     const counts = Object.fromEntries(catalog.map(item => [item.id,
       Math.min(item.unique ? 1 : Infinity, integer(rows.find(row => row.trophy_id === item.id)?.count))]));
-    const configured = catalog.every(item => Number.isFinite(item.points) && item.points >= 0);
     return { counts, totalCount: Object.values(counts).reduce((sum, count) => sum + count, 0),
-      points: configured ? catalog.reduce((sum, item) => sum + counts[item.id] * item.points, 0) : null };
+      points: getTrophyCollectionPoints(counts, catalog) };
   }
   async function bootstrap() {
     const db = await init();
@@ -100,12 +100,19 @@ export function createAchievementCollectionRepository({ getDb, catalog = TROPHY_
   async function leaderboard(topN = 50) {
     if (!catalog.every(item => Number.isFinite(item.points) && item.points >= 0)) return null;
     const db = await init();
-    const values = catalog.map(item => [item.id, item.points, item.unique ? 1 : 0]);
-    return db.all(`WITH scores(trophy_id,points,unique_reward) AS (VALUES ${values.map(() => "(?,?,?)").join(",")})
+    const values = catalog.map(item => [item.id, item.categoryId || item.id,
+      TROPHY_SCORING_TIER_RANK[item.metal] || 0, item.points, item.unique || item.repeat === "once" ? 1 : 0]);
+    return db.all(`WITH scores(trophy_id,category_id,tier_rank,points,unique_reward) AS (VALUES ${values.map(() => "(?,?,?,?,?)").join(",")}),
+      owned AS (
+        SELECT c.user_id,s.tier_rank,s.points,
+          CASE WHEN s.unique_reward THEN MIN(c.count,1) ELSE c.count END AS count,
+          MAX(s.tier_rank) OVER (PARTITION BY c.user_id,s.category_id) AS best_tier
+        FROM achievement_collection_v2 c JOIN scores s ON s.trophy_id=c.trophy_id WHERE c.count>0
+      )
       SELECT u.id AS userId,'install:'||u.id AS playerKey,u.username_display AS nick,
-        SUM((CASE WHEN s.unique_reward THEN MIN(c.count,1) ELSE c.count END)*s.points) AS points,
-        SUM(CASE WHEN s.unique_reward THEN MIN(c.count,1) ELSE c.count END) AS totalCount
-      FROM achievement_collection_v2 c JOIN users u ON u.id=c.user_id JOIN scores s ON s.trophy_id=c.trophy_id
+        SUM(CASE WHEN o.tier_rank=o.best_tier THEN o.count*o.points ELSE 0 END) AS points,
+        SUM(o.count) AS totalCount
+      FROM owned o JOIN users u ON u.id=o.user_id
       GROUP BY u.id ORDER BY points DESC,totalCount DESC,u.id LIMIT ?`, ...values.flat(), Math.min(200, Math.max(1, integer(topN))));
   }
   return { init, bootstrap, record, snapshot, pending, acknowledge, roundAwards, weeklyRecap, leaderboard };

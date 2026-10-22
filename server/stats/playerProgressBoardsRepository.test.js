@@ -8,6 +8,7 @@ import { createTargetQuizPointsRepository } from "../targetMiniGame/targetQuizPo
 import { createTargetQuizProgressRepository } from "../targetMiniGame/targetQuizProgressRepository.js";
 import { getWeekStartTs } from "./parisWeek.js";
 import { buildAllTimeGobbleCandidates } from "./allTimeGobbleCandidates.js";
+import { createGotusStatsRepository } from "./gotusStatsRepository.js";
 
 const WEEK = Date.parse("2026-10-04T22:00:00Z"); // Monday 00:00, Paris.
 const END = Date.parse("2026-10-11T22:00:00Z");
@@ -61,6 +62,19 @@ test("QPUG rankings reuse dated authoritative events and preserve historical pro
   assert.equal(result.allTimeBoards.qpugAnswers[0].playerKey, "install:2");
   assert.equal(result.trackingStartTs.qpugAnswers, WEEK - 7 * 86_400_000);
   assert.equal(result.trackingStartTs.targetQuizPoints, LAUNCH);
+});
+
+test("Gotus words merge into the existing weekly and all-time presenter statistics", async t => {
+  const f = await fixture(t);
+  const gotus = createGotusStatsRepository({ getDb: async () => f.db, now: () => LAUNCH });
+  await gotus.recordWin({ userId: 2, roomId: "live", roundId: "gotus-1", wonAt: LAUNCH + 1, attemptsUsed: 3, training: false });
+  await gotus.recordWin({ userId: 2, roomId: "live", roundId: "gotus-2", wonAt: LAUNCH + 2, attemptsUsed: 1, training: true });
+  const stats = await f.read();
+  assert.deepEqual(stats.boards.gotusWins.map(row => [row.userId, row.wins]), [[2, 1]]);
+  assert.deepEqual(stats.allTimeBoards.gotusWins, stats.boards.gotusWins);
+  assert.equal(stats.trackingStartTs.gotusWins, LAUNCH);
+  assert.ok(Array.isArray(stats.boards.qpugAnswers));
+  assert.ok(Array.isArray(stats.boards.targetQuizPoints));
 });
 
 test("quiz weekly totals include settled signed scores once and exclude provisional or knocked out sessions", async t => {

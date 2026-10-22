@@ -4,7 +4,7 @@ import { normalizeTargetQuizSummary } from "../../shared/targetQuizSummary.js";
 export const targetQuizRoundKey = (roomId, roundId) => `${roomId}#${roundId}`;
 
 export function resolveTargetQuizContext(socket, payload, {
-  getRoom, getSocketPlayerIdentity, areDevToolsAllowedForSocket, now = Date.now,
+  getRoom, getSocketPlayerIdentity, areDevToolsAllowedForSocket, miniGameKind = "quiz", now = Date.now,
 }) {
   const identity = getSocketPlayerIdentity(socket);
   if (!identity) throw new Error("auth_required");
@@ -17,10 +17,11 @@ export function resolveTargetQuizContext(socket, payload, {
   const round = room.currentRound;
   // Both the older room training and standalone training stay excluded,
   // including when a developer requests a simulation.
-  if (round?.training || player.standaloneTraining?.sessionId) throw new Error("training_disabled");
+  if (round?.training || player.standaloneTraining?.sessionId || player.trainingPresenceOnly) throw new Error("training_disabled");
   if (!round || String(payload?.roundId) !== String(round.id)) throw new Error("stale_round");
   if (round.status !== "running" || !(round.endsAt > now())) throw new Error("round_finished");
   const devPreview = payload?.devPreview === true;
+  if ((round.targetMiniGame?.kind || "quiz") !== miniGameKind) throw new Error("mini_game_unavailable");
   if (devPreview) {
     if (!areDevToolsAllowedForSocket(socket)) throw new Error("account_not_allowed");
   } else {
@@ -39,6 +40,10 @@ export function resolveTargetQuizContext(socket, payload, {
     endsAt: devPreview ? Math.min(round.endsAt, now() + 90_000) : round.endsAt,
     roundEndsAt: round.endsAt,
     room, devPreview,
+    player,
+    userId,
+    installId: identity.installId,
+    nick: player.nick,
   };
 }
 

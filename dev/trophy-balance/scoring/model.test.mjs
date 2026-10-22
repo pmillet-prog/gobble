@@ -17,26 +17,35 @@ test('each proposal prices all 19 categories using nonnegative integer points', 
     }
   }
 });
-test('unique milestones contribute once, while every gold contributes', () => {
-  assert.equal(scoreAcquisitions('marathon_10000', { bronze: 4, silver: 2, gold: 3 }, points), 1500);
+test('only the highest owned milestone contributes, while every gold contributes', () => {
+  assert.equal(scoreAcquisitions('marathon_10000', { bronze: 4, silver: 2 }, points), 200);
+  assert.equal(scoreAcquisitions('marathon_10000', { bronze: 4, silver: 2, gold: 3 }, points), 1200);
   assert.equal(scoreAcquisitions('volume_100', { single: 16 }, points), 20);
   assert.equal(scoreAcquisitions('word_16', { single: 16 }, points), 4800);
-  assert.equal(scoreAcquisitions('round_5000', { bronze: 5, silver: 3, gold: 2 }, points), 110);
+  assert.equal(scoreAcquisitions('round_5000', { bronze: 5, silver: 3, gold: 2 }, points), 80);
+  assert.equal(scoreAcquisitions('weekly_silver', { single: 2 }, points), 50);
 });
-test('a first gold includes earlier bronze and silver rewards from a zero baseline', () => {
+test('a first gold replaces earlier bronze and silver values from a zero baseline', () => {
   const one = { ...data, profiles: [{ ...data.profiles.find(p => p.recentRounds >= 100 && p.activeWeeks >= 2),
     metrics: { marathon_10000: { perRound: 1 } } }],
     categories: data.categories.filter(c => c.id === 'marathon_10000').map(c => ({ ...c, threshold: 1000 })) };
   const player = projectScoring(one, points, { horizon: 'rounds1000' }).players[0];
   assert.deepEqual(player.categoryScores[0].counts, { bronze: 1, silver: 1, gold: 1 });
-  assert.equal(player.subtotal, 700);
+  assert.equal(player.subtotal, 400);
 });
-test('66 regulars form three fixed groups and preserve the audited 90-day projection', () => {
+
+test('custom tier values describe totals instead of cumulative bonuses', () => {
+  const custom = clonePoints(points);
+  custom.marathon_10000 = { bronze: 50, silver: 120, gold: 300 };
+  const states = [{ bronze: 1 }, { bronze: 1, silver: 1 }, { bronze: 1, silver: 1, gold: 1 }, { bronze: 1, silver: 1, gold: 2 }];
+  assert.deepEqual(states.map(counts => scoreAcquisitions('marathon_10000', counts, custom)), [50, 120, 300, 600]);
+});
+test('66 regulars retain their three fixed groups with the corrected 90-day scores', () => {
   const result = projectScoring(data, points);
   assert.equal(result.players.length, 66);
   assert.deepEqual(result.groups.map(g => g.count), [22, 22, 22]);
   assert.equal(result.categoryCount, 8);
-  assert.deepEqual(result.groups.map(g => g.medianSubtotal), [1320, 1532.5, 2105]);
+  assert.deepEqual(result.groups.map(g => g.medianSubtotal), [770, 907.5, 1430]);
   assert.ok(result.players.every(p => p.complete));
   assert.ok(result.excludedCategoryIds.includes('word_17'));
   assert.ok(result.players.every(p => !p.categoryScores.some(c => c.id === 'word_17')));
@@ -54,7 +63,7 @@ test('an unknown presenter stays unknown and does not enter complete group avera
 test('round comparisons never invent a presenter rate', () => {
   const result = projectScoring(data, points, { horizon: 'rounds5000', includePresenters: true });
   assert.equal(result.categoryCount, 8);
-  assert.deepEqual(result.groups.map(g => g.medianSubtotal), [2070, 2837.5, 3635]);
+  assert.deepEqual(result.groups.map(g => g.medianSubtotal), [1450, 2170, 2960]);
 });
 test('editing an event value does not invent event frequencies or change cumulative projections', () => {
   const edited = clonePoints(points);

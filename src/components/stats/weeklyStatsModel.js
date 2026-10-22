@@ -65,6 +65,7 @@ export function getWeeklyMetricValue(boardKey, entry) {
   if (boardKey === "doubleGobbles") return Number(entry.doubleGobbles) || 0;
   if (boardKey === "presenterHits") return Number(entry.hits) || 0;
   if (boardKey === "qpugAnswers") return Number(entry.correctCount) || 0;
+  if (boardKey === "gotusWins") return Number(entry.wins) || 0;
   if (boardKey === "targetQuizPoints") return Number(entry.points) || 0;
   if (boardKey === "achievementPoints") return Number(entry.points) || 0;
   return null;
@@ -133,6 +134,8 @@ export function createWeeklyStatsRuntimeModel(
         return Number(entry.hits) || 0;
       case "qpugAnswers":
         return Number(entry.correctCount) || 0;
+      case "gotusWins":
+        return Number(entry.wins) || 0;
       case "targetQuizPoints":
       case "achievementPoints":
         return Number(entry.points) || 0;

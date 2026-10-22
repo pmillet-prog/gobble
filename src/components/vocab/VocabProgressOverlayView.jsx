@@ -72,6 +72,7 @@ const VocabProgressOverlayView = React.memo(
   const vocabOverlayTimersRef = useRef([]);
   const vocabOverlayRafRef = useRef(null);
   const vocabOverlayLastTickRef = useRef(0);
+  const vocabOverlayWordSequenceRef = useRef(null);
   const lastRequestIdRef = useRef(null);
   const callbacksRef = useRef(null);
   callbacksRef.current = {
@@ -165,6 +166,7 @@ const VocabProgressOverlayView = React.memo(
     setVocabOverlayHasLevelUp(false);
     setVocabOverlayWordFading(false);
     const wordSequence = createVocabWordSequence(words, seasonWords);
+    vocabOverlayWordSequenceRef.current = wordSequence;
     vocabOverlayLastTickRef.current = 0;
     updateVocabOverlayFrame({
       total: baseCount, delta: 0, weeklyTotal: safeWeeklyBaseCount, weeklyDelta: 0,
@@ -294,6 +296,7 @@ const VocabProgressOverlayView = React.memo(
     if (!isVocabOverlayOpen || !vocabOverlayCurrentWord ||
         vocabOverlayWordIndex <= vocabOverlayLastTickRef.current) return;
     vocabOverlayLastTickRef.current = vocabOverlayWordIndex;
+    vocabOverlayWordSequenceRef.current?.commit(vocabOverlayWordIndex, performance.now());
     callbacksRef.current.playVocabOverlayTickSound(vocabOverlayWordIndex, { isSeasonNew: vocabOverlayWordIsSeasonNew });
   }, [isVocabOverlayOpen, vocabOverlayCurrentWord, vocabOverlayWordIndex, vocabOverlayWordIsSeasonNew]);
 

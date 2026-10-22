@@ -9,9 +9,10 @@ import WebSocket from "ws";
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const mode = process.argv.includes("--baseline") ? "baseline" : "current";
 const quick = process.argv.includes("--quick");
+const delayedCommit = process.argv.includes("--delayed-commit");
 const smallOnly = process.argv.includes("--small-only");
 const supplement = smallOnly || process.argv.includes("--supplement");
-const output = path.join(root, ".tmp/vocab-overlay", `${mode}${smallOnly ? "-small" : supplement ? "-supplement" : ""}`);
+const output = path.join(root, ".tmp/vocab-overlay", `${mode}${delayedCommit ? "-delayed-commit" : smallOnly ? "-small" : supplement ? "-supplement" : ""}`);
 const stamp = new Date().toISOString().replace(/[:.]/g, "-");
 const origin = process.env.VOCAB_OVERLAY_ORIGIN || "http://127.0.0.1:5187";
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -148,11 +149,18 @@ try {
       console.log(JSON.stringify({ name: "parent-noise", ...noise }));
       await call("stop"); await delay(300);
     }
-    for (const scenario of (supplement ? (profile.name === "desktop" ? [] : ["normal", "firstlevel"]) : quick ? ["normal"] : ["zero", "normal", "many", "levelup"])) {
+    for (const scenario of (supplement ? (profile.name === "desktop" ? [] : ["normal", "firstlevel"]) : quick || delayedCommit ? ["normal"] : ["zero", "normal", "many", "levelup"])) {
       const name = `${profile.name}-${scenario}`;
       const payload = await call("start", scenario, { mobile: profile.mobile, darkMode: profile.mobile });
+      if (delayedCommit) {
+        await waitFor(async () => (await call("result")).ticks.length >= 2, `${name} first words`);
+        await call("deferCommits", 650);
+      }
       // Count duration is deliberately not sped up: verify the actual animation cadence.
-      await waitFor(async () => (await call("result")).ticks.length === payload.words.length, `${name} word sequence`);
+      await waitFor(async () => {
+        const ticks = (await call("result")).ticks;
+        return !payload.words.length || ticks.at(-1)?.index === payload.words.length;
+      }, `${name} word sequence`);
       await delay(scenario === "zero" ? 3000 : 700);
       const capture = await call("snapshot");
       const result = await call("end");
@@ -162,7 +170,7 @@ try {
       await call("stop"); await delay(300);
       console.log(JSON.stringify({ name, commits: result.commitCount, renderMs: result.renderTotalMs, rectReads: result.rectReads, offsetReads: result.offsetReads, resizeCallbacks: result.resizeCallbacks, gapsOver50ms: result.gapsOver50ms, maxFrameGapMs: result.maxFrameGapMs, ticks: result.ticks.length }));
     }
-    if (!quick && !supplement) {
+    if (!quick && !supplement && !delayedCommit) {
       await call("start", "many", { mobile: profile.mobile });
       await delay(2400);
       await call("skip"); await delay(450);

@@ -159,6 +159,12 @@ export function createPersistenceClient() {
     getPlayerProgressBoards(payload) {
       return call("getPlayerProgressBoards", payload);
     },
+    recordGotusWin(payload) {
+      return call("recordGotusWin", payload);
+    },
+    getGotusProfile(payload) {
+      return call("getGotusProfile", payload);
+    },
     recordAvatarObjectives(payload) {
       return call("recordAvatarObjectives", payload);
     },

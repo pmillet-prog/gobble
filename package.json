@@ -2,6 +2,9 @@
   "name": "Gobble Beta",
   "version": "0.0.1",
   "scripts": {
+    "motus:dev": "node --preserve-symlinks --preserve-symlinks-main dev/motus/serve.mjs",
+    "motus:words": "node --preserve-symlinks --preserve-symlinks-main scripts/build-motus-words.mjs",
+    "motus:test": "node --preserve-symlinks --preserve-symlinks-main --test dev/motus/model.test.mjs dev/motus/word-rules.test.mjs dev/motus/feedback.test.mjs",
     "avatar:dev": "node .Tmp/avatar/avatar/editor/serve-preview.cjs",
     "avatar:sync": "node scripts/import-avatar-workshop.mjs --families=hair,headwear",
     "avatar:import-hair": "python scripts/import-avatar-hair-pack.py && npm run avatar:sync",

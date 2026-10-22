@@ -7,6 +7,7 @@ import { createAchievementCollectionRepository } from "./achievementCollectionRe
 import { achievementWordEvents, createAchievementRuntime } from "./achievementRuntime.js";
 import { createAvatarObjectivesRepository } from "../avatars/avatarObjectivesRepository.js";
 import { getWeekStartTs, getNextResetTs } from "./parisWeek.js";
+import { selectTournamentPodium, getTournamentPodiumMedalAwards } from "../../shared/tournamentPodium.js";
 
 const FIRST_FULL_WEEK = Date.parse("2026-10-11T22:00:00Z"); // Monday 12 October, 00:00 Paris.
 
@@ -58,8 +59,8 @@ test("existing lifetime totals and prototype trophies are ignored; activation su
   const reopened = createAchievementCollectionRepository({ getDb: async () => db, now: () => 2000 });
   assert.equal(await reopened.bootstrap(), 1000);
   assert.equal((await reopened.snapshot(1)).counts.julien_1000, 1);
-  assert.equal((await reopened.snapshot(1)).points, 140, "only the new bronze, silver and gold Julien rewards score");
-  assert.deepEqual((await reopened.leaderboard()).map(row => [row.userId, row.points]), [[1, 140]]);
+  assert.equal((await reopened.snapshot(1)).points, 80, "the new Julien gold includes its bronze and silver milestones");
+  assert.deepEqual((await reopened.leaderboard()).map(row => [row.userId, row.points]), [[1, 80]]);
   assert.equal((await db.get("SELECT count FROM achievement_collection WHERE user_id=1")).count, 12);
   assert.equal((await db.get("SELECT total FROM target_quiz_points WHERE user_id=1")).total, 1000000);
 });
@@ -86,9 +87,13 @@ test("a cumulative jump awards each introductory tier once and every full gold t
   assert.deepEqual((await repository.record(request)).map(award => [award.id, award.delta, award.count]), [
     ["marathon_10000:bronze", 1, 1], ["marathon_10000:silver", 1, 1], ["marathon_10000", 3, 3],
   ]);
+  assert.equal((await repository.snapshot(1)).points, 1200, "a direct jump to three golds includes both introductory tiers");
+  assert.equal((await repository.leaderboard())[0].points, 1200);
   assert.deepEqual(await repository.record(request), []);
   assert.deepEqual((await repository.record({ userId: 1,
     progress: { eventKey: "fourth", changes: { rounds: 2000 } } })).map(award => [award.id, award.delta, award.count]), [["marathon_10000", 1, 4]]);
+  assert.equal((await repository.snapshot(1)).points, 1600);
+  assert.equal((await repository.leaderboard())[0].points, 1600);
   const forgedEvents = ["marathon_10000:bronze", "marathon_10000:silver", "marathon_10000", "toString", "__proto__"]
     .map(id => ({ id, eventKey: "untrusted-event" }));
   assert.deepEqual(await repository.record({ userId: 2, events: forgedEvents }), []);
@@ -129,7 +134,7 @@ test("weekly awards are unique by completed week and rollback includes both coun
   assert.equal((await repository.pending(1)).length, 2);
 });
 
-test("the leaderboard waits for a complete points scale then sums all acquired copies", async t => {
+test("the leaderboard waits for a complete points scale then scores the best owned tier and repeated copies", async t => {
   const { repository } = await fixture(t, TROPHY_REWARDS.map(item => ({ ...item, points: null })));
   assert.equal(await repository.leaderboard(), null);
   const configured = await fixture(t, TROPHY_REWARDS.map(item => ({ ...item, points: item.id === "word_16" ? 10 : 3 })));
@@ -137,11 +142,11 @@ test("the leaderboard waits for a complete points scale then sums all acquired c
   await configured.repository.record({ userId: 2, events: [{ id: "weekly_gold", eventKey: "week1" }] });
   assert.deepEqual((await configured.repository.leaderboard()).map(row => [row.userId, row.points]), [[1, 20], [2, 3]]);
   await configured.repository.record({ userId: 2, progress: { eventKey: "first-tranches", changes: { rounds: 4000 } } });
-  assert.equal((await configured.repository.snapshot(2)).points, 15, "bronze and silver score once, both gold tranches score");
-  assert.deepEqual((await configured.repository.leaderboard()).map(row => [row.userId, row.points]), [[1, 20], [2, 15]]);
+  assert.equal((await configured.repository.snapshot(2)).points, 9, "both gold tranches include the earlier tiers; the weekly trophy is independent");
+  assert.deepEqual((await configured.repository.leaderboard()).map(row => [row.userId, row.points]), [[1, 20], [2, 9]]);
 });
 
-test("the validated scale scores all 41 rewards, unique tiers once and each repeated gold", async t => {
+test("the validated scale preserves all 41 rewards but includes lower tiers in each category's first gold", async t => {
   const { repository } = await fixture(t);
   const request = { userId: 1, progress: { eventKey: "every-cumulative", changes: {
     rounds: 2000, words: 50000, score: 2000000, singleGobbles: 200, doubleGobbles: 50,
@@ -154,14 +159,14 @@ test("the validated scale scores all 41 rewards, unique tiers once and each repe
   assert.equal((await repository.record(request)).length, 41);
   const first = await repository.snapshot(1);
   assert.equal(first.totalCount, 41);
-  assert.equal(first.points, 3365, "1 855 cumulative points plus 1 510 exploit and podium points");
+  assert.equal(first.points, 2540, "1 060 cumulative points plus 1 480 exploit and independent podium points");
   assert.deepEqual(await repository.record(request), []);
-  assert.equal((await repository.snapshot(1)).points, 3365, "source retries never score twice");
+  assert.equal((await repository.snapshot(1)).points, 2540, "source retries never score twice");
   await repository.record({ userId: 1, progress: { eventKey: "two-more-golds", changes: { rounds: 4000 } },
     events: achievementWordEvents({ key: "another-round", words: ["ABCDEFGHIJKLMNOP"], wordsCount: 100, score: 10000 }) });
   const next = await repository.snapshot(1);
   assert.equal(next.totalCount, 45);
-  assert.equal(next.points, 4505, "800 for two marathon golds, 40 for one round gold, 300 for the sixteen-letter word");
+  assert.equal(next.points, 3680, "800 for two marathon golds, 40 for one round gold, 300 for the sixteen-letter word");
   assert.equal(next.counts.volume_100, 1);
   assert.equal(next.counts["round_5000:bronze"], 1);
   assert.equal(next.counts["round_5000:silver"], 1);
@@ -169,8 +174,68 @@ test("the validated scale scores all 41 rewards, unique tiers once and each repe
   await repository.record({ userId: 2,
     events: ["one", "two", "three"].map(eventKey => ({ id: "word_17", eventKey })) });
   assert.deepEqual((await repository.leaderboard()).map(row => [row.userId, row.points, row.totalCount]), [
-    [1, 4505, 45], [2, 3000, 3],
+    [1, 3680, 45], [2, 3000, 3],
   ], "the SQL leaderboard uses the same 41-reward scale as the profile snapshot");
+});
+
+test("cumulative and round-score tiers replace earlier points, while further golds retain their full value", async t => {
+  const { repository } = await fixture(t);
+  for (const [index, [rounds, points, goldCount]] of [[600, 100, 0], [600, 200, 0], [800, 400, 1], [2000, 800, 2]].entries()) {
+    await repository.record({ userId: 1, progress: { eventKey: `rounds:${index}`, changes: { rounds } } });
+    const snapshot = await repository.snapshot(1);
+    assert.equal(snapshot.points, points);
+    assert.equal(snapshot.counts["marathon_10000:bronze"], 1);
+    assert.equal(snapshot.counts["marathon_10000:silver"], index > 0 ? 1 : 0);
+    assert.equal(snapshot.counts.marathon_10000, goldCount);
+    assert.equal(snapshot.totalCount, index + 1, "scoring does not remove acquired introductory medals");
+    assert.deepEqual((await repository.leaderboard()).map(row => [row.points, row.totalCount]), [[points, snapshot.totalCount]]);
+  }
+  for (const [index, [score, points]] of [[2000, 10], [4000, 20], [5000, 40], [10000, 80]].entries()) {
+    await repository.record({ userId: 2, events: achievementWordEvents({ key: `score:${index}`, score }) });
+    const snapshot = await repository.snapshot(2);
+    assert.equal(snapshot.points, points);
+    assert.equal(snapshot.totalCount, index + 1);
+    const ranking = (await repository.leaderboard()).find(row => row.userId === 2);
+    assert.deepEqual([ranking.points, ranking.totalCount], [points, snapshot.totalCount]);
+  }
+});
+
+test("reopening recalculates historical tiers without changing acquisitions, progress, receipts or activation", async t => {
+  const { db } = await fixture(t);
+  const historicalCounts = [
+    ["marathon_10000:bronze", 1], ["marathon_10000:silver", 1], ["marathon_10000", 2],
+    ["weekly_gold", 2], ["weekly_silver", 1], ["weekly_bronze", 1], ["word_16", 2],
+  ];
+  for (const [id, count] of historicalCounts) {
+    await db.run("INSERT INTO achievement_collection_v2(user_id,trophy_id,count) VALUES(1,?,?)", id, count);
+    await db.run(`INSERT INTO achievement_events_v2(user_id,trophy_id,event_key,delta,total_count,round_id,earned_at,acknowledged_at)
+      VALUES(1,?,'historical',?,?,'past-round',1001,1002)`, id, count, count);
+  }
+  await db.exec(`INSERT INTO achievement_progress_v2 VALUES(1,'rounds',4000,4000);
+    INSERT INTO achievement_progress_events_v2 VALUES(1,'historical-source',1001);
+    INSERT INTO achievement_collection_v2 VALUES(2,'marathon_10000:bronze',1),(2,'marathon_10000:silver',1),(2,'marathon_10000',0);`);
+  const readStoredRows = () => Promise.all([
+    db.all("SELECT * FROM achievement_activation_v2 ORDER BY id"),
+    db.all("SELECT * FROM achievement_collection_v2 ORDER BY user_id,trophy_id"),
+    db.all("SELECT * FROM achievement_events_v2 ORDER BY id"),
+    db.all("SELECT * FROM achievement_progress_v2 ORDER BY user_id,metric"),
+    db.all("SELECT * FROM achievement_progress_events_v2 ORDER BY user_id,event_key"),
+  ]);
+  const before = await readStoredRows();
+  const formerFlatPoints = historicalCounts.reduce((sum, [id, count]) =>
+    sum + count * TROPHY_REWARDS.find(reward => reward.id === id).points, 0);
+  assert.equal(formerFlatPoints, 1820);
+  const reopened = createAchievementCollectionRepository({ getDb: async () => db, now: () => 9000 });
+  assert.equal(await reopened.bootstrap(), 1000);
+  const snapshot = await reopened.snapshot(1);
+  assert.equal(snapshot.points, 1520, "800 marathon + 120 independent podiums + 600 for repeated sixteen-letter words");
+  assert.equal(snapshot.totalCount, 10);
+  for (const [id, count] of historicalCounts) assert.equal(snapshot.counts[id], count);
+  assert.equal((await reopened.snapshot(2)).points, 200, "an unowned gold does not replace an acquired silver");
+  assert.deepEqual((await reopened.leaderboard()).map(row => [row.userId, row.points, row.totalCount]), [
+    [1, 1520, 10], [2, 200, 2],
+  ]);
+  assert.deepEqual(await readStoredRows(), before, "profile, ranking and restart only reinterpret points; stored history stays identical");
 });
 
 test("round rules preserve exact lengths, strict target timing and the finale exclusion", () => {
@@ -254,7 +319,7 @@ test("profile reads never consume a newly crossed milestone or import later life
   assert.equal((await repository.pending(1)).length, 3);
 });
 
-test("a delayed tournament medal updates the existing result snapshot without replaying round end", async t => {
+test("a human promoted above bots receives gold trophy progress in the existing delayed result snapshot", async t => {
   const { repository } = await fixture(t);
   await repository.record({ userId: 1, progress: { eventKey: "earlier", changes: { gold: 49, medals: 99 } } });
   const emitted = [];
@@ -264,7 +329,15 @@ test("a delayed tournament medal updates the existing result snapshot without re
     persistence: { achievementCollection: payload => repository.record(payload) },
     getIo: () => ({ sockets: { sockets: new Map([[1, { data: { authUser: { id: 1 } }, emit: (...args) => emitted.push(args) }]]) } }),
   });
-  await runtime.medal({ room, userId: 1, type: "gold", tournamentKey: "live:1" });
+  const podium = selectTournamentPodium([
+    { nick: "Bot 1", isBot: true, points: 90, pos: 1 },
+    { nick: "Bot 2", isBot: true, points: 80, pos: 2 },
+    { nick: "Bot 3", isBot: true, points: 70, pos: 3 },
+    { nick: "Tigre", userId: 1, isBot: false, points: 50, pos: 4 },
+  ]);
+  const awards = getTournamentPodiumMedalAwards(podium);
+  assert.deepEqual(awards, [{ nick: "Tigre", type: "gold", podiumRank: 1 }]);
+  await runtime.medal({ room, userId: 1, type: awards[0].type, tournamentKey: "live:1" });
   assert.equal(result.achievementAwards[0].id, "mini_gold_5000");
   assert.deepEqual(emitted.map(([name]) => name), ["achievement:earned", "achievement:earned"]);
   await runtime.medal({ room, userId: 1, type: "gold", tournamentKey: "live:1" });

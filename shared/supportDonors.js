@@ -6,6 +6,7 @@ export const SUPPORT_DONORS = Object.freeze([
   { id: "beerman", name: "Beerman", accountName: "Beerman" },
   { id: "axioum", name: "Axioum", accountName: "Axioum" },
   { id: "warzowie", name: "Warzowie", accountName: "Warzowie" },
+  { id: "pounie", name: "Pounie", accountName: "Pounie" },
 ]);
 export const DONOR_AVATAR_REWARD = Object.freeze({
   family: "auras", id: "donor_prismatic", key: "auras:donor_prismatic",

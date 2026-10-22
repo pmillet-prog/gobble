@@ -10,7 +10,7 @@ export default defineConfig({
     transform(code, id) {
       if (!/\/VocabProgressOverlay(?:View)?\.jsx(?:\?|$)/.test(id.replaceAll("\\", "/"))) return null;
       // Instrument only the full view body; the public bridge is intentionally excluded.
-      const instrumented = code.replace(/(controllerRef\s*\r?\n\s*\) \{)/, "$1\n    window.__vocabViewRender?.();");
+      const instrumented = code.replace(/(controllerRef\s*\r?\n\s*\) \{)/, "$1\n    window.__vocabViewRender?.();\n    window.__vocabRenderGate?.();");
       return instrumented === code ? null : { code: instrumented, map: null };
     },
   }, react()],

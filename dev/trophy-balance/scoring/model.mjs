@@ -1,4 +1,5 @@
-import { TROPHY_CATALOG } from '../../../shared/trophyCatalog.js';
+import { TROPHY_CATALOG, getTrophyRewards } from '../../../shared/trophyCatalog.js';
+import { getTrophyCollectionPoints } from '../../../shared/trophyCollectionScoring.js';
 import { TROPHY_POINT_VALUES } from '../../../shared/trophyScoring.js';
 import { GOLD_90_DAY_THRESHOLDS } from '../all-players/calibrate.mjs';
 import { getWorkshopTrophyRule } from '../trophy-rules.mjs';
@@ -74,15 +75,16 @@ export const clonePoints = points => Object.fromEntries(Object.entries(points).m
 export function scoreAcquisitions(id, counts, points) {
   const definition = byId.get(id);
   if (!definition) throw new Error(`Unknown trophy: ${id}`);
-  return definition.tiers.reduce((sum, tier) => {
+  for (const tier of definition.tiers) {
     const weight = points[id]?.[tier];
     const count = counts?.[tier] ?? 0;
     if (!Number.isSafeInteger(weight) || weight < 0 || !Number.isSafeInteger(count) || count < 0) {
       throw new Error(`Invalid points or acquisition count: ${id}/${tier}`);
     }
-    const unique = tier === 'bronze' || tier === 'silver' || !definition.repeatable;
-    return sum + (unique ? Math.min(1, count) : count) * weight;
-  }, 0);
+  }
+  const rewards = getTrophyRewards(id).map(reward => ({ ...reward, points: points[id][reward.metal || 'single'] }));
+  const earned = Object.fromEntries(rewards.map(reward => [reward.id, counts?.[reward.metal || 'single'] ?? 0]));
+  return getTrophyCollectionPoints(earned, rewards);
 }
 
 const median = values => {

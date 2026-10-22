@@ -2,7 +2,7 @@ import React from "react";
 
 import RankingWidgetMobile from "../../components/RankingWidgetMobile.jsx";
 import InterTournamentLobby from "../../components/live/InterTournamentLobby.jsx";
-import TrainingPlayerBadge from "../../components/training/TrainingPlayerBadge.jsx";
+import TrainingPlayerBadge, { GotusTrainingBadge } from "../../components/training/TrainingPlayerBadge.jsx";
 import {
   useLivePlayerCount,
   useLiveRankingPresentation,
@@ -96,8 +96,9 @@ export function MobileLobbyPlayersControls({ darkMode, getLiveNickClassName }) {
                 darkMode ? "border-white/10 bg-slate-900/80" : "border-amber-200/80 bg-white/75"
               }`}
             >
+              <GotusTrainingBadge player={player} compact />
               <span className={getLiveNickClassName(player, player.nick)}>{player.nick}</span>
-              {player?.inTraining ? <span className="ml-1 inline-flex align-middle"><TrainingPlayerBadge compact /></span> : null}
+              {player?.inTraining ? <span className="ml-1 inline-flex align-middle"><TrainingPlayerBadge compact trainingMode={player.trainingMode} /></span> : null}
               {player?.afk ? (
                 <span className="ml-1 text-[10px] font-extrabold italic text-red-600 dark:text-red-300">AFK</span>
               ) : null}

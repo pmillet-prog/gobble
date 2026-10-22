@@ -1,5 +1,6 @@
 // Approved "Conseillé" scale. Acquisition thresholds live in trophyCatalog.js;
-// these values price each reward, independently of the 30% / 60% milestones.
+// Tier values are totals, not additive bonuses: each higher tier replaces the
+// previous tier's points. Every additional gold earns its full value.
 const cumulativeGoldPoints = Object.freeze({
   marathon_10000: 400,
   words_100000: 120,
@@ -22,6 +23,7 @@ export const TROPHY_POINT_VALUES = Object.freeze({
   word_17: 1000,
   three_words_1000: 20,
   target_under_2s: 20,
+  gotus_100: 80,
   "round_5000:bronze": 10,
   "round_5000:silver": 20,
   round_5000: 40,

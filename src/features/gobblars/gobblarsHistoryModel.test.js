@@ -12,6 +12,13 @@ test("quiz rewards name the game and the ten-thousand-point milestone", () => {
   assert.equal(result.amountLabel, "50 gobblars reçus");
 });
 
+test("Gotus rewards name ten found words without inventing game points", () => {
+  const result = present({ kind: "gotus_milestone", amount: 500 });
+  assert.equal(result.title, "Gotus · 10 mots trouvés");
+  assert.equal(result.signedAmount, "+500");
+  assert.equal(result.amountLabel, "500 gobblars reçus");
+});
+
 test("avatar purchases show a debit, readable item names and only recorded item prices", () => {
   const result = present({ kind: "avatar_unlock", amount: -2500, items: [
     { key: "headwear:fedora", label: "Fédora", amount: 2000 },

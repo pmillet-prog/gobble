@@ -5,12 +5,13 @@ import { SFX_KEYS } from "../assets/assetKeys.js";
 import { buildStandaloneTrainingTargetSummary } from "../training/standaloneTraining.js";
 import { shouldProcessLiveRoomEvent } from "../utils/liveEventScope.js";
 import { createRoundBreakHandler } from "../features/round/createRoundBreakHandler.js";
-import { resolveVocabRoundProgress } from "../features/stats/vocabRoundProgress.js";
+import { prepareVocabRoundProgress } from "../features/stats/prepareVocabRoundProgress.js";
 import { resolveTournamentFinaleGate } from "../features/celebration/tournamentFinaleGate.js";
 import { useFeatureRuntime } from "../app/react/useFeatureRuntime.js";
 
 export default function useRoundLifecycle(runtime) {
   const targetQuiz = useFeatureRuntime("targetQuiz");
+  const gotus = useFeatureRuntime("gotus");
   const finaleGateRef = React.useRef(null);
   const {
     appViewRef,
@@ -137,6 +138,7 @@ export default function useRoundLifecycle(runtime) {
       ) {
         return;
       }
+      gotus.reconcile({ roundId: endedId, results });
       if (endedRoomId) {
         setCurrentRoomId(endedRoomId);
         setRoomId(endedRoomId);
@@ -342,16 +344,14 @@ export default function useRoundLifecycle(runtime) {
         const serverRankAfterValue =
           serverWeeklyRank?.after == null ? null : Number(serverWeeklyRank.after);
         void fetchWeeklyStatsSnapshot(STATS_SEASON_TARGET_LIMIT);
-        void requestVocabCount().then((snapshot) => {
+        void prepareVocabRoundProgress({
+          result: selfResultForVocab,
+          baseline: vocabBaselineRef.current,
+          weeklyBaseline: vocabWeeklyBaselineRef.current,
+          requestSnapshot: requestVocabCount,
+        }, (progress) => {
           if (effectSessionId && gameplaySessionIdRef?.current !== effectSessionId) return;
           if (vocabResultsPendingRef.current !== vocabResultsKey) return;
-          const progress = resolveVocabRoundProgress({
-            result: selfResultForVocab,
-            count: snapshot?.count,
-            weeklyCount: snapshot?.weeklyCount,
-            baseline: vocabBaselineRef.current,
-            weeklyBaseline: vocabWeeklyBaselineRef.current,
-          });
           if (!progress.available || !Number.isFinite(progress.count)) {
             setVocabRoundDelta(null);
             setVocabWeeklyRoundDelta(null);
@@ -412,7 +412,7 @@ export default function useRoundLifecycle(runtime) {
         void fetchThemeProfileRef.current?.({ silent: true, announceGain: true });
       }
     },
-    []
+    [gotus]
   );
 
   useEffect(() => {
@@ -452,7 +452,10 @@ export default function useRoundLifecycle(runtime) {
 
       const roundKey = payload?.roundId ?? roundIdRef.current ?? null;
       targetQuiz.reconcile(payload);
+      gotus.reconcile(payload);
       const quizRecap = targetQuiz.hasPlayed(roundKey) && !currentRoundTrainingRef.current && !isDailyPlayRef.current;
+      const gotusRecap = gotus.hasPlayed(roundKey) && !currentRoundTrainingRef.current && !isDailyPlayRef.current;
+      const waitingGameRecap = gotusRecap || quizRecap;
       if (outroInFlightRef.current) {
         if (payload) pendingRoundEndRef.current = payload;
         return;
@@ -512,13 +515,13 @@ export default function useRoundLifecycle(runtime) {
 
       const prevOpacity = gridEl?.style?.opacity;
       const prevTransition = gridEl?.style?.transition;
-      if (gridEl && !quizRecap) {
+      if (gridEl && !waitingGameRecap) {
         gridEl.style.transition = "opacity 40ms linear";
         gridEl.style.opacity = "0";
       }
 
       let stopAuxNow = null;
-      if (!isSfxMuted && !quizRecap) {
+      if (!isSfxMuted && !waitingGameRecap) {
         const syncToken = ++blackHoleSyncTokenRef.current;
         const stopAux = (fadeMs = 260) => {
           if (blackHoleSyncTokenRef.current !== syncToken) return;
@@ -636,7 +639,9 @@ export default function useRoundLifecycle(runtime) {
       let fxOverlay = null;
       let fxFade = null;
       try {
-        if (quizRecap) {
+        if (gotusRecap) {
+          await gotus.showRecap(roundKey, payload);
+        } else if (quizRecap) {
           await targetQuiz.showRecap(roundKey, payload);
         } else if (holeX != null && holeY != null && tileEls.length > 0) {
           const fx = await playBlackHoleOutro3D({
@@ -767,7 +772,7 @@ export default function useRoundLifecycle(runtime) {
 
       outroInFlightRef.current = false;
     },
-    [clearSelection, targetQuiz]
+    [clearSelection, targetQuiz, gotus]
   );
 
   useEffect(() => {

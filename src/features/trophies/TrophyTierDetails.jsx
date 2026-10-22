@@ -20,8 +20,10 @@ export default function TrophyTierDetails({ category, selectedReward, counts, us
       })}
     </div> : null}
     <p className="trophy-tier-condition" aria-live="polite">{selectedReward.description}</p>
-    <p className="trophy-tier-status">{getTrophyCountLabel(selectedReward, count)} · {Number.isFinite(selectedReward.points) ? `${selectedReward.points.toLocaleString("fr-FR")} points par obtention` : "Barème à venir"}</p>
-    {rewards.length > 1 ? <p className="trophy-tier-note">Bronze et argent restent acquis une fois. Les ors s’accumulent.</p> : null}
+    <p className="trophy-tier-status">{getTrophyCountLabel(selectedReward, count)} · {Number.isFinite(selectedReward.points)
+      ? `${selectedReward.points.toLocaleString("fr-FR")} points ${rewards.length > 1 ? selectedReward.metal === "gold" ? "par or" : "au total à ce palier" : "par obtention"}`
+      : "Barème à venir"}</p>
+    {rewards.length > 1 ? <p className="trophy-tier-note">Les points des paliers ne s’additionnent pas. Bronze et argent restent acquis une fois ; chaque or supplémentaire rapporte sa pleine valeur.</p> : null}
     <TrophyDevControls trophyId={selectedReward.id} userId={userId} />
   </div>;
 }

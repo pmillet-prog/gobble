@@ -50,7 +50,7 @@
   </section>
   <details class="editor" open>
     <summary>Régler les points des 19 catégories</summary>
-    <p class="editor-description">Chaque valeur représente les points gagnés pour une obtention. Bronze et argent des cumuls sont uniques ; l’or se répète. Modifier ces valeurs ne change pas les seuils requis.</p>
+    <p class="editor-description">Pour les trophées à paliers, chaque valeur représente le total atteint à cette couleur : l’argent remplace le bronze, puis le premier or remplace l’argent. Chaque or suivant ajoute sa valeur entière. Modifier ces valeurs ne change pas les seuils requis.</p>
     <div class="editor-actions"><p id="editor-state">Les modifications restent dans cet atelier.</p><button id="restore-preset" type="button">Rétablir ce barème</button></div>
     <div class="table-wrap editor-wrap"><table class="weights-table"><thead><tr><th scope="col">Catégorie</th><th scope="col">Bronze</th><th scope="col">Argent</th><th scope="col">Or</th><th scope="col">Par obtention</th></tr></thead><tbody id="weight-rows"></tbody></table></div>
   </details>
@@ -69,7 +69,7 @@
     <div class="method-body">
       <p>La cohorte reste fixée aux 66 comptes ayant au moins 100 manches et de l’activité sur au moins deux des quatre semaines observées. Les trois groupes contiennent chacun 22 joueurs, ordonnés selon leurs points moyens par manche.</p>
       <p>Sur 90 jours, chaque joueur conserve son rythme observé. Sur un nombre de manches identique, le volume de jeu est le même pour tous. Les deux vues répondent à des questions différentes : effet de l’assiduité et effet du rendement par manche.</p>
-      <p>Le calcul part de zéro, sans rétroactivité. Pour les dix catégories cumulatives, le bronze est acquis une seule fois à 30 % du seuil d’or et l’argent à 60 %. Un or est acquis à chaque tranche entière du seuil d’or. Les points des trois couleurs acquises s’additionnent.</p>
+      <p>La projection part d’une collection vide. Pour les dix catégories cumulatives, le bronze est acquis une seule fois à 30 % du seuil d’or et l’argent à 60 %. Un or est acquis à chaque tranche entière du seuil d’or. Seul le meilleur palier rapporte des points ; dès le premier or, le total est égal au nombre d’ors multiplié par leur valeur. Les trois trophées du podium hebdomadaire restent indépendants.</p>
       <p>Huit cumuls sont projetés par défaut. Julien et FouKro sont optionnels sur 90 jours ; ils reposent respectivement sur environ 20 et 2 jours de suivi. Ils ne sont pas extrapolés sur un nombre de manches, faute de cadence par manche disponible.</p>
       <p>Les exploits et les podiums ont des règles et des valeurs éditables, mais aucune fréquence fiable dans ces données. Leur contribution future est inconnue. Les sous-totaux ne constituent donc pas un classement total prédit ; une donnée indisponible n’est pas un gain nul.</p>
       <p id="method-observation"></p>

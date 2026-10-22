@@ -8,6 +8,7 @@ From the repository root:
 ```powershell
 node --preserve-symlinks --preserve-symlinks-main dev/vocab-overlay/verify.mjs
 node --preserve-symlinks --preserve-symlinks-main dev/vocab-overlay/verify.mjs --supplement
+node --preserve-symlinks --preserve-symlinks-main dev/vocab-overlay/verify.mjs --delayed-commit
 ```
 
 The first command covers zero gain, 12 and 80 words, a level change, skipping and
@@ -16,6 +17,10 @@ covers 100 unrelated parent updates with freshly created callbacks, real asset
 URL changes, latest callbacks, 320×568 and 390×844 layouts and the 499→500 level
 boundary. Progressbar bounds and rendered fill geometry are checked.
 Use `--small-only` to rerun just the normal and level-boundary cases at 320×568.
+Use `--delayed-commit` to defer React rendering for 650 ms during the word sequence.
+RAF keeps running: every word must still be committed and beep exactly once.
+This reproduces pending React updates overwriting words before they reach the DOM;
+it does not simulate or require network traffic.
 
 The verifier starts only its own Vite server and Chromium browser, and closes
 those processes afterward. Set `CHROME_PATH` when Chrome or Edge are not installed

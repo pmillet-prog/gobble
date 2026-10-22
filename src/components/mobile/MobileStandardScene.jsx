@@ -98,6 +98,7 @@ export default function MobileStandardScene({ state, refs, actions, content, con
     suppressWordListScores,
     targetScoreMax,
     targetSummary,
+    targetMiniGameKind,
     targetWaitDevActive,
     tileColorPreset,
     tileMaterialClass,
@@ -763,6 +764,7 @@ export default function MobileStandardScene({ state, refs, actions, content, con
         specialRound={specialRound}
         specialSolvedOverlay={specialSolvedOverlay}
         targetScoreMax={targetScoreMax}
+        targetMiniGameKind={targetMiniGameKind}
         targetWaitDevActive={targetWaitDevActive}
         onTargetWaitDevGridHostChange={setTargetWaitDevGridHost}
         onTargetWaitDevSideHostChange={setTargetWaitDevSideHost}

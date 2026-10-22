@@ -35,6 +35,7 @@ import { LEPERS_ROUND_ANNOUNCEMENT_MS } from "../shared/lepersRules.js";
 import { isTournamentCelebrationActive } from "../shared/presenterCelebrationPolicy.js";
 import { areGameplayPresenterHintsDisabled } from "../shared/presenterRoundPolicy.js";
 import { shouldPersistRoundProgress } from "./trainingProgressPolicy.js";
+import { getRoundResultParticipation } from "./roundResultParticipation.js";
 import {
   TrainingPoolStore,
   resolveTrainingPoolDir,
@@ -119,6 +120,7 @@ import { registerPlayerProgressHandlers } from "./realtime/registerPlayerProgres
 import { registerTrainingHandlers } from "./realtime/registerTrainingHandlers.js";
 import { registerDisconnectHandler } from "./realtime/registerDisconnectHandler.js";
 import { registerSessionHandlers } from "./realtime/registerSessionHandlers.js";
+import { createPlayerInactivityController } from "./realtime/createPlayerInactivityController.js";
 import { getSocketDeviceKind } from "./realtime/clientDeviceKind.js";
 import { registerChalkboardRoutes } from "./chalkboard/registerChalkboardRoutes.js";
 import { registerGobblarsHistoryRoute } from "./stats/registerGobblarsHistoryRoute.js";
@@ -225,7 +227,12 @@ import { getTargetWaitDevCatalog } from "./targetMiniGame/targetWaitCatalogServi
 import { loadTargetQuizCatalog } from "./targetMiniGame/targetQuizCatalog.js";
 import { createTargetQuizService } from "./targetMiniGame/targetQuizService.js";
 import { getTargetQuizResult } from "./targetMiniGame/targetQuizRoundResults.js";
+import { selectTournamentPodium, getTournamentPodiumMedalAwards } from "../shared/tournamentPodium.js";
 import { createTargetQuizSocketHandlers } from "./targetMiniGame/registerTargetQuizHandlers.js";
+import { loadGotusCatalog } from "./gotus/gotusCatalog.js";
+import { createGotusService } from "./gotus/createGotusService.js";
+import { createGotusSocketHandlers } from "./gotus/registerGotusHandlers.js";
+import { getGotusResult, getTargetMiniGameMetadata } from "./gotus/gotusRoundResults.js";
 import { createPresenterHitsService } from "./presenterHits/presenterHitsService.js";
 import { registerPresenterHitHandlers } from "./presenterHits/registerPresenterHitHandlers.js";
 import {
@@ -311,6 +318,28 @@ const targetQuizHandlers = createTargetQuizSocketHandlers({
   service: targetQuizService, getRoom, getSocketPlayerIdentity, areDevToolsAllowedForSocket,
   markActivity: markSocketPlayerActivity,
 });
+const gotusService = createGotusService({
+  loadCatalog: loadGotusCatalog,
+  loadProfile: userId => persistenceClient.getGotusProfile({ userId }),
+  recordWin: async payload => {
+    const result = await persistenceClient.recordGotusWin(payload);
+    achievementRuntime.publish(result?.achievementAwards);
+    const reward = result?.recorded ? result?.progression?.reward : null;
+    if (reward) {
+      for (const client of io.sockets.sockets.values()) {
+        if (Number(client.data?.authUser?.id) === payload.userId) {
+          client.emit("gobblarsAwarded", { ...reward, kind: "gotus_milestone" });
+        }
+      }
+    }
+    return result;
+  },
+});
+const gotusHandlers = createGotusSocketHandlers({
+  service: gotusService, getRoom, getSocketPlayerIdentity, areDevToolsAllowedForSocket,
+  markActivity: markSocketPlayerActivity,
+});
+void loadGotusCatalog().catch(error => console.warn("[gotus] catalog unavailable", error.message));
 void loadTargetQuizCatalog().catch(error => console.warn("[target-quiz] bank unavailable", error.message));
 const avatarObjectiveProgress = createAvatarObjectiveBatcher({
   persist: async events => {
@@ -500,13 +529,14 @@ app.get("/api/player-profile/user/:userId", async (req, res) => {
     const fallbackNick = String(req.query?.nick || "");
     const cacheKey = `${userId}|${safeViewerUserId || 0}|${fallbackNick.slice(0, 48)}`;
     const cachedProfile = getCachedPlayerProfile(cacheKey);
-    const [appearance, targetQuiz, achievements] = await Promise.all([
+    const [appearance, targetQuiz, achievements, gotus] = await Promise.all([
       getPlayerProfileAppearance(userId),
       loadTargetQuizPointsWithAchievements(`user:${userId}`),
       achievementRuntime.profile(userId),
+      persistenceClient.getGotusProfile({ userId }),
     ]);
     if (cachedProfile) {
-      return res.json({ ok: true, profile: { ...cachedProfile, ...appearance, targetQuiz, achievements } });
+      return res.json({ ok: true, profile: { ...cachedProfile, ...appearance, targetQuiz, achievements, gotus } });
     }
     const profile = await getPublicPlayerProfileByUserId(userId, {
       fallbackNick,
@@ -516,7 +546,7 @@ app.get("/api/player-profile/user/:userId", async (req, res) => {
       return res.status(404).json({ ok: false, error: "profile_not_found" });
     }
     setCachedPlayerProfile(cacheKey, profile);
-    return res.json({ ok: true, profile: { ...profile, ...appearance, targetQuiz, achievements } });
+    return res.json({ ok: true, profile: { ...profile, ...appearance, targetQuiz, achievements, gotus } });
   } catch (err) {
     console.warn("Player profile route failed", err);
     return res.status(500).json({ ok: false, error: "profile_unavailable" });
@@ -1876,7 +1906,6 @@ const TOURNAMENT_FINAL_BREAK_MS = 35 * 1000;
 const TOURNAMENT_END_TOTAL_BREAK_MS = TOURNAMENT_RESULTS_BREAK_MS + TOURNAMENT_FINAL_BREAK_MS;
 const INTER_TOURNAMENT_COUNTDOWN_MS = 5 * 1000;
 const MINI_TOURNAMENT_INTRO_MS = 5 * 1000;
-const PLAYER_AFK_AFTER_MS = 2 * 60 * 1000;
 const TRAINING_BREAK_MS = 15 * 1000;
 const TRAINING_FORCED_BOTS = ["Proutosaurus Rex", "Crux", "QuasarMots"];
 const MEDALS_TTL_AFTER_DISCONNECT_MS = 5 * 60 * 1000;
@@ -3931,6 +3960,7 @@ function maybeStartTournamentCountdown(room) {
   lobby.countdownEndsAt = Date.now() + INTER_TOURNAMENT_COUNTDOWN_MS;
   emitTournamentLobby(room);
   io.to(room.id).emit("miniTournamentCountdownStarted", buildTournamentLobbyPayload(room));
+  emitRoomsStats();
   lobby.countdownTimer = setTimeout(() => {
     startMiniTournamentIntro(room);
   }, INTER_TOURNAMENT_COUNTDOWN_MS);
@@ -3946,6 +3976,7 @@ function startMiniTournamentIntro(room) {
   lobby.introEndsAt = Date.now() + MINI_TOURNAMENT_INTRO_MS;
   emitTournamentLobby(room);
   io.to(room.id).emit("miniTournamentIntroStarted", buildTournamentLobbyPayload(room));
+  emitRoomsStats();
   lobby.introTimer = setTimeout(() => {
     beginReadyMiniTournament(room).catch((err) =>
       console.warn(`[${room.id}] beginReadyMiniTournament failed`, err)
@@ -4159,57 +4190,38 @@ function getPlayerReadyKey(player) {
   return nick ? `nick:${nick}` : "";
 }
 
-function getPlayerLastActivityAt(player) {
-  return Number(player?.lastActivityAt) || Number(player?.lastSeenAt) || 0;
-}
-
-function isPlayerAfk(player, now = Date.now()) {
-  if (!isHumanPlayer(player)) return false;
-  if (!isPlayerConnected(player)) return false;
-  if (isStandaloneTrainingPlayer(player)) return false;
-  const lastActivityAt = getPlayerLastActivityAt(player);
-  if (!lastActivityAt) return false;
-  return now - lastActivityAt >= PLAYER_AFK_AFTER_MS;
-}
-
-function clearPlayerAfkTimer(player) {
-  if (!player?.afkTimer) return;
-  clearTimeout(player.afkTimer);
-  player.afkTimer = null;
-}
-
-function schedulePlayerAfkTransition(room, socketId, player) {
-  clearPlayerAfkTimer(player);
-  if (!room || !socketId || !isHumanPlayer(player) || !isPlayerConnected(player)) return;
-  const elapsed = Math.max(0, Date.now() - getPlayerLastActivityAt(player));
-  const delay = Math.max(25, PLAYER_AFK_AFTER_MS - elapsed + 25);
-  player.afkTimer = setTimeout(() => {
-    player.afkTimer = null;
-    const current = room.players.get(socketId);
-    if (current !== player || !isPlayerConnected(current)) return;
-    if (!isPlayerAfk(current)) {
-      schedulePlayerAfkTransition(room, socketId, current);
-      return;
-    }
+const playerInactivity = createPlayerInactivityController({
+  isHumanPlayer,
+  isPlayerConnected,
+  isStandaloneTrainingPlayer,
+  onAfk(room) {
     emitPlayers(room);
     emitTournamentLobby(room);
     emitRoomsStats();
     maybeStartTournamentCountdown(room);
-  }, delay);
-  player.afkTimer.unref?.();
+  },
+  onIdleExit(room, socketId, player, notice) {
+    ensureTournamentLobby(room).readyKeys.delete(getPlayerReadyKey(player));
+    removeSocketPlayerFromRoom(room, socketId, notice);
+    emitTournamentLobby(room);
+    maybeStartTournamentCountdown(room);
+  },
+});
+
+function isPlayerAfk(player, now = Date.now()) {
+  return playerInactivity.isPlayerAfk(player, now);
+}
+
+function clearPlayerAfkTimer(player) {
+  playerInactivity.clearPlayerAfkTimer(player);
+}
+
+function schedulePlayerAfkTransition(room, socketId, player) {
+  playerInactivity.schedulePlayerAfkTransition(room, socketId, player);
 }
 
 function markSocketPlayerActivity(room, socket, reason = "activity") {
-  if (!room || !socket?.id) return false;
-  const player = room.players.get(socket.id);
-  if (!player || !isHumanPlayer(player)) return false;
-  const now = Date.now();
-  const wasAfk = isPlayerAfk(player, now);
-  player.lastActivityAt = now;
-  player.lastSeenAt = now;
-  player.lastActivityReason = reason;
-  schedulePlayerAfkTransition(room, socket.id, player);
-  return wasAfk;
+  return playerInactivity.markSocketPlayerActivity(room, socket, reason);
 }
 
 function ensureTournamentLobby(room) {
@@ -4356,7 +4368,7 @@ function ensureStandaloneTrainingPresence(room, socket, identity, payload = {}) 
   return player;
 }
 
-function buildStandaloneTrainingLiveStatus(room) {
+function buildStandaloneTrainingLiveStatus(room, tournamentLobby = buildTournamentLobbyPayload(room)) {
   const round = room?.currentRound || null;
   const isPlaying = isRoundActive(round) || round?.status === "ocid_vote";
   const isBreak = !isPlaying && !!(room?.breakState || round || room?.roundStartPending);
@@ -4366,6 +4378,8 @@ function buildStandaloneTrainingLiveStatus(room) {
     serverNow: Date.now(),
     phase: isPlaying ? "playing" : isBreak ? "results" : "lobby",
     humanPlayerCount: getConnectedLiveHumanPlayers(room).length,
+    tournamentRound: tournamentLobby.isOpen ? 0 : Number(round?.tournamentRound) || Number(room?.tournament?.currentRound) || 0,
+    tournamentLobby,
     round: isPlaying
       ? {
           number: Number(round?.tournamentRound) || Number(room?.tournament?.currentRound) || 1,
@@ -4450,6 +4464,8 @@ function enterInterTournamentLobby(room) {
   if (!room) return;
   void targetQuizHandlers.closeRoomRound(room.id, room.currentRound?.id)
     .catch(error => console.warn("[target-quiz] lobby save failed", error.message));
+  void gotusHandlers.closeRoomRound(room.id, room.currentRound?.id)
+    .catch(error => console.warn("[gotus] lobby save failed", error.message));
   room.roundStartPending = false;
   room.roundPreparingSnapshot = null;
   clearPendingRankingBroadcast(room);
@@ -4665,13 +4681,15 @@ function emitRoomsStats() {
     const playersCount = roomPlayers.length;
     const humanPlayers = roomPlayers.filter((p) => isHumanPlayer(p));
     const afkHumans = humanPlayers.filter((p) => isPlayerAfk(p, now)).length;
+    const tournamentLobby = buildTournamentLobbyPayload(room);
     return {
       roomId: room.id,
       label: room.config.label,
       players: playersCount,
       humanPlayers: humanPlayers.length,
       afkHumans,
-      tournamentLobby: buildTournamentLobbyPayload(room),
+      tournamentLobby,
+      liveStatus: buildStandaloneTrainingLiveStatus(room, tournamentLobby),
     };
   });
   io.emit("roomsStats", payload);
@@ -4749,6 +4767,8 @@ function removeSocketPlayerFromRoom(room, targetSocketId, notice) {
   if (notice) {
     if (notice.type === "playtime_limit") {
       io.to(targetSocketId).emit("playtimeLimit:blocked", notice);
+    } else if (notice.type === "inactivity") {
+      io.to(targetSocketId).emit("session:idle", notice);
     } else {
       io.to(targetSocketId).emit("moderation:notice", notice);
     }
@@ -5008,6 +5028,7 @@ function buildRoundStartedPayload(room) {
     introMs: Number.isFinite(round.introMs) ? Math.max(0, round.introMs) : 0,
     status: round.status || "running",
     targetLength: round.targetLength || null,
+    targetMiniGame: getTargetMiniGameMetadata(round),
     targetHintScheduleMs: Array.isArray(round.targetHintScheduleMs)
       ? round.targetHintScheduleMs
       : [],
@@ -5240,6 +5261,7 @@ function buildSessionSnapshot(room, player) {
     special3Words,
     targetFound,
     targetWord,
+    gotus: getGotusResult(round, player),
     lepersChallengeFound: !!round?.lepersChallenge?.foundBy?.has?.(player.nick),
     ocid,
     capabilities: buildSessionPlayerCapabilities({
@@ -8170,11 +8192,13 @@ function computeOcidRoundResults(room, baseResults) {
   const byNick = new Map((Array.isArray(baseResults) ? baseResults : []).map((entry) => [entry.nick, entry]));
   const roundSubs = room?.submissions?.get?.(round.id) || new Map();
   for (const player of room.players.values()) {
-    const connected = isPlayerConnected(player) || isBotToken(player?.token);
     const hasOcidActivity = proposals.has(player.nick) || votes.has(player.nick);
+    const { connected, included } = getRoundResultParticipation(player, {
+      isBot: isBotToken(player?.token), participated: hasOcidActivity,
+    });
     const roundEligible = roundSubs.has(player.nick);
     if (!roundEligible && !hasOcidActivity) continue;
-    if (!connected && !hasOcidActivity) continue;
+    if (!included) continue;
     if (!byNick.has(player.nick)) {
       byNick.set(player.nick, {
         nick: player.nick,
@@ -10026,6 +10050,7 @@ function emitRoundPreparing(room, plan, roundNumber, tournamentRound) {
   };
   room.roundPreparingSnapshot = payload;
   io.to(room.id).emit("roundPreparing", payload);
+  emitRoomsStats();
 }
 
 function matchesBufferedPreparedGrid(room, tournamentRound, plan, tournamentId = null) {
@@ -10541,6 +10566,7 @@ async function runStartRoundForRoom(room, options = {}) {
     duelObjectivePointsByNick: new Map(),
     training: trainingRound,
   };
+  await gotusService.prepareRound(room.id, room.currentRound);
   resetAmbientChatBotState(room, roundId);
   maybePrepareCultureThemeChallenge(room, planUsed);
   if (planUsed?.type === OCID_TYPE && room.currentRound.targetWord) {
@@ -10643,6 +10669,7 @@ async function runStartRoundForRoom(room, options = {}) {
   if (roundStartedPayload) {
     io.to(room.id).emit("roundStarted", roundStartedPayload);
   }
+  emitRoomsStats();
 
   broadcastProvisionalRanking(room, { force: true });
   scheduleLepersChallengeStart(room);
@@ -10875,6 +10902,8 @@ async function endRoundForRoom(room) {
   room.currentRound.status = "finished";
   await targetQuizHandlers.closeRoomRound(room.id, room.currentRound.id)
     .catch(error => console.warn("[target-quiz] round save failed", error.message));
+  await gotusHandlers.closeRoomRound(room.id, room.currentRound.id)
+    .catch(error => console.warn("[gotus] round save failed", error.message));
   flushPendingDuelWordAcceptedQueues(room.currentRound, room);
   const pendingDuelWordTasks =
     room.currentRound.duelWordTasks instanceof Set
@@ -10902,9 +10931,11 @@ async function endRoundForRoom(room) {
     await maybeYieldEndRound();
     const lookup = findPlayerByNick(room, nick);
     const player = lookup?.player || null;
-    const connected = isPlayerConnected(player) || isBotNick(room, nick);
     const participated = hasPlayerActivity(data);
-    if (!connected && !participated) {
+    const { connected, included } = getRoundResultParticipation(player, {
+      isBot: isBotNick(room, nick), participated,
+    });
+    if (!included) {
       continue;
     }
     const rawWords = Array.from(data.words || []);
@@ -11332,7 +11363,7 @@ async function endRoundForRoom(room) {
       await maybeYieldEndRound();
       const lookup = findPlayerByNick(room, nick);
       const player = lookup?.player || null;
-      const connected = isPlayerConnected(player) || isBotToken(player?.token);
+      const { connected } = getRoundResultParticipation(player, { isBot: isBotToken(player?.token) });
       if (!connected) continue;
       const meta = foundMeta.get(nick);
       targetResults.push({
@@ -11342,6 +11373,7 @@ async function endRoundForRoom(room) {
         targetFoundAt: meta ? meta.ts : null,
         targetFoundMs: meta ? meta.elapsedMs : null,
         targetQuiz: getTargetQuizResult(room.currentRound, player),
+        gotus: getGotusResult(room.currentRound, player),
         userId: Number.isInteger(Number(player?.userId)) ? Number(player.userId) : null,
         installId: player?.installId || null,
         team: getTeamForInstallCached(player?.installId),
@@ -11514,12 +11546,9 @@ async function endRoundForRoom(room) {
     breakKind = "tournament_end";
     tournamentSummaryAt = Date.now() + TOURNAMENT_RESULTS_BREAK_MS;
 
-    const winnerNick = totalRanking[0]?.nick || null;
-    const medalWinners = [
-      totalRanking[0]?.nick || null,
-      totalRanking[1]?.nick || null,
-      totalRanking[2]?.nick || null,
-    ].filter(Boolean);
+    const podium = selectTournamentPodium(totalRanking);
+    const winnerNick = podium[0]?.nick || null;
+    const medalAwards = getTournamentPodiumMedalAwards(podium);
     const presenterScopeId = `tournament:${t.id}:celebration`;
     const presenterInterventions = buildTournamentCelebrationPresenterLines({
       records: t.records,
@@ -11536,6 +11565,7 @@ async function endRoundForRoom(room) {
       id: t.id,
       winnerNick,
       ranking: totalRanking,
+      podium,
       records: t.records,
       presenterScopeId,
       presenterInterventions,
@@ -11586,9 +11616,9 @@ async function endRoundForRoom(room) {
     const medalDelay = Math.max(0, tournamentSummaryAt - Date.now());
     setTimeout(() => {
       if (room.breakState?.breakKind !== "tournament_end") return;
-      if (medalWinners[0]) addMedal(room, medalWinners[0], "gold", `${room.id}:${t.id}`, t);
-      if (medalWinners[1]) addMedal(room, medalWinners[1], "silver", null, t);
-      if (medalWinners[2]) addMedal(room, medalWinners[2], "bronze", null, t);
+      for (const award of medalAwards) {
+        addMedal(room, award.nick, award.type, `${room.id}:${t.id}`, t);
+      }
       emitMedals(room);
     }, medalDelay);
 
@@ -11615,6 +11645,7 @@ async function endRoundForRoom(room) {
     roomId: room.id,
     roundId: room.currentRound.id,
     training: isTrainingRound,
+    targetMiniGame: getTargetMiniGameMetadata(room.currentRound),
     results,
     tournament: {
       id: tournamentId,
@@ -11697,6 +11728,7 @@ async function endRoundForRoom(room) {
     targetSummary,
     lastRoundResults: room.lastRoundResults || null,
   };
+  emitRoomsStats();
 
   scheduleLepersResultIntervention(room, lepersResult);
   scheduleAmbientRoundEndBots(room, results, targetSummary);
@@ -11751,6 +11783,7 @@ io.on("connection", (socket) => {
   emitMaintenanceStatus(socket, isMaintenanceModeActive());
   emitRoomsStats();
   targetQuizHandlers.register(socket);
+  gotusHandlers.register(socket);
   registerPresenterHitHandlers(socket, { service: presenterHits, getRoom, getSocketPlayerIdentity });
 
   registerSessionUtilityHandlers(socket, {
@@ -11791,6 +11824,7 @@ io.on("connection", (socket) => {
     markPresenceJoinAnnounced,
     normalizeInstallId,
     persistenceClient,
+    playerInactivity,
     pushSystemChatMessage,
     refreshInstallDuelCache,
     requireSocketPlayerIdentity,

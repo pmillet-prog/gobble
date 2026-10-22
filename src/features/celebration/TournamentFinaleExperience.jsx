@@ -10,12 +10,12 @@ import "./tournamentFinaleExperience.css";
 
 const TournamentFinaleScreen = React.lazy(loadTournamentFinaleRanking);
 
-function LivePodium({ tournamentKey, ranking, identity, sound, onOpenProfile, onComplete }) {
+function LivePodium({ tournamentKey, summary, identity, sound, onOpenProfile, onComplete }) {
   // Awards arrive at the start of the ceremony, after the portraits were warmed.
   const medals = useApplicationSelector(state => state.realtime.medals);
   // Freeze the ceremony's entrants: duplicate snapshots must not reload canvases
   // or restart the animation. The surrounding component is keyed by tournament.
-  const [entrants] = React.useState(() => getTournamentPodiumEntries(ranking, { userId: identity.userId, nick: identity.selfNick, knownPlayers: identity.knownPlayers }));
+  const [entrants] = React.useState(() => getTournamentPodiumEntries(summary, { userId: identity.userId, nick: identity.selfNick, knownPlayers: identity.knownPlayers }));
   const resources = useTournamentAvatarResources();
   const [ready, setReady] = React.useState(null);
   const [error, setError] = React.useState(false);
@@ -67,7 +67,7 @@ export default function TournamentFinaleExperience(props) {
           Voir le classement complet <span aria-hidden="true">×</span>
         </button>
       </div>
-      <LivePodium key={tournamentKey} ranking={finale.tournamentFinaleSummary.ranking}
+      <LivePodium key={tournamentKey} summary={finale.tournamentFinaleSummary}
         tournamentKey={tournamentKey} identity={identity} sound={sound} onOpenProfile={finale.stableOpenPlayerProfile} onComplete={onComplete} />
     </main>
     {overlays.chatOverlays}

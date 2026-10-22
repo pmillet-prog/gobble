@@ -15,6 +15,7 @@ import {
   isRareBonusEnabledForSpecial,
 } from "../../game/specialRoundTypes.js";
 import { hydrateServerSolutionsPayload } from "../../utils/roundSolutions";
+import { withRoundTargetMiniGame } from "./roundTargetMiniGame.js";
 
 function createRef(current) {
   return { current };
@@ -387,7 +388,7 @@ export default function useRoundSessionController() {
           roundStats: stats,
           serverEndsAt: Number.isFinite(effectiveEndsAt) ? effectiveEndsAt : null,
           serverRoundDurationMs: normalizedDurationMs,
-          specialRound: specialInfo && specialInfo.isSpecial ? specialInfo : null,
+          specialRound: withRoundTargetMiniGame(specialInfo, roundLifecycle?.targetMiniGame),
         },
         session: {
           connectionError: "",
@@ -655,9 +656,7 @@ export default function useRoundSessionController() {
         setBoard(lastRound.round.grid);
         setGridSize(lastRound.round.gridSize || getGridSizeForRoom(snapshot.roomId));
         setSpecialRound(
-          lastRound.round.special && lastRound.round.special.isSpecial
-            ? lastRound.round.special
-            : null
+          withRoundTargetMiniGame(lastRound.round.special, lastRound.payload?.targetMiniGame)
         );
         if (lastRound.round.gridQuality) {
           const stats = {

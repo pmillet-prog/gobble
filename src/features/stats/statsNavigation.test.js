@@ -22,6 +22,19 @@ test("period changes preserve compatible categories and metrics", () => {
   assert.deepEqual(getStatsNavigation({ tab: "season" }).categories.map(({ key }) => key), ["vocabulary", "words", "presenters", "trophies"]);
 });
 
+test("Gotus appears with presenters in weekly and all-time statistics", () => {
+  for (const tab of ["weekly", "season"]) {
+    const selected = getStatsNavigation({ tab, category: "presenters", boardKey: "gotusWins" });
+    assert.equal(selected.board.key, "gotusWins");
+    assert.equal(selected.board.label, "Gotus");
+    assert.match(selected.board.description, /mots trouvés/);
+    assert.match(selected.board.description, /entraînement ne compte pas/);
+  }
+  assert.deepEqual(changeStatsPeriod({ category: "presenters", boardKey: "gotusWins" }, "season"), {
+    tab: "season", category: "presenters", boardKey: "gotusWins",
+  });
+});
+
 test("invalid or old navigation selections resolve to an available page", () => {
   assert.equal(getStatsNavigation({ category: "unknown", boardKey: "missing" }).board.key, "weeklyVocab");
   assert.equal(getStatsNavigation({ tab: "season", category: "words", boardKey: "bestWord" }).board.key, "gobbles");
