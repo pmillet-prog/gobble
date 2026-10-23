@@ -1535,7 +1535,7 @@ export default function DesktopGameScene({ runtime }) {
         </div>
 
         {/* Colonne 4 : Chat */}
-        {!isDailyPlay && (
+        {!isDailyPlay && !runtime.gotusActive && (
           <DesktopChatPanel
             appView={appView}
             blockedCount={blockedCount}

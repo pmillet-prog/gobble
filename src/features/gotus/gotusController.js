@@ -1,4 +1,6 @@
-import { GOTUS_MAX_ATTEMPTS, GOTUS_WORD_LENGTH, evaluateGotusGuess, normalizeGotusWord } from "../../../shared/gotusRules.js";
+import { GOTUS_MAX_ATTEMPTS, GOTUS_WORD_LENGTH, evaluateGotusGuess } from "../../../shared/gotusRules.js";
+import { backspaceGotusInput, createGotusInput, deleteGotusLetter, editGotusInput, moveGotusCursor,
+  selectGotusCell, typeGotusLetters } from "./gotusInput.js";
 
 const REVEAL_MS = 260;
 const REQUEST_TIMEOUT_MS = 6000;
@@ -15,7 +17,7 @@ const loadBrowserTrainingWords = () => trainingBankPromise ||= fetch("/gotus/wor
 
 const initialState = () => ({
   phase: "idle", firstLetter: "", known: Array(GOTUS_WORD_LENGTH).fill(""), attempts: [],
-  draft: "", revealed: GOTUS_WORD_LENGTH, remainingAttempts: GOTUS_MAX_ATTEMPTS,
+  ...createGotusInput(), revealed: GOTUS_WORD_LENGTH, remainingAttempts: GOTUS_MAX_ATTEMPTS,
   remainingSeconds: 0, endsAt: 0, canAnswer: false, error: "", solution: "", summary: null,
   wordsFound: 0, progression: null,
 });
@@ -34,6 +36,12 @@ export function createGotusController({
   let trainingBank = null, trainingTarget = "";
   const listeners = new Set(), cueListeners = new Set();
   const commit = patch => { state = { ...state, ...patch }; listeners.forEach(listener => listener()); };
+  const updateInput = operation => {
+    if (!active || !visible || !state.canAnswer || state.phase !== "playing") return false;
+    const input = operation(state);
+    if (input.draft !== state.draft || input.activeColumn !== state.activeColumn || state.error) commit({ ...input, error: "" });
+    return true;
+  };
   const cue = value => cueListeners.forEach(listener => listener(value));
   const clearTimers = () => {
     epoch++;
@@ -54,7 +62,7 @@ export function createGotusController({
       revealTimer = schedule(() => finishReveal(token), REVEAL_MS);
       return;
     }
-    commit({ ...authoritative, draft: authoritative.firstLetter || "", revealed: GOTUS_WORD_LENGTH,
+    commit({ ...authoritative, ...createGotusInput(authoritative.firstLetter, authoritative.known), revealed: GOTUS_WORD_LENGTH,
       canAnswer: authoritative.phase === "playing", error: "" });
     if (state.phase === "won" || (state.phase === "lost" && state.attempts.length === GOTUS_MAX_ATTEMPTS)) {
       cue({ type: state.phase, row: state.attempts.length - 1 });
@@ -74,20 +82,28 @@ export function createGotusController({
     };
     if (snapshot.endsAt) deadline = snapshot.endsAt;
     const newer = attempts.length > state.attempts.length;
+    const sameRow = snapshot.firstLetter === state.firstLetter && attempts.length === state.attempts.length &&
+      attempts.every((attempt, index) => attempt.word === state.attempts[index]?.word);
     authoritative = snapshot;
     // The private progress push and the ACK may describe the same accepted guess.
     // Preserve the in-flight reveal instead of replaying or skipping its letters.
     if (state.phase === "revealing" && !newer && attempts.at(-1)?.word === state.attempts.at(-1)?.word) return;
     if (newer && animate && visible) {
       if (revealTimer !== null) cancel(revealTimer);
-      commit({ ...snapshot, phase: "revealing", revealed: 0, canAnswer: false, error: "",
+      commit({ ...snapshot, ...createGotusInput(snapshot.firstLetter, snapshot.known), phase: "revealing", revealed: 0, canAnswer: false, error: "",
         summary: state.summary, progression: state.progression, wordsFound: state.wordsFound, solution: "" });
       const token = epoch;
       revealTimer = schedule(() => finishReveal(token), REVEAL_MS);
     } else {
       if (revealTimer !== null) cancel(revealTimer);
       revealTimer = null;
-      commit({ ...snapshot, revealed: GOTUS_WORD_LENGTH, draft: snapshot.firstLetter, canAnswer: snapshot.phase === "playing", error: "" });
+      const preserveInput = sameRow && snapshot.phase === "playing";
+      const stillSubmitting = preserveInput && state.phase === "submitting";
+      commit({ ...snapshot, revealed: GOTUS_WORD_LENGTH,
+        ...(preserveInput ? { draft: state.draft, activeColumn: state.activeColumn }
+          : createGotusInput(snapshot.firstLetter, snapshot.known)),
+        phase: stillSubmitting ? "submitting" : snapshot.phase,
+        canAnswer: !stillSubmitting && snapshot.phase === "playing", error: preserveInput ? state.error : "" });
     }
   };
   const tick = () => {
@@ -197,14 +213,18 @@ export function createGotusController({
       else { clearTimers(); commit({ phase: "paused", canAnswer: false }); }
     },
     edit(value) {
-      if (!active || !state.canAnswer) return;
-      commit({ draft: normalizeGotusWord(value).replace(/[^A-Z]/g, "").slice(0, GOTUS_WORD_LENGTH), error: "" });
+      return updateInput(() => editGotusInput(value));
     },
+    selectCell(column) { return updateInput(input => selectGotusCell(input, column)); },
+    typeLetters(text) { return updateInput(input => typeGotusLetters(input, text)); },
+    backspace() { return updateInput(backspaceGotusInput); },
+    deleteLetter() { return updateInput(deleteGotusLetter); },
+    moveCursor(key) { return updateInput(input => moveGotusCursor(input, key)); },
     submit() {
       if (!active || !visible || !state.canAnswer || state.phase !== "playing") return false;
       if (!training && deadline && getNow() >= deadline) { tick(); return false; }
-      const word = normalizeGotusWord(state.draft);
-      if (word.length !== GOTUS_WORD_LENGTH) { commit({ error: ERROR_MESSAGES.invalid_word }); return false; }
+      const word = state.draft;
+      if (!/^[A-Z]{6}$/.test(word)) { commit({ error: ERROR_MESSAGES.invalid_word }); return false; }
       if (training) {
         if (!trainingBank.accepted.has(word)) { commit({ error: ERROR_MESSAGES.unknown_word }); return false; }
         if (state.attempts.some(attempt => attempt.word === word)) { commit({ error: ERROR_MESSAGES.duplicate_guess }); return false; }

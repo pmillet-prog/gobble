@@ -1,0 +1,25 @@
+/* The grid owns one keyboard focus; its selected cell remains visible on touch
+   and when focus moves to chat. The evaluation colors stay underneath. */
+.gotus__board:focus { outline: none; }
+.gotus__board:focus-visible { outline: 3px solid #ffe391; outline-offset: 4px; }
+.gotus__cell[data-editable="true"] { cursor: text; touch-action: manipulation; }
+.gotus__cell[data-editable="true"] > span { user-select: none; }
+.gotus__cell[data-editable="true"][data-selected="true"]::after {
+  content: "";
+  position: absolute;
+  z-index: 2;
+  inset: 3px;
+  box-sizing: border-box;
+  border: 3px solid #fff;
+  box-shadow: 0 0 0 1px #052b48, inset 0 0 0 1px #052b48;
+  background: linear-gradient(#fff, #fff) center calc(100% - 3px) / 40% 3px no-repeat;
+  pointer-events: none;
+}
+@media (forced-colors: active) {
+  .gotus__board:focus-visible { outline-color: Highlight; }
+  .gotus__cell[data-editable="true"][data-selected="true"]::after {
+    border-color: Highlight;
+    outline: 1px solid CanvasText;
+    outline-offset: -4px;
+  }
+}

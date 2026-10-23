@@ -138,3 +138,123 @@ test("closing, timing out or rejecting dismissal always settles its promise", as
     h.controller.deactivate();
   }
 });
+
+test("live direct cell input validates holes and sends the exact six letters", () => {
+  const h = harness(); h.controller.activate({ deadline: 20000 }); h.sent[0].callback(snapshot());
+  assert.equal(h.controller.getSnapshot().activeColumn, 1);
+  h.controller.selectCell(4); h.controller.typeLetters("ôn");
+  assert.equal(h.controller.getSnapshot().draft, "B   ON");
+  assert.equal(h.controller.submit(), false);
+  assert.equal(h.sent.length, 1, "an incomplete row cannot reach the server");
+  h.controller.selectCell(1); h.controller.typeLetters("âll");
+  assert.equal(h.controller.submit(), true);
+  assert.equal(h.sent.at(-1).name, "gotus:guess");
+  assert.equal(h.sent.at(-1).payload.word, "BALLON");
+  assert.equal(h.sent.at(-1).payload.puzzleIndex, 0);
+  h.controller.deactivate();
+});
+
+test("all editing commands stay blocked while submitting and revealing", () => {
+  const h = harness(); h.controller.activate({ deadline: 20000 }); h.sent[0].callback(snapshot());
+  h.controller.typeLetters("ALLES"); h.controller.submit();
+  const submitted = h.sent.at(-1);
+  for (const stage of ["submitting", "revealing"]) {
+    if (stage === "revealing") submitted.callback(snapshot(["BALLES"]));
+    const before = h.controller.getSnapshot();
+    h.controller.selectCell(0); h.controller.typeLetters("Z"); h.controller.backspace();
+    h.controller.deleteLetter(); h.controller.moveCursor("Home"); h.controller.edit("ZZZZZZ");
+    assert.equal(h.controller.getSnapshot(), before, stage);
+  }
+  h.reveal();
+  assert.equal(h.controller.getSnapshot().draft, "B");
+  assert.equal(h.controller.getSnapshot().activeColumn, 1);
+  h.controller.deactivate();
+});
+
+test("duplicate progress and a late ACK preserve an edited next row and cursor", () => {
+  const h = harness(); h.controller.activate({ deadline: 20000 }); h.sent[0].callback(snapshot());
+  h.controller.typeLetters("ALLES"); h.controller.submit(); const submitted = h.sent.at(-1);
+  const response = snapshot(["BALLES"], "playing", { known: ["B", "A", "L", "L", "", ""] });
+  h.events.get("gotus:progress")(response);
+  h.reveal();
+  assert.equal(h.controller.getSnapshot().draft, "BALL", "known letters are part of the editable word");
+  assert.equal(h.controller.getSnapshot().activeColumn, 4);
+  h.controller.selectCell(5); h.controller.typeLetters("N"); h.controller.selectCell(2);
+  for (const receive of [h.events.get("gotus:progress"), submitted.callback]) {
+    receive(response);
+    assert.equal(h.controller.getSnapshot().draft, "BALL N");
+    assert.equal(h.controller.getSnapshot().activeColumn, 2);
+  }
+  h.controller.deactivate();
+});
+
+test("training completes only LLON after BANANE has supplied known BA", async () => {
+  const h = harness({ mode: "training" }); h.controller.activate(); await setImmediate();
+  h.controller.edit("BANANE"); assert.equal(h.controller.submit(), true); h.reveal();
+  assert.deepEqual(h.controller.getSnapshot().known, ["B", "A", "", "", "", ""]);
+  assert.equal(h.controller.getSnapshot().draft, "BA");
+  assert.equal(h.controller.getSnapshot().activeColumn, 2);
+  h.controller.typeLetters("LLON");
+  assert.equal(h.controller.getSnapshot().draft, "BALLON");
+  assert.equal(h.controller.submit(), true); h.reveal();
+  assert.equal(h.controller.getSnapshot().phase, "won");
+  assert.equal(h.sent.length, 0); h.controller.deactivate();
+});
+
+test("live submission contains known letters plus only the newly typed completion", () => {
+  const h = harness(); h.controller.activate({ deadline: 20000 }); h.sent[0].callback(snapshot());
+  h.controller.edit("BANANE"); h.controller.submit();
+  h.sent.at(-1).callback(snapshot(["BANANE"], "playing", { known: ["B", "A", "", "", "", ""] }));
+  h.reveal();
+  h.controller.typeLetters("LLON");
+  assert.equal(h.controller.getSnapshot().draft, "BALLON");
+  assert.equal(h.controller.submit(), true);
+  assert.equal(h.sent.at(-1).name, "gotus:guess");
+  assert.equal(h.sent.at(-1).payload.word, "BALLON");
+  h.controller.deactivate();
+});
+
+test("reconnect restores known letters as editable draft content without replaying the reveal", () => {
+  const h = harness(); h.controller.activate({ deadline: 20000 }); h.sent[0].callback(snapshot());
+  h.controller.edit("BALLES"); h.controller.submit();
+  h.events.get("disconnect")(); h.events.get("connect")();
+  h.sent.at(-1).callback(snapshot(["BALLES"], "playing", { known: ["B", "A", "L", "L", "", ""] }));
+  assert.equal(h.controller.getSnapshot().phase, "playing");
+  assert.equal(h.controller.getSnapshot().draft, "BALL");
+  assert.equal(h.controller.getSnapshot().activeColumn, 4);
+  assert.equal(h.cues.filter(cue => cue.type === "letter").length, 0);
+  h.controller.typeLetters("ON"); assert.equal(h.controller.submit(), true);
+  assert.equal(h.sent.at(-1).payload.word, "BALLON");
+  h.controller.deactivate();
+});
+
+test("deleting a known cell remains a real hole across identical progress pushes", () => {
+  const h = harness(); h.controller.activate({ deadline: 20000 });
+  const response = snapshot(["BANANE"], "playing", { known: ["B", "A", "", "", "", ""] });
+  h.sent[0].callback(response);
+  h.controller.typeLetters("LLON"); h.controller.selectCell(1); h.controller.typeLetters("O");
+  assert.equal(h.controller.getSnapshot().draft, "BOLLON");
+  h.controller.selectCell(1); h.controller.deleteLetter();
+  assert.equal(h.controller.getSnapshot().draft, "B LLON");
+  h.events.get("gotus:progress")(response);
+  assert.equal(h.controller.getSnapshot().draft, "B LLON", "a repeated snapshot must not refill the deleted A");
+  assert.equal(h.controller.getSnapshot().activeColumn, 1);
+  assert.equal(h.controller.submit(), false);
+  assert.equal(h.sent.length, 1, "the cleared cell must be filled before sending");
+  h.controller.typeLetters("A");
+  assert.equal(h.controller.getSnapshot().draft, "BALLON");
+  assert.equal(h.controller.submit(), true);
+  assert.equal(h.sent.at(-1).payload.word, "BALLON");
+  h.controller.deactivate();
+});
+
+test("an old progress push cannot unlock editing during a newer submitted guess", () => {
+  const h = harness(); h.controller.activate({ deadline: 20000 }); h.sent[0].callback(snapshot());
+  h.controller.edit("BALLES"); h.controller.submit(); h.sent.at(-1).callback(snapshot(["BALLES"])); h.reveal();
+  h.controller.edit("BALLON"); h.controller.submit();
+  h.events.get("gotus:progress")(snapshot(["BALLES"]));
+  assert.equal(h.controller.getSnapshot().phase, "submitting");
+  assert.equal(h.controller.getSnapshot().canAnswer, false);
+  assert.equal(h.controller.getSnapshot().draft, "BALLON");
+  h.controller.deactivate();
+});

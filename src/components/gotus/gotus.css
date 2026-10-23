@@ -3,12 +3,11 @@
 .gotus__playground { height: 100%; width: 100%; min-height: 0; overflow: auto; padding: 8px 12px; border-radius: 12px; border: 1px solid #357c9e; background: linear-gradient(#0b4069, #082d51); display: flex; flex-direction: column; gap: 6px; isolation: isolate; container-type: inline-size; }
 .gotus__header { display: flex; align-items: center; gap: 9px; flex-shrink: 0; }
 .gotus__header > img { width: 94px; height: 44px; object-fit: contain; }
-.gotus__header > div { display: grid; gap: 3px; font-size: 10px; flex: 1; }
-.gotus__header > div { min-width: 0; }
-.gotus__sound { display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 2px; flex-shrink: 0; min-width: 36px; min-height: 44px; font-size: 10px; cursor: pointer; }
-.gotus__sound input { width: 16px; height: 16px; }
+.gotus__heading { display: grid; gap: 3px; font-size: 10px; flex: 1; min-width: 0; }
+.gotus__header-actions { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+.gotus__header-actions:empty { display: none; }
 .gotus__puzzle, .gotus__controls { display: flex; flex-direction: column; gap: 6px; flex-shrink: 0; }
-.gotus__header > div > span { color: #ffdb85; }
+.gotus__heading > span { color: #ffdb85; }
 .gotus button { cursor: pointer; }
 .gotus button:disabled { opacity: .5; cursor: default; }
 .gotus button:focus-visible, .gotus input:focus-visible { outline: 3px solid #ffe391; outline-offset: 2px; }
@@ -16,9 +15,9 @@
 .gotus__studio { display: flex; justify-content: center; align-items: center; gap: 10px; flex: 1 0 55px; min-height: 55px; max-height: 105px; overflow: hidden; border-radius: 7px 7px 0 0; background: #164b72 url('/gotus/studio.webp') center 20% / cover; }
 .gotus__presenter { height: 100%; min-height: 55px; max-height: 105px; width: 75px; object-fit: contain; object-position: bottom; }
 .gotus__studio > span { max-width: 140px; border: 1px solid #e1c58b; border-radius: 9px 9px 9px 2px; padding: 8px 10px; background: #fff9e9; color: #123f61; font-size: 11px; font-weight: 800; }
-.gotus__board { border: 2px solid #84bfdb; flex-shrink: 0; width: 100%; }
-.gotus__row { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); }
-.gotus__cell { height: clamp(28px, 8.1cqw, 42px); display: grid; place-items: center; position: relative; overflow: hidden; border: 1px solid #7cc0df70; background: linear-gradient(130deg, #169ad8, #0077bf 50%, #07508e); color: #fff; font: 700 clamp(21px, 6cqw, 30px)/1 Arial, sans-serif; text-shadow: 1px 2px 3px #083758a3; }
+.gotus__board { border: 2px solid #84bfdb; flex-shrink: 0; width: 100%; aspect-ratio: 1; display: grid; grid-template-rows: repeat(6, minmax(0, 1fr)); }
+.gotus__row { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); min-height: 0; }
+.gotus__cell { min-height: 0; min-width: 0; display: grid; place-items: center; position: relative; overflow: hidden; border: 1px solid #7cc0df70; background: linear-gradient(130deg, #169ad8, #0077bf 50%, #07508e); color: #fff; font: 700 clamp(21px, 6cqw, 42px)/1 Arial, sans-serif; text-shadow: 1px 2px 3px #083758a3; }
 .gotus__cell > span { position: relative; z-index: 1; }
 .gotus__cell::before { content: ""; position: absolute; inset: 2px; opacity: 0; }
 .gotus__cell[data-mark="correct"]::before { background: linear-gradient(135deg, #f88868, #ea5a3a 58%, #d1432b); border: 1px solid #ffac8b; opacity: 1; animation: gotus-reveal 180ms ease-out; }
@@ -27,8 +26,8 @@
 .gotus__row[data-active="true"] { outline: 1px solid #c6f0ff; outline-offset: -1px; }
 .gotus__feedback { min-height: 20px; text-align: center; font-size: 11px; line-height: 1.5; flex-shrink: 0; }
 .gotus__feedback[data-error="true"] { color: #ffd18c; }
-.gotus__form { display: flex; justify-content: center; gap: 7px; flex-shrink: 0; }
-.gotus__form input { width: 55%; min-width: 0; border: 1px solid #b9e1f7; border-radius: 5px; height: 33px; padding: 4px 7px; text-align: center; font-size: 19px; font-weight: 800; letter-spacing: 4px; color: #164564; background: #f8fcff; }
+.gotus__form { display: flex; justify-content: center; flex-shrink: 0; }
+.gotus__form > .gotus__primary { width: min(100%, 320px); min-height: 44px; font-size: 14px; touch-action: manipulation; }
 .gotus__primary { border: 1px solid #ffe78d; border-radius: 5px; padding: 7px 14px; background: #ffcf42; color: #4b2d09; font-size: 11px; font-weight: 900; }
 .gotus__secondary { border: 1px solid #81afc6; border-radius: 5px; padding: 6px; background: #16466e; color: #fff; font-size: 12px; }
 .gotus__keyboard { display: grid; gap: 3px; flex-shrink: 0; }

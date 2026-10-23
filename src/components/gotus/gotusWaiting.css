@@ -1,9 +1,7 @@
-.gotus-waiting { --gotus-waiting-bg:#fffafc; --gotus-waiting-text:#302239; position:fixed; inset:0; z-index:21200; color:var(--gotus-waiting-text); }
+.gotus-waiting { --gotus-waiting-bg:#fffafc; --gotus-waiting-text:#302239; color:var(--gotus-waiting-text); }
 .gotus-waiting--dark { --gotus-waiting-bg:#211629; --gotus-waiting-text:#faf3ff; }
-.gotus-waiting__game { position:absolute; inset:0; overflow-y:auto; padding:16px; background:#17101deb; backdrop-filter:blur(8px); display:grid; place-items:center; }
-.gotus-waiting__game .gotus__standalone { width:min(100%,700px); }
-.gotus-waiting__game--compact { display:flex; height:100dvh; overflow:hidden; box-sizing:border-box; padding:max(6px, env(safe-area-inset-top)) max(6px, env(safe-area-inset-right)) max(6px, env(safe-area-inset-bottom)) max(6px, env(safe-area-inset-left)); }
-.gotus-waiting__shade { position:absolute; inset:0; display:grid; place-items:center; overflow:auto; padding:18px; background:#170c22bb; backdrop-filter:blur(5px); }
+.gotus-waiting__game { position:fixed; inset:0; z-index:12000; overflow:hidden; height:100dvh; }
+.gotus-waiting__shade { position:fixed; inset:0; z-index:21200; display:grid; place-items:center; overflow:auto; padding:18px; background:#170c22bb; backdrop-filter:blur(5px); }
 .gotus-waiting__dialog { width:min(100%,490px); padding:26px; border-radius:24px; border:1px solid #ba8fca; background:var(--gotus-waiting-bg); box-shadow:0 20px 80px #0008; text-align:center; }
 .gotus-waiting__dialog > img { width:190px; margin:0 auto 10px; }
 .gotus-waiting__dialog h2 { font-size:1.3rem; font-weight:800; }

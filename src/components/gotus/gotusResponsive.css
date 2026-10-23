@@ -1,39 +1,23 @@
-/* The phone surface uses the viewport, not the live Boggle grid's square host. */
-.gotus-mobile-surface {
-  position: fixed;
-  inset: 0;
-  z-index: 12000;
-  height: 100dvh;
-  box-sizing: border-box;
-  display: flex;
-  justify-content: center;
-  overflow: hidden;
-  padding: max(6px, env(safe-area-inset-top)) max(6px, env(safe-area-inset-right)) max(6px, env(safe-area-inset-bottom)) max(6px, env(safe-area-inset-left));
-  background: #101d32;
-}
-.gotus-mobile-surface .gotus__standalone,
-.gotus-waiting__game--compact .gotus__standalone {
-  width: min(100%, 540px);
-  height: 100%;
-  margin: 0 auto;
-}
+/* The game uses its own viewport surface in training and live modes. */
 .gotus--compact.gotus__playground {
+  --gotus-mobile-studio-height: clamp(136px, 20dvh, 188px);
   padding: 8px;
   gap: 5px;
   overscroll-behavior: contain;
   scrollbar-width: thin;
   -webkit-overflow-scrolling: touch;
 }
-.gotus--compact .gotus__header { gap: 5px; }
-.gotus--compact .gotus__header > img { width: 78px; height: 40px; }
+.gotus--compact .gotus__header { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 6px; }
+.gotus--compact .gotus__header > img { width: clamp(60px, 20cqw, 78px); height: 40px; }
+.gotus--compact .gotus__heading { font-size: 11px; line-height: 1.3; }
 .gotus--compact .gotus__close { width: 44px; height: 44px; flex-shrink: 0; }
 .gotus--compact .gotus__puzzle { flex: 1 0 auto; justify-content: center; gap: 5px; }
-.gotus--compact .gotus__studio { flex: 1 0 44px; min-height: 44px; max-height: 140px; }
-.gotus--compact .gotus__presenter { height: 100%; min-height: 44px; max-height: 140px; width: 100px; }
-.gotus--compact .gotus__studio > span { font-size: 10px; padding: 5px 8px; max-width: none; }
+.gotus--compact .gotus__studio { flex: 0 0 var(--gotus-mobile-studio-height); height: var(--gotus-mobile-studio-height); min-height: 0; max-height: none; gap: 8px; padding-inline: 8px; }
+.gotus--compact .gotus__presenter { height: 100%; min-height: 0; max-height: none; width: 44%; min-width: 0; flex-shrink: 0; }
+.gotus--compact .gotus__studio > span { font-size: 11px; padding: 7px 9px; max-width: 190px; }
 .gotus--compact .gotus__board {
   /* Keep readable cells when the controls need scrolling on a short screen. */
-  width: min(100%, max(264px, calc(100dvh - 450px)), 420px);
+  width: min(100%, max(264px, calc(100dvh - var(--gotus-mobile-studio-height) - 374px)), 420px);
   aspect-ratio: 1;
   margin-inline: auto;
   display: grid;
@@ -43,7 +27,6 @@
 .gotus--compact .gotus__cell { height: auto; min-width: 0; font-size: clamp(24px, 7cqw, 36px); }
 .gotus--compact .gotus__controls { gap: 5px; }
 .gotus--compact .gotus__feedback { font-size: 12px; min-height: 20px; }
-.gotus--compact .gotus__form input { height: 44px; }
 .gotus--compact .gotus__primary,
 .gotus--compact .gotus__secondary { min-height: 44px; font-size: 14px; touch-action: manipulation; }
 .gotus--compact .gotus__keyboard { gap: 4px; }
@@ -53,10 +36,81 @@
 .gotus--compact .gotus__training-note { flex-shrink: 0; font-size: 10px; line-height: 1.4; }
 .gotus--compact .gotus__finish { font-size: 14px; }
 
+/* The desktop game and chat share a full-height surface. Size the game from its
+   own space, so the board keeps square cells at every chat-column width. */
+.gotus-surface--desktop .gotus__standalone {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  margin: 0;
+  container: gotus-desktop / size;
+}
+.gotus-surface--desktop .gotus__playground {
+  padding: 16px;
+  gap: 12px;
+  scrollbar-width: thin;
+  overscroll-behavior: contain;
+}
+.gotus-surface--desktop .gotus__header > img { width: 136px; height: 60px; }
+.gotus-surface--desktop .gotus__heading { font-size: 14px; gap: 5px; }
+.gotus-surface--desktop .gotus__close { width: 44px; height: 44px; flex-shrink: 0; }
+.gotus-surface--desktop .gotus__studio {
+  flex: 0 0 auto;
+  height: clamp(180px, 25cqh, 260px);
+  min-height: 180px;
+  max-height: none;
+  border-radius: 10px;
+  gap: 18px;
+  padding-inline: 12px;
+}
+.gotus-surface--desktop .gotus__presenter {
+  height: 100%;
+  min-height: 0;
+  max-height: none;
+  width: 50%;
+  min-width: 0;
+}
+.gotus-surface--desktop .gotus__studio > span { max-width: 190px; font-size: 14px; padding: 12px; }
+.gotus-surface--desktop .gotus__board { width: min(100%, 440px); margin-inline: auto; }
+.gotus-surface--desktop .gotus__cell { font-size: clamp(28px, 5cqw, 58px); }
+.gotus-surface--desktop .gotus__controls { gap: 10px; }
+.gotus-surface--desktop .gotus__feedback { font-size: 14px; min-height: 24px; }
+.gotus-surface--desktop .gotus__primary,
+.gotus-surface--desktop .gotus__secondary { min-height: 46px; font-size: 14px; padding: 10px 16px; }
+.gotus-surface--desktop .gotus__keyboard { gap: 5px; }
+.gotus-surface--desktop .gotus__keyboard > div { gap: 4px; }
+.gotus-surface--desktop .gotus__keyboard button { flex: 1 1 0; height: 38px; font-size: 15px; }
+.gotus-surface--desktop .gotus__legend { font-size: 11px; gap: 18px; }
+.gotus-surface--desktop .gotus__footer { font-size: 14px; }
+.gotus-surface--desktop .gotus__training-note { font-size: 12px; line-height: 1.4; }
+.gotus-surface--desktop .gotus__finish { font-size: 16px; }
+.gotus-surface--desktop .gotus__finish p > strong { font-size: 32px; }
+
+@container gotus-desktop (min-width: 720px) {
+  .gotus__playground:not(.gotus--compact) {
+    display: grid;
+    grid-template-columns: minmax(0, 1.5fr) minmax(280px, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) auto auto auto auto minmax(0, 1fr);
+    gap: 0 20px;
+    align-items: start;
+  }
+  .gotus__playground:not(.gotus--compact) .gotus__header { grid-column: 1 / -1; grid-row: 1; margin-bottom: 12px; }
+  .gotus__playground:not(.gotus--compact) .gotus__puzzle { display: contents; }
+  .gotus__playground:not(.gotus--compact) .gotus__board {
+    grid-column: 1;
+    grid-row: 2 / -1;
+    align-self: center;
+    width: min(100%, calc(100cqh - 106px), 760px);
+  }
+  .gotus__playground:not(.gotus--compact) .gotus__studio { grid-column: 2; grid-row: 3; margin-bottom: 12px; }
+  .gotus__playground:not(.gotus--compact) .gotus__controls { grid-column: 2; grid-row: 4; margin-bottom: 12px; }
+  .gotus__playground:not(.gotus--compact) .gotus__footer { grid-column: 2; grid-row: 5; margin-bottom: 8px; }
+  .gotus__playground:not(.gotus--compact) .gotus__training-note { grid-column: 2; grid-row: 6; }
+}
+
 /* On a short, wide display the board and controls use separate columns. */
 @media (orientation: landscape) and (min-width: 560px) and (max-height: 600px) {
-  .gotus-mobile-surface .gotus__standalone,
-  .gotus-waiting__game--compact .gotus__standalone { width: min(100%, 940px); }
+  .gotus-surface--compact .gotus__standalone { width: min(100%, 940px); }
   .gotus--compact.gotus__playground {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1.12fr);

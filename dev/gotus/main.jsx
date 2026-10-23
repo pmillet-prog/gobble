@@ -8,6 +8,8 @@ import TrainingPlayerBadge, { GotusTrainingBadge } from "../../src/components/tr
 import AssetManager from "../../src/assets/assetManager.js";
 import { computeMobileGameLayoutSizing } from "../../src/features/layout/useMobileLayoutController.js";
 import { installGotusIntroProbe } from "./introFixture.js";
+import { createFixtureChat, useFixtureChat, FixtureMobileChat } from "./chatFixture.jsx";
+import { evaluateGotusGuess } from "../../shared/gotusRules.js";
 import "../../src/index.css";
 import "./style.css";
 
@@ -16,11 +18,18 @@ const fetchOriginal = window.fetch.bind(window);
 window.fetch = (input, init) => String(input).endsWith("/gotus/words.json")
   ? Promise.resolve(new Response(JSON.stringify({ targets: ["BALLON"], accepted: ["BALLON", "BANANE", "BALLES", "BILLES", "BATEAU", "BOUCLE", "BOUTON"] }), { headers: { "Content-Type": "application/json" } }))
   : fetchOriginal(input, init);
-let preferenceState = { isSfxMuted: false };
+let preferenceState = { isSfxMuted: false, chatDesktopFontScale: 1 };
 const preferenceListeners = new Set();
-const preferences = { store: { getState: () => preferenceState, subscribe: listener => { preferenceListeners.add(listener); return () => preferenceListeners.delete(listener); } } };
-const kernel = { features: { prepare: () => preferences, acquire: () => ({ release() {} }) } };
-const sounds = [], states = [], cascade = [], actions = [];
+const preferences = {
+  store: { getState: () => preferenceState, subscribe: listener => { preferenceListeners.add(listener); return () => preferenceListeners.delete(listener); } },
+  set: (key, value) => { preferenceState = { ...preferenceState, [key]: value }; for (const listener of preferenceListeners) listener(); },
+};
+const chatRuntime = createFixtureChat();
+const kernel = {
+  getState: () => ({ session: { isLoggedIn: chatRuntime.refs.isLoggedInRef.current } }),
+  features: { prepare: name => name === "chat" ? chatRuntime.feature : preferences, acquire: () => ({ release() {} }) },
+};
+const sounds = [], states = [], cascade = [], actions = [], liveEmissions = [];
 new MutationObserver(records => {
   for (const record of records) {
     if (record.target.dataset.victoryNeutral === "true") cascade.push({ column: Number(record.target.dataset.gotusColumn), at: AssetManager.getAudioOutput()?.ctx.currentTime });
@@ -45,25 +54,33 @@ if (contextPrototype) {
   };
 }
 window.gotusFixture = {
-  sounds, states, cascade, actions, unlock: () => AssetManager.unlockAudio(),
+  sounds, states, cascade, actions, liveEmissions, unlock: () => AssetManager.unlockAudio(),
   prepared: () => ["correct", "present", "absent", "won", "lost"].every(name => AssetManager.getSfxBuffer(`gotus:${name}`)),
   state: () => states.at(-1),
   intro: installGotusIntroProbe(AssetManager),
+  chat: { inspect: chatRuntime.inspect, receive: chatRuntime.receive },
   mute: value => { preferenceState = { isSfxMuted: !!value }; for (const listener of preferenceListeners) listener(); },
 };
 const onState = value => states.push(value);
+let liveAttempts = [], liveDeadline = 0;
 const liveSocket = {
   connected: true, on() {}, off() {},
   emit(event, payload, ack) {
-    if (event !== "gotus:start") return;
-    queueMicrotask(() => ack?.({ ok: true, roundId: payload.roundId, phase: "playing", endsAt: Date.now() + 120000,
-      firstLetter: "B", known: ["B", "", "", "", "", ""], attempts: [], remainingAttempts: 6,
-      wordsFound: 0, summary: { phase: "playing", won: false, wordsFound: 0, attemptsUsed: 0 },
+    liveEmissions.push({ event, payload });
+    if (event === "gotus:start") { liveAttempts = []; liveDeadline = Date.now() + 120000; }
+    else if (event === "gotus:guess") liveAttempts.push({ word: payload.word, marks: evaluateGotusGuess("BALLON", payload.word) });
+    else return;
+    const won = liveAttempts.at(-1)?.word === "BALLON", phase = won ? "won" : liveAttempts.length >= 6 ? "lost" : "playing";
+    queueMicrotask(() => ack?.({ ok: true, roundId: payload.roundId, phase, endsAt: liveDeadline,
+      firstLetter: "B", known: [..."BALLON"].map((letter, column) => !column || liveAttempts.some(attempt => attempt.marks[column] === "correct") ? letter : ""),
+      attempts: [...liveAttempts], remainingAttempts: 6 - liveAttempts.length,
+      ...(phase === "playing" ? {} : { solution: "BALLON" }),
+      wordsFound: won ? 1 : 0, summary: { phase, won, wordsFound: won ? 1 : 0, attemptsUsed: liveAttempts.length },
       progression: { before: { totalWins: 7 }, after: { totalWins: 7 }, reward: null },
     }));
   },
 };
-function LiveFixture({ mobile }) {
+function LiveFixture({ mobile, chat }) {
   const [gridHost, setGridHost] = React.useState(null), [sideHost, setSideHost] = React.useState(null);
   const deadline = React.useRef(Date.now() + 120000).current;
   const sizing = computeMobileGameLayoutSizing({ viewportWidth: innerWidth, viewportHeight: innerHeight,
@@ -81,12 +98,14 @@ function LiveFixture({ mobile }) {
       <div className="fixture-live__actionbar" style={{ height: sizing.liveActionBarHeight }}>Chat · Joueurs</div>
     </div> : <div className="fixture-live__desktop-body"><div ref={setGridHost} className="fixture-live__grid-host" /><div ref={setSideHost} className="fixture-live__side-host" /></div>}
     <GotusPlayground active={!!gridHost} mode="live" socket={liveSocket} roundId="live-fixture" endsAt={deadline}
-      getNowServerMs={Date.now} gridHost={gridHost} sideHost={sideHost} compact={mobile} onSessionStateChange={onState} onDismiss={() => actions.push("dismissLive")} />
+      getNowServerMs={Date.now} gridHost={gridHost} sideHost={sideHost} compact={mobile} chat={chat} onSessionStateChange={onState} onDismiss={() => actions.push("dismissLive")} />
   </div>;
 }
 function Fixture() {
   const [waitingState, setWaitingState] = React.useState(null);
   const [liveMode, setLiveMode] = React.useState(null);
+  const mobile = liveMode ? liveMode.mobile : innerWidth < 1000 || innerHeight < 600;
+  const chat = useFixtureChat(chatRuntime, { mobile, training: !liveMode });
   const session = { sessionId: "waiting-fixture" };
   window.gotusFixture.closeAll = () => { setLiveMode(null); setWaitingState(null); };
   window.gotusFixture.waiting = kind => { setLiveMode(null); setWaitingState({
@@ -104,7 +123,7 @@ function Fixture() {
     dismissDialog: () => act("dismissDialog", waitingState?.session ? { ...waitingState, dialog: null } : null),
     muteReminders: value => { actions.push("muteReminders"); setWaitingState({ ...waitingState, remindersMuted: value }); },
   };
-  if (liveMode) return <LiveFixture mobile={liveMode.mobile} />;
+  if (liveMode) return <><LiveFixture mobile={liveMode.mobile} chat={chat} /><FixtureMobileChat chat={chat} /></>;
   return <><main className="fixture">
     <aside className="fixture__examples">
       <h1>Gotus · vérification client</h1>
@@ -112,7 +131,7 @@ function Fixture() {
       <div className="fixture__roster"><strong>Tigre</strong><TrainingPlayerBadge /></div>
       <GotusProgress progress={{ totalWins: 7 }} />
     </aside>
-    {!waitingState && !new URLSearchParams(location.search).has("intro-test") ? <div className="fixture__game"><GotusPlayground active mode="training" roundId="fixture" onSessionStateChange={onState} onJoinLive={() => {}} /></div> : null}
-  </main>{waitingState ? <GotusWaitingSatellite waiting={{ state: waitingState, controller }} darkMode={false} compact={innerWidth < 1000 || innerHeight < 600} /> : null}</>;
+    {!waitingState && !new URLSearchParams(location.search).has("intro-test") ? <div className="fixture__game"><GotusPlayground active mode="training" roundId="fixture" compact={mobile} chat={chat} onSessionStateChange={onState} onJoinLive={() => {}} /></div> : null}
+  </main>{waitingState ? <GotusWaitingSatellite waiting={{ state: waitingState, controller }} darkMode={false} compact={mobile} chat={chat} /> : null}<FixtureMobileChat chat={chat} /></>;
 }
 createRoot(document.querySelector("#root")).render(<ApplicationRuntimeProvider kernel={kernel}><Fixture /></ApplicationRuntimeProvider>);

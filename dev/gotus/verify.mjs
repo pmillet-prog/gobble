@@ -5,12 +5,15 @@ import net from "node:net";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import WebSocket from "ws";
+import { createGotusUi, GOTUS_READY } from "./inputUi.mjs";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const output = path.join(root, ".tmp/gotus-ui");
 const origin = "http://127.0.0.1:5192";
 const responsiveOnly = process.argv.includes("--responsive-only");
 const introOnly = process.argv.includes("--intro-only");
+const chatOnly = process.argv.includes("--chat-only");
+const inputOnly = process.argv.includes("--input-only");
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 const children = [], logs = [], errors = [], cases = [];
 let cdp, socket;
@@ -47,10 +50,10 @@ async function capture(name) {
   const image = await cdp("Page.captureScreenshot", { format: "png", captureBeyondViewport: false });
   await fs.writeFile(path.join(output, `${name}.png`), Buffer.from(image.data, "base64"));
 }
-async function propose(word) {
-  await evaluate(`(() => { const input=document.querySelector('.gotus__form input'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,${JSON.stringify(word)}); input.dispatchEvent(new Event('input',{bubbles:true})); })()`);
-  await delay(30);
-  await evaluate("document.querySelector('.gotus__form').requestSubmit()");
+async function propose(word, mobile) {
+  const ui = createGotusUi({ cdp, evaluate, mobile });
+  await ui.word(word);
+  await ui.submit();
   await delay(1900);
 }
 try {
@@ -68,7 +71,13 @@ try {
   socket = new WebSocket(target.webSocketDebuggerUrl); await new Promise(resolve => socket.once("open", resolve)); cdp = connect(socket);
   await cdp("Page.enable"); await cdp("Runtime.enable"); await cdp("Network.enable");
   await cdp("Network.setBlockedURLs", { urls: ["https://gobble.fr/*", "http://gobble.fr/*"] });
-  if (introOnly) {
+  if (inputOnly) {
+    const { runGotusInputChecks } = await import("./inputCases.mjs");
+    await runGotusInputChecks({ cdp, evaluate, capture, waitFor, delay, origin, cases });
+  } else if (chatOnly) {
+    const { runGotusChatChecks } = await import("./chatCases.mjs");
+    await runGotusChatChecks({ cdp, evaluate, capture, waitFor, delay, origin, cases });
+  } else if (introOnly) {
     const { runGotusIntroChecks } = await import("./introCases.mjs");
     await runGotusIntroChecks({ cdp, evaluate, capture, waitFor, delay, origin, cases });
   } else if (responsiveOnly) {
@@ -83,13 +92,13 @@ try {
     await evaluate("window.gotusFixture.unlock()"); await waitFor(() => evaluate("window.gotusFixture.prepared()"), "five sounds decoded");
     await waitFor(() => evaluate("!document.querySelector('.gotus-intro')"), "initial intro finished");
     await delay(150); await capture(`${profile.name}-playing`);
-    const geometry = await evaluate(`(() => { const panel=document.querySelector('.gotus__playground'), board=document.querySelector('.gotus__board'), keys=document.querySelector('.gotus__keyboard'); return { viewport:innerWidth,bodyWidth:document.body.scrollWidth,panel:panel.getBoundingClientRect().toJSON(),panelScroll:panel.scrollHeight,panelHeight:panel.clientHeight,board:board.getBoundingClientRect().toJSON(),keys:keys.getBoundingClientRect().toJSON(),cells:board.querySelectorAll('[role=cell]').length,images:[...document.images].map(image=>({src:image.getAttribute('src'),loaded:image.complete&&image.naturalWidth>0})) }; })()`);
+    const geometry = await evaluate(`(() => { const panel=document.querySelector('.gotus__playground'), board=document.querySelector('.gotus__board'), keys=document.querySelector('.gotus__keyboard'); return { viewport:innerWidth,bodyWidth:document.body.scrollWidth,panel:panel.getBoundingClientRect().toJSON(),panelScroll:panel.scrollHeight,panelHeight:panel.clientHeight,board:board.getBoundingClientRect().toJSON(),keys:keys.getBoundingClientRect().toJSON(),cells:board.querySelectorAll('[role=gridcell]').length,images:[...document.images].map(image=>({src:image.getAttribute('src'),loaded:image.complete&&image.naturalWidth>0})) }; })()`);
     assert.equal(geometry.cells, 36); assert.ok(geometry.bodyWidth <= profile.width + 1, "horizontal overflow");
     assert.ok(geometry.images.every(image => image.loaded), "images loaded");
     cases.push({ profile: profile.name, geometry });
-    await propose("BANANE"); await capture(`${profile.name}-marks`);
+    await propose("BANANE", profile.mobile); await capture(`${profile.name}-marks`);
     if (profile.name !== "small") {
-      await propose("BALLON"); await delay(120);
+      await propose("BALLON", profile.mobile); await delay(120);
       const winning = await evaluate("({state:gotusFixture.state(),neutral:document.querySelectorAll('[data-victory-neutral=true]').length,sounds:gotusFixture.sounds.filter(sound=>Math.abs(sound.duration-68132/48000)>.002)})");
       assert.equal(winning.state.phase, "won"); assert.equal(winning.neutral, 1); assert.equal(winning.sounds.length, 13);
       cases.push({ profile: profile.name, winning }); await capture(`${profile.name}-victory`);
@@ -105,7 +114,7 @@ try {
   await waitFor(() => evaluate("!!window.gotusFixture?.waiting"), "waiting fixture ready");
   for (const kind of ["session", "offer", "reminder"]) {
     await evaluate(`gotusFixture.waiting(${JSON.stringify(kind)})`);
-    await waitFor(() => evaluate(kind === "session" ? "!!document.querySelector('.gotus-waiting__game .gotus__form input:not(:disabled)')" : "!!document.querySelector('.gotus-waiting__dialog')"), "waiting surface");
+    await waitFor(() => evaluate(kind === "session" ? GOTUS_READY : "!!document.querySelector('.gotus-waiting__dialog')"), "waiting surface");
     if (kind === "session") await waitFor(() => evaluate("!document.querySelector('.gotus-intro')"), "waiting intro finished");
     await delay(150); await capture(`mobile-waiting-${kind}`);
     const geometry = await evaluate(`(() => { const dialog=document.querySelector('.gotus-waiting__dialog')||document.querySelector('.gotus-waiting__game'); return { rect:dialog.getBoundingClientRect().toJSON(),bodyWidth:document.body.scrollWidth,buttons:[...dialog.querySelectorAll('button')].filter(button=>button.offsetWidth>0).map(button=>{ const rect=button.getBoundingClientRect(); return {text:button.textContent.trim(),rect:rect.toJSON(),topmost:document.elementFromPoint(rect.x+rect.width/2,rect.y+rect.height/2)===button};}) }; })()`);
@@ -128,7 +137,7 @@ try {
   assert.deepEqual(errors, []);
 } catch (error) { errors.push(error.stack); process.exitCode = 1; }
 finally {
-  await fs.writeFile(path.join(output, introOnly ? "intro-measurements.json" : responsiveOnly ? process.argv.includes("--desktop-only") ? "responsive-desktop-measurements.json" : process.argv.includes("--mobile-only") ? "responsive-mobile-measurements.json" : "responsive-measurements.json" : process.argv.includes("--waiting-only") ? "waiting-measurements.json" : "measurements.json"), JSON.stringify({ cases, errors, limitations: "Synthetic desktop Chrome viewports; no real phone software keyboard or physical speaker listening. Live fixture uses production target-round sizing with a 64px header; mobile fullscreen branch receives genuine grid/side portal hosts." }, null, 2));
+  await fs.writeFile(path.join(output, inputOnly ? "input-measurements.json" : chatOnly ? "chat-measurements.json" : introOnly ? "intro-measurements.json" : responsiveOnly ? process.argv.includes("--desktop-only") ? "responsive-desktop-measurements.json" : process.argv.includes("--mobile-only") ? "responsive-mobile-measurements.json" : "responsive-measurements.json" : process.argv.includes("--waiting-only") ? "waiting-measurements.json" : "measurements.json"), JSON.stringify({ cases, errors, limitations: "Synthetic desktop Chrome viewports; no real phone software keyboard or physical speaker listening. Gotus uses its production fullscreen surface and real chat feature/views with an in-memory transport; no backend connection." }, null, 2));
   if (cdp) await cdp("Browser.close").catch(() => {}); socket?.close();
   for (const child of children.reverse()) if (child.exitCode === null) child.kill();
   for (const log of logs) await log.close();

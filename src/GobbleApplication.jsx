@@ -11837,6 +11837,7 @@ function handleTouchEnd() {
     selfNick,
     setChatInput,
     showLauncherButton:
+      !gotus.active && !gotusWaiting.state.session &&
       !isLiveLobbyMobileView &&
       !showMobileLiveActionBar &&
       !(isMobileLayout && showResultsPresenterActionBar),
@@ -11852,7 +11853,7 @@ function handleTouchEnd() {
     return source.slice(-cap);
   }, [safeChatTab, chatSystemMessages, chatMessagesOnly]);
   const homeChatProps = {
-    open: isHomeChatOpen,
+    open: isHomeChatOpen && !gotusWaiting.state.session,
     darkMode: menuDarkMode,
     chatTab: safeChatTab,
     onChangeChatTab: setChatTab,
@@ -11887,6 +11888,9 @@ function handleTouchEnd() {
     selfNick,
     selfInstallId: installId,
   };
+  const gotusChatProps = { ...mobileChatProps, subscribeLobbyChat,
+    openDesktopChatReactionDetails, openDesktopChatReactionPicker,
+    scheduleCloseDesktopChatReactionDetails };
   const mobileExitConfirmLayer = (
     <MobileExitConfirmDialog open={mobileExitConfirmOpen}
       onCancel={() => setMobileExitConfirmOpen(false)}
@@ -12126,7 +12130,7 @@ function handleTouchEnd() {
       {settingsMenuView}
       {gotus.active ? (
         <Suspense fallback={null}>
-          <GotusPlayground active gridHost={quiz.gridHost} sideHost={quiz.sideHost}
+          <GotusPlayground active chat={gotusChatProps}
             socket={socket} darkMode={darkMode} roundId={roundId} endsAt={serverEndsAt}
             getNowServerMs={getNowServerMs} compact={isMobileLayout}
             onSessionStateChange={gotus.onSessionStateChange} onDismiss={gotus.onDismiss} />
@@ -12300,7 +12304,7 @@ function handleTouchEnd() {
   if (!isLoggedIn && !isDailyPlay) {
     return (
       <>
-        <GotusWaitingSatellite waiting={gotusWaiting} darkMode={menuDarkMode} compact={isMobileLayout} />
+        <GotusWaitingSatellite waiting={gotusWaiting} darkMode={menuDarkMode} compact={isMobileLayout} chat={gotusChatProps} />
         {teamTintOverlay}
         {appView === "daily" ? chatOverlays : (
           <>
@@ -13000,6 +13004,7 @@ function handleTouchEnd() {
     <Suspense fallback={null}>
       <DesktopGameScene
         runtime={{
+            gotusActive: gotus.active,
             activeRoom,
             allSoundOn,
             allWords,

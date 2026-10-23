@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { GOTUS_READY } from "./inputUi.mjs";
 
 const INTRO_SECONDS = 68132 / 48000;
 const INTRO_SOUNDS = "gotusFixture.sounds.filter(sound => Math.abs(sound.duration - 68132 / 48000) < .002)";
@@ -64,7 +65,7 @@ export async function runGotusIntroChecks({ cdp, evaluate, capture, waitFor, del
       await evaluate("[...document.querySelectorAll('.gotus__footer button')].find(button=>button.textContent.includes('Voir la solution')).click()");
       await waitFor(() => evaluate("!!document.querySelector('.gotus__finish .gotus__primary')"), "training solution");
       await evaluate("document.querySelector('.gotus__finish .gotus__primary').click()");
-      await waitFor(() => evaluate("!!document.querySelector('.gotus__form input:not(:disabled)')"), "training next word");
+      await waitFor(() => evaluate(GOTUS_READY), "training next word");
       await delay(1700);
       const afterNext = await telemetry();
       check(afterNext.sounds.length === before + 1 && afterNext.events.filter(event => event.type === "mounted").length === 1,
