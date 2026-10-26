@@ -73,17 +73,6 @@
         pointer-events: none;
       }
 
-      .brand {
-        margin: 0 0 28px;
-        color: #ffd77c;
-        font-size: clamp(34px, 9vw, 62px);
-        font-weight: 1000;
-        letter-spacing: 0.12em;
-        line-height: 1;
-        text-indent: 0.12em;
-        text-shadow: 0 4px 0 #7e3214, 0 9px 24px rgba(255, 172, 58, 0.28);
-      }
-
       .tiles {
         display: flex;
         justify-content: center;
@@ -185,8 +174,7 @@
   </head>
   <body>
     <main>
-      <div class="brand">GOBBLE</div>
-      <div class="tiles" aria-hidden="true">
+      <div class="tiles" role="img" aria-label="Gobble">
         <span class="tile">G</span>
         <span class="tile">O</span>
         <span class="tile">B</span>

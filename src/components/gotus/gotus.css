@@ -45,7 +45,6 @@
 .gotus__footer button:last-child { background: #59407e; border-color: #bda1db; }
 .gotus__finish { text-align: center; font-size: 12px; padding: 4px 4px 10px; }
 .gotus__finish p { margin: 4px 0 9px; }
-.gotus__finish p > strong { display: block; color: #ffda75; letter-spacing: .18em; font-size: 25px; margin-top: 3px; }
 .gotus__training-note { text-align: center; font-size: 10px; color: #afccdf; margin: 0; }
 .gotus__side { height: 100%; min-height: 0; overflow: auto; padding: 18px; background: #0c385d; border: 1px solid #367693; border-radius: 12px; display: flex; flex-direction: column; gap: 12px; font-size: 13px; }
 .gotus__side > img { height: 84px; width: 100%; object-fit: contain; }

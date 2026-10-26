@@ -79,6 +79,7 @@ export function createWordSubmissionEngine({
   liveSessionReadyRef,
   maybeAnnounceBestWord,
   nickname,
+  onTargetRoundWordSubmitted,
   onValidWordSubmission,
   ocidLatestProposalRef,
   pendingQueueRef,
@@ -1294,6 +1295,7 @@ export function createWordSubmissionEngine({
     if (specialRound?.type === OCID_TYPE) {
       const scored = scoreWordOnGridWithPath(preferredRaw, board, path, null);
       if (!scored?.path) return error("Mot absent de la grille");
+      onTargetRoundWordSubmitted?.({ roundType: OCID_TYPE });
       const displayLabel = String(display || preferredRaw || "").toUpperCase();
       const proposalPath = Array.isArray(scored.path) ? scored.path : path;
       ocidLatestProposalRef.current = {
@@ -1333,6 +1335,12 @@ export function createWordSubmissionEngine({
       return;
     }
 
+    // Count the player's explicit validation before target-only solutions reject
+    // other proposals. ACKs, retries and end-of-round autosubmission never count.
+    if (isTargetSubmissionRound() && onTargetRoundWordSubmitted &&
+      (liveScored || scoreWordOnGridWithPath(preferredRaw, board, path, specialScoreConfig))) {
+      onTargetRoundWordSubmitted({ roundType: specialRound.type });
+    }
     const resolvedCandidatesForPath = resolveSubmissionCandidatesFromPath(path, display) || [];
     const standaloneTargetWord = normalizeWord(
       standaloneTrainingSessionRef.current?.targetWord || ""

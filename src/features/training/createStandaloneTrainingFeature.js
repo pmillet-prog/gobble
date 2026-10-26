@@ -84,6 +84,8 @@ export function createStandaloneTrainingFeature(
       type: session.mode,
       startedAt: session.startedAt,
       durationMs: session.durationMs,
+    }, response => {
+      if (active && refs.session.current === session && config.handleTrainingBlockedResponse?.(response)) config.onReturnLobby?.();
     });
   }
 
@@ -161,12 +163,15 @@ export function createStandaloneTrainingFeature(
   function configure(nextConfig = {}) {
     const previousPhase = config.phase;
     config = { ...config, ...nextConfig };
+    if (refs.session.current && config.ensureTrainingAllowed?.() === false) {
+      config.onReturnLobby?.();
+    }
     bindSocket();
     if (previousPhase !== config.phase) reconcileHints();
   }
 
   async function startTraining(type, label, durationMs) {
-    if (store.getState().busy) return false;
+    if (!active || store.getState().busy || config.ensureTrainingAllowed?.() === false) return false;
     store.set("busy", true);
     const connected = await connectIfNeeded();
     if (!active) return false;
@@ -188,6 +193,11 @@ export function createStandaloneTrainingFeature(
       (response) => {
         if (!active) return;
         store.set("busy", false);
+        if (config.handleTrainingBlockedResponse?.(response)) return;
+        if (config.ensureTrainingAllowed?.() === false) {
+          if (response?.ok) config.socket.emit("training:standalone:stop", { ...getIdentityPayload(), joinLive: false });
+          return;
+        }
         if (!response?.ok || !response?.training) {
           const message =
             response?.error === "maintenance_mode"
@@ -235,6 +245,7 @@ export function createStandaloneTrainingFeature(
       (response) => {
         if (!active) return;
         store.set("busy", false);
+        if (config.handleTrainingBlockedResponse?.(response)) { config.onReturnLobby?.(); return; }
         if (!response?.ok) {
           config.showToast?.("Impossible de consulter le live.", 2600);
           return;
@@ -261,6 +272,7 @@ export function createStandaloneTrainingFeature(
       (response) => {
         if (!active) return;
         store.set("busy", false);
+        if (config.handleTrainingBlockedResponse?.(response)) { config.onReturnLobby?.(); return; }
         if (!response?.ok || !response?.snapshot) {
           config.showToast?.("Impossible de rejoindre le live.", 3000);
           return;
@@ -305,6 +317,7 @@ export function createStandaloneTrainingFeature(
   // board or publishing presence. The caller supplies a complete local pack.
   function startPreparedSession(prepared) {
     if (!active || store.getState().busy || !Array.isArray(prepared?.grid) || !Array.isArray(prepared?.solutions)) return false;
+    if (config.ensureTrainingAllowed?.() === false) return false;
     const session = { ...prepared, localOnly: true, startedAt: now() };
     commitSession(session);
     store.set("joinDialog", null);

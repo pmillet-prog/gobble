@@ -5,7 +5,7 @@ export function createGotusWaitingController({ now = Date.now, random = Math.ran
   setTimeoutFn = setTimeout, clearTimeoutFn = clearTimeout } = {}) {
   const store = createFeatureStore({ session: null, busy: false, dialog: null, remindersMuted: false });
   let config = {}, mounted = false, boundSocket = null, generation = 0, pendingEntry = null;
-  let reminderLatch = null, joiningLive = false;
+  let reminderLatch = null, joiningLive = false, pendingPresence = null;
   const timers = new Set(), pendingRequests = new Set();
   const schedule = (fn, delay) => {
     const timer = setTimeoutFn(() => { timers.delete(timer); fn(); }, delay);
@@ -19,7 +19,7 @@ export function createGotusWaitingController({ now = Date.now, random = Math.ran
   function checkReminder() {
     if (!store.getState().session) return;
     const key = getGotusReminderKey(room());
-    if (!key) { reminderLatch = null; return; }
+    if (!key) return;
     if (reminderLatch === key) return;
     reminderLatch = key;
     if (!store.getState().remindersMuted) store.set("dialog", { kind: "reminder" });
@@ -49,7 +49,10 @@ export function createGotusWaitingController({ now = Date.now, random = Math.ran
   function restorePresence() {
     const session = store.getState().session;
     if (!mounted || !session || joiningLive || !config.socket?.connected) return;
-    config.socket.emit("training:standalone:presence", { ...identity(), ...session, type: "gotus" });
+    config.socket.emit("training:standalone:presence", { ...identity(), ...session, type: "gotus" }, response => {
+      if (!mounted || store.getState().session !== session) return;
+      if (config.handleTrainingBlockedResponse?.(response)) close();
+    });
   }
 
   function onConnect() {
@@ -69,6 +72,7 @@ export function createGotusWaitingController({ now = Date.now, random = Math.ran
       boundSocket?.on("connect", onConnect);
     }
     if (config.authenticated === false && store.getState().session) close();
+    if (store.getState().session && config.ensureTrainingAllowed?.() === false) close();
     checkReminder();
   }
 
@@ -76,18 +80,35 @@ export function createGotusWaitingController({ now = Date.now, random = Math.ran
     if (!mounted || store.getState().busy) return false;
     store.set("dialog", null);
     if (config.ensureAuthenticated?.() === false) return false;
+    if (config.ensureTrainingAllowed?.() === false) return false;
     const version = ++generation;
     pendingEntry = null;
     reminderLatch = null;
-    config.onPrepareTraining?.();
     const startedAt = now();
     const session = { roomId: identity().roomId, sessionId: `gotus-training:${startedAt}:${random().toString(36).slice(2)}`, startedAt };
-    store.patch({ session, dialog: null, busy: true });
+    store.patch({ dialog: null, busy: true });
     const connected = await ensureConnected();
     if (!mounted || version !== generation) return false;
+    if (connected) {
+      pendingPresence = session;
+      const response = await request("training:standalone:presence", { ...identity(), ...session, type: "gotus" });
+      if (!mounted || version !== generation) return false;
+      pendingPresence = null;
+      if (!response?.ok || config.ensureTrainingAllowed?.() === false) {
+        store.set("busy", false);
+        if (!config.handleTrainingBlockedResponse?.(response)) config.showToast?.("Impossible de lancer Gotus pour le moment. Réessaie dans quelques instants.", 3200);
+        config.socket.emit("training:standalone:stop", { ...identity(), roomId: session.roomId, joinLive: false });
+        return false;
+      }
+    } else if (config.canTrainOffline?.() === false) {
+      store.set("busy", false);
+      config.showToast?.("Connexion nécessaire pour vérifier ton temps de jeu avant de lancer Gotus.", 4000);
+      return false;
+    }
+    config.onPrepareTraining?.();
+    store.set("session", session);
     store.set("busy", false);
-    if (connected) restorePresence();
-    else config.showToast?.("Gotus est disponible ; la présence dans le live reviendra à la reconnexion.", 3200);
+    if (!connected) config.showToast?.("Gotus est disponible ; la présence dans le live reviendra à la reconnexion.", 3200);
     checkReminder();
     return true;
   }
@@ -109,7 +130,8 @@ export function createGotusWaitingController({ now = Date.now, random = Math.ran
 
   function close() {
     ++generation;
-    const session = store.getState().session;
+    const session = store.getState().session || pendingPresence;
+    pendingPresence = null;
     // If a join ACK was lost, reassert observer status before removing presence.
     // Both messages are ordered on the same socket.
     if (session && joiningLive && config.socket?.connected) {
@@ -132,6 +154,7 @@ export function createGotusWaitingController({ now = Date.now, random = Math.ran
     if (!mounted || version !== generation) return false;
     joiningLive = false;
     store.set("busy", false);
+    if (config.handleTrainingBlockedResponse?.(response)) { close(); return false; }
     if (!response?.ok || !response.snapshot) {
       restorePresence();
       config.showToast?.("Le live n’a pas pu être rejoint. Vous pouvez réessayer.", 3200);

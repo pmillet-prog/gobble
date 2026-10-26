@@ -20,8 +20,8 @@ export function shouldOfferGotus(room) {
 
 export function getGotusReminderKey(room) {
   const lobby = room?.tournamentLobby || room?.liveStatus?.tournamentLobby;
-  if (!lobby || lobby.maintenanceMode || !["countdown", "intro", "starting"].includes(lobby.phase)) return null;
-  // Countdown and intro belong to one departure; the controller keeps a latch
-  // until the lobby leaves these phases, so a phase change never repeats it.
-  return String(room?.roomId || lobby.roomId || "live");
+  if (!lobby || lobby.maintenanceMode || lobby.phase !== "countdown" || !lobby.countdownEndsAt) return null;
+  // `starting` also describes ordinary round starts. Only this deadline
+  // identifies the countdown of a new mini-tournament.
+  return `${room?.roomId || lobby.roomId || "live"}:${lobby.countdownEndsAt}`;
 }

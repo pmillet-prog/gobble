@@ -113,12 +113,12 @@ export default function useAuthAccountController({
   }, [deviceInstallId, refreshAuthStatus]);
 
   React.useEffect(() => {
-    if (!isAuthServerUnavailable) return undefined;
+    if (!isAuthServerUnavailable || authState.loading) return undefined;
     const timerId = setTimeout(() => {
       void refreshAuthStatus({ silent: false });
     }, 5000);
     return () => clearTimeout(timerId);
-  }, [deviceInstallId, isAuthServerUnavailable, refreshAuthStatus]);
+  }, [deviceInstallId, isAuthServerUnavailable, authState, refreshAuthStatus]);
 
   React.useEffect(() => {
     if (!isAccountAuthenticated) return;

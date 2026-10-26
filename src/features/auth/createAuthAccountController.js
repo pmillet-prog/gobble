@@ -2,6 +2,7 @@ import {
   createEmptyAuthForm,
   normalizeAuthUsernameInput,
 } from "../../components/auth/authFormModel.js";
+import { reportMaintenanceResponse } from "../connection/maintenanceResponse.js";
 
 const AUTH_STATUS_ENDPOINT = "/api/auth/status";
 const AUTH_REQUEST_TIMEOUT_MS = 8000;
@@ -159,6 +160,7 @@ async function postAuthJson(
       body: payload !== null ? JSON.stringify(payload) : undefined,
     });
     const parsed = await readJsonResponseLoose(res);
+    reportMaintenanceResponse(res.status, parsed.raw);
     return {
       ok: !!(res.ok && parsed?.data && typeof parsed.data === "object" && parsed.data.ok !== false),
       status: res.status,
@@ -281,6 +283,7 @@ async function refreshAuthStatus({ silent = false } = {}) {
       installId: deviceInstallId,
     }, { timeoutMs: AUTH_STATUS_TIMEOUT_MS });
     const payload = response.data || {};
+    if (!response.ok) throw new Error("auth_status_unavailable");
     if (response.ok) {
       setAccountNotice((prev) => (prev === ACCOUNT_SERVER_BUSY_MESSAGE ? "" : prev));
     }
@@ -311,6 +314,7 @@ async function refreshAuthStatus({ silent = false } = {}) {
       });
       return payload;
     }
+    if (payload.status !== "no_account") throw new Error("auth_status_unavailable");
     setAuthState({
       loading: false,
       status: "no_account",
@@ -319,27 +323,17 @@ async function refreshAuthStatus({ silent = false } = {}) {
     });
     return payload;
   } catch (err) {
-    const code = String(err?.message || "");
-    const name = String(err?.name || "");
-    const transientServerIssue =
-      code === "request_timeout" ||
-      code === "Failed to fetch" ||
-      code === "NetworkError" ||
-      name === "TypeError";
     setAuthState((prev) => ({
       loading: false,
+      unavailable: true,
       status:
         prev?.status && prev.status !== "loading"
           ? prev.status
-          : transientServerIssue
-          ? "unavailable"
-          : "no_account",
+          : "unavailable",
       user: prev?.user || null,
       legacyProfile: prev?.legacyProfile || null,
     }));
-    if (transientServerIssue) {
-      setAccountNotice(ACCOUNT_SERVER_BUSY_MESSAGE);
-    }
+    setAccountNotice(ACCOUNT_SERVER_BUSY_MESSAGE);
     return null;
   }
 }

@@ -4,6 +4,8 @@ import { ApplicationRuntimeProvider } from "../../src/app/react/ApplicationRunti
 import GotusPlayground from "../../src/components/gotus/GotusPlayground.jsx";
 import GotusProgress from "../../src/components/gotus/GotusProgress.jsx";
 import GotusWaitingSatellite from "../../src/components/gotus/GotusWaitingSatellite.jsx";
+import { GotusRecap } from "../../src/components/gotus/GotusRecapSatellite.jsx";
+import { useDefinitionFixture } from "./definitionFixture.jsx";
 import TrainingPlayerBadge, { GotusTrainingBadge } from "../../src/components/training/TrainingPlayerBadge.jsx";
 import AssetManager from "../../src/assets/assetManager.js";
 import { computeMobileGameLayoutSizing } from "../../src/features/layout/useMobileLayoutController.js";
@@ -80,7 +82,7 @@ const liveSocket = {
     }));
   },
 };
-function LiveFixture({ mobile, chat }) {
+function LiveFixture({ mobile, chat, onOpenDefinition }) {
   const [gridHost, setGridHost] = React.useState(null), [sideHost, setSideHost] = React.useState(null);
   const deadline = React.useRef(Date.now() + 120000).current;
   const sizing = computeMobileGameLayoutSizing({ viewportWidth: innerWidth, viewportHeight: innerHeight,
@@ -98,16 +100,21 @@ function LiveFixture({ mobile, chat }) {
       <div className="fixture-live__actionbar" style={{ height: sizing.liveActionBarHeight }}>Chat · Joueurs</div>
     </div> : <div className="fixture-live__desktop-body"><div ref={setGridHost} className="fixture-live__grid-host" /><div ref={setSideHost} className="fixture-live__side-host" /></div>}
     <GotusPlayground active={!!gridHost} mode="live" socket={liveSocket} roundId="live-fixture" endsAt={deadline}
+      onOpenDefinition={onOpenDefinition}
       getNowServerMs={Date.now} gridHost={gridHost} sideHost={sideHost} compact={mobile} chat={chat} onSessionStateChange={onState} onDismiss={() => actions.push("dismissLive")} />
   </div>;
 }
 function Fixture() {
+  const definition = useDefinitionFixture();
+  const [recap, setRecap] = React.useState(null);
   const [waitingState, setWaitingState] = React.useState(null);
   const [liveMode, setLiveMode] = React.useState(null);
   const mobile = liveMode ? liveMode.mobile : innerWidth < 1000 || innerHeight < 600;
   const chat = useFixtureChat(chatRuntime, { mobile, training: !liveMode });
   const session = { sessionId: "waiting-fixture" };
   window.gotusFixture.closeAll = () => { setLiveMode(null); setWaitingState(null); };
+  window.gotusFixture.recap = summary => setRecap(summary);
+  const definitionViews = <>{definition.overlay}{recap ? <GotusRecap summary={recap} onOpenDefinition={definition.openDefinition} /> : null}</>;
   window.gotusFixture.waiting = kind => { setLiveMode(null); setWaitingState({
     busy: false, remindersMuted: false, session: kind === "offer" ? null : session,
     dialog: kind === "session" ? null : { kind, message: "Le mini-tournoi est déjà bien avancé. En attendant le prochain départ, essayez Gotus." },
@@ -123,7 +130,7 @@ function Fixture() {
     dismissDialog: () => act("dismissDialog", waitingState?.session ? { ...waitingState, dialog: null } : null),
     muteReminders: value => { actions.push("muteReminders"); setWaitingState({ ...waitingState, remindersMuted: value }); },
   };
-  if (liveMode) return <><LiveFixture mobile={liveMode.mobile} chat={chat} /><FixtureMobileChat chat={chat} /></>;
+  if (liveMode) return <><LiveFixture mobile={liveMode.mobile} chat={chat} onOpenDefinition={definition.openDefinition} /><FixtureMobileChat chat={chat} />{definitionViews}</>;
   return <><main className="fixture">
     <aside className="fixture__examples">
       <h1>Gotus · vérification client</h1>
@@ -131,7 +138,7 @@ function Fixture() {
       <div className="fixture__roster"><strong>Tigre</strong><TrainingPlayerBadge /></div>
       <GotusProgress progress={{ totalWins: 7 }} />
     </aside>
-    {!waitingState && !new URLSearchParams(location.search).has("intro-test") ? <div className="fixture__game"><GotusPlayground active mode="training" roundId="fixture" compact={mobile} chat={chat} onSessionStateChange={onState} onJoinLive={() => {}} /></div> : null}
-  </main>{waitingState ? <GotusWaitingSatellite waiting={{ state: waitingState, controller }} darkMode={false} compact={mobile} chat={chat} /> : null}<FixtureMobileChat chat={chat} /></>;
+    {!waitingState && !new URLSearchParams(location.search).has("intro-test") ? <div className="fixture__game"><GotusPlayground active mode="training" roundId="fixture" compact={mobile} chat={chat} onSessionStateChange={onState} onJoinLive={() => {}} onOpenDefinition={definition.openDefinition} /></div> : null}
+  </main>{waitingState ? <GotusWaitingSatellite waiting={{ state: waitingState, controller }} darkMode={false} compact={mobile} chat={chat} onOpenDefinition={definition.openDefinition} /> : null}<FixtureMobileChat chat={chat} />{definitionViews}</>;
 }
 createRoot(document.querySelector("#root")).render(<ApplicationRuntimeProvider kernel={kernel}><Fixture /></ApplicationRuntimeProvider>);

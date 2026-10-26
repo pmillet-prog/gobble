@@ -4,14 +4,14 @@ import "./gotusWaiting.css";
 
 const GotusPlayground = React.lazy(() => import("./GotusPlayground.jsx"));
 
-export default function GotusWaitingSatellite({ waiting, darkMode, compact, chat }) {
+export default function GotusWaitingSatellite({ waiting, darkMode, compact, chat, onOpenDefinition }) {
   const { state, controller } = waiting;
   if (!state.session && !state.dialog) return null;
   const reminder = state.dialog?.kind === "reminder";
   return createPortal(<div className={`gotus-waiting${darkMode ? " gotus-waiting--dark" : ""}`}>
     {state.session ? <div className={`gotus-waiting__game${compact ? " gotus-waiting__game--compact" : ""}`} role="dialog" aria-modal="true" aria-label="Entraînement Gotus">
       <React.Suspense fallback={<p>Ouverture de Gotus…</p>}><GotusPlayground mode="training" active roundId={state.session.sessionId}
-        darkMode={darkMode} compact={compact} chat={chat} onClose={controller.close} onJoinLive={controller.joinLive} /></React.Suspense>
+        darkMode={darkMode} compact={compact} chat={chat} onClose={controller.close} onJoinLive={controller.joinLive} onOpenDefinition={onOpenDefinition} /></React.Suspense>
     </div> : null}
     {state.dialog ? <div className="gotus-waiting__shade"><section className="gotus-waiting__dialog" role="dialog" aria-modal="true"
       aria-labelledby="gotus-waiting-title">

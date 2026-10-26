@@ -5,6 +5,8 @@ import StatsOverlaySatellite from "../features/stats/StatsOverlaySatellite.jsx";
 import MobileRoundBackdropSatellite from "../features/round/MobileRoundBackdropSatellite.jsx";
 import NativePullToRefreshSatellite from "../features/mobile/NativePullToRefreshSatellite.jsx";
 import ScreenOrientationSatellite from "../features/layout/ScreenOrientationSatellite.jsx";
+import MaintenanceRecoverySatellite from "../features/connection/MaintenanceRecoverySatellite.jsx";
+import TargetRoundReminderSatellite from "../features/submission/TargetRoundReminderSatellite.jsx";
 import TournamentAvatarsProvider from "../features/avatar/TournamentAvatarsProvider.jsx";
 import { AMBIENT_MUSIC_TRACKS_DEFAULT } from "../audio/audioAssets.js";
 import AppBootOverlay from "../components/boot/AppBootOverlay.jsx";
@@ -40,7 +42,9 @@ function ApplicationRuntime() {
   return (
     <>
       <ScreenOrientationSatellite />
+      <MaintenanceRecoverySatellite />
       {bootReady ? <GobbleApplication /> : null}
+      {bootReady ? <TargetRoundReminderSatellite /> : null}
       {bootReady ? <MobileRoundBackdropSatellite /> : null}
       {bootReady ? <NativePullToRefreshSatellite /> : null}
       {bootReady ? <StatsOverlaySatellite /> : null}

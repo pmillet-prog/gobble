@@ -1,0 +1,5 @@
+.gotus-solution { display: flex; justify-content: center; align-items: center; gap: 6px; margin: 3px 0 9px; color: #ffda75; }
+.gotus-solution > strong { font-size: var(--gotus-solution-size, 25px); letter-spacing: .16em; line-height: 1.25; }
+.gotus-solution > button { display: grid; place-items: center; flex: 0 0 44px; width: 44px; height: 44px; padding: 0; border: 1px solid #ffda7570; border-radius: 50%; background: #ffffff0a; color: inherit; cursor: pointer; touch-action: manipulation; pointer-events: auto; }
+.gotus-solution > button:hover { background: #ffda7520; }
+.gotus-solution > button:focus-visible { outline: 3px solid #ffe391; outline-offset: 2px; }

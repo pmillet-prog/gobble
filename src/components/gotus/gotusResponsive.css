@@ -84,7 +84,7 @@
 .gotus-surface--desktop .gotus__footer { font-size: 14px; }
 .gotus-surface--desktop .gotus__training-note { font-size: 12px; line-height: 1.4; }
 .gotus-surface--desktop .gotus__finish { font-size: 16px; }
-.gotus-surface--desktop .gotus__finish p > strong { font-size: 32px; }
+.gotus-surface--desktop .gotus-solution { --gotus-solution-size: 32px; }
 
 @container gotus-desktop (min-width: 720px) {
   .gotus__playground:not(.gotus--compact) {

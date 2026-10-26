@@ -5,4 +5,4 @@
 .gotus-recap__logo { width: 175px; height: 90px; object-fit: contain; margin: 0 auto 10px; }
 .gotus-recap h2 { font-size: 24px; font-weight: 900; margin: 10px 0; }
 .gotus-recap p { font-size: 13px; margin: 14px 0; }
-.gotus-recap__word { display: block; letter-spacing: .22em; color: #ffe077; font-size: 30px; margin: 15px 0; }
+.gotus-recap .gotus-solution { --gotus-solution-size: 30px; color: #ffe077; margin: 15px 0; }

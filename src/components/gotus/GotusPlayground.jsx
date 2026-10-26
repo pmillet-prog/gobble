@@ -5,6 +5,7 @@ import useGotusIntro from "../../features/gotus/useGotusIntro.js";
 import useGotusBoardInput from "../../features/gotus/useGotusBoardInput.js";
 import GotusIntro from "./GotusIntro.jsx";
 import GotusProgress from "./GotusProgress.jsx";
+import GotusSolution from "./GotusSolution.jsx";
 import GotusSurface from "./GotusSurface.jsx";
 import GotusChatButton from "./GotusChatButton.jsx";
 import GotusBoard from "./GotusBoard.jsx";
@@ -15,7 +16,7 @@ import "./gotusResponsive.css";
 const TERMINAL = new Set(["won", "lost", "expired", "dismissed"]);
 
 export default function GotusPlayground({ active = true, socket, roundId, endsAt, getNowServerMs, chat,
-  mode = "live", darkMode = false, compact = false, onDismiss, onSessionStateChange, onClose, onJoinLive, onNewRound,
+  mode = "live", darkMode = false, compact = false, onDismiss, onSessionStateChange, onClose, onJoinLive, onNewRound, onOpenDefinition,
 }) {
   const training = mode === "training";
   const { state, controller } = useGotusSession({ active, socket, roundId, endsAt, getNowServerMs, mode });
@@ -58,7 +59,7 @@ export default function GotusPlayground({ active = true, socket, roundId, endsAt
     <div className="gotus__controls">
     <div className="gotus__feedback" id={feedbackId} role="status" aria-live="polite" data-error={!!state.error}>{feedback}</div>
     {finished ? <div className="gotus__finish">
-      {state.solution ? <p>Le mot était <strong>{state.solution}</strong></p> : null}
+      {state.solution ? <><p>Le mot était</p><GotusSolution word={state.solution} onOpenDefinition={onOpenDefinition} /></> : null}
       {training ? <button type="button" className="gotus__primary" onClick={() => { controller.newRound(); onNewRound?.(); }}>Nouveau mot</button> : <p>La manche cible continue pour les autres joueurs.</p>}
       {progress}
     </div> : <>

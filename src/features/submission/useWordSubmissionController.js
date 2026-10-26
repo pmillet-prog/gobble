@@ -1,6 +1,7 @@
 import React from "react";
 
 import { useLazyObjectController } from "../../app/react/useLazyController.js";
+import { useFeatureRuntime } from "../../app/react/useFeatureRuntime.js";
 import { normalizeWord } from "../../components/gameLogic.js";
 import { createWordSubmissionEngine } from "../../game/createWordSubmissionEngine.js";
 import {
@@ -34,6 +35,10 @@ export default function useWordSubmissionController({
   shouldDeferStateUpdate,
   submissionTick,
 }) {
+  const targetRoundReminder = useFeatureRuntime("targetRoundReminder");
+  React.useEffect(() => {
+    if (runtime.foundTargetThisRound) targetRoundReminder.dismiss();
+  }, [runtime.foundTargetThisRound, targetRoundReminder]);
   const submissionStatusRef = React.useRef(new Map());
   const pendingWordsRef = React.useRef(new Set());
   const pendingQueueRef = React.useRef([]);
@@ -126,6 +131,10 @@ export default function useWordSubmissionController({
       setTimeoutFn,
       submissionGenerationRef,
       submissionStatusRef,
+      onTargetRoundWordSubmitted: ({ roundType }) => targetRoundReminder.registerSubmission({
+        roundType,
+        nowMs: runtime.getNowServerMs(),
+      }),
       touchSubmissionState,
     },
     WORD_SUBMISSION_CONTROLLER_METHODS

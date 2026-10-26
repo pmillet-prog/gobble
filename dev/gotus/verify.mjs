@@ -14,6 +14,7 @@ const responsiveOnly = process.argv.includes("--responsive-only");
 const introOnly = process.argv.includes("--intro-only");
 const chatOnly = process.argv.includes("--chat-only");
 const inputOnly = process.argv.includes("--input-only");
+const definitionOnly = process.argv.includes("--definition-only");
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 const children = [], logs = [], errors = [], cases = [];
 let cdp, socket;
@@ -71,7 +72,10 @@ try {
   socket = new WebSocket(target.webSocketDebuggerUrl); await new Promise(resolve => socket.once("open", resolve)); cdp = connect(socket);
   await cdp("Page.enable"); await cdp("Runtime.enable"); await cdp("Network.enable");
   await cdp("Network.setBlockedURLs", { urls: ["https://gobble.fr/*", "http://gobble.fr/*"] });
-  if (inputOnly) {
+  if (definitionOnly) {
+    const { runGotusDefinitionChecks } = await import("./definitionCases.mjs");
+    await runGotusDefinitionChecks({ cdp, evaluate, capture, waitFor, origin, cases });
+  } else if (inputOnly) {
     const { runGotusInputChecks } = await import("./inputCases.mjs");
     await runGotusInputChecks({ cdp, evaluate, capture, waitFor, delay, origin, cases });
   } else if (chatOnly) {
@@ -137,7 +141,7 @@ try {
   assert.deepEqual(errors, []);
 } catch (error) { errors.push(error.stack); process.exitCode = 1; }
 finally {
-  await fs.writeFile(path.join(output, inputOnly ? "input-measurements.json" : chatOnly ? "chat-measurements.json" : introOnly ? "intro-measurements.json" : responsiveOnly ? process.argv.includes("--desktop-only") ? "responsive-desktop-measurements.json" : process.argv.includes("--mobile-only") ? "responsive-mobile-measurements.json" : "responsive-measurements.json" : process.argv.includes("--waiting-only") ? "waiting-measurements.json" : "measurements.json"), JSON.stringify({ cases, errors, limitations: "Synthetic desktop Chrome viewports; no real phone software keyboard or physical speaker listening. Gotus uses its production fullscreen surface and real chat feature/views with an in-memory transport; no backend connection." }, null, 2));
+  await fs.writeFile(path.join(output, definitionOnly ? "definition-measurements.json" : inputOnly ? "input-measurements.json" : chatOnly ? "chat-measurements.json" : introOnly ? "intro-measurements.json" : responsiveOnly ? process.argv.includes("--desktop-only") ? "responsive-desktop-measurements.json" : process.argv.includes("--mobile-only") ? "responsive-mobile-measurements.json" : "responsive-measurements.json" : process.argv.includes("--waiting-only") ? "waiting-measurements.json" : "measurements.json"), JSON.stringify({ cases, errors, limitations: "Synthetic desktop Chrome viewports; no real phone software keyboard or physical speaker listening. Gotus uses its production fullscreen surface and real chat feature/views with an in-memory transport; no backend connection." }, null, 2));
   if (cdp) await cdp("Browser.close").catch(() => {}); socket?.close();
   for (const child of children.reverse()) if (child.exitCode === null) child.kill();
   for (const log of logs) await log.close();

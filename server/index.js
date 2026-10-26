@@ -10509,7 +10509,11 @@ async function runStartRoundForRoom(room, options = {}) {
   const quality = prepared?.quality || null;
   const now = Date.now();
   const roundId = now;
-  const roundDurationMs = getLiveRoundDurationMs(planUsed?.type, room.config.durationMs);
+  // Draw before publishing the round or scheduling its clock: every player,
+  // including a reconnecting player, must receive the same extended deadline.
+  const round = { id: roundId, special: planUsed, training: trainingRound };
+  await gotusService.prepareRound(room.id, round);
+  const roundDurationMs = getLiveRoundDurationMs(planUsed?.type, room.config.durationMs, round);
   const lepersChallenge = hydrateLepersChallenge(lepersQuestionHistory.takeForRound({
     enabled: planUsed?.lepersChallengeEnabled === true,
     tournamentRound,
@@ -10530,7 +10534,7 @@ async function runStartRoundForRoom(room, options = {}) {
     botManager.refreshPresenceForRoom(room, { beforeRound: true });
   }
 
-  room.currentRound = {
+  room.currentRound = Object.assign(round, {
     id: roundId,
     grid,
     startsAt: roundStartsAt,
@@ -10565,8 +10569,7 @@ async function runStartRoundForRoom(room, options = {}) {
     duelWordTasks: new Set(),
     duelObjectivePointsByNick: new Map(),
     training: trainingRound,
-  };
-  await gotusService.prepareRound(room.id, room.currentRound);
+  });
   resetAmbientChatBotState(room, roundId);
   maybePrepareCultureThemeChallenge(room, planUsed);
   if (planUsed?.type === OCID_TYPE && room.currentRound.targetWord) {

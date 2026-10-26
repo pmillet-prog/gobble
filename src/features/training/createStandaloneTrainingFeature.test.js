@@ -60,6 +60,44 @@ function createSocket(responses = {}) {
   };
 }
 
+test("exhausted accounts cannot launch a server grid or a local prepared training", async () => {
+  const scope = createResourceScope("training-exhausted"), socket = createSocket();
+  let connections = 0, launches = 0;
+  const feature = createStandaloneTrainingFeature({ scope });
+  feature.configure({ socket, ensureTrainingAllowed: () => false,
+    ensureConnection: () => { connections++; return true; }, onLaunch: () => launches++ });
+  feature.start();
+  assert.equal(await feature.startTraining("normal"), false);
+  assert.equal(feature.startPreparedSession({ grid: [], solutions: [] }), false);
+  assert.equal(connections, 0); assert.equal(launches, 0); assert.deepEqual(socket.emitted, []);
+  scope.dispose();
+});
+
+test("a server refusal updates the limit without launching training", async () => {
+  const scope = createResourceScope("training-refused");
+  const response = { ok: false, error: "playtime_limit_exhausted", playtimeLimit: { active: true, exhausted: true } };
+  const socket = createSocket({ "training:standalone:start": response }); socket.connected = true;
+  const refused = []; let launches = 0;
+  const feature = createStandaloneTrainingFeature({ scope });
+  feature.configure({ socket, handleTrainingBlockedResponse: value => { refused.push(value); return true; }, onLaunch: () => launches++ });
+  feature.start(); await feature.startTraining("normal");
+  assert.deepEqual(refused, [response]); assert.equal(launches, 0);
+  assert.equal(feature.refs.session.current, null); assert.equal(feature.store.getState().busy, false);
+  scope.dispose();
+});
+
+test("an already open training returns to the lobby when its time becomes exhausted", () => {
+  const scope = createResourceScope("training-expires");
+  let returns = 0;
+  const feature = createStandaloneTrainingFeature({ scope });
+  feature.configure({ ensureTrainingAllowed: () => true, onReturnLobby: () => { returns++; feature.clearSession(); } });
+  feature.start(); feature.startPreparedSession({ grid: [], solutions: [] });
+  feature.configure({ ensureTrainingAllowed: () => false });
+  assert.equal(returns, 1); assert.equal(feature.refs.session.current, null);
+  feature.configure({}); assert.equal(returns, 1);
+  scope.dispose();
+});
+
 function createTimers() {
   const pending = new Map();
   let nextId = 1;

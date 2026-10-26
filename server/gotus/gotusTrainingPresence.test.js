@@ -4,7 +4,7 @@ import { EventEmitter } from "node:events";
 import { registerTrainingHandlers } from "../realtime/registerTrainingHandlers.js";
 import { resolveTargetQuizContext } from "../targetMiniGame/registerTargetQuizHandlers.js";
 
-function fixture() {
+function fixture({ exhausted = false, expireDuringLoad = false } = {}) {
   const socket = new EventEmitter();
   Object.assign(socket, { id: "socket", roomId: "live", leave() {}, join() {} });
   const player = { nick: "Paul", userId: 7, installId: "account-7", connected: true };
@@ -38,9 +38,12 @@ function fixture() {
     clearPresenceAnnouncement: noop,
     emitMedals: noop,
     getActiveModerationBan: () => null,
+    getPlaytimeLimitStatus: () => ({ active: true, exhausted, remainingMs: exhausted ? 0 : 60000 }),
+    buildPlaytimeBlockedResponse: playtimeLimit => ({ ok: false, error: "playtime_limit_exhausted", playtimeLimit }),
+    joinSocketToChatRoom: noop,
     isMaintenanceModeActive: () => false,
     isStandaloneTrainingEnabled: () => true,
-    trainingPoolStore: { getRandomEntry: () => { calls.poolLoads += 1; } },
+    trainingPoolStore: { getRandomEntry: async () => { calls.poolLoads += 1; if (expireDuringLoad) exhausted = true; return { id: "grid" }; } },
   });
   const request = (event, payload) => new Promise(resolve => socket.emit(event, { roomId: "live", sessionId: "local-gotus", type: "gotus", ...payload }, resolve));
   return { socket, player, room, lobby, calls, request, identity };
@@ -81,4 +84,26 @@ test("Gotus reconnect restores the training mode through standalone status", asy
   assert.equal(f.player.standaloneTraining.mode, "gotus");
   assert.equal(f.calls.clearedTimers, 1);
   assert.equal(f.calls.emitted, 1);
+});
+
+test("exhausted accounts cannot start or restore any training, including Gotus", async () => {
+  for (const event of ["training:start", "training:standalone:start", "training:standalone:presence", "training:standalone:status"]) {
+    for (const type of ["normal", "gotus"]) {
+      const f = fixture({ exhausted: true });
+      const response = await f.request(event, { type, userId: 999 });
+      assert.equal(response.error, "playtime_limit_exhausted", `${event}/${type}`);
+      assert.equal(f.room.players.size, 0);
+      assert.equal(f.calls.poolLoads, 0);
+      assert.equal(f.calls.emitted, 0);
+    }
+  }
+});
+
+test("training cannot launch if the limit expires while fetching the grid", async () => {
+  const f = fixture({ expireDuringLoad: true });
+  const response = await f.request("training:standalone:start", { type: "normal" });
+  assert.equal(response.error, "playtime_limit_exhausted");
+  assert.equal(f.calls.poolLoads, 1);
+  assert.equal(f.room.players.size, 0);
+  assert.equal(f.player.standaloneTraining, undefined);
 });

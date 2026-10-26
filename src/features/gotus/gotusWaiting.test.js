@@ -5,11 +5,14 @@ import { GOTUS_WAITING_INVITATIONS, shouldOfferGotus } from "./gotusWaitingPolic
 
 function harness() {
   const sent = [], listeners = new Map(), timers = new Map(), joined = [], entries = [], notices = [];
-  let id = 0;
+  let id = 0, presenceResponse = { ok: true };
   const socket = { connected: true,
     on: (name, callback) => listeners.set(name, callback),
     off: (name, callback) => { if (listeners.get(name) === callback) listeners.delete(name); },
-    emit: (event, payload, ack) => sent.push({ event, payload, ack }),
+    emit: (event, payload, ack) => {
+      sent.push({ event, payload, ack });
+      if (event === "training:standalone:presence" && presenceResponse) ack?.(presenceResponse);
+    },
   };
   const controller = createGotusWaitingController({ now: () => 100, random: () => .5,
     setTimeoutFn: (callback, delay) => { timers.set(++id, { callback, delay }); return id; },
@@ -21,10 +24,11 @@ function harness() {
     onJoinLive: snapshot => joined.push(snapshot), showToast: text => notices.push(text),
   });
   controller.start();
-  const setRoom = (round = 3, phase = "closed") => controller.configure({ roomsStats: [{ roomId: "room-4x4",
-    liveStatus: { tournamentRound: round }, tournamentLobby: { phase } }] });
+  const setRoom = (round = 3, phase = "closed", countdownEndsAt = 10000) => controller.configure({ roomsStats: [{ roomId: "room-4x4",
+    liveStatus: { tournamentRound: round }, tournamentLobby: { phase, countdownEndsAt: phase === "countdown" ? countdownEndsAt : null } }] });
   const expire = delay => { for (const [key, timer] of [...timers]) if (timer.delay === delay) { timers.delete(key); timer.callback(); } };
-  return { controller, state: () => controller.store.getState(), socket, sent, listeners, timers, joined, entries, notices, setRoom, expire };
+  return { controller, state: () => controller.store.getState(), socket, sent, listeners, timers, joined, entries, notices, setRoom, expire,
+    setPresenceResponse: response => { presenceResponse = response; } };
 }
 
 test("Gotus offer begins at round three, including intermission, never the next lobby", () => {
@@ -68,7 +72,7 @@ test("countdown reminder is not repeated at intro and mute lasts across training
   assert.equal(h.state().dialog.kind, "reminder");
   h.controller.dismissDialog(); h.setRoom(0, "intro");
   assert.equal(h.state().dialog, null);
-  h.setRoom(1); h.setRoom(0, "countdown");
+  h.setRoom(1); h.setRoom(0, "countdown", 20000);
   assert.equal(h.state().dialog.kind, "reminder");
   h.controller.muteReminders(true); h.controller.dismissDialog();
   h.controller.close(); await h.controller.startTraining();
@@ -78,6 +82,24 @@ test("countdown reminder is not repeated at intro and mute lasts across training
   const next = harness();
   assert.equal(next.state().remindersMuted, false);
   next.controller.dispose();
+});
+
+test("ordinary round starts and tournament intro never trigger a countdown reminder", async () => {
+  const h = harness(); h.setRoom(); await h.controller.startTraining();
+  for (const round of [1, 2, 3, 4, 5]) {
+    for (const phase of ["closed", "starting", "intro", "ready"]) {
+      h.setRoom(round, phase);
+      assert.equal(h.state().dialog, null, `${round}: ${phase}`);
+    }
+  }
+  h.setRoom(0, "countdown");
+  assert.equal(h.state().dialog.kind, "reminder");
+  h.controller.dismissDialog();
+  h.setRoom(0, "countdown");
+  h.setRoom(0, "intro");
+  h.setRoom(0, "countdown"); // Replayed snapshot of the same departure.
+  assert.equal(h.state().dialog, null);
+  h.controller.dispose();
 });
 
 test("joining live waits for authoritative snapshot and preserves training on failure", async () => {
@@ -151,5 +173,67 @@ test("authentication prompt closes the offer and never announces training", asyn
   assert.equal(h.state().dialog, null);
   assert.equal(h.state().session, null);
   assert.equal(h.sent.length, 0);
+  h.controller.dispose();
+});
+
+test("exhausted time prevents Gotus from both the home menu and the waiting offer", async () => {
+  const h = harness(); h.setRoom();
+  h.controller.configure({ ensureTrainingAllowed: () => false });
+  assert.equal(await h.controller.startTraining(), false);
+  h.controller.requestEntry(() => {});
+  assert.equal(await h.controller.startTraining(), false);
+  assert.equal(h.state().session, null);
+  assert.equal(h.sent.length, 0);
+  h.controller.dispose();
+});
+
+test("Gotus awaits server permission and cannot launch with an exhausted account after refresh", async () => {
+  const h = harness();
+  const blocked = [];
+  h.controller.configure({ handleTrainingBlockedResponse: response => {
+    if (response?.error !== "playtime_limit_exhausted") return false;
+    blocked.push(response); return true;
+  } });
+  h.setPresenceResponse(null);
+  const starting = h.controller.startTraining(); await Promise.resolve();
+  assert.equal(h.state().session, null);
+  assert.equal(h.state().busy, true);
+  h.sent.at(-1).ack({ ok: false, error: "playtime_limit_exhausted" });
+  assert.equal(await starting, false);
+  assert.equal(blocked.length, 1);
+  assert.equal(h.state().session, null);
+  assert.equal(h.state().busy, false);
+  h.controller.dispose();
+});
+
+test("a newly exhausted limit closes existing training and suppresses further presence", async () => {
+  const h = harness(); await h.controller.startTraining();
+  h.controller.configure({ ensureTrainingAllowed: () => false });
+  assert.equal(h.state().session, null);
+  assert.equal(h.sent.at(-1).event, "training:standalone:stop");
+  h.listeners.get("connect")(); h.expire(900); h.expire(2400);
+  assert.equal(h.sent.filter(item => item.event.endsWith(":presence")).length, 1);
+  h.controller.dispose();
+});
+
+test("unknown offline playtime cannot bypass server authorization", async () => {
+  const h = harness(); h.socket.connected = false;
+  h.controller.configure({ canTrainOffline: () => false });
+  assert.equal(await h.controller.startTraining(), false);
+  assert.equal(h.state().session, null);
+  assert.equal(h.state().busy, false);
+  assert.equal(h.sent.length, 0);
+  h.controller.dispose();
+});
+
+test("closing during authorization removes pending observer presence and ignores the late ACK", async () => {
+  const h = harness(); h.setPresenceResponse(null);
+  const starting = h.controller.startTraining(); await Promise.resolve();
+  const ack = h.sent.at(-1).ack;
+  h.controller.close();
+  assert.equal(h.sent.at(-1).event, "training:standalone:stop");
+  ack({ ok: true });
+  assert.equal(await starting, false);
+  assert.equal(h.state().session, null);
   h.controller.dispose();
 });

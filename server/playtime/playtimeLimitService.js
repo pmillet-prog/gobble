@@ -254,7 +254,7 @@ export function buildPlaytimeBlockedResponse(status) {
     ok: false,
     error: "playtime_limit_exhausted",
     message:
-      "Ton contrôle de temps est arrivé à zéro. Le live sera de nouveau accessible demain.",
+      "Ton contrôle de temps est arrivé à zéro. Le live et les entraînements seront de nouveau accessibles demain.",
     playtimeLimit: status,
   };
 }

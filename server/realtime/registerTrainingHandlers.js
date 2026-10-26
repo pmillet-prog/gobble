@@ -45,6 +45,13 @@ export function registerTrainingHandlers(
     wasPresenceJoinAnnounced,
   }
 ) {
+  function blockExhaustedTraining(identity, cb) {
+    const status = getPlaytimeLimitStatus(identity.userId);
+    if (!status?.active || !status.exhausted) return false;
+    cb?.(buildPlaytimeBlockedResponse(status));
+    return true;
+  }
+
   socket.on("tournament:ready", (payload, cb) => {
     const room = getRoom(socket.roomId || payload?.roomId);
     const player = room?.players.get(socket.id);
@@ -105,6 +112,8 @@ export function registerTrainingHandlers(
   });
 
   socket.on("training:start", (payload, cb) => {
+    const identity = requireSocketPlayerIdentity(socket, cb);
+    if (!identity || blockExhaustedTraining(identity, cb)) return;
     const room = getRoom(socket.roomId || payload?.roomId);
     const player = room?.players.get(socket.id);
     if (!room || !player) {
@@ -127,7 +136,7 @@ export function registerTrainingHandlers(
 
   socket.on("training:standalone:start", async (payload, cb) => {
     const identity = requireSocketPlayerIdentity(socket, cb);
-    if (!identity) return;
+    if (!identity || blockExhaustedTraining(identity, cb)) return;
     const activeBan = getActiveModerationBan(identity);
     if (activeBan) {
       cb?.(buildModerationBanResponse(activeBan));
@@ -153,10 +162,23 @@ export function registerTrainingHandlers(
       return;
     }
     const durationMs = normalizeTrainingDurationMs(payload?.durationMs);
+    const clearUnusedPresence = () => {
+      if (player.trainingPresenceOnly === true && !isStandaloneTrainingPlayer(player)) {
+        room.players.delete(socket.id);
+        socket.leave(getStandaloneTrainingObserverRoomId(room.id));
+        joinSocketToChatRoom(socket, room.id);
+        emitPlayers(room);
+        emitRoomsStats();
+      }
+    };
     try {
       const entry = await trainingPoolStore.getRandomEntry(mode, {
         excludeIds: player.trainingRecentGridIds,
       });
+      if (blockExhaustedTraining(identity, cb)) {
+        clearUnusedPresence();
+        return;
+      }
       const startedAt = Date.now();
       const sessionId = randomUUID();
       player.trainingRecentGridIds = appendRecentTrainingGridId(
@@ -189,20 +211,14 @@ export function registerTrainingHandlers(
       });
     } catch (error) {
       console.warn(`[${room.id}] training:standalone:start failed`, error);
-      if (player.trainingPresenceOnly === true && !isStandaloneTrainingPlayer(player)) {
-        room.players.delete(socket.id);
-        socket.leave(getStandaloneTrainingObserverRoomId(room.id));
-        joinSocketToChatRoom(socket, room.id);
-        emitPlayers(room);
-        emitRoomsStats();
-      }
+      clearUnusedPresence();
       cb?.({ ok: false, error: "training_pool_unavailable" });
     }
   });
 
   socket.on("training:standalone:presence", (payload, cb) => {
     const identity = requireSocketPlayerIdentity(socket, cb);
-    if (!identity) return;
+    if (!identity || blockExhaustedTraining(identity, cb)) return;
     const room = getRoom(payload?.roomId || socket.roomId || "room-4x4");
     const sessionId = String(payload?.sessionId || "").trim();
     const mode = payload?.type === "gotus" ? "gotus" : normalizeTrainingMode(payload?.type);
@@ -234,7 +250,7 @@ export function registerTrainingHandlers(
 
   socket.on("training:standalone:status", (payload, cb) => {
     const identity = requireSocketPlayerIdentity(socket, cb);
-    if (!identity) return;
+    if (!identity || blockExhaustedTraining(identity, cb)) return;
     const room = getRoom(payload?.roomId || socket.roomId || "room-4x4");
     const sessionId = String(payload?.sessionId || "").trim();
     const mode = payload?.type === "gotus" ? "gotus" : normalizeTrainingMode(payload?.type);

@@ -1,5 +1,6 @@
 import React from "react";
 import socket from "../socket";
+import { isTrainingPlaytimeExhausted, TRAINING_PLAYTIME_EXHAUSTED_MESSAGE } from "../features/training/trainingAccess.js";
 
 const PARIS_TIME_ZONE = "Europe/Paris";
 const PLAYTIME_ALERT_THRESHOLDS_MS = [30, 20, 10, 5, 1].map(
@@ -40,6 +41,7 @@ export function usePlaytimeLimit({
   const [playtimeLimit, setPlaytimeLimit] = React.useState(null);
   const [playtimeRemainingMs, setPlaytimeRemainingMs] = React.useState(null);
   const playtimeLimitRef = React.useRef(null);
+  const playtimeRemainingRef = React.useRef(null);
   const playtimeUsageBufferRef = React.useRef(0);
   const playtimeLastAccountingAtRef = React.useRef(Date.now());
   const playtimeAlertedThresholdsRef = React.useRef(new Set());
@@ -47,9 +49,8 @@ export function usePlaytimeLimit({
   const showGlobalRedAnnouncementRef = React.useRef(showGlobalRedAnnouncement);
   const showToastRef = React.useRef(showToast);
 
-  React.useEffect(() => {
-    playtimeLimitRef.current = playtimeLimit;
-  }, [playtimeLimit]);
+  playtimeLimitRef.current = playtimeLimit;
+  playtimeRemainingRef.current = playtimeRemainingMs;
 
   React.useEffect(() => {
     onBlockedRef.current = onBlocked;
@@ -64,6 +65,8 @@ export function usePlaytimeLimit({
   }, [showToast]);
 
   const applyPlaytimeLimitStatus = React.useCallback((status) => {
+    playtimeLimitRef.current = status || null;
+    playtimeRemainingRef.current = status?.active ? Math.max(0, Number(status.remainingMs) || 0) : null;
     if (!status || typeof status !== "object") {
       setPlaytimeLimit(null);
       setPlaytimeRemainingMs(null);
@@ -84,6 +87,29 @@ export function usePlaytimeLimit({
       );
     }
   }, []);
+
+  const announceTrainingBlocked = React.useCallback(() => {
+    showGlobalRedAnnouncementRef.current?.({
+      title: "Temps de jeu écoulé",
+      body: TRAINING_PLAYTIME_EXHAUSTED_MESSAGE,
+    }, 6500);
+  }, []);
+
+  const ensureTrainingAllowed = React.useCallback(() => {
+    if (!isTrainingPlaytimeExhausted(playtimeLimitRef.current, playtimeRemainingRef.current)) return true;
+    announceTrainingBlocked();
+    return false;
+  }, [announceTrainingBlocked]);
+
+  const canTrainOffline = React.useCallback(() =>
+    !!playtimeLimitRef.current && !isTrainingPlaytimeExhausted(playtimeLimitRef.current, playtimeRemainingRef.current), []);
+
+  const handleTrainingBlockedResponse = React.useCallback((response) => {
+    if (response?.error !== "playtime_limit_exhausted") return false;
+    applyPlaytimeLimitStatus(response.playtimeLimit || { active: true, exhausted: true, remainingMs: 0 });
+    announceTrainingBlocked();
+    return true;
+  }, [announceTrainingBlocked, applyPlaytimeLimitStatus]);
 
   const fetchDevPlaytimeLimits = React.useCallback(() => {
     if (!socket?.connected) return;
@@ -302,9 +328,12 @@ export function usePlaytimeLimit({
 
   return {
     applyPlaytimeLimitStatus,
+    canTrainOffline,
     clearDevPlaytimeLimit,
     devPlaytimeLimits,
     fetchDevPlaytimeLimits,
+    ensureTrainingAllowed,
+    handleTrainingBlockedResponse,
     playtimeLimit,
     playtimeRemainingMs,
     setPlaytimeLimitFromSettings,

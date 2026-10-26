@@ -7,6 +7,7 @@ import { createGotusSocketHandlers } from "./registerGotusHandlers.js";
 import { getGotusResult, getTargetMiniGameMetadata } from "./gotusRoundResults.js";
 import { resolveTargetQuizContext } from "../targetMiniGame/registerTargetQuizHandlers.js";
 import { evaluateGotusGuess, normalizeGotusWord } from "../../shared/gotusRules.js";
+import { getLiveRoundDurationMs } from "../liveRoundDuration.js";
 
 const WORDS = ["BALLON", "BANANE", "BALLES", "TABLES", "CHAISE", "MAISON", "MANGES", "RACINE"];
 const catalog = createGotusCatalog({ wordLength: 6, accepted: WORDS, targets: ["BALLON"] });
@@ -110,6 +111,23 @@ test("all players get the common word; guesses and progress are private and cann
   assert.equal(f.writes.length, 2);
   assert.equal(getGotusResult(f.round, f.player).wordsFound, 1);
   assert.equal(getGotusResult(f.round, f.player).progression, undefined);
+});
+
+test("Gotus shares the extended target deadline and accepts answers during the extra thirty seconds", async () => {
+  const f = await fixture();
+  f.round.startsAt = 10000;
+  f.round.durationMs = getLiveRoundDurationMs(f.round.special.type, 120000, f.round);
+  f.round.endsAt = f.round.startsAt + f.round.durationMs;
+  const first = await f.request("gotus:start");
+  assert.equal(first.endsAt, 130000);
+  f.setNow(125000); // Inside the final ten seconds added to the Gotus round.
+  const other = f.attach(8);
+  assert.equal((await other.request("gotus:start")).endsAt, first.endsAt);
+  const win = await f.request("gotus:guess", { requestId: "extra-time", word: "BALLON" });
+  assert.equal(win.ok, true);
+  assert.equal(win.wordsFound, 1);
+  f.setNow(first.endsAt);
+  assert.equal((await other.request("gotus:guess", { requestId: "too-late", word: "BALLON" })).error, "round_finished");
 });
 
 test("invalid, repeated and retried proposals never consume extra attempts or duplicate a win", async () => {

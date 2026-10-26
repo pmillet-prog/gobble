@@ -1968,7 +1968,7 @@ export default function GobbleApplication() {
     isLegacyConverted: !!authState.user?.isLegacyConverted,
   });
   const isAuthStatusPending = authState.loading || authState.status === "loading";
-  const isAuthServerUnavailable = authState.status === "unavailable";
+  const isAuthServerUnavailable = authState.status === "unavailable" || authState.unavailable === true;
   const legacyProfileUsername = authState.legacyProfile?.usernameDisplay || "";
   const dailyFeature = useFeatureRuntime("daily");
   const dailyState = useFeatureSelector(dailyFeature, (state) => state);
@@ -2359,6 +2359,8 @@ export default function GobbleApplication() {
   useEffect(() => {
     standaloneTrainingFeature.configure({
       ensureConnection: connectSocketWithAuth,
+      ensureTrainingAllowed,
+      handleTrainingBlockedResponse,
       getIdentityPayload: () => ({
         installId: installIdRef.current,
         nick: nicknameRef.current.trim(),
@@ -4261,9 +4263,12 @@ export default function GobbleApplication() {
 
   const {
     applyPlaytimeLimitStatus,
+    canTrainOffline,
     clearDevPlaytimeLimit,
     devPlaytimeLimits,
     fetchDevPlaytimeLimits,
+    ensureTrainingAllowed,
+    handleTrainingBlockedResponse,
     playtimeLimit,
     playtimeRemainingMs,
     setPlaytimeLimitFromSettings,
@@ -4422,6 +4427,7 @@ export default function GobbleApplication() {
     getMassiveBoggleFeedbackPoints,
     getNextLiveFeedTs,
     handleForeground: connectionFeature.handleForeground,
+    getNowServerMs,
     highlightPathRef,
     inputLockedRef,
     isCurrentCultureThemeWord,
@@ -5729,6 +5735,7 @@ export default function GobbleApplication() {
   const gotusWaiting = useGotusWaiting({
     socket, roomsStats, authenticated: isAccountAuthenticated,
     ensureConnection: connectSocketWithAuth,
+    ensureTrainingAllowed, canTrainOffline, handleTrainingBlockedResponse,
     ensureAuthenticated: () => ensureAuthenticated({ source: "training" }),
     getIdentity: () => ({ installId: installIdRef.current, nick: nicknameRef.current.trim(), roomId: roomIdRef.current }),
     onPrepareTraining: prepareGotusTraining,
@@ -7038,6 +7045,7 @@ function handleTouchEnd() {
   }
 
   function startTrainingRound(type, label = "") {
+    if (!ensureTrainingAllowed()) return;
     if (!socket.connected || !isLoggedInRef.current) {
       setConnectionError("Connecte-toi au live pour lancer un entrainement.");
       return;
@@ -7050,6 +7058,7 @@ function handleTouchEnd() {
     const pending = trainingConfirm;
     if (!pending?.type) return;
     setTrainingConfirm(null);
+    if (!ensureTrainingAllowed()) return;
     setTrainingBusy(true);
     socket.emit(
       "training:start",
@@ -7057,6 +7066,7 @@ function handleTouchEnd() {
       (res) => {
         setTrainingBusy(false);
         if (res?.ok) return;
+        if (handleTrainingBlockedResponse(res)) return;
         const message =
           res?.error === "maintenance_mode"
             ? "Maintenance en cours."
@@ -12131,6 +12141,7 @@ function handleTouchEnd() {
       {gotus.active ? (
         <Suspense fallback={null}>
           <GotusPlayground active chat={gotusChatProps}
+            onOpenDefinition={openDefinition}
             socket={socket} darkMode={darkMode} roundId={roundId} endsAt={serverEndsAt}
             getNowServerMs={getNowServerMs} compact={isMobileLayout}
             onSessionStateChange={gotus.onSessionStateChange} onDismiss={gotus.onDismiss} />
@@ -12158,7 +12169,7 @@ function handleTouchEnd() {
       ) : null}
       {aboutModalView}
       <TargetQuizRecapSatellite />
-      <GotusRecapSatellite />
+      <GotusRecapSatellite onOpenDefinition={openDefinition} />
       <ChatReactionToastSatellite />
       <NotificationToastLayer darkMode={darkMode} />
     </>
@@ -12304,7 +12315,7 @@ function handleTouchEnd() {
   if (!isLoggedIn && !isDailyPlay) {
     return (
       <>
-        <GotusWaitingSatellite waiting={gotusWaiting} darkMode={menuDarkMode} compact={isMobileLayout} chat={gotusChatProps} />
+        <GotusWaitingSatellite waiting={gotusWaiting} darkMode={menuDarkMode} compact={isMobileLayout} chat={gotusChatProps} onOpenDefinition={openDefinition} />
         {teamTintOverlay}
         {appView === "daily" ? chatOverlays : (
           <>
@@ -12433,9 +12444,9 @@ function handleTouchEnd() {
           }
           session={{ isConnecting }}
           training={{
-            busy: standaloneTrainingController.busy,
+            busy: standaloneTrainingController.busy || gotusWaiting.state.busy,
             darkMode: menuDarkMode,
-            onRequestOpen: () => ensureAuthenticated({ source: "training" }),
+            onRequestOpen: () => ensureAuthenticated({ source: "training" }) && ensureTrainingAllowed(),
             onStart: startStandaloneTrainingFromHome,
             playUiClickSound: playSwipeSound,
           }}
