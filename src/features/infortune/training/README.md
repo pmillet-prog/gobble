@@ -1,6 +1,8 @@
 # Diagnostic volontaire de la roue
 
-Accessible depuis Entraînement → Tester le lancer de roue, à `/entrainement/roue/`.
+Accessible depuis Entraînement → Tester le lancer de roue, à `/entrainement/roue/index.html`.
+L’index explicite est nécessaire avec le serveur de production `serve -s` :
+le chemin de dossier `/entrainement/roue/` est intercepté par le fallback du jeu.
 Le document commence par une explication modale. Le moteur et les ressources du
 plateau ne sont importés qu’au démarrage du premier passage.
 
@@ -69,7 +71,7 @@ nouvel identifiant de session et remet les mesures, tentatives et réponses à z
 - Lecture : `GET /api/dev/infortune/diagnostics`, compte authentifié autorisé par
   la même liste serveur que les ateliers dev, vérifié à chaque requête.
 - Consultation : menu dev → Ateliers et simulations → Roue · diagnostics et
-  retours des joueurs (`/entrainement/roue/?diagnostics=1`).
+  retours des joueurs (`/entrainement/roue/index.html?diagnostics=1`).
 - Stockage : `GOBBLE_DATA_DIR/wheel-diagnostics.sqlite`, ou le dossier `data` local.
   Ouverture paresseuse ; au maximum les 5 000 derniers rapports. Pagination par 25.
   Un identifiant de session rend les nouvelles tentatives d’envoi idempotentes.

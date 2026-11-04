@@ -19,7 +19,7 @@ export default function WheelDiagnosticsAdmin() {
     return () => { active = false; clearTimeout(timer); abort.abort(); };
   }, [before, refresh]);
   return <main className="wheel-test wheel-diagnostic__admin">
-    <nav className="wheel-test__nav"><a href="/">← Accueil de Gobble</a><a href="/entrainement/roue/">Ouvrir le test joueur</a></nav>
+    <nav className="wheel-test__nav"><a href="/">← Accueil de Gobble</a><a href="/entrainement/roue/index.html">Ouvrir le test joueur</a></nav>
     <header className="wheel-test__heading"><p>MENU DEV</p><h1>Diagnostics de la roue</h1>
       <p>{data.total} retour{data.total > 1 ? "s" : ""} enregistré{data.total > 1 ? "s" : ""} · mesures et ressenti des volontaires</p></header>
     <button disabled={busy} onClick={() => { setBefore(null); setRefresh(value => value + 1); }}>Actualiser les derniers retours</button>

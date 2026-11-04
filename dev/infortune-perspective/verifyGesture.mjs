@@ -106,7 +106,7 @@ try {
   await cdp("Page.addScriptToEvaluateOnNewDocument", { source: `localStorage.setItem('gobble.infortune.performance.v1', JSON.stringify({version:2,preference:${JSON.stringify(profile)},profile:${JSON.stringify(profile)},at:Date.now()}))` });
   await cdp("Emulation.setDeviceMetricsOverride", { width: touch ? 390 : 1280, height: touch ? 844 : 1000, deviceScaleFactor: 1, mobile: touch });
   if (touch) await cdp("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 1 });
-  await cdp("Page.navigate", { url: `${origin}${training ? "/entrainement/roue/" : "/dev/infortune-perspective/"}` });
+  await cdp("Page.navigate", { url: `${origin}${training ? "/entrainement/roue/index.html" : "/dev/infortune-perspective/"}` });
   await until(() => evaluate(`!!document.querySelector('${modeSelector}')`), "wheel page");
   await evaluate(`document.querySelector('${sceneSelector}').scrollIntoView({block:'center'})`);
   const start = await until(() => evaluate(`(() => { const b=[...document.querySelectorAll('button')].find(b => b.textContent.startsWith('Entrer sur le plateau')); if(!b) return null; const r=b.getBoundingClientRect(); return {x:r.x+r.width/2,y:r.y+r.height/2}; })()`), "intro button");

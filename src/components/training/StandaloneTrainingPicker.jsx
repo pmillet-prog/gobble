@@ -107,7 +107,7 @@ export default function StandaloneTrainingPicker({
                       </button>
                     ))}
                     <a
-                      href="/entrainement/roue/"
+                      href="/entrainement/roue/index.html"
                       aria-disabled={busy}
                       tabIndex={busy ? -1 : undefined}
                       onClick={(event) => {
