@@ -1,0 +1,637 @@
+{
+  "schemaVersion": 1,
+  "kind": "riddle",
+  "groups": [
+    {
+      "category": "Langue française",
+      "puzzles": [
+        {
+          "id": "if-r2501",
+          "difficulty": 1,
+          "answer": "canapé",
+          "clue": "Je peux recevoir plusieurs personnes dans le salon ou tenir en une bouchée garnie à l’apéritif."
+        },
+        {
+          "id": "if-r2502",
+          "difficulty": 1,
+          "answer": "grue",
+          "clue": "Je lève des charges sur un chantier ; dans les marais, mon homonyme est un grand oiseau aux longues pattes."
+        },
+        {
+          "id": "if-r2503",
+          "difficulty": 1,
+          "answer": "barreau",
+          "clue": "Je peux fermer une fenêtre de prison ou désigner collectivement les avocats d’un tribunal."
+        },
+        {
+          "id": "if-r2504",
+          "difficulty": 1,
+          "answer": "palais",
+          "clue": "Je peux loger un souverain, mais dans votre bouche je forme le plafond au-dessus de la langue."
+        },
+        {
+          "id": "if-r2505",
+          "difficulty": 1,
+          "answer": "langue",
+          "clue": "Je peux désigner le français ou l’italien, mais aussi l’organe qui vous aide à goûter."
+        },
+        {
+          "id": "if-r2506",
+          "difficulty": 1,
+          "answer": "vase",
+          "clue": "Masculin, j’accueille les fleurs coupées ; féminin, je tapisse le fond de certains étangs."
+        },
+        {
+          "id": "if-r2507",
+          "difficulty": 1,
+          "answer": "greffe",
+          "clue": "Féminin, je réunis deux végétaux ; masculin, je conserve les actes et les dossiers d’un tribunal."
+        },
+        {
+          "id": "if-r2508",
+          "difficulty": 1,
+          "answer": "voile",
+          "clue": "Féminin, je reçois le vent sur un bateau ; masculin, je peux cacher un visage."
+        },
+        {
+          "id": "if-r2509",
+          "difficulty": 1,
+          "answer": "poêle",
+          "clue": "Féminin, je fais cuire les aliments ; masculin, je chauffe la pièce où l’on se tient."
+        },
+        {
+          "id": "if-r2510",
+          "difficulty": 1,
+          "answer": "tour",
+          "clue": "Masculin, je peux être celui d’un magicien ; féminin, je domine les bâtiments voisins."
+        },
+        {
+          "id": "if-r2511",
+          "difficulty": 1,
+          "answer": "mode",
+          "clue": "Féminin, je change les tendances vestimentaires ; masculin, je peux être indicatif ou subjonctif."
+        },
+        {
+          "id": "if-r2512",
+          "difficulty": 1,
+          "answer": "livre",
+          "clue": "Masculin, je raconte une histoire reliée ; féminin, je peux désigner une ancienne unité de poids."
+        },
+        {
+          "id": "if-r2513",
+          "difficulty": 1,
+          "answer": "poste",
+          "clue": "Féminin, je distribue le courrier ; masculin, je peux être l’appareil sur lequel on écoute la radio."
+        },
+        {
+          "id": "if-r2514",
+          "difficulty": 2,
+          "answer": "cartouche",
+          "clue": "Féminin, je fournis l’encre de l’imprimante ; masculin, je peux encadrer un nom de pharaon."
+        },
+        {
+          "id": "if-r2515",
+          "difficulty": 1,
+          "answer": "mémoire",
+          "clue": "Féminin, je conserve les souvenirs ; masculin, je peux être un travail universitaire écrit."
+        },
+        {
+          "id": "if-r2516",
+          "difficulty": 1,
+          "answer": "critique",
+          "clue": "Féminin, je porte un jugement sur une œuvre ; masculin, je suis celui qui publie ce jugement."
+        },
+        {
+          "id": "if-r2517",
+          "difficulty": 2,
+          "answer": "guide",
+          "clue": "Masculin, j’accompagne les visiteurs ; au féminin pluriel, je conduis un cheval depuis la voiture."
+        },
+        {
+          "id": "if-r2518",
+          "difficulty": 2,
+          "answer": "crêpe",
+          "clue": "Féminin, je dore dans la poêle ; masculin, je suis un tissu à l’aspect légèrement ondulé."
+        },
+        {
+          "id": "if-r2519",
+          "difficulty": 2,
+          "answer": "solde",
+          "clue": "Masculin, je reste sur un compte après les opérations ; féminin, je rémunère un militaire."
+        },
+        {
+          "id": "if-r2520",
+          "difficulty": 2,
+          "answer": "enseigne",
+          "clue": "Féminin, je signale un commerce ; masculin, je peux désigner un officier de marine."
+        }
+      ]
+    },
+    {
+      "category": "Vie quotidienne",
+      "puzzles": [
+        {
+          "id": "if-r2521",
+          "difficulty": 1,
+          "answer": "bise",
+          "clue": "Je peux être un petit baiser sur la joue ou un vent froid qui souffle du nord."
+        },
+        {
+          "id": "if-r2522",
+          "difficulty": 1,
+          "answer": "bouchon",
+          "clue": "Je peux retenir le vin dans sa bouteille ou les voitures sur l’autoroute."
+        },
+        {
+          "id": "if-r2523",
+          "difficulty": 1,
+          "answer": "prise",
+          "clue": "Je peux fournir l’électricité au mur ou permettre au grimpeur de progresser sur sa paroi."
+        },
+        {
+          "id": "if-r2524",
+          "difficulty": 1,
+          "answer": "douille",
+          "clue": "Je peux recevoir une ampoule ou garnir le bout d’une poche utilisée pour décorer un gâteau."
+        },
+        {
+          "id": "if-r2525",
+          "difficulty": 1,
+          "answer": "masse",
+          "clue": "Je peux être un lourd marteau, mais aussi la grandeur physique que l’on mesure en kilogrammes."
+        },
+        {
+          "id": "if-r2526",
+          "difficulty": 1,
+          "answer": "col",
+          "clue": "Je peux entourer le cou d’une chemise ou offrir un passage entre deux sommets."
+        },
+        {
+          "id": "if-r2527",
+          "difficulty": 1,
+          "answer": "revers",
+          "clue": "Je peux être le pli d’une veste ou un coup joué au tennis du côté opposé à mon coup droit."
+        },
+        {
+          "id": "if-r2528",
+          "difficulty": 1,
+          "answer": "patte",
+          "clue": "Je peux appartenir à un animal ou être une petite bande de tissu qui ferme un vêtement."
+        },
+        {
+          "id": "if-r2529",
+          "difficulty": 1,
+          "answer": "braguette",
+          "clue": "Sur le pantalon, je cache l’ouverture avant ; mon bouton ou ma fermeture permet de l’ouvrir."
+        },
+        {
+          "id": "if-r2530",
+          "difficulty": 1,
+          "answer": "gorge",
+          "clue": "Je peux être sensible quand vous avalez ou devenir une vallée très étroite entre des parois."
+        },
+        {
+          "id": "if-r2531",
+          "difficulty": 1,
+          "answer": "talon",
+          "clue": "Je rehausse une chaussure ; sur un carnet de chèques, je reste attaché pour garder la trace du paiement."
+        },
+        {
+          "id": "if-r2532",
+          "difficulty": 1,
+          "answer": "semelle",
+          "clue": "Je touche le sol sous la chaussure, mais je glisse sur le tissu sous le fer à repasser."
+        },
+        {
+          "id": "if-r2533",
+          "difficulty": 1,
+          "answer": "manchette",
+          "clue": "Je termine une manche de chemise ; dans le journal, je peux attirer l’œil en haut de la première page."
+        },
+        {
+          "id": "if-r2534",
+          "difficulty": 1,
+          "answer": "ceinture",
+          "clue": "Je retiens un pantalon, mais mon nom sert aussi à désigner une route qui entoure une ville."
+        },
+        {
+          "id": "if-r2535",
+          "difficulty": 1,
+          "answer": "trame",
+          "clue": "Je croise les fils de chaîne dans un tissu ; au figuré, j’organise aussi les événements d’un récit."
+        },
+        {
+          "id": "if-r2536",
+          "difficulty": 1,
+          "answer": "canette",
+          "clue": "Je peux fournir le fil inférieur de la machine à coudre ou contenir une boisson sous une languette métallique."
+        },
+        {
+          "id": "if-r2537",
+          "difficulty": 1,
+          "answer": "fermeture",
+          "clue": "Je peux être à glissière sur une veste ou définitive sur la porte d’un magasin qui cesse son activité."
+        },
+        {
+          "id": "if-r2538",
+          "difficulty": 1,
+          "answer": "ruban",
+          "clue": "Je décore un paquet, mais je peux aussi porter les graduations souples d’un instrument de mesure."
+        },
+        {
+          "id": "if-r2539",
+          "difficulty": 1,
+          "answer": "bretelle",
+          "clue": "Je retiens le pantalon sur l’épaule ou relie deux routes sans passer par un carrefour ordinaire."
+        },
+        {
+          "id": "if-r2540",
+          "difficulty": 1,
+          "answer": "épingle",
+          "clue": "Je peux retenir le tissu ; sur une route, mon nom désigne un virage particulièrement serré."
+        }
+      ]
+    },
+    {
+      "category": "Musique",
+      "puzzles": [
+        {
+          "id": "if-r2541",
+          "difficulty": 1,
+          "answer": "soufflet",
+          "clue": "Dans l’accordéon, mes plis s’ouvrent et se referment pour faire circuler l’air dans l’instrument."
+        },
+        {
+          "id": "if-r2542",
+          "difficulty": 2,
+          "answer": "sillet",
+          "clue": "Petite pièce près de la tête d’une guitare, je guide l’espacement des cordes avant les mécaniques."
+        },
+        {
+          "id": "if-r2543",
+          "difficulty": 1,
+          "answer": "rosace",
+          "clue": "Sur une guitare acoustique, mon ouverture ronde permet à la caisse de laisser sortir le son."
+        },
+        {
+          "id": "if-r2544",
+          "difficulty": 1,
+          "answer": "chevalet",
+          "clue": "Je soutiens les cordes sur la table du violon, sans être un petit cheval vivant."
+        },
+        {
+          "id": "if-r2545",
+          "difficulty": 2,
+          "answer": "mentonnière",
+          "clue": "Fixée au violon, je reçois une partie du visage pour aider le musicien à tenir l’instrument."
+        },
+        {
+          "id": "if-r2546",
+          "difficulty": 1,
+          "answer": "soupape",
+          "clue": "Dans un instrument à vent, mon ouverture ou ma fermeture contrôle le passage de l’air."
+        },
+        {
+          "id": "if-r2547",
+          "difficulty": 1,
+          "answer": "pavillon",
+          "clue": "Au bout de la trompette, je m’évase pour ouvrir le tube vers l’auditeur."
+        },
+        {
+          "id": "if-r2548",
+          "difficulty": 1,
+          "answer": "coulisse",
+          "clue": "Au trombone, je suis une longue partie en U que l’on allonge pour obtenir des notes plus graves."
+        },
+        {
+          "id": "if-r2549",
+          "difficulty": 1,
+          "answer": "mécanique",
+          "clue": "Au sommet d’une guitare, je tends ou détends une corde lorsque l’on tourne mon bouton."
+        },
+        {
+          "id": "if-r2550",
+          "difficulty": 2,
+          "answer": "frette",
+          "clue": "Sur le manche d’une guitare, ma petite barre métallique délimite une position pour les doigts."
+        },
+        {
+          "id": "if-r2551",
+          "difficulty": 2,
+          "answer": "anche",
+          "clue": "Dans le hautbois, nous sommes deux fines lamelles de roseau qui vibrent l’une contre l’autre."
+        },
+        {
+          "id": "if-r2552",
+          "difficulty": 1,
+          "answer": "peau",
+          "clue": "Tendue sur un tambour, je reçois les coups des baguettes et vibre pour produire le son."
+        },
+        {
+          "id": "if-r2553",
+          "difficulty": 1,
+          "answer": "maillet",
+          "clue": "Ma tête souvent garnie de feutre frappe notamment les lames du marimba ou la peau d’une grosse caisse."
+        },
+        {
+          "id": "if-r2554",
+          "difficulty": 1,
+          "answer": "balai",
+          "clue": "Au jazz, mes fines tiges frottent la caisse claire pour un son doux ; je ne sers pas au ménage."
+        },
+        {
+          "id": "if-r2555",
+          "difficulty": 2,
+          "answer": "mailloche",
+          "clue": "Grosse baguette à tête rembourrée, je frappe notamment la grosse caisse."
+        },
+        {
+          "id": "if-r2556",
+          "difficulty": 1,
+          "answer": "accordeur",
+          "clue": "Je mesure la hauteur d’une note pour aider le musicien à régler précisément son instrument."
+        },
+        {
+          "id": "if-r2557",
+          "difficulty": 2,
+          "answer": "glissando",
+          "clue": "En musique, je fais passer rapidement d’une note à une autre en parcourant les hauteurs intermédiaires."
+        },
+        {
+          "id": "if-r2558",
+          "difficulty": 2,
+          "answer": "capodastre",
+          "clue": "Pincé sur le manche d’une guitare, je raccourcis toutes les cordes à la même case."
+        },
+        {
+          "id": "if-r2559",
+          "difficulty": 2,
+          "answer": "plectre",
+          "clue": "Petite lame tenue entre les doigts, je pince les cordes d’une guitare ou d’une mandoline.",
+          "acceptedAnswers": [
+            "médiator"
+          ]
+        },
+        {
+          "id": "if-r2560",
+          "difficulty": 2,
+          "answer": "arpège",
+          "clue": "Je fais entendre les notes d’un accord successivement plutôt que toutes en même temps."
+        }
+      ]
+    },
+    {
+      "category": "Écriture et édition",
+      "puzzles": [
+        {
+          "id": "if-r2561",
+          "difficulty": 2,
+          "answer": "empattement",
+          "clue": "En typographie, je suis le petit prolongement qui termine les traits de certaines lettres."
+        },
+        {
+          "id": "if-r2562",
+          "difficulty": 1,
+          "answer": "tranche",
+          "clue": "Sur le livre fermé, je montre les bords des feuilles opposés au dos, sans être une portion à manger."
+        },
+        {
+          "id": "if-r2563",
+          "difficulty": 2,
+          "answer": "plat",
+          "clue": "En reliure, je suis chacune des deux grandes faces de la couverture d’un livre."
+        },
+        {
+          "id": "if-r2564",
+          "difficulty": 2,
+          "answer": "garde",
+          "clue": "Dans un livre relié, ma feuille relie souvent le bloc de pages à l’intérieur du plat de couverture."
+        },
+        {
+          "id": "if-r2565",
+          "difficulty": 1,
+          "answer": "jaquette",
+          "clue": "Je suis la couverture amovible en papier qui enveloppe parfois un livre déjà relié."
+        },
+        {
+          "id": "if-r2566",
+          "difficulty": 1,
+          "answer": "rabat",
+          "clue": "Je suis le volet d’une couverture souple replié vers l’intérieur, où peut figurer une notice sur l’auteur."
+        },
+        {
+          "id": "if-r2567",
+          "difficulty": 2,
+          "answer": "frontispice",
+          "clue": "Illustration placée face à la page de titre, j’accueille le lecteur à l’ouverture du livre."
+        },
+        {
+          "id": "if-r2568",
+          "difficulty": 2,
+          "answer": "exergue",
+          "clue": "Courte citation placée avant un ouvrage ou un chapitre, je donne une clé pour la lecture."
+        },
+        {
+          "id": "if-r2569",
+          "difficulty": 1,
+          "answer": "épreuve",
+          "clue": "En imprimerie, je suis un exemplaire de contrôle que l’on relit avant de lancer la fabrication définitive."
+        },
+        {
+          "id": "if-r2570",
+          "difficulty": 1,
+          "answer": "recto",
+          "clue": "Je suis la première face d’un feuillet, celle qui précède le verso."
+        },
+        {
+          "id": "if-r2571",
+          "difficulty": 2,
+          "answer": "folio",
+          "clue": "Dans le vocabulaire de l’imprimerie, je suis le numéro imprimé d’une page."
+        },
+        {
+          "id": "if-r2572",
+          "difficulty": 2,
+          "answer": "graisse",
+          "clue": "En typographie, je désigne l’épaisseur des traits d’un caractère, du maigre au très gras."
+        },
+        {
+          "id": "if-r2573",
+          "difficulty": 1,
+          "answer": "lettrine",
+          "clue": "Plus grande que ses voisines, je suis la lettre décorative qui ouvre parfois un chapitre."
+        },
+        {
+          "id": "if-r2574",
+          "difficulty": 2,
+          "answer": "approche",
+          "clue": "En typographie, je suis l’espace latéral réservé autour d’un caractère pour le séparer de ses voisins."
+        },
+        {
+          "id": "if-r2575",
+          "difficulty": 2,
+          "answer": "interlettrage",
+          "clue": "Je règle l’espacement général entre les caractères d’un texte composé."
+        },
+        {
+          "id": "if-r2576",
+          "difficulty": 1,
+          "answer": "gabarit",
+          "clue": "Dans un logiciel de mise en page, je fournis un modèle de disposition réutilisable pour plusieurs pages."
+        },
+        {
+          "id": "if-r2577",
+          "difficulty": 2,
+          "answer": "justification",
+          "clue": "En typographie, je règle une ligne pour qu’elle atteigne la largeur choisie entre ses marges."
+        },
+        {
+          "id": "if-r2578",
+          "difficulty": 2,
+          "answer": "orpheline",
+          "clue": "Dans une mise en page, je suis une première ligne de paragraphe laissée seule en bas d’une page."
+        },
+        {
+          "id": "if-r2579",
+          "difficulty": 2,
+          "answer": "veuve",
+          "clue": "Dans une mise en page, je suis une dernière ligne de paragraphe isolée en haut de la page suivante."
+        },
+        {
+          "id": "if-r2580",
+          "difficulty": 1,
+          "answer": "encart",
+          "clue": "Feuillet ou petit cahier ajouté dans une publication, je peux porter un supplément ou de la publicité."
+        }
+      ]
+    },
+    {
+      "category": "Jeux et jouets",
+      "puzzles": [
+        {
+          "id": "if-r2581",
+          "difficulty": 1,
+          "answer": "roque",
+          "clue": "Aux échecs, je déplace le roi et une tour dans le même coup, sous certaines conditions."
+        },
+        {
+          "id": "if-r2582",
+          "difficulty": 1,
+          "answer": "fourchette",
+          "clue": "Aux échecs, mon attaque menace deux pièces adverses à la fois, sans passer par la table du dîner."
+        },
+        {
+          "id": "if-r2583",
+          "difficulty": 2,
+          "answer": "clouage",
+          "clue": "Aux échecs, je gêne le déplacement d’une pièce parce qu’elle protège une autre pièce située derrière elle."
+        },
+        {
+          "id": "if-r2584",
+          "difficulty": 1,
+          "answer": "pat",
+          "clue": "Aux échecs, je termine la partie sans vainqueur quand le joueur au trait n’a aucun coup légal et n’est pas en échec."
+        },
+        {
+          "id": "if-r2585",
+          "difficulty": 1,
+          "answer": "promotion",
+          "clue": "Aux échecs, je transforme un pion arrivé au bout de l’échiquier en une autre pièce autorisée."
+        },
+        {
+          "id": "if-r2586",
+          "difficulty": 2,
+          "answer": "gambit",
+          "clue": "Dans une ouverture d’échecs, j’offre volontairement du matériel pour obtenir un avantage de position."
+        },
+        {
+          "id": "if-r2587",
+          "difficulty": 2,
+          "answer": "remise",
+          "clue": "À la fin d’une partie d’échecs, je peux désigner le résultat nul où aucun joueur ne l’emporte.",
+          "acceptedAnswers": [
+            "nulle"
+          ]
+        },
+        {
+          "id": "if-r2588",
+          "difficulty": 1,
+          "answer": "brelan",
+          "clue": "Au poker, je réunis trois cartes de même valeur, accompagnées de deux autres cartes différentes."
+        },
+        {
+          "id": "if-r2589",
+          "difficulty": 1,
+          "answer": "quinte",
+          "clue": "Au poker, mes cinq cartes forment une suite de valeurs consécutives."
+        },
+        {
+          "id": "if-r2590",
+          "difficulty": 2,
+          "answer": "paire",
+          "clue": "Au poker, je réunis deux cartes de même valeur ; si vous en avez deux différentes, votre combinaison est double."
+        },
+        {
+          "id": "if-r2591",
+          "difficulty": 1,
+          "answer": "donne",
+          "clue": "Je désigne la distribution des cartes et la séquence de jeu qui en découle."
+        },
+        {
+          "id": "if-r2592",
+          "difficulty": 1,
+          "answer": "écart",
+          "clue": "Dans certains jeux de cartes, je désigne les cartes que le joueur retire de sa main après en avoir reçu d’autres."
+        },
+        {
+          "id": "if-r2593",
+          "difficulty": 1,
+          "answer": "full",
+          "clue": "Au poker, je rassemble un brelan et une paire dans une même main de cinq cartes."
+        },
+        {
+          "id": "if-r2594",
+          "difficulty": 1,
+          "answer": "carré",
+          "clue": "Au poker, je réunis quatre cartes de même valeur, plus une cinquième carte quelconque."
+        },
+        {
+          "id": "if-r2595",
+          "difficulty": 1,
+          "answer": "talon",
+          "clue": "Dans plusieurs jeux de cartes, je suis le paquet qui reste après la distribution initiale."
+        },
+        {
+          "id": "if-r2596",
+          "difficulty": 1,
+          "answer": "coupe",
+          "clue": "Avant de distribuer les cartes, je sépare le paquet en deux parties que l’on permute."
+        },
+        {
+          "id": "if-r2597",
+          "difficulty": 1,
+          "answer": "mélange",
+          "clue": "Je brouille l’ordre des cartes pour rendre leur prochaine distribution moins prévisible."
+        },
+        {
+          "id": "if-r2598",
+          "difficulty": 1,
+          "answer": "relance",
+          "clue": "Au poker, j’augmente la mise au-delà de celle annoncée par le joueur précédent."
+        },
+        {
+          "id": "if-r2599",
+          "difficulty": 1,
+          "answer": "couleur",
+          "clue": "Au poker, je réunis cinq cartes de la même enseigne, sans exiger qu’elles se suivent."
+        },
+        {
+          "id": "if-r2600",
+          "difficulty": 1,
+          "answer": "tapis",
+          "clue": "Au poker, je désigne la totalité des jetons qu’un joueur engage quand il mise tout."
+        }
+      ]
+    }
+  ]
+}

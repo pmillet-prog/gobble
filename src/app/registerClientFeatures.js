@@ -35,6 +35,7 @@ import { createTutorialFeature } from "../features/tutorial/createTutorialFeatur
 import { createTraceFeature } from "../features/trace/createTraceFeature.js";
 import { createTargetQuizFeature } from "../features/targetQuiz/createTargetQuizFeature.js";
 import { createGotusFeature } from "../features/gotus/createGotusFeature.js";
+import { createInfortuneIntermissionFeature } from "../features/infortune/createInfortuneIntermissionFeature.js";
 import { createTrophiesFeature } from "../features/trophies/createTrophiesFeature.js";
 
 const FEATURE_FACTORIES = Object.freeze({
@@ -76,6 +77,7 @@ const FEATURE_FACTORIES = Object.freeze({
   trace: createTraceFeature,
   targetQuiz: createTargetQuizFeature,
   gotus: createGotusFeature,
+  infortune: createInfortuneIntermissionFeature,
 });
 
 export const CLIENT_FEATURE_NAMES = Object.freeze(Object.keys(FEATURE_FACTORIES));

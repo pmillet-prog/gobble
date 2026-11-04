@@ -1,0 +1,9 @@
+Generated with the built-in image_gen tool. Source: audience-penombre-v1.png.
+
+Use case: photorealistic-natural.
+Asset type: wide photographic background texture for the dark audience of a television game-show studio, to sit behind a foreground 3D stage.
+Primary request: a PHOTOREALISTIC television studio audience plunged in deep shadow, with delicate cool blue light barely revealing real people's heads, cheekbones, hair and shoulders.
+Composition: very wide panoramic landscape, approximately 3:1. Camera at stage height looking toward four gently rising densely occupied rows of seated adults. A believable varied audience, natural proportions and candid attentive poses, no featured person. The audience stretches across the whole width; no foreground presenter or stage. Most of the frame is near-black; faces are only partly discernible, but enough people must remain visible to read as a real audience rather than an empty black image. Keep the heads small and natural, varied clothing mostly dark. Upper background, far left and right edges and bottom fade gently into pure black, with no visible rectangular border when placed against black.
+Lighting: very low-key studio photography, sparse soft blue reflected/rim light on the crowns, sides of heads and shoulders, a few subtle facial highlights, deep soft shadows. The light sources themselves are outside the image. Restrained photographic contrast with faint readable midtones, no strong bright lights.
+Style: a real photograph, natural human facial anatomy, fabric and hair, subtle camera grain, no CGI look, no illustration.
+Avoid: dolls, mannequins, repeated identical faces, stylized or geometric people, cartoon shapes, visible spotlights or beams, LED strips, stage furniture, wheel, performers, text, logos, watermark, bright ambient lighting.

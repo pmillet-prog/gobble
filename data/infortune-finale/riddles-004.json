@@ -1,0 +1,125 @@
+{
+  "schemaVersion": 1,
+  "kind": "riddle",
+  "groups": [
+    { "category": "Voyages et transports", "puzzles": [
+      {"id":"if-r226","difficulty":1,"clue":"Au carrefour, je passe du vert à l’orange puis au rouge pour décider qui peut avancer.","answer":"feu"},
+      {"id":"if-r227","difficulty":1,"clue":"Je longe la chaussée un peu plus haut qu’elle et réserve mon passage aux piétons.","answer":"trottoir"},
+      {"id":"if-r228","difficulty":1,"clue":"Plusieurs routes se rencontrent en moi ; c’est souvent là que vous devez choisir votre direction.","answer":"carrefour","acceptedAnswers":["intersection","croisement"]},
+      {"id":"if-r229","difficulty":1,"clue":"Mes quais restent en place pendant que les trains emportent ceux qui patientaient près de mes voies.","answer":"gare","acceptedAnswers":["station"]},
+      {"id":"if-r230","difficulty":2,"clue":"Sur le trottoir, ma machine encaisse le prix du temps pendant lequel votre voiture peut rester garée.","answer":"horodateur","acceptedAnswers":["parcmètre"]},
+      {"id":"if-r231","difficulty":1,"clue":"À l’entrée du parking, mon bras barre la route ; il se lève quand votre passage est autorisé.","answer":"barrière"},
+      {"id":"if-r232","difficulty":2,"clue":"Au bord de la route, mon petit bloc numéroté indique où vous en êtes en comptant les kilomètres.","answer":"borne"}
+    ] },
+    { "category": "Objets du quotidien", "puzzles": [
+      {"id":"if-r233","difficulty":1,"clue":"Dans le parc, je prête ma longue assise aux promeneurs fatigués, souvent plusieurs à la fois.","answer":"banc"}
+    ] },
+    { "category": "Voyages et transports", "puzzles": [
+      {"id":"if-r234","difficulty":1,"clue":"Mon toit vous protège pendant l’attente du bus ; quand il arrive, vous quittez mon siège pour un autre.","answer":"abribus","acceptedAnswers":["aubette"]}
+    ] },
+    { "category": "Commerces et métiers", "puzzles": [
+      {"id":"if-r235","difficulty":2,"clue":"Au-dessus de la boutique, mes lettres annoncent son nom aux passants, parfois même en s’éclairant la nuit.","answer":"enseigne"},
+      {"id":"if-r236","difficulty":1,"clue":"Je montre les articles du magasin à travers une grande vitre, même quand sa porte est fermée.","answer":"vitrine"}
+    ] },
+    { "category": "Bricolage", "puzzles": [
+      {"id":"if-r237","difficulty":2,"clue":"Mes tubes et mes planchers entourent la façade le temps des travaux, puis on me démonte étage par étage.","answer":"échafaudage"},
+      {"id":"if-r238","difficulty":1,"clue":"Sur le chantier, mon très long bras porte un crochet qui soulève les charges au-dessus des ouvriers.","answer":"grue"},
+      {"id":"if-r239","difficulty":2,"clue":"Ma roue creusée d’une gorge guide la corde ; grâce à moi, on peut tirer vers le bas pour lever une charge.","answer":"poulie"},
+      {"id":"if-r240","difficulty":2,"clue":"J’enroule un câble autour de mon tambour pour tirer une lourde charge, à la manivelle ou au moteur.","answer":"treuil"},
+      {"id":"if-r241","difficulty":2,"clue":"Fixées à l’établi, mes deux mâchoires immobilisent la pièce pendant que vous la travaillez.","answer":"étau"},
+      {"id":"if-r242","difficulty":2,"clue":"Je ronge le métal par petits allers-retours ; ma surface rugueuse en retire une poussière très fine.","answer":"lime"},
+      {"id":"if-r243","difficulty":2,"clue":"Mon moteur fait vibrer ou tourner un abrasif pour rendre le bois lisse avant sa finition.","answer":"ponceuse"},
+      {"id":"if-r244","difficulty":2,"clue":"Je reste immobile sous les coups du forgeron ; sur mon dos de métal, le fer chaud change de forme.","answer":"enclume"},
+      {"id":"if-r245","difficulty":1,"clue":"Le marteau frappe ma tête pour faire entrer ma pointe dans le bois ; je n’ai pas besoin de tourner.","answer":"clou"},
+      {"id":"if-r246","difficulty":1,"clue":"Pour entrer dans le bois, je tourne sur ma tige en spirale ; pour sortir, je tourne dans l’autre sens.","answer":"vis"},
+      {"id":"if-r247","difficulty":2,"clue":"Petit anneau de métal fileté à l’intérieur, je me serre sur une tige en tournant sous la clé.","answer":"écrou"},
+      {"id":"if-r248","difficulty":2,"clue":"Plate et percée au centre, je me glisse sous l’écrou pour mieux répartir son appui sur la pièce.","answer":"rondelle"}
+    ] },
+    { "category": "Papeterie", "puzzles": [
+      {"id":"if-r249","difficulty":1,"clue":"Mes deux petites jambes traversent les feuilles, puis se replient dessous pour garder la pile réunie.","answer":"agrafe"}
+    ] },
+    { "category": "Bricolage", "puzzles": [
+      {"id":"if-r250","difficulty":2,"clue":"Glissée dans un trou du mur, je serre la vis pour l’aider à tenir ; mon nom est aussi celui d’une articulation.","answer":"cheville"}
+    ] },
+    { "category": "Météo", "puzzles": [
+      {"id":"if-r251","difficulty":1,"clue":"Je traverse le ciel sans ailes ; blanc ou gris, mon amas de gouttelettes peut cacher le soleil.","answer":"nuage"},
+      {"id":"if-r252","difficulty":1,"clue":"Je tombe du ciel en gouttes et fais pousser les parapluies bien plus vite que les fleurs.","answer":"pluie"},
+      {"id":"if-r253","difficulty":1,"clue":"Je descends en flocons, blanchis les chemins et peux devenir un bonhomme sans jamais avoir été vivante.","answer":"neige"},
+      {"id":"if-r254","difficulty":1,"clue":"Je tombe en petites billes de glace pendant certains orages et tambourine bruyamment sur les toits.","answer":"grêle"},
+      {"id":"if-r255","difficulty":1,"clue":"Nuage descendu au niveau du sol, je cache le paysage et oblige les automobilistes à ralentir.","answer":"brouillard","acceptedAnswers":["brume"]},
+      {"id":"if-r256","difficulty":2,"clue":"Au matin, mes gouttes brillent sur l’herbe refroidie pendant la nuit, même s’il n’a pas plu.","answer":"rosée"},
+      {"id":"if-r257","difficulty":2,"clue":"Je dessine des cristaux blancs sur les vitres et les branches quand l’humidité y rencontre un froid intense.","answer":"givre","acceptedAnswers":["gelée"]},
+      {"id":"if-r258","difficulty":1,"clue":"Voix de l’orage, je gronde souvent après que vous avez déjà vu son éclair.","answer":"tonnerre"},
+      {"id":"if-r259","difficulty":1,"clue":"Je déchire le ciel d’une lumière très brève pendant l’orage ; son grondement peut arriver bien après moi.","answer":"éclair"},
+      {"id":"if-r260","difficulty":2,"clue":"Mon arrivée change l’eau des flaques en glace ; le jardinier me redoute pour ses jeunes pousses.","answer":"gel"}
+    ] },
+    { "category": "Paysages et reliefs", "puzzles": [
+      {"id":"if-r261","difficulty":1,"clue":"La rivière plonge d’une hauteur en me formant ; elle poursuit son chemin après ce saut bruyant.","answer":"cascade","acceptedAnswers":["chute"]},
+      {"id":"if-r262","difficulty":2,"clue":"En moi, l’eau souterraine paraît au grand jour ; je peux donner naissance au ruisseau qui part d’ici.","answer":"source"},
+      {"id":"if-r263","difficulty":2,"clue":"À son embouchure, le fleuve se partage en bras autour de ses dépôts ; cet éventail de terres porte mon nom.","answer":"delta"},
+      {"id":"if-r264","difficulty":2,"clue":"Je suis un grand détour de la rivière : pour me suivre, l’eau dessine une boucle au lieu d’aller tout droit.","answer":"méandre"},
+      {"id":"if-r265","difficulty":1,"clue":"Je suis une terre entourée d’eau de tous côtés ; sans pont, il faut quitter la terre ferme pour me rejoindre.","answer":"île"},
+      {"id":"if-r266","difficulty":2,"clue":"Je rassemble plusieurs îles voisines sous un même nom, bien que l’eau les sépare les unes des autres.","answer":"archipel"},
+      {"id":"if-r267","difficulty":1,"clue":"Au bord de la mer, ma haute paroi rocheuse tombe presque à pic vers les vagues.","answer":"falaise"},
+      {"id":"if-r268","difficulty":1,"clue":"Je m’ouvre naturellement dans la roche ; passé mon entrée, le promeneur retrouve l’obscurité sous terre.","answer":"grotte","acceptedAnswers":["caverne"]},
+      {"id":"if-r269","difficulty":2,"clue":"Dans la grotte, l’eau me construit goutte après goutte ; suspendue au plafond, je pousse vers le sol.","answer":"stalactite","excludedAnswers":["stalagmite"]},
+      {"id":"if-r270","difficulty":2,"clue":"Les gouttes de la grotte me font grandir depuis le sol, à la rencontre de la pointe qui pend au-dessus.","answer":"stalagmite","excludedAnswers":["stalactite"]},
+      {"id":"if-r271","difficulty":1,"clue":"Le vent bâtit ma colline avec des grains de sable, puis peut la déplacer sans soulever de rocher.","answer":"dune"},
+      {"id":"if-r272","difficulty":1,"clue":"Je peux dormir longtemps avant de laisser sortir lave et cendres par mon cratère.","answer":"volcan"}
+    ] },
+    { "category": "Mers et océans", "puzzles": [
+      {"id":"if-r273","difficulty":1,"clue":"Sous l’influence de la Lune et du Soleil, je fais monter puis descendre le niveau de la mer sur la plage.","answer":"marée"},
+      {"id":"if-r274","difficulty":1,"clue":"Ma crête avance sur l’eau, se soulève puis se brise parfois en écume lorsque j’atteins la plage.","answer":"vague"},
+      {"id":"if-r275","difficulty":1,"clue":"Morceau de glacier parti en mer, je flotte en cachant sous l’eau la plus grande partie de mon volume.","answer":"iceberg"}
+    ] },
+    { "category": "Communication", "puzzles": [
+      {"id":"if-r276","difficulty":2,"clue":"Il suffit de prononcer mon nom à voix haute pour me rompre dans une pièce où l’on n’entendait rien.","answer":"silence"},
+      {"id":"if-r277","difficulty":2,"clue":"On peut me confier à un ami et lui demander de me garder ; si tout le monde me connaît, je n’en suis plus un.","answer":"secret"},
+      {"id":"if-r278","difficulty":2,"clue":"On peut me faire, me tenir ou me rompre ; j’engage celui qui annonce ce qu’il fera.","answer":"promesse","acceptedAnswers":["engagement","parole"]}
+    ] },
+    { "category": "Mémoire et pensée", "puzzles": [
+      {"id":"if-r279","difficulty":2,"clue":"Je ramène dans votre mémoire un moment déjà vécu, sans pouvoir faire revenir ceux qui étaient présents.","answer":"souvenir"},
+      {"id":"if-r280","difficulty":2,"clue":"Je peux vous faire voler pendant votre sommeil, puis disparaître au réveil sans avoir quitté votre tête.","answer":"rêve","acceptedAnswers":["songe"]}
+    ] },
+    { "category": "Temps et calendrier", "puzzles": [
+      {"id":"if-r281","difficulty":1,"clue":"Je compte vos années depuis la naissance ; chaque anniversaire m’en ajoute une, même si vous cachez vos bougies.","answer":"âge"},
+      {"id":"if-r282","difficulty":2,"clue":"Je rassemble ce qui n’est pas encore arrivé ; à mesure que vous me rejoignez, je cesse de porter mon nom.","answer":"avenir","acceptedAnswers":["futur"]},
+      {"id":"if-r283","difficulty":2,"clue":"Je contiens hier et tous les jours d’avant ; vous pouvez me raconter, mais jamais recommencer à m’habiter.","answer":"passé"},
+      {"id":"if-r284","difficulty":2,"clue":"Je peux désigner un cadeau ou le temps que vous vivez exactement maintenant.","answer":"présent"},
+      {"id":"if-r285","difficulty":2,"clue":"Je suis le jour qui suit aujourd’hui ; dès que minuit arrive, mon nom désigne déjà un autre jour.","answer":"demain"},
+      {"id":"if-r286","difficulty":2,"clue":"Je suis le jour juste avant aujourd’hui ; au prochain minuit, aujourd’hui prendra mon nom.","answer":"hier"}
+    ] },
+    { "category": "Géographie", "puzzles": [
+      {"id":"if-r287","difficulty":2,"clue":"Je trace au loin la limite apparente entre ciel et terre ; marcher vers moi ne permet jamais de me toucher.","answer":"horizon"}
+    ] },
+    { "category": "Mathématiques", "puzzles": [
+      {"id":"if-r288","difficulty":2,"clue":"Je sépare deux lieux sans être un mur ; on me mesure en mètres et je diminue quand ils se rapprochent.","answer":"distance","acceptedAnswers":["écart"]}
+    ] },
+    { "category": "Temps et calendrier", "puzzles": [
+      {"id":"if-r289","difficulty":1,"clue":"Si le train arrive après l’heure prévue, je grandis avec chaque minute supplémentaire d’attente.","answer":"retard"},
+      {"id":"if-r290","difficulty":2,"clue":"Quand votre montre affiche midi alors qu’il n’est que onze heures cinquante, elle a dix minutes de moi.","answer":"avance"}
+    ] },
+    { "category": "Papeterie", "puzzles": [
+      {"id":"if-r291","difficulty":1,"clue":"Vous me tracez au bas du contrat pour marquer votre accord ; on cherche à reconnaître votre main dans mes traits.","answer":"signature","acceptedAnswers":["paraphe"]}
+    ] },
+    { "category": "Sciences", "puzzles": [
+      {"id":"if-r292","difficulty":2,"clue":"Doigt sur le verre ou patte dans la boue, je garde une marque de celui qui est passé.","answer":"empreinte","acceptedAnswers":["trace"]}
+    ] },
+    { "category": "Communication", "puzzles": [
+      {"id":"if-r293","difficulty":2,"clue":"Écrivain ou joueur, vous pouvez me choisir pour être connu sous un autre nom que le vôtre.","answer":"pseudonyme","acceptedAnswers":["pseudo","alias"]},
+      {"id":"if-r294","difficulty":2,"clue":"Je protège l’identité d’une personne dont on ne révèle pas le nom ; dévoilez qui elle est et je disparais.","answer":"anonymat"},
+      {"id":"if-r295","difficulty":2,"clue":"Information sans confirmation, je cours de bouche en bouche ; on peut me propager sans savoir si je suis vraie.","answer":"rumeur","acceptedAnswers":["bruit"]},
+      {"id":"if-r296","difficulty":2,"clue":"Je suis une affirmation que l’on sait fausse, mais que l’on présente volontairement comme vraie.","answer":"mensonge"}
+    ] },
+    { "category": "Langue française", "puzzles": [
+      {"id":"if-r297","difficulty":2,"clue":"Je cache une réponse dans des indices ; vous pouvez me poser sans avoir d’objet entre les mains.","answer":"devinette","acceptedAnswers":["énigme"]},
+      {"id":"if-r298","difficulty":2,"clue":"Dans votre calcul, on me repère quand le résultat ne convient pas ; me corriger peut suffire à le rendre juste.","answer":"erreur","acceptedAnswers":["faute"]}
+    ] },
+    { "category": "Bricolage", "puzzles": [
+      {"id":"if-r299","difficulty":2,"clue":"Plus vous retirez de terre à coups de pelle au même endroit, plus je deviens grand.","answer":"trou","acceptedAnswers":["fosse","excavation"]}
+    ] },
+    { "category": "Mathématiques", "puzzles": [
+      {"id":"if-r300","difficulty":2,"clue":"Ajouté à droite d’un entier positif écrit sans virgule, je multiplie sa valeur par dix ; à gauche, je ne change rien.","answer":"zéro"}
+    ] }
+  ]
+}

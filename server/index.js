@@ -8,6 +8,15 @@ import { Server } from "socket.io";
 import cors from "cors";
 import { mkdirSync, readFileSync, writeFileSync } from "fs";
 import { randomUUID } from "crypto";
+import { infortuneRoundPolicy, infortuneBreakDuration } from "../shared/infortuneIntermission.js";
+import { INFORTUNE_PLATEAU_VERSION } from "../shared/infortunePlateaus.js";
+import { snapshotInfortunePlayers, finalizeInfortunePlateaus } from "./infortune/roundPlateaus.js";
+import { createInfortuneLedger, creditInfortuneGobbles } from "./infortune/roundEconomy.js";
+import { registerInfortuneHandlers } from "./infortune/registerInfortuneHandlers.js";
+import { infortuneTournamentEnabled } from "../shared/releaseScope.js";
+import { registerWorkshopAccess } from "./realtime/registerWorkshopAccess.js";
+import { registerWheelDiagnosticRoutes } from "./infortune/registerWheelDiagnosticRoutes.js";
+import { createWheelDiagnosticRepository } from "./infortune/wheelDiagnosticRepository.js";
 
 import {
   FAKE_TWINS_COMPLETION_BONUS,
@@ -1750,6 +1759,18 @@ registerChalkboardRoutes({
 });
 chalkboardExports?.start();
 
+registerWorkshopAccess(app, {
+  readAccount: async request => (await getAuthFromCookieHeader(request.headers.cookie))?.user,
+  isAllowed: areDevToolsAllowedForAccount,
+});
+
+const wheelDiagnosticRepository = createWheelDiagnosticRepository({ filename: () => path.join(RUNTIME_DATA_DIR, "wheel-diagnostics.sqlite") });
+registerWheelDiagnosticRoutes(app, {
+  readAccount: async request => (await getAuthFromCookieHeader(request.headers.cookie))?.user,
+  isAllowed: areDevToolsAllowedForAccount,
+  repository: wheelDiagnosticRepository,
+});
+
 // ===== SERVE FRONT VITE (dist) =====
 app.use(express.static(path.join(__dirname, "../dist")));
 
@@ -1759,6 +1780,7 @@ app.get("*", (req, res) => {
 
 
 const server = http.createServer(app);
+server.once("close", () => { void wheelDiagnosticRepository.close().catch(error => console.error("[wheel-diagnostics] close failed", error.message)); });
 const io = new Server(server, {
   cors: {
     origin: true,
@@ -2240,9 +2262,8 @@ function getDevAccessConfig() {
   };
 }
 
-function getSocketDevAccount(socket) {
+function getDevAccount(user) {
   const accessConfig = getDevAccessConfig();
-  const user = socket?.data?.authUser || null;
   if (!user) {
     return { allowed: false, label: "", reason: "auth_required" };
   }
@@ -2256,6 +2277,10 @@ function getSocketDevAccount(socket) {
     label: user.usernameDisplay || user.usernameNormalized || (userId ? `#${userId}` : ""),
     reason: allowed ? "" : "account_not_allowed",
   };
+}
+
+function getSocketDevAccount(socket) {
+  return getDevAccount(socket?.data?.authUser || null);
 }
 
 function getSocketModerationAccount(socket) {
@@ -2537,12 +2562,16 @@ function isPrivateClientIp(ip) {
   return false;
 }
 
-function areDevToolsAllowedForSocket(socket) {
+function areDevToolsAllowedForAccount(account) {
   const raw = String(process.env.GOBBLE_DEV_TOOLS || "").trim().toLowerCase();
   if (raw === "0" || raw === "false" || raw === "off" || raw === "no") return false;
-  const devAccount = getSocketDevAccount(socket);
+  const devAccount = getDevAccount(account);
   if (!devAccount.allowed) return false;
   return true;
+}
+
+function areDevToolsAllowedForSocket(socket) {
+  return areDevToolsAllowedForAccount(socket?.data?.authUser || null);
 }
 
 function isDevPasswordRequired(socket) {
@@ -4474,6 +4503,7 @@ function enterInterTournamentLobby(room) {
   }
   if (room.endSoonTimeout) clearTimeout(room.endSoonTimeout);
   if (room.finalFightScheduled) clearTimeout(room.finalFightScheduled);
+  room.currentRound?.infortuneGame?.close();
   room.currentRound = null;
   room.breakState = null;
   cancelBufferedPreparedGrid(room);
@@ -4994,6 +5024,13 @@ function buildRoundSubmissionSolutions(round) {
   }).filter(Boolean));
 }
 
+function getInfortunePolicy(room) {
+  const policy = infortuneRoundPolicy({ enabled: infortuneTournamentEnabled(process.env),
+    training: !!room.currentRound?.training, round: room.currentRound?.tournamentRound || 1,
+    totalRounds: room.tournament?.totalRounds || TOURNAMENT_TOTAL_ROUNDS });
+  return policy ? { ...policy, plateauVersion: INFORTUNE_PLATEAU_VERSION } : null;
+}
+
 function buildRoundStartedPayload(room) {
   const round = room?.currentRound;
   if (!round) return null;
@@ -5029,6 +5066,7 @@ function buildRoundStartedPayload(room) {
     status: round.status || "running",
     targetLength: round.targetLength || null,
     targetMiniGame: getTargetMiniGameMetadata(round),
+    infortune: round.infortune || getInfortunePolicy(room),
     targetHintScheduleMs: Array.isArray(round.targetHintScheduleMs)
       ? round.targetHintScheduleMs
       : [],
@@ -10534,6 +10572,7 @@ async function runStartRoundForRoom(room, options = {}) {
     botManager.refreshPresenceForRoom(room, { beforeRound: true });
   }
 
+  room.currentRound?.infortuneGame?.close();
   room.currentRound = Object.assign(round, {
     id: roundId,
     grid,
@@ -10903,6 +10942,11 @@ async function endRoundForRoom(room) {
   }
 
   room.currentRound.status = "finished";
+  const wheelPolicy = getInfortunePolicy(room);
+  const infortune = wheelPolicy ? { ...wheelPolicy, openedAt: endRoundStartedAt } : null;
+  const infortunePlayers = infortune ? snapshotInfortunePlayers(room, {
+    isBot: player => isBotToken(player.token), isConnected: isPlayerConnected,
+  }) : [];
   await targetQuizHandlers.closeRoomRound(room.id, room.currentRound.id)
     .catch(error => console.warn("[target-quiz] round save failed", error.message));
   await gotusHandlers.closeRoomRound(room.id, room.currentRound.id)
@@ -11530,6 +11574,21 @@ async function endRoundForRoom(room) {
     t.prevPositions = new Map(totalRanking.map((e) => [e.nick, e.pos]));
   }
 
+  if (!isTrainingRound && t && (infortune || t.infortune)) {
+    t.infortune ||= createInfortuneLedger();
+    creditInfortuneGobbles(t.infortune, room.currentRound.id,
+      [...room.players.values()].filter(player => !isBotToken(player.token)).concat(totalRanking), roundGobbles);
+  }
+  if (infortune) {
+    const wheelRound = room.currentRound;
+    finalizeInfortunePlateaus({ round: wheelRound, roomId: room.id, infortune, players: infortunePlayers, ranking: totalRanking,
+      ledger: t?.infortune, onEconomyChange: economy => {
+        if (room.currentRound === wheelRound) io.to(room.id).emit("infortuneEconomy", { roomId: room.id, roundId: wheelRound.id, economy });
+      } });
+    // Publish the small seating payload before the heavy result presentation.
+    io.to(room.id).emit("infortunePlateau", { roomId: room.id, roundId: room.currentRound.id, infortune });
+  }
+
   let breakMs = room.config.breakMs;
   let breakKind = "between_rounds";
   let tournamentSummary = null;
@@ -11647,6 +11706,7 @@ async function endRoundForRoom(room) {
   const roundEndedPayload = {
     roomId: room.id,
     roundId: room.currentRound.id,
+    infortune,
     training: isTrainingRound,
     targetMiniGame: getTargetMiniGameMetadata(room.currentRound),
     results,
@@ -11698,6 +11758,7 @@ async function endRoundForRoom(room) {
 
   io.to(room.id).emit("roundEnded", roundEndedPayload);
 
+  breakMs = infortuneBreakDuration(breakMs, infortune, infortune?.openedAt ?? endRoundStartedAt, Date.now());
   const nextStartAt = Date.now() + breakMs;
   io.to(room.id).emit("breakStarted", {
     roomId: room.id,
@@ -11780,6 +11841,7 @@ async function endRoundForRoom(room) {
 }
 
 io.on("connection", (socket) => {
+  if (infortuneTournamentEnabled(process.env)) registerInfortuneHandlers(socket, { getRoom });
   achievementRuntime.register(socket);
   registerAchievementDevHandlers(socket, { requireDevToolsAccess, getRoom });
   console.log("Client connecté", socket.id);

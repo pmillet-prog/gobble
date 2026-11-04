@@ -1,0 +1,634 @@
+{
+  "schemaVersion": 1,
+  "kind": "quiz",
+  "groups": [
+    {
+      "category": "Calcul mental",
+      "puzzles": [
+        {
+          "id": "if-q2402",
+          "difficulty": 1,
+          "answer": "six",
+          "clue": "Dans une boîte de douze œufs, combien en reste-t-il quand on en utilise la moitié ?"
+        },
+        {
+          "id": "if-q2403",
+          "difficulty": 1,
+          "answer": "quatre",
+          "clue": "Une recette pour trois personnes demande deux œufs. Combien en faut-il pour six personnes ?"
+        },
+        {
+          "id": "if-q2404",
+          "difficulty": 1,
+          "answer": "quinze",
+          "clue": "Un livre coûte vingt euros et bénéficie d’une réduction d’un quart de son prix. Combien coûte-t-il alors ?"
+        },
+        {
+          "id": "if-q2405",
+          "difficulty": 1,
+          "answer": "huit",
+          "clue": "Trois billets identiques coûtent vingt-quatre euros. Combien coûte un billet ?"
+        },
+        {
+          "id": "if-q2406",
+          "difficulty": 1,
+          "answer": "neuf",
+          "clue": "Un carré a un côté de trois mètres. Combien de mètres carrés mesure son aire ?"
+        },
+        {
+          "id": "if-q2407",
+          "difficulty": 1,
+          "answer": "vingt",
+          "clue": "Un rectangle mesure six mètres sur quatre. Combien de mètres mesure son périmètre ?"
+        },
+        {
+          "id": "if-q2408",
+          "difficulty": 1,
+          "answer": "sept",
+          "clue": "Une réunion commence à trois heures et dure quatre heures. À quelle heure se termine-t-elle ?"
+        },
+        {
+          "id": "if-q2409",
+          "difficulty": 1,
+          "answer": "douze",
+          "clue": "Une rangée comporte quatre sièges. Combien de sièges trouve-t-on dans trois rangées identiques ?"
+        },
+        {
+          "id": "if-q2410",
+          "difficulty": 1,
+          "answer": "dix",
+          "clue": "Une carafe contient deux litres. Combien de verres de vingt centilitres peut-on remplir avec ?"
+        },
+        {
+          "id": "if-q2411",
+          "difficulty": 1,
+          "answer": "cinq",
+          "clue": "Combien faut-il de pièces de vingt centimes pour obtenir un euro ?"
+        },
+        {
+          "id": "if-q2412",
+          "difficulty": 1,
+          "answer": "trente",
+          "clue": "Un vélo roule à quinze kilomètres par heure pendant deux heures. Combien de kilomètres parcourt-il ?"
+        },
+        {
+          "id": "if-q2413",
+          "difficulty": 1,
+          "answer": "cinquante",
+          "clue": "On partage un mètre de ruban en deux longueurs égales. Combien de centimètres mesure chaque morceau ?"
+        },
+        {
+          "id": "if-q2414",
+          "difficulty": 1,
+          "answer": "cent",
+          "clue": "Combien de petits carrés d’un centimètre de côté faut-il pour couvrir un carré de dix centimètres de côté ?"
+        },
+        {
+          "id": "if-q2415",
+          "difficulty": 1,
+          "answer": "trois",
+          "clue": "Quinze personnes forment des équipes de cinq. Combien d’équipes complètes obtient-on ?"
+        },
+        {
+          "id": "if-q2416",
+          "difficulty": 1,
+          "answer": "seize",
+          "clue": "Quatre boîtes contiennent chacune quatre craies. Combien de craies cela fait-il au total ?"
+        },
+        {
+          "id": "if-q2417",
+          "difficulty": 1,
+          "answer": "onze",
+          "clue": "Un ascenseur part du troisième étage puis monte de huit étages. À quel étage arrive-t-il ?"
+        },
+        {
+          "id": "if-q2418",
+          "difficulty": 1,
+          "answer": "quatorze",
+          "clue": "Un rectangle a des côtés de trois et quatre centimètres. Combien de centimètres mesure son contour ?"
+        },
+        {
+          "id": "if-q2419",
+          "difficulty": 1,
+          "answer": "deux",
+          "clue": "Une feuille est pliée une seule fois bord contre bord. Combien d’épaisseurs obtient-on ?"
+        },
+        {
+          "id": "if-q2420",
+          "difficulty": 1,
+          "answer": "quarante",
+          "clue": "Sur cent billes, soixante sont rouges et les autres bleues. Combien sont bleues ?"
+        },
+        {
+          "id": "if-q2421",
+          "difficulty": 1,
+          "answer": "zéro",
+          "clue": "Quel reste obtient-on en partageant exactement trente pommes entre six personnes ?"
+        }
+      ]
+    },
+    {
+      "category": "Géographie",
+      "puzzles": [
+        {
+          "id": "if-q2422",
+          "difficulty": 1,
+          "answer": "Groenland",
+          "clue": "Quelle immense île arctique a pour capitale Nuuk ?"
+        },
+        {
+          "id": "if-q2423",
+          "difficulty": 2,
+          "answer": "Bornéo",
+          "clue": "Quelle grande île d’Asie est partagée entre l’Indonésie, la Malaisie et le Brunei ?"
+        },
+        {
+          "id": "if-q2424",
+          "difficulty": 2,
+          "answer": "Sumatra",
+          "clue": "Sur quelle grande île indonésienne se trouve la ville de Medan ?"
+        },
+        {
+          "id": "if-q2425",
+          "difficulty": 2,
+          "answer": "Java",
+          "clue": "Sur quelle île indonésienne se trouve le temple de Borobudur ?"
+        },
+        {
+          "id": "if-q2426",
+          "difficulty": 1,
+          "answer": "Bali",
+          "clue": "Quelle île indonésienne est connue pour les villes de Denpasar et d’Ubud ?"
+        },
+        {
+          "id": "if-q2427",
+          "difficulty": 1,
+          "answer": "Tahiti",
+          "clue": "Sur quelle île de Polynésie française se trouve Papeete ?"
+        },
+        {
+          "id": "if-q2428",
+          "difficulty": 2,
+          "answer": "Capri",
+          "clue": "Quelle île italienne du golfe de Naples est célèbre pour sa grotte Bleue ?"
+        },
+        {
+          "id": "if-q2429",
+          "difficulty": 2,
+          "answer": "Sardaigne",
+          "clue": "Quelle île italienne a pour principale ville Cagliari ?"
+        },
+        {
+          "id": "if-q2430",
+          "difficulty": 1,
+          "answer": "Sicile",
+          "clue": "Sur quelle île italienne se trouve la ville de Palerme ?"
+        },
+        {
+          "id": "if-q2431",
+          "difficulty": 2,
+          "answer": "Crète",
+          "clue": "Sur quelle île grecque se trouvent Héraklion et La Canée ?"
+        },
+        {
+          "id": "if-q2432",
+          "difficulty": 2,
+          "answer": "Chypre",
+          "clue": "Sur quelle île méditerranéenne se trouve la ville de Nicosie ?"
+        },
+        {
+          "id": "if-q2433",
+          "difficulty": 1,
+          "answer": "Jamaïque",
+          "clue": "Dans quel pays insulaire des Caraïbes se trouve Kingston, capitale associée au reggae ?"
+        },
+        {
+          "id": "if-q2434",
+          "difficulty": 1,
+          "answer": "Irlande",
+          "clue": "Sur quelle île européenne se trouvent les villes de Cork et de Galway ?"
+        },
+        {
+          "id": "if-q2435",
+          "difficulty": 1,
+          "answer": "Madagascar",
+          "clue": "Sur quelle grande île se trouve la ville d’Antananarivo ?"
+        },
+        {
+          "id": "if-q2436",
+          "difficulty": 1,
+          "answer": "Maurice",
+          "clue": "Quelle île de l’océan Indien a pour capitale Port-Louis ?"
+        },
+        {
+          "id": "if-q2437",
+          "difficulty": 1,
+          "answer": "Réunion",
+          "clue": "Sur quelle île française de l’océan Indien se trouvent les cirques de Mafate et de Cilaos ?"
+        },
+        {
+          "id": "if-q2438",
+          "difficulty": 1,
+          "answer": "Martinique",
+          "clue": "Sur quelle île française des Antilles se trouvent Fort-de-France et la montagne Pelée ?"
+        },
+        {
+          "id": "if-q2439",
+          "difficulty": 1,
+          "answer": "Guadeloupe",
+          "clue": "Quel archipel français comprend notamment Grande-Terre, Basse-Terre et Marie-Galante ?"
+        },
+        {
+          "id": "if-q2440",
+          "difficulty": 2,
+          "answer": "Seychelles",
+          "clue": "Quel archipel de l’océan Indien comprend les îles de Mahé, Praslin et La Digue ?"
+        },
+        {
+          "id": "if-q2441",
+          "difficulty": 1,
+          "answer": "Maldives",
+          "clue": "Quel pays insulaire de l’océan Indien, formé d’atolls, a pour capitale Malé ?"
+        }
+      ]
+    },
+    {
+      "category": "Sciences",
+      "puzzles": [
+        {
+          "id": "if-q2442",
+          "difficulty": 1,
+          "answer": "Newton",
+          "clue": "Quel savant anglais a utilisé un prisme pour étudier les couleurs qui composent la lumière blanche ?"
+        },
+        {
+          "id": "if-q2443",
+          "difficulty": 1,
+          "answer": "Galilée",
+          "clue": "Quel savant italien a notamment observé les phases de Vénus avec une lunette astronomique ?"
+        },
+        {
+          "id": "if-q2444",
+          "difficulty": 2,
+          "answer": "Kepler",
+          "clue": "Quel astronome allemand a décrit les orbites planétaires comme des ellipses ?"
+        },
+        {
+          "id": "if-q2445",
+          "difficulty": 2,
+          "answer": "Hubble",
+          "clue": "Quel astronome américain a donné son nom à une loi reliant la distance des galaxies à leur vitesse d’éloignement ?"
+        },
+        {
+          "id": "if-q2446",
+          "difficulty": 2,
+          "answer": "Einstein",
+          "clue": "Quel physicien est associé à l’explication de l’effet photoélectrique par des quanta de lumière ?"
+        },
+        {
+          "id": "if-q2447",
+          "difficulty": 1,
+          "answer": "Curie",
+          "clue": "Quel nom porte le couple de scientifiques qui a découvert le polonium et le radium ?"
+        },
+        {
+          "id": "if-q2448",
+          "difficulty": 2,
+          "answer": "Lavoisier",
+          "clue": "Quel chimiste français a contribué à expliquer la combustion par le rôle du dioxygène ?"
+        },
+        {
+          "id": "if-q2449",
+          "difficulty": 2,
+          "answer": "Mendeleïev",
+          "clue": "Quel chimiste russe a organisé les éléments dans un tableau en prévoyant des cases encore vides ?",
+          "acceptedAnswers": [
+            "Mendeleev"
+          ]
+        },
+        {
+          "id": "if-q2450",
+          "difficulty": 2,
+          "answer": "Volta",
+          "clue": "Quel physicien italien est associé à la première pile électrique composée de disques métalliques empilés ?"
+        },
+        {
+          "id": "if-q2451",
+          "difficulty": 2,
+          "answer": "Faraday",
+          "clue": "Quel savant anglais a montré qu’une variation du champ magnétique peut produire un courant électrique ?"
+        },
+        {
+          "id": "if-q2452",
+          "difficulty": 2,
+          "answer": "Ampère",
+          "clue": "Quel physicien français a étudié les forces entre fils parcourus par des courants électriques ?"
+        },
+        {
+          "id": "if-q2453",
+          "difficulty": 2,
+          "answer": "Ohm",
+          "clue": "Quel physicien allemand a donné son nom à la loi reliant tension, intensité et résistance ?"
+        },
+        {
+          "id": "if-q2454",
+          "difficulty": 1,
+          "answer": "Pascal",
+          "clue": "Quel savant français prénommé Blaise a conçu une machine mécanique à calculer ?"
+        },
+        {
+          "id": "if-q2455",
+          "difficulty": 2,
+          "answer": "Torricelli",
+          "clue": "Quel physicien italien est associé à l’expérience du tube de mercure qui a conduit au baromètre ?"
+        },
+        {
+          "id": "if-q2456",
+          "difficulty": 1,
+          "answer": "Archimède",
+          "clue": "Quel savant grec de Syracuse est associé à une vis permettant de faire monter de l’eau ?"
+        },
+        {
+          "id": "if-q2457",
+          "difficulty": 2,
+          "answer": "Mendel",
+          "clue": "Quel moine a étudié la transmission de caractères héréditaires en croisant des plants de pois ?"
+        },
+        {
+          "id": "if-q2458",
+          "difficulty": 1,
+          "answer": "Darwin",
+          "clue": "Quel naturaliste britannique a voyagé sur le Beagle avant de développer sa théorie de l’évolution ?"
+        },
+        {
+          "id": "if-q2459",
+          "difficulty": 2,
+          "answer": "Linné",
+          "clue": "Quel naturaliste suédois est associé à la classification du vivant et aux noms scientifiques en deux mots ?"
+        },
+        {
+          "id": "if-q2460",
+          "difficulty": 2,
+          "answer": "Pavlov",
+          "clue": "Quel physiologiste russe est connu pour ses expériences de conditionnement chez le chien ?"
+        },
+        {
+          "id": "if-q2461",
+          "difficulty": 2,
+          "answer": "Pasteur",
+          "clue": "Quel savant français a utilisé des ballons à col de cygne pour réfuter la génération spontanée ?"
+        }
+      ]
+    },
+    {
+      "category": "Cinéma et séries",
+      "puzzles": [
+        {
+          "id": "if-q2462",
+          "difficulty": 1,
+          "answer": "Parapluies",
+          "clue": "Quel objet de pluie commence le titre du film chanté de Jacques Demy qui se déroule à Cherbourg ?"
+        },
+        {
+          "id": "if-q2463",
+          "difficulty": 1,
+          "answer": "Grease",
+          "clue": "Quelle comédie musicale réunit Danny et Sandy, interprétés par John Travolta et Olivia Newton-John ?"
+        },
+        {
+          "id": "if-q2464",
+          "difficulty": 2,
+          "answer": "Chicago",
+          "clue": "Quelle ville donne son titre à la comédie musicale cinématographique mettant en scène Roxie Hart et Velma Kelly ?"
+        },
+        {
+          "id": "if-q2465",
+          "difficulty": 1,
+          "answer": "Moulin",
+          "clue": "Quel nom commence le titre … Rouge !, film musical de Baz Luhrmann avec Nicole Kidman ?"
+        },
+        {
+          "id": "if-q2466",
+          "difficulty": 2,
+          "answer": "Cabaret",
+          "clue": "Quel film musical met en scène Sally Bowles dans le Berlin du début des années trente ?"
+        },
+        {
+          "id": "if-q2467",
+          "difficulty": 1,
+          "answer": "Fantasia",
+          "clue": "Quel film d’animation Disney associe des morceaux de musique classique à des séquences animées ?"
+        },
+        {
+          "id": "if-q2468",
+          "difficulty": 1,
+          "answer": "Mary",
+          "clue": "Quel prénom porte Poppins, la gouvernante qui arrive avec son parapluie dans le film musical de Disney ?"
+        },
+        {
+          "id": "if-q2469",
+          "difficulty": 2,
+          "answer": "Annie",
+          "clue": "Quel prénom donne son titre à la comédie musicale racontant l’histoire d’une jeune orpheline rousse ?"
+        },
+        {
+          "id": "if-q2470",
+          "difficulty": 1,
+          "answer": "Billy",
+          "clue": "Quel prénom porte Elliot, le garçon d’une cité minière anglaise qui rêve de danse classique ?"
+        },
+        {
+          "id": "if-q2471",
+          "difficulty": 2,
+          "answer": "Flashdance",
+          "clue": "Quel film suit Alex, soudeuse le jour et danseuse le soir, qui rêve d’entrer dans une école de ballet ?"
+        },
+        {
+          "id": "if-q2472",
+          "difficulty": 2,
+          "answer": "Fame",
+          "clue": "Quel film musical suit des adolescents dans une école artistique new-yorkaise ?"
+        },
+        {
+          "id": "if-q2473",
+          "difficulty": 2,
+          "answer": "Footloose",
+          "clue": "Quel film raconte l’arrivée d’un adolescent dans une petite ville où la danse est interdite ?"
+        },
+        {
+          "id": "if-q2474",
+          "difficulty": 2,
+          "answer": "Hairspray",
+          "clue": "Quel film musical suit Tracy Turnblad, adolescente qui rêve de danser à la télévision à Baltimore ?"
+        },
+        {
+          "id": "if-q2475",
+          "difficulty": 1,
+          "answer": "Amadeus",
+          "clue": "Quel film de Miloš Forman raconte Mozart à travers les souvenirs de Salieri ?"
+        },
+        {
+          "id": "if-q2476",
+          "difficulty": 2,
+          "answer": "Whiplash",
+          "clue": "Quel film montre l’affrontement entre un jeune batteur de jazz et son professeur tyrannique ?"
+        },
+        {
+          "id": "if-q2477",
+          "difficulty": 1,
+          "answer": "Ray",
+          "clue": "Quel prénom donne son titre au film où Jamie Foxx incarne le chanteur Charles ?"
+        },
+        {
+          "id": "if-q2478",
+          "difficulty": 1,
+          "answer": "Pianiste",
+          "clue": "Quel métier donne son titre au film de Roman Polanski consacré à Władysław Szpilman ?"
+        },
+        {
+          "id": "if-q2479",
+          "difficulty": 1,
+          "answer": "Choristes",
+          "clue": "Quel mot désigne les enfants qui chantent et donne son titre au film avec Gérard Jugnot en surveillant ?"
+        },
+        {
+          "id": "if-q2480",
+          "difficulty": 2,
+          "answer": "Rocketman",
+          "clue": "Quel film musical retrace la jeunesse et l’ascension du chanteur Elton John ?"
+        },
+        {
+          "id": "if-q2481",
+          "difficulty": 1,
+          "answer": "Elvis",
+          "clue": "Quel prénom donne son titre au film de Baz Luhrmann où Austin Butler incarne Presley ?"
+        }
+      ]
+    },
+    {
+      "category": "Contes et légendes",
+      "puzzles": [
+        {
+          "id": "if-q2482",
+          "difficulty": 1,
+          "answer": "clé",
+          "clue": "Quel petit objet reste taché de sang et trahit la curiosité de l’épouse de Barbe-Bleue ?"
+        },
+        {
+          "id": "if-q2483",
+          "difficulty": 1,
+          "answer": "Anne",
+          "clue": "Quel prénom porte la sœur appelée à guetter des secours dans le conte Barbe-Bleue ?"
+        },
+        {
+          "id": "if-q2484",
+          "difficulty": 1,
+          "answer": "souris",
+          "clue": "En quel petit rongeur le Chat botté persuade-t-il l’ogre de se transformer pour pouvoir le manger ?"
+        },
+        {
+          "id": "if-q2485",
+          "difficulty": 1,
+          "answer": "Lucifer",
+          "clue": "Quel est le nom du chat malveillant de la marâtre dans le dessin animé Cendrillon de Disney ?"
+        },
+        {
+          "id": "if-q2486",
+          "difficulty": 1,
+          "answer": "Gretel",
+          "clue": "Dans le conte des Grimm, quelle sœur pousse la sorcière dans le four pour sauver son frère Hansel ?"
+        },
+        {
+          "id": "if-q2487",
+          "difficulty": 1,
+          "answer": "empereur",
+          "clue": "Quel souverain parade avec des habits inexistants dans le conte d’Andersen ?"
+        },
+        {
+          "id": "if-q2488",
+          "difficulty": 1,
+          "answer": "Rossignol",
+          "clue": "Quel oiseau chanteur donne son titre au conte d’Andersen situé à la cour d’un empereur de Chine ?"
+        },
+        {
+          "id": "if-q2489",
+          "difficulty": 1,
+          "answer": "poucette",
+          "clue": "Quelle minuscule héroïne d’Andersen naît au cœur d’une fleur ?"
+        },
+        {
+          "id": "if-q2490",
+          "difficulty": 1,
+          "answer": "neige",
+          "clue": "De quelle matière est faite la reine du conte d’Andersen où Gerda cherche son ami Kay ?"
+        },
+        {
+          "id": "if-q2491",
+          "difficulty": 2,
+          "answer": "ortie",
+          "clue": "Quelle plante piquante Élisa doit-elle travailler pour délivrer ses frères dans Les Cygnes sauvages d’Andersen ?"
+        },
+        {
+          "id": "if-q2492",
+          "difficulty": 1,
+          "answer": "Andersen",
+          "clue": "Quel conteur danois a écrit Les Souliers rouges ?"
+        },
+        {
+          "id": "if-q2493",
+          "difficulty": 1,
+          "answer": "Grimm",
+          "clue": "Quel nom portent les deux frères qui ont recueilli le conte de Raiponce ?"
+        },
+        {
+          "id": "if-q2494",
+          "difficulty": 1,
+          "answer": "Perrault",
+          "clue": "Quel écrivain français a donné une version célèbre du conte Riquet à la houppe ?"
+        },
+        {
+          "id": "if-q2495",
+          "difficulty": 1,
+          "answer": "oie",
+          "clue": "Dans le conte des frères Grimm, de quel animal sont les plumes d’or qui font s’attacher les curieux les uns aux autres ?"
+        },
+        {
+          "id": "if-q2496",
+          "difficulty": 1,
+          "answer": "grenouille",
+          "clue": "Dans un conte des Grimm, quel amphibien réclame l’hospitalité d’une princesse après avoir rapporté sa balle ?"
+        },
+        {
+          "id": "if-q2497",
+          "difficulty": 2,
+          "answer": "miroir",
+          "clue": "Quel objet se brise au début de La Reine des neiges et projette des éclats qui déforment la vision du monde ?"
+        },
+        {
+          "id": "if-q2498",
+          "difficulty": 1,
+          "answer": "Hamelin",
+          "clue": "Quelle ville allemande donne son nom au conte du joueur de flûte qui en chasse les rats ?"
+        },
+        {
+          "id": "if-q2499",
+          "difficulty": 2,
+          "answer": "chat",
+          "clue": "Quel animal s’installe sur le dos du chien dans la pyramide formée par les musiciens de Brême ?"
+        },
+        {
+          "id": "if-q2500",
+          "difficulty": 1,
+          "answer": "assiette",
+          "clue": "Quel récipient trop plat empêche la cigogne de bien manger chez le renard dans la fable de La Fontaine ?"
+        },
+        {
+          "id": "if-q2501",
+          "difficulty": 1,
+          "answer": "rat",
+          "clue": "Quel petit animal ronge les mailles du filet pour libérer un lion qui l’avait épargné, chez La Fontaine ?"
+        }
+      ]
+    }
+  ]
+}

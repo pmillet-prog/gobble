@@ -1,0 +1,20 @@
+.infortune-intermission { position: fixed; inset: 0; z-index: 220000; display: flex; flex-direction: column; color: #f3e7ca; background: #030609; font-family: system-ui, sans-serif; overscroll-behavior: none; }
+.infortune-intermission > header { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 6px; padding: max(12px, env(safe-area-inset-top)) 18px 10px; font-size: 14px; }
+.infortune-intermission > header span { color: #a5b0be; font-size: 12px; }
+.infortune-intermission__scene { position: relative; flex: 1; min-height: 0; touch-action: none; user-select: none; }
+.infortune-intermission__scene canvas { width: 100%; height: 100%; display: block; }
+.infortune-intermission__controls { display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 8px; padding: 10px 14px max(12px, env(safe-area-inset-bottom)); background: #0a101a; }
+.infortune-intermission__controls p { flex-basis: 100%; margin: 0 0 4px; text-align: center; font-size: 13px; }
+.infortune-intermission button { padding: 10px 18px; border: 1px solid #bda47488; border-radius: 8px; color: #ffe1a8; background: #222634; cursor: pointer; touch-action: manipulation; }
+.infortune-intermission button:disabled { opacity: .4; cursor: default; }
+.infortune-intermission button:focus-visible { outline: 2px solid #ffe1a8; outline-offset: 3px; }
+.infortune-intermission .infortune-intermission__skip { border-color: transparent; color: #a6b2c4; background: transparent; }
+.infortune-intermission__waiting { flex: 1; display: grid; place-content: center; justify-items: center; padding: 24px; text-align: center; }
+.infortune-intermission__waiting strong { font-size: clamp(24px, 6vw, 46px); color: #ffe1a8; }
+.infortune-intermission__notice { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(90%, 440px); padding: 20px; text-align: center; background: #091423ed; border-radius: 12px; }
+.infortune-exchange { padding: 14px; text-align: center; background: linear-gradient(#0b2029, #040b13); border-top: 1px solid #5bdde5; color: #f1e5cb; }
+.infortune-exchange > strong { color: #8ef5ff; font-size: 20px; }
+.infortune-exchange p { font-size: 13px; margin: 7px 0; }
+.infortune-exchange > small { display: block; margin: 8px; color: #b8c5d1; }
+.infortune-exchange .infortune-contestants { background: transparent; }
+@media (max-height: 480px) { .infortune-intermission > header { padding: 5px 12px; } .infortune-intermission__controls { padding: 5px; } .infortune-intermission button { padding: 6px 12px; } }

@@ -1,0 +1,667 @@
+{
+  "schemaVersion": 1,
+  "kind": "riddle",
+  "groups": [
+    {
+      "category": "Corps humain",
+      "puzzles": [
+        {
+          "id": "if-r2001",
+          "difficulty": 1,
+          "answer": "front",
+          "clue": "Partie du visage entre les sourcils et la racine des cheveux, je peux me plisser quand vous réfléchissez."
+        },
+        {
+          "id": "if-r2002",
+          "difficulty": 2,
+          "answer": "tempe",
+          "clue": "Sur le côté de la tête, je me situe entre le front, l’œil et l’oreille."
+        },
+        {
+          "id": "if-r2003",
+          "difficulty": 1,
+          "answer": "joue",
+          "clue": "De chaque côté du visage, je peux rougir ou me gonfler lorsque vous retenez de l’air."
+        },
+        {
+          "id": "if-r2004",
+          "difficulty": 1,
+          "answer": "menton",
+          "clue": "Sous la bouche, je forme la partie saillante du bas du visage."
+        },
+        {
+          "id": "if-r2005",
+          "difficulty": 1,
+          "answer": "nuque",
+          "clue": "À l’arrière du cou, je relie visuellement la tête au haut du dos."
+        },
+        {
+          "id": "if-r2006",
+          "difficulty": 1,
+          "answer": "épaule",
+          "clue": "À la jonction du bras et du tronc, je porte souvent la sangle du sac."
+        },
+        {
+          "id": "if-r2007",
+          "difficulty": 1,
+          "answer": "aisselle",
+          "clue": "Creux situé sous le bras à sa jonction avec le thorax, j’abrite une zone où l’on transpire."
+        },
+        {
+          "id": "if-r2008",
+          "difficulty": 1,
+          "answer": "coude",
+          "clue": "Articulation du bras, je permets de rapprocher la main de l’épaule en pliant le membre."
+        },
+        {
+          "id": "if-r2009",
+          "difficulty": 1,
+          "answer": "poignet",
+          "clue": "Entre la main et l’avant-bras, je porte souvent une montre ou un bracelet."
+        },
+        {
+          "id": "if-r2010",
+          "difficulty": 1,
+          "answer": "paume",
+          "clue": "Face intérieure de la main, je reçois les objets que les doigts viennent retenir."
+        },
+        {
+          "id": "if-r2011",
+          "difficulty": 1,
+          "answer": "ongle",
+          "clue": "Au bout du doigt, je porte parfois une petite zone claire en croissant appelée lunule."
+        },
+        {
+          "id": "if-r2012",
+          "difficulty": 1,
+          "answer": "hanche",
+          "clue": "Articulation entre le bassin et la cuisse, je permets à la jambe de se déplacer dans plusieurs directions."
+        },
+        {
+          "id": "if-r2013",
+          "difficulty": 1,
+          "answer": "cuisse",
+          "clue": "Entre le bassin et le genou, ma face avant porte le quadriceps, un groupe de muscles puissant."
+        },
+        {
+          "id": "if-r2014",
+          "difficulty": 1,
+          "answer": "genou",
+          "clue": "Articulation entre la cuisse et la jambe, je me plie pour s’asseoir ou monter une marche."
+        },
+        {
+          "id": "if-r2015",
+          "difficulty": 1,
+          "answer": "mollet",
+          "clue": "À l’arrière de la jambe, mes muscles se dessinent entre le genou et le talon."
+        },
+        {
+          "id": "if-r2016",
+          "difficulty": 1,
+          "answer": "cheville",
+          "clue": "Articulation entre la jambe et le pied, je peux me tordre lors d’un faux pas."
+        },
+        {
+          "id": "if-r2017",
+          "difficulty": 1,
+          "answer": "orteil",
+          "clue": "Doigt du pied, je contribue à l’appui et à l’équilibre, bien à l’abri dans la chaussure."
+        },
+        {
+          "id": "if-r2018",
+          "difficulty": 1,
+          "answer": "pouce",
+          "clue": "Doigt opposable de la main, je peux rencontrer chacun de mes quatre voisins pour saisir un petit objet."
+        },
+        {
+          "id": "if-r2019",
+          "difficulty": 2,
+          "answer": "voûte",
+          "clue": "Plantaire, je forme l’arche sous le pied ; dans un bâtiment, mon nom couvre un espace."
+        },
+        {
+          "id": "if-r2020",
+          "difficulty": 2,
+          "answer": "pommette",
+          "clue": "Relief osseux de la joue sous l’œil, je peux devenir bien visible quand le visage sourit."
+        }
+      ]
+    },
+    {
+      "category": "Nature",
+      "puzzles": [
+        {
+          "id": "if-r2021",
+          "difficulty": 1,
+          "answer": "siamois",
+          "clue": "Chat aux yeux bleus, je possède traditionnellement des extrémités plus foncées que le reste du corps."
+        },
+        {
+          "id": "if-r2022",
+          "difficulty": 1,
+          "answer": "persan",
+          "clue": "Chat au pelage long et fourni, je suis connu pour ma tête ronde et mon museau souvent très court."
+        },
+        {
+          "id": "if-r2023",
+          "difficulty": 2,
+          "answer": "chartreux",
+          "clue": "Chat à la robe uniformément gris-bleu, je porte un nom qui évoque aussi un ordre monastique."
+        },
+        {
+          "id": "if-r2024",
+          "difficulty": 2,
+          "answer": "angora",
+          "clue": "Mon nom qualifie des animaux au pelage long et soyeux, notamment des chats et des lapins."
+        },
+        {
+          "id": "if-r2025",
+          "difficulty": 2,
+          "answer": "sphynx",
+          "clue": "Chat à la peau presque nue, je ne porte pas la fourrure épaisse de la plupart de mes cousins."
+        },
+        {
+          "id": "if-r2026",
+          "difficulty": 1,
+          "answer": "dalmatien",
+          "clue": "Chien à robe blanche marquée de taches noires ou brunes, je me reconnais au premier regard."
+        },
+        {
+          "id": "if-r2027",
+          "difficulty": 1,
+          "answer": "caniche",
+          "clue": "Chien au poil bouclé, je peux recevoir une coupe qui laisse de petites touffes aux pattes."
+        },
+        {
+          "id": "if-r2028",
+          "difficulty": 1,
+          "answer": "labrador",
+          "clue": "Chien de rapport souvent noir, jaune ou chocolat, je suis aussi connu pour l’aide apportée aux personnes handicapées."
+        },
+        {
+          "id": "if-r2029",
+          "difficulty": 2,
+          "answer": "beagle",
+          "clue": "Petit chien courant aux oreilles tombantes, je possède souvent une robe tricolore et un nez toujours en recherche."
+        },
+        {
+          "id": "if-r2030",
+          "difficulty": 1,
+          "answer": "boxer",
+          "clue": "Chien musclé au museau court, je porte un nom qui évoque un combattant avec des gants."
+        },
+        {
+          "id": "if-r2031",
+          "difficulty": 1,
+          "answer": "bouledogue",
+          "clue": "Chien trapu au museau court, je peux être français ou anglais selon la race."
+        },
+        {
+          "id": "if-r2032",
+          "difficulty": 1,
+          "answer": "husky",
+          "clue": "Chien de traîneau d’origine sibérienne, je porte un épais pelage et parfois des yeux bleus."
+        },
+        {
+          "id": "if-r2033",
+          "difficulty": 1,
+          "answer": "teckel",
+          "clue": "Chien au corps allongé et aux pattes courtes, je peux avoir le poil ras, long ou dur."
+        },
+        {
+          "id": "if-r2034",
+          "difficulty": 1,
+          "answer": "chihuahua",
+          "clue": "Très petit chien, je porte le nom d’un État du Mexique."
+        },
+        {
+          "id": "if-r2035",
+          "difficulty": 2,
+          "answer": "corgi",
+          "clue": "Chien bas sur pattes d’origine galloise, je suis particulièrement associé à la reine Élisabeth la Deuxième."
+        },
+        {
+          "id": "if-r2036",
+          "difficulty": 2,
+          "answer": "colley",
+          "clue": "Chien de berger au museau allongé, je suis devenu célèbre grâce au personnage de Lassie."
+        },
+        {
+          "id": "if-r2037",
+          "difficulty": 1,
+          "answer": "lévrier",
+          "clue": "Chien élancé aux longues pattes, je suis taillé pour courir vite à la poursuite du gibier."
+        },
+        {
+          "id": "if-r2038",
+          "difficulty": 1,
+          "answer": "épagneul",
+          "clue": "Chien de chasse aux oreilles tombantes, je peux notamment être breton."
+        },
+        {
+          "id": "if-r2039",
+          "difficulty": 2,
+          "answer": "doberman",
+          "clue": "Chien athlétique à robe souvent noire et feu, je porte le nom de mon créateur allemand.",
+          "acceptedAnswers": [
+            "dobermann"
+          ]
+        },
+        {
+          "id": "if-r2040",
+          "difficulty": 2,
+          "answer": "rottweiler",
+          "clue": "Chien puissant à robe noire et feu, je porte le nom d’une ville allemande liée à son élevage."
+        }
+      ]
+    },
+    {
+      "category": "Sons et bruits",
+      "puzzles": [
+        {
+          "id": "if-r2041",
+          "difficulty": 1,
+          "answer": "grondement",
+          "clue": "Bruit grave et sourd, je peux annoncer l’orage ou provenir d’un moteur puissant."
+        },
+        {
+          "id": "if-r2042",
+          "difficulty": 1,
+          "answer": "sifflement",
+          "clue": "Son aigu produit par un souffle, je peux venir des lèvres ou d’une fuite d’air."
+        },
+        {
+          "id": "if-r2043",
+          "difficulty": 1,
+          "answer": "bourdonnement",
+          "clue": "Bruit continu et grave, j’accompagne souvent le vol d’une abeille près de l’oreille."
+        },
+        {
+          "id": "if-r2044",
+          "difficulty": 1,
+          "answer": "grésillement",
+          "clue": "Petit bruit fait de crépitements serrés, je peux sortir d’un haut-parleur mal réglé."
+        },
+        {
+          "id": "if-r2045",
+          "difficulty": 1,
+          "answer": "crépitement",
+          "clue": "Suite de petits bruits secs, j’accompagne le bois qui brûle ou une friture."
+        },
+        {
+          "id": "if-r2046",
+          "difficulty": 1,
+          "answer": "claquement",
+          "clue": "Bruit bref et sec, je peux naître d’une porte fermée brutalement ou de deux mains qui se rencontrent."
+        },
+        {
+          "id": "if-r2047",
+          "difficulty": 1,
+          "answer": "cliquetis",
+          "clue": "Suite de petits chocs métalliques, je peux venir d’un trousseau de clés que l’on agite."
+        },
+        {
+          "id": "if-r2048",
+          "difficulty": 1,
+          "answer": "tintement",
+          "clue": "Son clair et léger, je nais lorsque deux verres se touchent ou qu’une petite cloche bouge."
+        },
+        {
+          "id": "if-r2049",
+          "difficulty": 1,
+          "answer": "sonnerie",
+          "clue": "Signal sonore destiné à attirer l’attention, je peux annoncer un appel ou la fin d’un cours."
+        },
+        {
+          "id": "if-r2050",
+          "difficulty": 1,
+          "answer": "carillon",
+          "clue": "Ensemble de cloches accordées, je peux jouer une mélodie au lieu de frapper une seule note."
+        },
+        {
+          "id": "if-r2051",
+          "difficulty": 1,
+          "answer": "murmure",
+          "clue": "Voix ou bruit très faible, je peux parcourir une salle sans devenir une conversation distincte."
+        },
+        {
+          "id": "if-r2052",
+          "difficulty": 1,
+          "answer": "brouhaha",
+          "clue": "Mélange confus de nombreuses voix, je remplis une salle où tout le monde parle en même temps."
+        },
+        {
+          "id": "if-r2053",
+          "difficulty": 1,
+          "answer": "vacarme",
+          "clue": "Bruit très fort et désordonné, j’empêche parfois d’entendre la personne à côté."
+        },
+        {
+          "id": "if-r2054",
+          "difficulty": 1,
+          "answer": "fracas",
+          "clue": "Bruit soudain et violent, j’accompagne parfois la chute d’un objet qui se brise."
+        },
+        {
+          "id": "if-r2055",
+          "difficulty": 2,
+          "answer": "clapotis",
+          "clue": "Petit bruit de l’eau agitée contre une rive ou une coque, j’accompagne les vagues légères."
+        },
+        {
+          "id": "if-r2056",
+          "difficulty": 1,
+          "answer": "ruissellement",
+          "clue": "Écoulement en petits filets sur une surface, je peux me faire entendre après la pluie."
+        },
+        {
+          "id": "if-r2057",
+          "difficulty": 1,
+          "answer": "gazouillis",
+          "clue": "Petits sons modulés et légers, je peux venir des oiseaux ou d’un bébé qui s’éveille."
+        },
+        {
+          "id": "if-r2058",
+          "difficulty": 2,
+          "answer": "pépiement",
+          "clue": "Petit cri bref d’oiseau, je me répète parfois dans un nid affamé."
+        },
+        {
+          "id": "if-r2059",
+          "difficulty": 1,
+          "answer": "ronronnement",
+          "clue": "Vibration sonore du chat, j’accompagne souvent un moment où il semble satisfait."
+        },
+        {
+          "id": "if-r2060",
+          "difficulty": 1,
+          "answer": "soupir",
+          "clue": "Longue expiration que l’on laisse entendre, je peux exprimer le soulagement, la lassitude ou le regret."
+        }
+      ]
+    },
+    {
+      "category": "Voyages et transports",
+      "puzzles": [
+        {
+          "id": "if-r2061",
+          "difficulty": 1,
+          "answer": "berline",
+          "clue": "Voiture fermée à plusieurs places, je possède généralement une carrosserie adaptée aux trajets familiaux."
+        },
+        {
+          "id": "if-r2062",
+          "difficulty": 1,
+          "answer": "cabriolet",
+          "clue": "Voiture dont le toit peut s’ouvrir largement ou se replier, je laisse rouler à l’air libre."
+        },
+        {
+          "id": "if-r2063",
+          "difficulty": 1,
+          "answer": "coupé",
+          "clue": "Voiture généralement à deux portes et à silhouette sportive, je ne suis pas forcément un morceau découpé."
+        },
+        {
+          "id": "if-r2064",
+          "difficulty": 1,
+          "answer": "break",
+          "clue": "Version de voiture au toit prolongé vers l’arrière, j’offre un grand espace de chargement."
+        },
+        {
+          "id": "if-r2065",
+          "difficulty": 1,
+          "answer": "monospace",
+          "clue": "Voiture familiale haute, je privilégie un habitacle vaste et modulable."
+        },
+        {
+          "id": "if-r2066",
+          "difficulty": 1,
+          "answer": "limousine",
+          "clue": "Grande voiture de luxe, je peux être allongée et séparer le chauffeur des passagers."
+        },
+        {
+          "id": "if-r2067",
+          "difficulty": 1,
+          "answer": "buggy",
+          "clue": "Petit véhicule léger aux roues adaptées au terrain, je peux rouler sur le sable ou les chemins."
+        },
+        {
+          "id": "if-r2068",
+          "difficulty": 1,
+          "answer": "quad",
+          "clue": "Véhicule motorisé à quatre roues que l’on chevauche, je possède un guidon plutôt qu’un volant."
+        },
+        {
+          "id": "if-r2069",
+          "difficulty": 1,
+          "answer": "tandem",
+          "clue": "Vélo prévu pour deux cyclistes placés l’un derrière l’autre, je réclame un pédalage coordonné."
+        },
+        {
+          "id": "if-r2070",
+          "difficulty": 1,
+          "answer": "trottinette",
+          "clue": "Avec une plateforme entre deux roues et un guidon, je peux avancer grâce au pied qui pousse le sol."
+        },
+        {
+          "id": "if-r2071",
+          "difficulty": 1,
+          "answer": "chaussée",
+          "clue": "Partie de la route où circulent les véhicules, je reste distincte du trottoir."
+        },
+        {
+          "id": "if-r2072",
+          "difficulty": 2,
+          "answer": "accotement",
+          "clue": "Bande sur le côté de la chaussée, je borde la route sans être sa principale zone de circulation."
+        },
+        {
+          "id": "if-r2073",
+          "difficulty": 1,
+          "answer": "sentier",
+          "clue": "Chemin étroit destiné surtout aux piétons, je serpente volontiers dans les bois."
+        },
+        {
+          "id": "if-r2074",
+          "difficulty": 1,
+          "answer": "ruelle",
+          "clue": "Petite rue étroite, je laisse parfois peu de place à deux personnes qui se croisent."
+        },
+        {
+          "id": "if-r2075",
+          "difficulty": 1,
+          "answer": "boulevard",
+          "clue": "Large voie urbaine, mon nom peut rappeler le tracé d’anciennes fortifications."
+        },
+        {
+          "id": "if-r2076",
+          "difficulty": 1,
+          "answer": "avenue",
+          "clue": "Grande voie souvent bordée d’arbres ou d’immeubles, je peux mener vers une place ou un monument."
+        },
+        {
+          "id": "if-r2077",
+          "difficulty": 1,
+          "answer": "allée",
+          "clue": "Voie aménagée pour le passage, je traverse un parc ou mène à une maison."
+        },
+        {
+          "id": "if-r2078",
+          "difficulty": 2,
+          "answer": "giratoire",
+          "clue": "Carrefour aménagé autour d’un îlot central, je fais circuler les véhicules sur un anneau."
+        },
+        {
+          "id": "if-r2079",
+          "difficulty": 1,
+          "answer": "déviation",
+          "clue": "Itinéraire de remplacement, je détourne les véhicules d’une route fermée ou encombrée."
+        },
+        {
+          "id": "if-r2080",
+          "difficulty": 1,
+          "answer": "bretelle",
+          "clue": "Sur la route, je relie deux axes ou permets d’entrer sur une voie rapide."
+        }
+      ]
+    },
+    {
+      "category": "Théâtre et spectacle",
+      "puzzles": [
+        {
+          "id": "if-r2081",
+          "difficulty": 1,
+          "answer": "acrobate",
+          "clue": "Je réalise des figures physiques difficiles qui demandent force, souplesse et maîtrise."
+        },
+        {
+          "id": "if-r2082",
+          "difficulty": 1,
+          "answer": "funambule",
+          "clue": "Je marche sur un câble tendu en gardant mon équilibre, parfois avec un balancier."
+        },
+        {
+          "id": "if-r2083",
+          "difficulty": 1,
+          "answer": "trapéziste",
+          "clue": "Dans les airs, je travaille sur une barre suspendue par deux cordes."
+        },
+        {
+          "id": "if-r2084",
+          "difficulty": 1,
+          "answer": "équilibriste",
+          "clue": "Je maintiens des positions instables ou des objets en équilibre pour en faire un numéro."
+        },
+        {
+          "id": "if-r2085",
+          "difficulty": 2,
+          "answer": "contorsionniste",
+          "clue": "Mon extrême souplesse me permet de plier le corps dans des positions surprenantes."
+        },
+        {
+          "id": "if-r2086",
+          "difficulty": 1,
+          "answer": "danseur",
+          "clue": "Je compose des mouvements du corps sur un rythme ou selon une chorégraphie.",
+          "acceptedAnswers": [
+            "danseuse"
+          ]
+        },
+        {
+          "id": "if-r2087",
+          "difficulty": 1,
+          "answer": "chanteur",
+          "clue": "J’utilise ma voix pour interpréter des mélodies devant un public ou en studio.",
+          "acceptedAnswers": [
+            "chanteuse"
+          ]
+        },
+        {
+          "id": "if-r2088",
+          "difficulty": 1,
+          "answer": "conteur",
+          "clue": "Je fais vivre une histoire en la racontant à voix haute à ceux qui écoutent.",
+          "acceptedAnswers": [
+            "conteuse"
+          ]
+        },
+        {
+          "id": "if-r2089",
+          "difficulty": 1,
+          "answer": "acteur",
+          "clue": "J’incarne un personnage au théâtre ou à l’écran en prêtant mon corps et ma voix à son histoire.",
+          "acceptedAnswers": [
+            "comédien"
+          ]
+        },
+        {
+          "id": "if-r2090",
+          "difficulty": 1,
+          "answer": "humoriste",
+          "clue": "Mon métier consiste notamment à écrire et interpréter des situations ou des textes pour faire rire."
+        },
+        {
+          "id": "if-r2091",
+          "difficulty": 1,
+          "answer": "imitateur",
+          "clue": "Je reproduis la voix et les manières de personnes connues pour les rendre reconnaissables.",
+          "acceptedAnswers": [
+            "imitatrice"
+          ]
+        },
+        {
+          "id": "if-r2092",
+          "difficulty": 1,
+          "answer": "musicien",
+          "clue": "Je pratique un instrument et participe à l’interprétation ou à la création de morceaux.",
+          "acceptedAnswers": [
+            "musicienne"
+          ]
+        },
+        {
+          "id": "if-r2093",
+          "difficulty": 1,
+          "answer": "compositeur",
+          "clue": "Je crée la musique d’une œuvre en organisant les sons, les rythmes et les harmonies.",
+          "acceptedAnswers": [
+            "compositrice"
+          ]
+        },
+        {
+          "id": "if-r2094",
+          "difficulty": 1,
+          "answer": "parolier",
+          "clue": "J’écris le texte des chansons, sans forcément composer leur musique.",
+          "acceptedAnswers": [
+            "parolière"
+          ]
+        },
+        {
+          "id": "if-r2095",
+          "difficulty": 2,
+          "answer": "chorégraphe",
+          "clue": "J’invente et organise les mouvements d’un spectacle de danse."
+        },
+        {
+          "id": "if-r2096",
+          "difficulty": 1,
+          "answer": "marionnettiste",
+          "clue": "J’anime des personnages de bois, de tissu ou d’autres matières avec mes mains, des tiges ou des fils."
+        },
+        {
+          "id": "if-r2097",
+          "difficulty": 1,
+          "answer": "décorateur",
+          "clue": "Je conçois l’apparence des lieux d’un spectacle ou d’un film pour donner un cadre à l’action.",
+          "acceptedAnswers": [
+            "décoratrice"
+          ]
+        },
+        {
+          "id": "if-r2098",
+          "difficulty": 2,
+          "answer": "scénographe",
+          "clue": "J’organise l’espace d’un spectacle en relation avec le décor, la lumière et les déplacements."
+        },
+        {
+          "id": "if-r2099",
+          "difficulty": 1,
+          "answer": "poète",
+          "clue": "Je travaille la langue, ses images et ses rythmes pour composer des textes en vers ou en prose.",
+          "acceptedAnswers": [
+            "poétesse"
+          ]
+        },
+        {
+          "id": "if-r2100",
+          "difficulty": 1,
+          "answer": "romancier",
+          "clue": "J’invente et développe des récits de fiction assez longs pour former des romans.",
+          "acceptedAnswers": [
+            "romancière"
+          ]
+        }
+      ]
+    }
+  ]
+}

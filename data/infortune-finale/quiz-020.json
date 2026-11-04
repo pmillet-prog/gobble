@@ -1,0 +1,637 @@
+{
+  "schemaVersion": 1,
+  "kind": "quiz",
+  "groups": [
+    {
+      "category": "Villes et capitales",
+      "puzzles": [
+        {
+          "id": "if-q1802",
+          "difficulty": 2,
+          "answer": "Dijon",
+          "clue": "Quelle ville bourguignonne possède un palais des ducs et une chouette sculptée devenue son emblème ?"
+        },
+        {
+          "id": "if-q1803",
+          "difficulty": 2,
+          "answer": "Besançon",
+          "clue": "Quelle ville du Doubs est dominée par une citadelle aménagée par Vauban ?"
+        },
+        {
+          "id": "if-q1804",
+          "difficulty": 2,
+          "answer": "Belfort",
+          "clue": "Quelle ville française est associée au grand lion sculpté au pied de sa citadelle ?"
+        },
+        {
+          "id": "if-q1805",
+          "difficulty": 2,
+          "answer": "Colmar",
+          "clue": "Quelle ville alsacienne possède un quartier touristique surnommé la Petite Venise ?"
+        },
+        {
+          "id": "if-q1806",
+          "difficulty": 2,
+          "answer": "Mulhouse",
+          "clue": "Quelle ville alsacienne accueille la Cité de l’automobile, issue de la collection Schlumpf ?"
+        },
+        {
+          "id": "if-q1807",
+          "difficulty": 2,
+          "answer": "Metz",
+          "clue": "Dans quelle ville lorraine se trouve une antenne du Centre Pompidou inaugurée au début des années deux mille dix ?"
+        },
+        {
+          "id": "if-q1808",
+          "difficulty": 2,
+          "answer": "Amiens",
+          "clue": "Quelle ville de la Somme est célèbre pour sa cathédrale gothique et ses hortillonnages ?"
+        },
+        {
+          "id": "if-q1809",
+          "difficulty": 2,
+          "answer": "Arras",
+          "clue": "Quelle ville du Pas-de-Calais possède une Grand-Place et une place des Héros bordées de façades à pignons ?"
+        },
+        {
+          "id": "if-q1810",
+          "difficulty": 2,
+          "answer": "Calais",
+          "clue": "Quelle ville portuaire française a donné son nom aux Bourgeois sculptés par Auguste Rodin ?"
+        },
+        {
+          "id": "if-q1811",
+          "difficulty": 2,
+          "answer": "Dieppe",
+          "clue": "Quelle ville portuaire normande accueille un grand festival international de cerfs-volants ?"
+        },
+        {
+          "id": "if-q1812",
+          "difficulty": 2,
+          "answer": "Honfleur",
+          "clue": "Quel port normand possède un Vieux Bassin entouré de maisons hautes et étroites ?"
+        },
+        {
+          "id": "if-q1813",
+          "difficulty": 2,
+          "answer": "Bayeux",
+          "clue": "Quelle ville normande conserve la célèbre tapisserie racontant la conquête de l’Angleterre ?"
+        },
+        {
+          "id": "if-q1814",
+          "difficulty": 2,
+          "answer": "Caen",
+          "clue": "Quelle ville normande possède l’Abbaye aux Hommes fondée par Guillaume le Conquérant ?"
+        },
+        {
+          "id": "if-q1815",
+          "difficulty": 2,
+          "answer": "Cherbourg",
+          "clue": "Quelle ville normande abrite la Cité de la Mer et le sous-marin Le Redoutable ?"
+        },
+        {
+          "id": "if-q1816",
+          "difficulty": 2,
+          "answer": "Rennes",
+          "clue": "Quelle ville bretonne possède le palais du Parlement de Bretagne ?"
+        },
+        {
+          "id": "if-q1817",
+          "difficulty": 2,
+          "answer": "Quimper",
+          "clue": "Quelle ville bretonne est réputée pour ses faïences et sa cathédrale Saint-Corentin ?"
+        },
+        {
+          "id": "if-q1818",
+          "difficulty": 2,
+          "answer": "Lorient",
+          "clue": "Quelle ville bretonne accueille le Festival interceltique ?"
+        },
+        {
+          "id": "if-q1819",
+          "difficulty": 2,
+          "answer": "Vannes",
+          "clue": "Quelle ville du golfe du Morbihan possède des remparts et un centre ancien à maisons à colombages ?"
+        },
+        {
+          "id": "if-q1820",
+          "difficulty": 2,
+          "answer": "Saumur",
+          "clue": "Quelle ville ligérienne est associée à l’école d’équitation du Cadre noir ?"
+        },
+        {
+          "id": "if-q1821",
+          "difficulty": 2,
+          "answer": "Tours",
+          "clue": "Quelle ville de Touraine est traversée par la Loire et possède la place Plumereau ?"
+        }
+      ]
+    },
+    {
+      "category": "Villes et capitales",
+      "puzzles": [
+        {
+          "id": "if-q1822",
+          "difficulty": 1,
+          "answer": "Bruges",
+          "clue": "Quelle ville belge aux canaux et au centre médiéval est souvent surnommée la Venise du Nord ?"
+        },
+        {
+          "id": "if-q1823",
+          "difficulty": 2,
+          "answer": "Anvers",
+          "clue": "Quelle ville belge est historiquement connue pour le commerce et la taille des diamants ?"
+        },
+        {
+          "id": "if-q1824",
+          "difficulty": 1,
+          "answer": "Genève",
+          "clue": "Quelle ville suisse possède un grand jet d’eau sur le Léman ?"
+        },
+        {
+          "id": "if-q1825",
+          "difficulty": 2,
+          "answer": "Lausanne",
+          "clue": "Dans quelle ville suisse se trouve le siège du Comité international olympique ?"
+        },
+        {
+          "id": "if-q1826",
+          "difficulty": 2,
+          "answer": "Zurich",
+          "clue": "Quelle grande ville suisse donne son nom au lac dont elle occupe l’extrémité nord-ouest ?"
+        },
+        {
+          "id": "if-q1827",
+          "difficulty": 2,
+          "answer": "Salzbourg",
+          "clue": "Dans quelle ville autrichienne Mozart est-il né ?"
+        },
+        {
+          "id": "if-q1828",
+          "difficulty": 1,
+          "answer": "Munich",
+          "clue": "Quelle ville bavaroise est associée à la fête de la bière appelée Oktoberfest ?"
+        },
+        {
+          "id": "if-q1829",
+          "difficulty": 2,
+          "answer": "Cologne",
+          "clue": "Quelle ville allemande sur le Rhin est célèbre pour sa cathédrale à deux hautes flèches ?"
+        },
+        {
+          "id": "if-q1830",
+          "difficulty": 2,
+          "answer": "Hambourg",
+          "clue": "Quelle grande ville portuaire allemande est située sur l’Elbe ?"
+        },
+        {
+          "id": "if-q1831",
+          "difficulty": 1,
+          "answer": "Séville",
+          "clue": "Quelle ville andalouse abrite la Giralda et la place d’Espagne construite pour une exposition ?"
+        },
+        {
+          "id": "if-q1832",
+          "difficulty": 1,
+          "answer": "Grenade",
+          "clue": "Quelle ville andalouse est dominée par les palais de l’Alhambra ?"
+        },
+        {
+          "id": "if-q1833",
+          "difficulty": 2,
+          "answer": "Cordoue",
+          "clue": "Quelle ville andalouse est célèbre pour sa grande mosquée devenue cathédrale ?"
+        },
+        {
+          "id": "if-q1834",
+          "difficulty": 1,
+          "answer": "Bilbao",
+          "clue": "Quelle ville basque espagnole possède un musée Guggenheim aux formes métalliques conçu par Frank Gehry ?"
+        },
+        {
+          "id": "if-q1835",
+          "difficulty": 1,
+          "answer": "Porto",
+          "clue": "Quelle ville portugaise, à l’embouchure du Douro, donne son nom à un vin fortifié ?"
+        },
+        {
+          "id": "if-q1836",
+          "difficulty": 1,
+          "answer": "Vatican",
+          "clue": "Quel minuscule État enclavé dans Rome abrite la basilique Saint-Pierre ?"
+        },
+        {
+          "id": "if-q1837",
+          "difficulty": 1,
+          "answer": "Istanbul",
+          "clue": "Quelle ville turque abrite Sainte-Sophie et le palais de Topkapi ?"
+        },
+        {
+          "id": "if-q1838",
+          "difficulty": 1,
+          "answer": "Marrakech",
+          "clue": "Quelle ville marocaine est célèbre pour la place Jemaa el-Fna et ses souks ?"
+        },
+        {
+          "id": "if-q1839",
+          "difficulty": 2,
+          "answer": "Fès",
+          "clue": "Quelle ville marocaine est connue notamment pour sa médina et ses tanneries traditionnelles ?"
+        },
+        {
+          "id": "if-q1840",
+          "difficulty": 2,
+          "answer": "Tombouctou",
+          "clue": "Quelle ville historique du Mali est célèbre pour ses manuscrits et ses mosquées de terre ?"
+        },
+        {
+          "id": "if-q1841",
+          "difficulty": 1,
+          "answer": "Dakar",
+          "clue": "Quelle capitale africaine se trouve à l’extrémité de la presqu’île du Cap-Vert ?"
+        }
+      ]
+    },
+    {
+      "category": "Cinéma et séries",
+      "puzzles": [
+        {
+          "id": "if-q1842",
+          "difficulty": 1,
+          "answer": "Timon",
+          "clue": "Quel suricate accompagne Pumbaa et Simba dans Le Roi lion ?"
+        },
+        {
+          "id": "if-q1843",
+          "difficulty": 1,
+          "answer": "Pumbaa",
+          "clue": "Quel phacochère est l’ami inséparable de Timon dans Le Roi lion ?"
+        },
+        {
+          "id": "if-q1844",
+          "difficulty": 1,
+          "answer": "Scar",
+          "clue": "Quel frère de Mufasa cherche à prendre sa place dans Le Roi lion ?"
+        },
+        {
+          "id": "if-q1845",
+          "difficulty": 1,
+          "answer": "Nala",
+          "clue": "Quelle amie d’enfance de Simba devient sa compagne dans Le Roi lion ?"
+        },
+        {
+          "id": "if-q1846",
+          "difficulty": 1,
+          "answer": "Zazu",
+          "clue": "Quel oiseau conseiller accompagne le roi Mufasa dans Le Roi lion ?"
+        },
+        {
+          "id": "if-q1847",
+          "difficulty": 1,
+          "answer": "Mufasa",
+          "clue": "Quel roi lion est trahi par Scar dans une gorge envahie par un troupeau de gnous ?"
+        },
+        {
+          "id": "if-q1848",
+          "difficulty": 1,
+          "answer": "Jafar",
+          "clue": "Quel vizir malfaisant s’oppose au héros dans Aladdin de Disney ?"
+        },
+        {
+          "id": "if-q1849",
+          "difficulty": 1,
+          "answer": "Jasmine",
+          "clue": "Quel est le prénom de la princesse d’Agrabah dans Aladdin ?"
+        },
+        {
+          "id": "if-q1850",
+          "difficulty": 2,
+          "answer": "Abu",
+          "clue": "Quel petit singe est le compagnon d’Aladdin dans le dessin animé de Disney ?"
+        },
+        {
+          "id": "if-q1851",
+          "difficulty": 1,
+          "answer": "Ursula",
+          "clue": "Quelle sorcière des mers propose un marché à Ariel dans La Petite Sirène de Disney ?"
+        },
+        {
+          "id": "if-q1852",
+          "difficulty": 1,
+          "answer": "Sébastien",
+          "clue": "Quel crabe musicien veille sur Ariel dans La Petite Sirène de Disney ?"
+        },
+        {
+          "id": "if-q1853",
+          "difficulty": 2,
+          "answer": "Polochon",
+          "clue": "Quel petit poisson jaune et bleu est l’ami d’Ariel dans La Petite Sirène de Disney ?"
+        },
+        {
+          "id": "if-q1854",
+          "difficulty": 1,
+          "answer": "fourchette",
+          "clue": "Dans La Petite Sirène de Disney, quel couvert Ariel utilise-t-elle pour se coiffer lors du repas avec le prince ?"
+        },
+        {
+          "id": "if-q1855",
+          "difficulty": 1,
+          "answer": "Gaston",
+          "clue": "Quel chasseur vaniteux veut épouser Belle dans La Belle et la Bête de Disney ?"
+        },
+        {
+          "id": "if-q1856",
+          "difficulty": 1,
+          "answer": "Lumière",
+          "clue": "Quel serviteur transformé en chandelier accueille Belle au château dans La Belle et la Bête de Disney ?"
+        },
+        {
+          "id": "if-q1857",
+          "difficulty": 1,
+          "answer": "théière",
+          "clue": "En quel récipient à boisson chaude Madame Samovar est-elle transformée dans La Belle et la Bête de Disney ?"
+        },
+        {
+          "id": "if-q1858",
+          "difficulty": 1,
+          "answer": "Mushu",
+          "clue": "Quel petit dragon accompagne l’héroïne dans Mulan de Disney ?"
+        },
+        {
+          "id": "if-q1859",
+          "difficulty": 2,
+          "answer": "Kuzco",
+          "clue": "Quel empereur capricieux est transformé en lama dans un film d’animation Disney ?"
+        },
+        {
+          "id": "if-q1860",
+          "difficulty": 1,
+          "answer": "Stitch",
+          "clue": "Quel extraterrestre bleu devient l’ami d’une petite fille hawaïenne prénommée Lilo ?"
+        },
+        {
+          "id": "if-q1861",
+          "difficulty": 1,
+          "answer": "Vaiana",
+          "clue": "Quelle héroïne de Disney part sur l’océan avec le demi-dieu Maui ?",
+          "acceptedAnswers": [
+            "Moana"
+          ]
+        }
+      ]
+    },
+    {
+      "category": "Boissons",
+      "puzzles": [
+        {
+          "id": "if-q1862",
+          "difficulty": 1,
+          "answer": "cidre",
+          "clue": "Quelle boisson est obtenue par fermentation du jus de pomme ?"
+        },
+        {
+          "id": "if-q1863",
+          "difficulty": 2,
+          "answer": "poiré",
+          "clue": "Quelle boisson fermentée est produite à partir de poires ?"
+        },
+        {
+          "id": "if-q1864",
+          "difficulty": 1,
+          "answer": "bière",
+          "clue": "Quelle boisson fermentée est généralement élaborée avec du malt, du houblon, de l’eau et des levures ?"
+        },
+        {
+          "id": "if-q1865",
+          "difficulty": 1,
+          "answer": "vin",
+          "clue": "Quelle boisson est traditionnellement obtenue par fermentation du raisin ?"
+        },
+        {
+          "id": "if-q1866",
+          "difficulty": 1,
+          "answer": "champagne",
+          "clue": "Quel vin effervescent français porte le nom d’une région située à l’est de Paris ?"
+        },
+        {
+          "id": "if-q1867",
+          "difficulty": 2,
+          "answer": "crémant",
+          "clue": "Quel nom désigne certains vins effervescents français élaborés hors de la Champagne selon un procédé traditionnel ?"
+        },
+        {
+          "id": "if-q1868",
+          "difficulty": 1,
+          "answer": "soda",
+          "clue": "Quel terme général désigne une boisson gazeuse aromatisée, généralement sucrée ?"
+        },
+        {
+          "id": "if-q1869",
+          "difficulty": 1,
+          "answer": "tonic",
+          "clue": "Quelle boisson gazeuse amère doit traditionnellement son goût à la quinine ?"
+        },
+        {
+          "id": "if-q1870",
+          "difficulty": 2,
+          "answer": "kéfir",
+          "clue": "Quelle boisson fermentée peut être préparée avec du lait ou avec de l’eau sucrée et des fruits ?"
+        },
+        {
+          "id": "if-q1871",
+          "difficulty": 2,
+          "answer": "kombucha",
+          "clue": "Quelle boisson est obtenue en faisant fermenter du thé sucré avec une culture de bactéries et de levures ?"
+        },
+        {
+          "id": "if-q1872",
+          "difficulty": 1,
+          "answer": "smoothie",
+          "clue": "Quel mélange épais de fruits mixés se boit généralement froid ?"
+        },
+        {
+          "id": "if-q1873",
+          "difficulty": 1,
+          "answer": "milkshake",
+          "clue": "Quelle boisson crémeuse mélange notamment du lait et de la glace ?"
+        },
+        {
+          "id": "if-q1874",
+          "difficulty": 1,
+          "answer": "grenadine",
+          "clue": "Quel sirop rouge porte un nom dérivé de la grenade, même lorsque sa recette emploie d’autres fruits rouges ?"
+        },
+        {
+          "id": "if-q1875",
+          "difficulty": 2,
+          "answer": "maté",
+          "clue": "Quelle infusion sud-américaine se boit traditionnellement avec une paille filtrante appelée bombilla ?"
+        },
+        {
+          "id": "if-q1876",
+          "difficulty": 2,
+          "answer": "rooibos",
+          "clue": "Quelle infusion rougeâtre d’une plante sud-africaine est souvent appelée à tort thé rouge ?"
+        },
+        {
+          "id": "if-q1877",
+          "difficulty": 1,
+          "answer": "décaféiné",
+          "clue": "Quel adjectif qualifie un café dont la majeure partie de la caféine a été retirée ?"
+        },
+        {
+          "id": "if-q1878",
+          "difficulty": 1,
+          "answer": "moka",
+          "clue": "Quel nom peut désigner un café, un gâteau au café ou une cafetière italienne selon le contexte ?"
+        },
+        {
+          "id": "if-q1879",
+          "difficulty": 2,
+          "answer": "ristretto",
+          "clue": "Quel café italien est préparé avec moins d’eau qu’un espresso, pour une tasse très courte ?"
+        },
+        {
+          "id": "if-q1880",
+          "difficulty": 1,
+          "answer": "latte",
+          "clue": "Quel mot italien signifiant lait entre dans le nom de nombreuses boissons au café adoucies de lait ?"
+        },
+        {
+          "id": "if-q1881",
+          "difficulty": 1,
+          "answer": "infusion",
+          "clue": "Quel procédé consiste à laisser une matière végétale dans de l’eau chaude pour en extraire les saveurs ?"
+        }
+      ]
+    },
+    {
+      "category": "Corps humain",
+      "puzzles": [
+        {
+          "id": "if-q1882",
+          "difficulty": 1,
+          "answer": "crâne",
+          "clue": "Quel ensemble osseux protège principalement le cerveau ?"
+        },
+        {
+          "id": "if-q1883",
+          "difficulty": 2,
+          "answer": "clavicule",
+          "clue": "Quel os allongé relie le sternum à l’épaule, de chaque côté du haut du thorax ?"
+        },
+        {
+          "id": "if-q1884",
+          "difficulty": 2,
+          "answer": "omoplate",
+          "clue": "Quel os plat et triangulaire se trouve à l’arrière de l’épaule ?",
+          "acceptedAnswers": [
+            "scapula"
+          ]
+        },
+        {
+          "id": "if-q1885",
+          "difficulty": 2,
+          "answer": "sternum",
+          "clue": "Quel os plat se situe au milieu de l’avant de la cage thoracique ?"
+        },
+        {
+          "id": "if-q1886",
+          "difficulty": 1,
+          "answer": "côte",
+          "clue": "Quel os courbé forme avec ses semblables une partie de la cage thoracique ?"
+        },
+        {
+          "id": "if-q1887",
+          "difficulty": 2,
+          "answer": "humérus",
+          "clue": "Quel os long se trouve dans le bras entre l’épaule et le coude ?"
+        },
+        {
+          "id": "if-q1888",
+          "difficulty": 2,
+          "answer": "radius",
+          "clue": "Quel os de l’avant-bras se trouve du côté du pouce ?"
+        },
+        {
+          "id": "if-q1889",
+          "difficulty": 2,
+          "answer": "cubitus",
+          "clue": "Quel ancien nom porte l’ulna, l’os de l’avant-bras situé du côté du petit doigt ?"
+        },
+        {
+          "id": "if-q1890",
+          "difficulty": 1,
+          "answer": "tibia",
+          "clue": "Quel gros os de la jambe se situe entre le genou et la cheville, du côté intérieur ?"
+        },
+        {
+          "id": "if-q1891",
+          "difficulty": 2,
+          "answer": "péroné",
+          "clue": "Quel ancien nom porte la fibula, l’os fin situé sur le côté extérieur de la jambe ?"
+        },
+        {
+          "id": "if-q1892",
+          "difficulty": 2,
+          "answer": "phalange",
+          "clue": "Quel nom porte chacun des petits os articulés qui composent les doigts et les orteils ?"
+        },
+        {
+          "id": "if-q1893",
+          "difficulty": 1,
+          "answer": "bassin",
+          "clue": "Quel ensemble osseux relie la colonne vertébrale aux membres inférieurs ?"
+        },
+        {
+          "id": "if-q1894",
+          "difficulty": 2,
+          "answer": "sacrum",
+          "clue": "Quel os situé à la base de la colonne vertébrale résulte de la fusion de plusieurs vertèbres ?"
+        },
+        {
+          "id": "if-q1895",
+          "difficulty": 2,
+          "answer": "coccyx",
+          "clue": "Quel petit os termine la colonne vertébrale sous le sacrum ?"
+        },
+        {
+          "id": "if-q1896",
+          "difficulty": 2,
+          "answer": "mandibule",
+          "clue": "Quel os mobile forme la mâchoire inférieure ?"
+        },
+        {
+          "id": "if-q1897",
+          "difficulty": 1,
+          "answer": "incisive",
+          "clue": "Quel type de dent à bord tranchant sert principalement à couper les aliments ?"
+        },
+        {
+          "id": "if-q1898",
+          "difficulty": 1,
+          "answer": "canine",
+          "clue": "Quel type de dent pointue se situe entre les incisives et les prémolaires ?"
+        },
+        {
+          "id": "if-q1899",
+          "difficulty": 1,
+          "answer": "molaire",
+          "clue": "Quel type de grosse dent au fond de la bouche sert surtout à broyer les aliments ?"
+        },
+        {
+          "id": "if-q1900",
+          "difficulty": 1,
+          "answer": "émail",
+          "clue": "Quelle substance très dure recouvre la couronne de la dent ?"
+        },
+        {
+          "id": "if-q1901",
+          "difficulty": 1,
+          "answer": "gencive",
+          "clue": "Quel tissu rose entoure la base visible des dents ?"
+        }
+      ]
+    }
+  ]
+}

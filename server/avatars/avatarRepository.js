@@ -1,6 +1,6 @@
 import { runSqliteImmediateTransaction } from "../sqliteQueue.js";
 
-export function createAvatarRepository({ getDb, runWrite }) {
+export function createAvatarRepository({ getDb, runWrite, renders = null }) {
   const decode = (userId, row) => ({
     userId,
     avatar: row ? JSON.parse(row.configuration) : null,
@@ -11,7 +11,11 @@ export function createAvatarRepository({ getDb, runWrite }) {
     "SELECT configuration, revision, updated_at FROM user_avatars WHERE user_id = ?", userId
   );
   return {
-    async get(userId) { return decode(userId, await read(await getDb(), userId)); },
+    async get(userId) {
+      const db = await getDb(), snapshot = decode(userId, await read(db, userId));
+      if (renders && snapshot.avatar) snapshot.avatar = (await renders.decorate({ [userId]: snapshot.avatar }, db))[userId];
+      return snapshot;
+    },
     async getMany(userIds) {
       if (!userIds.length) return {};
       const db = await getDb();
@@ -19,7 +23,8 @@ export function createAvatarRepository({ getDb, runWrite }) {
         `SELECT user_id, configuration FROM user_avatars WHERE user_id IN (${userIds.map(() => "?").join(",")})`,
         ...userIds
       );
-      return Object.fromEntries(rows.map(row => [row.user_id, JSON.parse(row.configuration)]));
+      const avatars = Object.fromEntries(rows.map(row => [row.user_id, JSON.parse(row.configuration)]));
+      return renders ? renders.decorate(avatars, db) : avatars;
     },
     async getThumbnail(userId) {
       return (await getDb()).get(`SELECT t.revision, t.render_version AS renderVersion, t.png
@@ -43,6 +48,8 @@ export function createAvatarRepository({ getDb, runWrite }) {
               render_version = excluded.render_version, png = excluded.png`,
           userId, snapshot.revision, thumbnail.renderVersion, thumbnail.png);
         }
+        if (result.changes === 1 && thumbnail?.assets) await renders?.write(db, userId, snapshot.revision, thumbnail.assets);
+        if (renders && snapshot.avatar) snapshot.avatar = (await renders.decorate({ [userId]: snapshot.avatar }, db))[userId];
         return { saved: result.changes === 1, ...snapshot };
       }, { label: "account-avatar" }));
     },

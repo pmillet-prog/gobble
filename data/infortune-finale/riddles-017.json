@@ -1,0 +1,635 @@
+{
+  "schemaVersion": 1,
+  "kind": "riddle",
+  "groups": [
+    {
+      "category": "Sports",
+      "puzzles": [
+        {
+          "id": "if-r1501",
+          "difficulty": 1,
+          "answer": "échauffement",
+          "clue": "Avant l’effort principal, je prépare progressivement les muscles et le corps à bouger."
+        },
+        {
+          "id": "if-r1502",
+          "difficulty": 1,
+          "answer": "étirement",
+          "clue": "En allongeant doucement un muscle, je travaille sa souplesse sans être une course."
+        },
+        {
+          "id": "if-r1503",
+          "difficulty": 1,
+          "answer": "endurance",
+          "clue": "Je vous aide à soutenir un effort longtemps, alors que la vitesse seule ne suffit pas."
+        },
+        {
+          "id": "if-r1504",
+          "difficulty": 1,
+          "answer": "souplesse",
+          "clue": "Je facilite les mouvements de grande amplitude ; les contorsionnistes m’exercent particulièrement."
+        },
+        {
+          "id": "if-r1505",
+          "difficulty": 1,
+          "answer": "détente",
+          "clue": "Chez le sauteur, je désigne la capacité à quitter le sol avec puissance."
+        },
+        {
+          "id": "if-r1506",
+          "difficulty": 1,
+          "answer": "élan",
+          "clue": "Avant de sauter, la course me donne de la vitesse ; je ne porte alors aucun bois sur la tête."
+        },
+        {
+          "id": "if-r1507",
+          "difficulty": 1,
+          "answer": "appui",
+          "clue": "Point de contact qui soutient le corps, je peux passer d’un pied à l’autre pendant le mouvement."
+        },
+        {
+          "id": "if-r1508",
+          "difficulty": 2,
+          "answer": "impulsion",
+          "clue": "Poussée brève et énergique, je lance le corps dans un saut."
+        },
+        {
+          "id": "if-r1509",
+          "difficulty": 1,
+          "answer": "réception",
+          "clue": "Après un saut, je ramène l’athlète au sol ; je demande de garder le contrôle de ses appuis."
+        },
+        {
+          "id": "if-r1510",
+          "difficulty": 1,
+          "answer": "roulade",
+          "clue": "Le corps groupé tourne sur lui-même en roulant au sol, vers l’avant ou vers l’arrière : c’est mon mouvement."
+        },
+        {
+          "id": "if-r1511",
+          "difficulty": 1,
+          "answer": "pirouette",
+          "clue": "Je fais tourner le danseur ou le patineur sur lui-même autour d’un axe presque vertical."
+        },
+        {
+          "id": "if-r1512",
+          "difficulty": 1,
+          "answer": "culbute",
+          "clue": "Renversement du corps sur lui-même, je fais passer la tête en bas dans un mouvement parfois maladroit."
+        },
+        {
+          "id": "if-r1513",
+          "difficulty": 1,
+          "answer": "salto",
+          "clue": "Saut acrobatique, je réalise une rotation complète du corps en l’air avant de retrouver le sol."
+        },
+        {
+          "id": "if-r1514",
+          "difficulty": 2,
+          "answer": "gainage",
+          "clue": "Exercice de maintien, je fais travailler les muscles du tronc en gardant une position stable."
+        },
+        {
+          "id": "if-r1515",
+          "difficulty": 1,
+          "answer": "pompe",
+          "clue": "Au sol, je fais monter et descendre le corps en pliant puis en tendant les bras."
+        },
+        {
+          "id": "if-r1516",
+          "difficulty": 1,
+          "answer": "traction",
+          "clue": "Suspendu à une barre, le sportif me réalise en tirant pour remonter son corps."
+        },
+        {
+          "id": "if-r1517",
+          "difficulty": 1,
+          "answer": "squat",
+          "clue": "Exercice où l’on fléchit les jambes comme pour s’asseoir, puis où l’on se redresse."
+        },
+        {
+          "id": "if-r1518",
+          "difficulty": 1,
+          "answer": "fente",
+          "clue": "En avançant un pied et en fléchissant les jambes, le sportif me réalise pour travailler le bas du corps."
+        },
+        {
+          "id": "if-r1519",
+          "difficulty": 1,
+          "answer": "foulée",
+          "clue": "Dans la course à pied, je désigne le mouvement entre deux appuis successifs ; ma longueur varie avec l’allure."
+        },
+        {
+          "id": "if-r1520",
+          "difficulty": 1,
+          "answer": "relais",
+          "clue": "Dans ma course, les équipiers se succèdent en se transmettant un témoin."
+        }
+      ]
+    },
+    {
+      "category": "Géométrie",
+      "puzzles": [
+        {
+          "id": "if-r1521",
+          "difficulty": 1,
+          "answer": "sommet",
+          "clue": "Je suis le point où se rencontrent des côtés ou des arêtes ; sur une montagne, je suis tout en haut."
+        },
+        {
+          "id": "if-r1522",
+          "difficulty": 1,
+          "answer": "base",
+          "clue": "Face ou côté de référence d’une figure, je peux servir à calculer sa hauteur."
+        },
+        {
+          "id": "if-r1523",
+          "difficulty": 1,
+          "answer": "centre",
+          "clue": "Dans un rectangle, je suis le point où les deux diagonales se croisent."
+        },
+        {
+          "id": "if-r1524",
+          "difficulty": 1,
+          "answer": "angle",
+          "clue": "Deux demi-droites issues du même point me dessinent ; on me mesure souvent en degrés."
+        },
+        {
+          "id": "if-r1525",
+          "difficulty": 1,
+          "answer": "contour",
+          "clue": "Je suis la ligne qui suit les limites d’une forme ; me tracer revient à en dessiner le bord."
+        },
+        {
+          "id": "if-r1526",
+          "difficulty": 1,
+          "answer": "surface",
+          "clue": "Je représente une étendue à deux dimensions, comme le dessus d’une table à recouvrir."
+        },
+        {
+          "id": "if-r1527",
+          "difficulty": 1,
+          "answer": "volume",
+          "clue": "Je mesure l’espace occupé en trois dimensions ; une boîte peut avoir beaucoup de moi sans peser lourd."
+        },
+        {
+          "id": "if-r1528",
+          "difficulty": 1,
+          "answer": "périmètre",
+          "clue": "Pour me calculer sur un polygone, on additionne les longueurs de tous ses côtés."
+        },
+        {
+          "id": "if-r1529",
+          "difficulty": 1,
+          "answer": "aire",
+          "clue": "Je mesure la surface d’une figure ; mes unités sont carrées plutôt que cubiques."
+        },
+        {
+          "id": "if-r1530",
+          "difficulty": 1,
+          "answer": "diagonale",
+          "clue": "Dans un polygone, je relie deux sommets qui ne sont pas voisins."
+        },
+        {
+          "id": "if-r1531",
+          "difficulty": 1,
+          "answer": "parallèle",
+          "clue": "Dans un plan, je garde la même direction qu’une autre droite et ne la rencontre jamais."
+        },
+        {
+          "id": "if-r1532",
+          "difficulty": 1,
+          "answer": "perpendiculaire",
+          "clue": "Je rencontre une autre droite en formant un angle droit."
+        },
+        {
+          "id": "if-r1533",
+          "difficulty": 1,
+          "answer": "segment",
+          "clue": "Portion de droite limitée par deux extrémités, je peux avoir une longueur précise."
+        },
+        {
+          "id": "if-r1534",
+          "difficulty": 1,
+          "answer": "rayon",
+          "clue": "Dans le cercle, je relie le centre au bord ; je vaux la moitié du diamètre."
+        },
+        {
+          "id": "if-r1535",
+          "difficulty": 2,
+          "answer": "tangente",
+          "clue": "Droite qui touche un cercle en un seul point, je ne le traverse pas de part en part."
+        },
+        {
+          "id": "if-r1536",
+          "difficulty": 2,
+          "answer": "bissectrice",
+          "clue": "Je partage un angle en deux angles de même mesure."
+        },
+        {
+          "id": "if-r1537",
+          "difficulty": 2,
+          "answer": "médiatrice",
+          "clue": "Je passe par le milieu d’un segment en lui étant perpendiculaire."
+        },
+        {
+          "id": "if-r1538",
+          "difficulty": 1,
+          "answer": "arête",
+          "clue": "Sur un cube, je suis la ligne de rencontre de deux faces ; je ne proviens pas d’un poisson."
+        },
+        {
+          "id": "if-r1539",
+          "difficulty": 1,
+          "answer": "face",
+          "clue": "Surface plane qui limite un polyèdre, je peux être carrée sur un dé."
+        },
+        {
+          "id": "if-r1540",
+          "difficulty": 2,
+          "answer": "ellipse",
+          "clue": "Courbe fermée évoquant un cercle étiré, je décris notamment la forme des orbites planétaires."
+        }
+      ]
+    },
+    {
+      "category": "Bricolage",
+      "puzzles": [
+        {
+          "id": "if-r1541",
+          "difficulty": 1,
+          "answer": "mèche",
+          "clue": "Sur la perceuse, je tourne pour creuser le matériau ; dans une bougie, mon nom reçoit la flamme.",
+          "acceptedAnswers": [
+            "foret"
+          ]
+        },
+        {
+          "id": "if-r1542",
+          "difficulty": 1,
+          "answer": "embout",
+          "clue": "Petite pièce interchangeable au bout d’un outil, je peux m’adapter à différentes têtes de vis."
+        },
+        {
+          "id": "if-r1543",
+          "difficulty": 2,
+          "answer": "mandrin",
+          "clue": "À l’avant d’une perceuse, mes mâchoires serrent la pièce qui va tourner."
+        },
+        {
+          "id": "if-r1544",
+          "difficulty": 1,
+          "answer": "manivelle",
+          "clue": "Bras coudé que la main fait tourner, je transmets son mouvement à un mécanisme."
+        },
+        {
+          "id": "if-r1545",
+          "difficulty": 2,
+          "answer": "vilebrequin",
+          "clue": "Ancien outil manuel de perçage, je tourne grâce à un manche coudé que l’on fait pivoter."
+        },
+        {
+          "id": "if-r1546",
+          "difficulty": 2,
+          "answer": "poinçon",
+          "clue": "Ma pointe sert à marquer ou percer un petit trou dans une matière."
+        },
+        {
+          "id": "if-r1547",
+          "difficulty": 1,
+          "answer": "colle",
+          "clue": "Entre deux surfaces, je crée une liaison qui peut tenir sans clou ni vis après le séchage."
+        },
+        {
+          "id": "if-r1548",
+          "difficulty": 1,
+          "answer": "maillet",
+          "clue": "Marteau à tête de bois ou de caoutchouc, je frappe en ménageant davantage la surface."
+        },
+        {
+          "id": "if-r1549",
+          "difficulty": 1,
+          "answer": "masse",
+          "clue": "Gros marteau lourd, je donne des coups puissants pour enfoncer ou démolir."
+        },
+        {
+          "id": "if-r1550",
+          "difficulty": 1,
+          "answer": "spatule",
+          "clue": "Plate et fine, je soulève la peinture qui se détache ou étale une pâte sur une surface."
+        },
+        {
+          "id": "if-r1551",
+          "difficulty": 1,
+          "answer": "grattoir",
+          "clue": "Ma lame retire les dépôts collés sur une surface sans chercher à la scier."
+        },
+        {
+          "id": "if-r1552",
+          "difficulty": 1,
+          "answer": "racloir",
+          "clue": "Outil à lame, je racle de très fins copeaux de bois pour en finir la surface."
+        },
+        {
+          "id": "if-r1553",
+          "difficulty": 1,
+          "answer": "clé",
+          "clue": "Plate ou à molette, je serre un écrou ; aucune porte n’attend mon tour."
+        },
+        {
+          "id": "if-r1554",
+          "difficulty": 1,
+          "answer": "douille",
+          "clue": "Pièce creuse d’un outil de serrage, je coiffe la tête d’un écrou ou d’un boulon."
+        },
+        {
+          "id": "if-r1555",
+          "difficulty": 2,
+          "answer": "cliquet",
+          "clue": "Mon mécanisme entraîne dans un sens et revient librement dans l’autre, utile pour serrer sans retirer l’outil."
+        },
+        {
+          "id": "if-r1556",
+          "difficulty": 1,
+          "answer": "boulon",
+          "clue": "Avec ma tige filetée et mon écrou, je rassemble solidement des pièces traversées par un trou."
+        },
+        {
+          "id": "if-r1557",
+          "difficulty": 1,
+          "answer": "mastic",
+          "clue": "Pâte de bricolage, je bouche une fente ou assure l’étanchéité autour d’un élément posé."
+        },
+        {
+          "id": "if-r1558",
+          "difficulty": 1,
+          "answer": "sangle",
+          "clue": "Longue bande résistante, je serre un chargement pour l’empêcher de bouger pendant le transport."
+        },
+        {
+          "id": "if-r1559",
+          "difficulty": 1,
+          "answer": "ventilation",
+          "clue": "Je renouvelle l’air d’un local en le faisant circuler, naturellement ou à l’aide d’appareils."
+        },
+        {
+          "id": "if-r1560",
+          "difficulty": 1,
+          "answer": "ponçage",
+          "clue": "En frottant une surface avec un abrasif, je lisse ses irrégularités avant la finition."
+        }
+      ]
+    },
+    {
+      "category": "Maison",
+      "puzzles": [
+        {
+          "id": "if-r1561",
+          "difficulty": 1,
+          "answer": "commode",
+          "clue": "Avec mes tiroirs superposés, je range le linge sans avoir la hauteur d’une grande armoire."
+        },
+        {
+          "id": "if-r1562",
+          "difficulty": 1,
+          "answer": "buffet",
+          "clue": "Meuble à portes ou tiroirs de la salle à manger, je range la vaisselle ; mon nom désigne aussi un repas en libre service."
+        },
+        {
+          "id": "if-r1563",
+          "difficulty": 1,
+          "answer": "vaisselier",
+          "clue": "Mon meuble présente les assiettes et les plats sur des étagères, souvent au-dessus d’un buffet fermé."
+        },
+        {
+          "id": "if-r1564",
+          "difficulty": 1,
+          "answer": "console",
+          "clue": "Table étroite posée contre un mur, je décore une entrée ; je ne sers alors pas à jouer à un jeu vidéo."
+        },
+        {
+          "id": "if-r1565",
+          "difficulty": 2,
+          "answer": "guéridon",
+          "clue": "Petite table d’appoint souvent ronde, je peux soutenir une lampe près du fauteuil."
+        },
+        {
+          "id": "if-r1566",
+          "difficulty": 2,
+          "answer": "desserte",
+          "clue": "Meuble d’appoint, parfois à roulettes, je transporte ou accueille les plats autour de la table."
+        },
+        {
+          "id": "if-r1567",
+          "difficulty": 2,
+          "answer": "secrétaire",
+          "clue": "Meuble à abattant pour écrire, je cache parfois mon petit bureau lorsque je me referme."
+        },
+        {
+          "id": "if-r1568",
+          "difficulty": 1,
+          "answer": "coiffeuse",
+          "clue": "Meuble muni d’un miroir, je permets de se préparer les cheveux et le visage en gardant les accessoires à portée."
+        },
+        {
+          "id": "if-r1569",
+          "difficulty": 2,
+          "answer": "psyché",
+          "clue": "Grand miroir sur un support pivotant, je permets de se voir de la tête aux pieds en réglant mon inclinaison."
+        },
+        {
+          "id": "if-r1570",
+          "difficulty": 1,
+          "answer": "paravent",
+          "clue": "Assemblage de panneaux articulés, je crée un coin à l’abri des regards sans bâtir de mur."
+        },
+        {
+          "id": "if-r1571",
+          "difficulty": 2,
+          "answer": "claustra",
+          "clue": "Cloison ajourée, je sépare deux espaces en laissant passer une partie de la lumière."
+        },
+        {
+          "id": "if-r1572",
+          "difficulty": 2,
+          "answer": "alcôve",
+          "clue": "Renfoncement d’une pièce, je peux abriter un lit dans un espace plus intime."
+        },
+        {
+          "id": "if-r1573",
+          "difficulty": 1,
+          "answer": "niche",
+          "clue": "Renfoncement d’un mur, je présente parfois une statue ; je ne loge alors aucun chien."
+        },
+        {
+          "id": "if-r1574",
+          "difficulty": 1,
+          "answer": "banquette",
+          "clue": "Long siège rembourré, je peux accueillir plusieurs personnes sans avoir des places séparées."
+        },
+        {
+          "id": "if-r1575",
+          "difficulty": 2,
+          "answer": "méridienne",
+          "clue": "Canapé dont le dossier s’élève d’un côté, je permets de s’allonger pour une pause au milieu du jour."
+        },
+        {
+          "id": "if-r1576",
+          "difficulty": 1,
+          "answer": "pouf",
+          "clue": "Petit siège rembourré sans dossier, je peux aussi recevoir les pieds de celui qui se repose dans un fauteuil."
+        },
+        {
+          "id": "if-r1577",
+          "difficulty": 1,
+          "answer": "accoudoir",
+          "clue": "Sur le côté du fauteuil, je soutiens le bras pendant que son propriétaire reste assis."
+        },
+        {
+          "id": "if-r1578",
+          "difficulty": 1,
+          "answer": "dossier",
+          "clue": "Derrière l’assise, je soutiens le dos ; mon nom range aussi des documents au bureau."
+        },
+        {
+          "id": "if-r1579",
+          "difficulty": 2,
+          "answer": "assise",
+          "clue": "Partie du siège sur laquelle on s’installe, je porte le poids de celui qui s’assoit."
+        },
+        {
+          "id": "if-r1580",
+          "difficulty": 1,
+          "answer": "sommier",
+          "clue": "Sous le matelas, mes lattes ou mes ressorts le soutiennent et participent au confort du lit."
+        }
+      ]
+    },
+    {
+      "category": "Soins et toilette",
+      "puzzles": [
+        {
+          "id": "if-r1581",
+          "difficulty": 1,
+          "answer": "déodorant",
+          "clue": "Appliqué sous les bras, je limite les odeurs liées à la transpiration."
+        },
+        {
+          "id": "if-r1582",
+          "difficulty": 1,
+          "answer": "parfum",
+          "clue": "Quelques gouttes sur la peau ou les vêtements laissent une odeur choisie pour vous accompagner."
+        },
+        {
+          "id": "if-r1583",
+          "difficulty": 1,
+          "answer": "baume",
+          "clue": "Préparation épaisse et protectrice, je peux adoucir des lèvres sèches."
+        },
+        {
+          "id": "if-r1584",
+          "difficulty": 1,
+          "answer": "lotion",
+          "clue": "Préparation liquide pour la peau ou les cheveux, on m’applique sans forcément me rincer."
+        },
+        {
+          "id": "if-r1585",
+          "difficulty": 1,
+          "answer": "gommage",
+          "clue": "Avec ses petits grains ou un autre procédé adapté, je retire des cellules mortes à la surface de la peau."
+        },
+        {
+          "id": "if-r1586",
+          "difficulty": 1,
+          "answer": "démaquillant",
+          "clue": "Je retire du visage les produits colorés posés pour le maquillage."
+        },
+        {
+          "id": "if-r1587",
+          "difficulty": 1,
+          "answer": "poudre",
+          "clue": "Fine matière de maquillage, je peux matifier le visage ; je ne fais pas exploser le poudrier."
+        },
+        {
+          "id": "if-r1588",
+          "difficulty": 1,
+          "answer": "blush",
+          "clue": "Touche de maquillage rosée ou colorée, je donne bonne mine sur les joues."
+        },
+        {
+          "id": "if-r1589",
+          "difficulty": 1,
+          "answer": "eyeliner",
+          "clue": "Près de la ligne des cils, mon trait souligne le regard."
+        },
+        {
+          "id": "if-r1590",
+          "difficulty": 1,
+          "answer": "fard",
+          "clue": "Poudre ou crème colorée de maquillage, je peux teinter les paupières ou les joues."
+        },
+        {
+          "id": "if-r1591",
+          "difficulty": 1,
+          "answer": "lime",
+          "clue": "Sur les ongles, ma surface abrasive corrige la longueur et la forme sans paire de ciseaux."
+        },
+        {
+          "id": "if-r1592",
+          "difficulty": 2,
+          "answer": "polissoir",
+          "clue": "Petit outil de manucure, je lisse et fais briller la surface des ongles."
+        },
+        {
+          "id": "if-r1593",
+          "difficulty": 1,
+          "answer": "épilation",
+          "clue": "Je retire les poils en les arrachant ou en agissant sur leur croissance, plutôt que de simplement les raser."
+        },
+        {
+          "id": "if-r1594",
+          "difficulty": 1,
+          "answer": "raie",
+          "clue": "Sur la tête, je sépare les cheveux en deux ensembles ; je peux me placer au milieu ou sur un côté."
+        },
+        {
+          "id": "if-r1595",
+          "difficulty": 1,
+          "answer": "brossage",
+          "clue": "Sur les dents, mon geste mécanique aide à enlever la plaque avec un outil garni de petits poils."
+        },
+        {
+          "id": "if-r1596",
+          "difficulty": 2,
+          "answer": "cérumen",
+          "category": "Corps humain",
+          "clue": "Substance cireuse naturellement présente dans le conduit de l’oreille, je participe à sa protection."
+        },
+        {
+          "id": "if-r1597",
+          "difficulty": 1,
+          "answer": "dissolvant",
+          "clue": "Sur un coton, je retire la couche colorée posée sur les ongles."
+        },
+        {
+          "id": "if-r1598",
+          "difficulty": 1,
+          "answer": "savonnette",
+          "clue": "Petit pain de produit lavant, je mousse au contact de l’eau et des mains qui me frottent."
+        },
+        {
+          "id": "if-r1599",
+          "difficulty": 1,
+          "answer": "talc",
+          "clue": "Fine poudre minérale, j’absorbe l’humidité et peux limiter certains frottements."
+        },
+        {
+          "id": "if-r1600",
+          "difficulty": 1,
+          "answer": "démêlage",
+          "clue": "Dans les cheveux, je défais les nœuds avant qu’ils empêchent le peigne de passer."
+        }
+      ]
+    }
+  ]
+}

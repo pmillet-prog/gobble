@@ -1,6 +1,9 @@
 import { validateAvatarConfiguration } from "./avatarValidation.js";
+import { registerAvatarAssetRoutes } from "./registerAvatarAssetRoutes.js";
+import { RELEASE_SCOPE } from "../../shared/releaseScope.js";
 
 export function registerAvatarRoutes({ router, getAuthContext, requireAuth, repository, inventory, onPurchase, thumbnails, onSaved, isMaintenanceModeActive = () => false }) {
+  if (RELEASE_SCOPE.avatarRenderAssets) registerAvatarAssetRoutes({ router, getAuthContext, requireAuth, renders: thumbnails?.assets });
   const assertWritable = () => {
     if (isMaintenanceModeActive()) throw Object.assign(new Error("maintenance_mode"), { code: "maintenance_mode" });
   };
@@ -136,7 +139,7 @@ export function registerAvatarRoutes({ router, getAuthContext, requireAuth, repo
       }
       if (inventory && !await inventory.canEquip(userId, avatar)) return res.status(403).json({ ok: false, error: "avatar_locked" });
       // No client-supplied image: the miniature must match the validated, owned pieces.
-      const thumbnail = thumbnails ? await thumbnails.render(avatar) : null;
+      const thumbnail = thumbnails ? await (RELEASE_SCOPE.avatarRenderAssets && thumbnails.renderAssets || thumbnails.render)(avatar) : null;
       assertWritable();
       const { saved, ...snapshot } = await repository.save(userId, avatar, revision, thumbnail, { assertWritable });
       if (saved) {

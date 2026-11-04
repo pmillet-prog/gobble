@@ -1,0 +1,9 @@
+.infortune-contestants { display: flex; justify-content: center; gap: clamp(8px, 4vw, 36px); padding: 8px 12px; background: #08121d; color: #f4e1bc; }
+.infortune-contestants__player { display: flex; align-items: center; gap: 9px; min-width: 0; max-width: 48%; }
+.infortune-contestants__player > img { width: 48px; height: 48px; object-fit: contain; flex-shrink: 0; }
+.infortune-contestants__player > div { min-width: 0; }
+.infortune-contestants__player strong { display: block; font-size: 13px; overflow-wrap: anywhere; }
+.infortune-contestants__player small { display: block; color: #9eb6c6; font-size: 10px; margin-top: 3px; }
+.infortune-contestants__player b { display: block; margin-top: 6px; color: #ffe291; font-size: 16px; }
+button.infortune-contestants__player { color: inherit; text-align: left; padding: 18px; border: 1px solid #62dce5; border-radius: 16px; background: #12313f; cursor: pointer; }
+button.infortune-contestants__player:hover, button.infortune-contestants__player:focus-visible { box-shadow: 0 0 26px #46c4de70; background: #204956; }

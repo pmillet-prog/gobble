@@ -1,0 +1,635 @@
+{
+  "schemaVersion": 1,
+  "kind": "riddle",
+  "groups": [
+    {
+      "category": "Expressions françaises",
+      "puzzles": [
+        {
+          "id": "if-r2301",
+          "difficulty": 1,
+          "answer": "oreille",
+          "clue": "Je peux être tendue pour écouter ou prêtée à quelqu’un, sans quitter le côté de sa tête."
+        },
+        {
+          "id": "if-r2302",
+          "difficulty": 1,
+          "answer": "coude",
+          "clue": "Dans une expression, le lever évoque la consommation d’alcool plutôt qu’un exercice de gymnastique."
+        },
+        {
+          "id": "if-r2303",
+          "difficulty": 1,
+          "answer": "talon",
+          "clue": "Tourner sur moi, au figuré comme au propre, permet de partir brusquement."
+        },
+        {
+          "id": "if-r2304",
+          "difficulty": 1,
+          "answer": "jambe",
+          "clue": "Prendre ses deux semblables à son cou signifie s’enfuir très vite."
+        },
+        {
+          "id": "if-r2305",
+          "difficulty": 1,
+          "answer": "main",
+          "clue": "La mettre à la pâte signifie participer concrètement au travail."
+        },
+        {
+          "id": "if-r2306",
+          "difficulty": 1,
+          "answer": "doigt",
+          "clue": "À deux de mes semblables, on est tout près de réussir ou d’échouer."
+        },
+        {
+          "id": "if-r2307",
+          "difficulty": 1,
+          "answer": "langue",
+          "clue": "Me tourner sept fois dans sa bouche invite à réfléchir avant de parler."
+        },
+        {
+          "id": "if-r2308",
+          "difficulty": 1,
+          "answer": "gorge",
+          "clue": "Quelque chose reste en moi, au figuré, lorsqu’on ne parvient pas à accepter une offense."
+        },
+        {
+          "id": "if-r2309",
+          "difficulty": 1,
+          "answer": "ventre",
+          "clue": "Quand je crie famine, au figuré, il est temps de manger.",
+          "acceptedAnswers": [
+            "estomac"
+          ]
+        },
+        {
+          "id": "if-r2310",
+          "difficulty": 1,
+          "answer": "dos",
+          "clue": "On peut me tourner à quelqu’un pour lui manifester son rejet ou son indifférence."
+        },
+        {
+          "id": "if-r2311",
+          "difficulty": 1,
+          "answer": "épaule",
+          "clue": "Donner un coup de moi, c’est aider quelqu’un à surmonter une difficulté."
+        },
+        {
+          "id": "if-r2312",
+          "difficulty": 1,
+          "answer": "front",
+          "clue": "On me fait ensemble pour résister à une menace ; mon nom désigne aussi le haut du visage."
+        },
+        {
+          "id": "if-r2313",
+          "difficulty": 1,
+          "answer": "pied",
+          "clue": "Me mettre à l’étrier, au figuré, permet d’aider quelqu’un à débuter dans une activité."
+        },
+        {
+          "id": "if-r2314",
+          "difficulty": 1,
+          "answer": "nez",
+          "clue": "Le mener par moi, c’est exercer une forte influence sur quelqu’un."
+        },
+        {
+          "id": "if-r2315",
+          "difficulty": 1,
+          "answer": "cheville",
+          "clue": "Ne pas arriver à la mienne signifie être très inférieur à moi dans un domaine."
+        },
+        {
+          "id": "if-r2316",
+          "difficulty": 1,
+          "answer": "poignet",
+          "clue": "À la force du mien, on réussit grâce à ses propres efforts."
+        },
+        {
+          "id": "if-r2317",
+          "difficulty": 2,
+          "answer": "menton",
+          "clue": "Un coup de moi peut évoquer une démonstration d’autorité plus théâtrale qu’efficace."
+        },
+        {
+          "id": "if-r2318",
+          "difficulty": 1,
+          "answer": "dent",
+          "clue": "Quand elles sont longues, au figuré, elles révèlent une ambition dévorante."
+        },
+        {
+          "id": "if-r2319",
+          "difficulty": 1,
+          "answer": "œil",
+          "clue": "En jeter un sur quelque chose permet d’y regarder brièvement, sans aucune violence."
+        },
+        {
+          "id": "if-r2320",
+          "difficulty": 1,
+          "answer": "cœur",
+          "clue": "Avoir le mien sur la main signifie se montrer très généreux."
+        }
+      ]
+    },
+    {
+      "category": "Expressions françaises",
+      "puzzles": [
+        {
+          "id": "if-r2321",
+          "difficulty": 1,
+          "answer": "rouge",
+          "clue": "On voit ma couleur lorsqu’on est soudain pris d’une vive colère."
+        },
+        {
+          "id": "if-r2322",
+          "difficulty": 1,
+          "answer": "vert",
+          "clue": "Dans une expression, un feu de ma couleur donne l’autorisation de commencer."
+        },
+        {
+          "id": "if-r2323",
+          "difficulty": 1,
+          "answer": "bleu",
+          "clue": "Dans une expression, je qualifie une peur très vive."
+        },
+        {
+          "id": "if-r2324",
+          "difficulty": 1,
+          "answer": "blanc",
+          "clue": "Un chèque de ma couleur laisse au bénéficiaire la liberté d’en fixer le montant."
+        },
+        {
+          "id": "if-r2325",
+          "difficulty": 1,
+          "answer": "noir",
+          "clue": "Broyer ma couleur signifie s’abandonner à des pensées très sombres."
+        },
+        {
+          "id": "if-r2326",
+          "difficulty": 1,
+          "answer": "rose",
+          "clue": "Voir la vie dans ma couleur signifie regarder l’existence avec optimisme."
+        },
+        {
+          "id": "if-r2327",
+          "difficulty": 1,
+          "answer": "jaune",
+          "clue": "Rire dans ma couleur, c’est rire sans plaisir, souvent sous l’effet de la gêne."
+        },
+        {
+          "id": "if-r2328",
+          "difficulty": 1,
+          "answer": "gris",
+          "clue": "Faire travailler la matière de ma couleur signifie réfléchir."
+        },
+        {
+          "id": "if-r2329",
+          "difficulty": 1,
+          "answer": "pêche",
+          "clue": "Avoir la mienne signifie être en forme et plein d’énergie."
+        },
+        {
+          "id": "if-r2330",
+          "difficulty": 2,
+          "answer": "chocolat",
+          "clue": "Être de ma matière, dans une expression familière, signifie se retrouver dupé ou déçu."
+        },
+        {
+          "id": "if-r2331",
+          "difficulty": 1,
+          "answer": "or",
+          "clue": "Valoir mon poids dans cette matière signifie être extrêmement précieux."
+        },
+        {
+          "id": "if-r2332",
+          "difficulty": 1,
+          "answer": "argent",
+          "clue": "Me jeter par les fenêtres signifie dépenser sans raison ni mesure."
+        },
+        {
+          "id": "if-r2333",
+          "difficulty": 1,
+          "answer": "plomb",
+          "clue": "En avoir dans l’aile signifie être sérieusement affaibli."
+        },
+        {
+          "id": "if-r2334",
+          "difficulty": 1,
+          "answer": "fer",
+          "clue": "Me battre pendant que je suis chaud signifie agir au moment favorable."
+        },
+        {
+          "id": "if-r2335",
+          "difficulty": 1,
+          "answer": "éponge",
+          "clue": "Passer la mienne signifie décider d’oublier une faute ou un différend."
+        },
+        {
+          "id": "if-r2336",
+          "difficulty": 1,
+          "answer": "bois",
+          "clue": "Une langue faite de ma matière utilise des formules convenues pour éviter de parler franchement."
+        },
+        {
+          "id": "if-r2337",
+          "difficulty": 1,
+          "answer": "pierre",
+          "clue": "En apporter une à l’édifice signifie contribuer à une œuvre collective."
+        },
+        {
+          "id": "if-r2338",
+          "difficulty": 1,
+          "answer": "glace",
+          "clue": "Rompre la mienne signifie faciliter les premiers échanges entre des personnes qui se connaissent peu."
+        },
+        {
+          "id": "if-r2339",
+          "difficulty": 1,
+          "answer": "argile",
+          "clue": "Dans « un colosse aux pieds d’… », ma matière évoque une puissance dont les bases sont fragiles."
+        },
+        {
+          "id": "if-r2340",
+          "difficulty": 1,
+          "answer": "béton",
+          "clue": "Qualifié de ma matière, un argument semble particulièrement solide."
+        }
+      ]
+    },
+    {
+      "category": "Expressions françaises",
+      "puzzles": [
+        {
+          "id": "if-r2341",
+          "difficulty": 1,
+          "answer": "chat",
+          "clue": "À bon représentant de mon espèce, bon rat : la riposte peut égaler l’attaque."
+        },
+        {
+          "id": "if-r2342",
+          "difficulty": 1,
+          "answer": "chien",
+          "clue": "Entre mon espèce et le loup, la lumière devient incertaine en fin de journée."
+        },
+        {
+          "id": "if-r2343",
+          "difficulty": 1,
+          "answer": "lapin",
+          "clue": "En sortir un du chapeau, c’est proposer une solution inattendue comme un magicien."
+        },
+        {
+          "id": "if-r2344",
+          "difficulty": 1,
+          "answer": "lièvre",
+          "clue": "En soulever un, au figuré, c’est révéler une difficulté jusque-là cachée."
+        },
+        {
+          "id": "if-r2345",
+          "difficulty": 1,
+          "answer": "cheval",
+          "clue": "Monter sur les grands représentants de mon espèce signifie se mettre vivement en colère."
+        },
+        {
+          "id": "if-r2346",
+          "difficulty": 1,
+          "answer": "âne",
+          "clue": "Passer du coq à moi signifie changer de sujet sans transition."
+        },
+        {
+          "id": "if-r2347",
+          "difficulty": 1,
+          "answer": "bœuf",
+          "clue": "Avec un effet de mon espèce, on impressionne beaucoup les personnes présentes."
+        },
+        {
+          "id": "if-r2348",
+          "difficulty": 1,
+          "answer": "vache",
+          "clue": "Mon plancher, au figuré, est la terre ferme retrouvée après un voyage en mer."
+        },
+        {
+          "id": "if-r2349",
+          "difficulty": 1,
+          "answer": "cochon",
+          "clue": "Au pluriel, on évite de me donner de la confiture, selon une expression sur le gaspillage d’une bonne chose."
+        },
+        {
+          "id": "if-r2350",
+          "difficulty": 1,
+          "answer": "mouton",
+          "clue": "En être un à cinq pattes signifie être une personne ou une chose exceptionnellement difficile à trouver."
+        },
+        {
+          "id": "if-r2351",
+          "difficulty": 1,
+          "answer": "chèvre",
+          "clue": "Faire devenir quelqu’un de mon espèce signifie le rendre impatient ou fou de colère."
+        },
+        {
+          "id": "if-r2352",
+          "difficulty": 1,
+          "answer": "autruche",
+          "clue": "Faire la politique de mon espèce consiste à refuser de voir un danger ou une difficulté."
+        },
+        {
+          "id": "if-r2353",
+          "difficulty": 1,
+          "answer": "lion",
+          "clue": "Se tailler ma part, c’est prendre la plus grosse portion."
+        },
+        {
+          "id": "if-r2354",
+          "difficulty": 1,
+          "answer": "tigre",
+          "clue": "Sur le papier, un représentant de mon espèce peut sembler redoutable mais manquer de puissance réelle."
+        },
+        {
+          "id": "if-r2355",
+          "difficulty": 1,
+          "answer": "renard",
+          "clue": "Dans le football, je complète « … des surfaces » pour un attaquant habile à saisir la moindre occasion de marquer."
+        },
+        {
+          "id": "if-r2356",
+          "difficulty": 1,
+          "answer": "loup",
+          "clue": "Me faire entrer dans la bergerie signifie introduire soi-même un danger dans un lieu protégé."
+        },
+        {
+          "id": "if-r2357",
+          "difficulty": 1,
+          "answer": "serpent",
+          "clue": "De mer, je désigne une affaire dont on reparle régulièrement sans la résoudre."
+        },
+        {
+          "id": "if-r2358",
+          "difficulty": 1,
+          "answer": "crocodile",
+          "clue": "Mes larmes, au figuré, expriment une tristesse feinte."
+        },
+        {
+          "id": "if-r2359",
+          "difficulty": 1,
+          "answer": "éléphant",
+          "clue": "Dans un magasin de porcelaine, je représente une personne particulièrement maladroite."
+        },
+        {
+          "id": "if-r2360",
+          "difficulty": 2,
+          "answer": "girafe",
+          "clue": "Me peigner, dans une expression familière, signifie s’occuper à une tâche inutile."
+        }
+      ]
+    },
+    {
+      "category": "Expressions françaises",
+      "puzzles": [
+        {
+          "id": "if-r2361",
+          "difficulty": 1,
+          "answer": "poule",
+          "clue": "Quand mes semblables auront des dents, une chose jugée impossible finira par arriver."
+        },
+        {
+          "id": "if-r2362",
+          "difficulty": 1,
+          "answer": "coq",
+          "clue": "Vivre comme moi en pâte, c’est être particulièrement bien traité."
+        },
+        {
+          "id": "if-r2363",
+          "difficulty": 1,
+          "answer": "oie",
+          "clue": "Blanche, je peux désigner une personne jugée naïve et inexpérimentée."
+        },
+        {
+          "id": "if-r2364",
+          "difficulty": 1,
+          "answer": "grue",
+          "clue": "Faire le pied de mon espèce signifie attendre longtemps debout."
+        },
+        {
+          "id": "if-r2365",
+          "difficulty": 2,
+          "answer": "alouette",
+          "clue": "Un miroir destiné à mon espèce désigne une promesse séduisante mais trompeuse."
+        },
+        {
+          "id": "if-r2366",
+          "difficulty": 1,
+          "answer": "merle",
+          "clue": "Faute de grives, on me mange : le proverbe invite à se contenter de ce qu’on trouve."
+        },
+        {
+          "id": "if-r2367",
+          "difficulty": 1,
+          "answer": "moineau",
+          "clue": "Un appétit de mon espèce correspond à une très petite faim."
+        },
+        {
+          "id": "if-r2368",
+          "difficulty": 1,
+          "answer": "corbeau",
+          "clue": "Au figuré, je peux être l’auteur de lettres anonymes malveillantes."
+        },
+        {
+          "id": "if-r2369",
+          "difficulty": 1,
+          "answer": "perroquet",
+          "clue": "Répéter comme moi, c’est redire sans nécessairement comprendre."
+        },
+        {
+          "id": "if-r2370",
+          "difficulty": 1,
+          "answer": "pigeon",
+          "clue": "Fait d’argile et lancé dans les airs, je sers de cible au tireur sans être un oiseau vivant.",
+          "category": "Sports"
+        },
+        {
+          "id": "if-r2371",
+          "difficulty": 1,
+          "answer": "canard",
+          "clue": "Quand on me casse trois pattes, on réalise quelque chose d’extraordinaire, souvent dans une formule négative."
+        },
+        {
+          "id": "if-r2372",
+          "difficulty": 1,
+          "answer": "pie",
+          "clue": "Voleuse dans une comparaison traditionnelle, je prête mon nom à une personne qui dérobe de petits objets."
+        },
+        {
+          "id": "if-r2373",
+          "difficulty": 2,
+          "answer": "perdreau",
+          "clue": "Ne plus être de mon espèce de l’année signifie avoir dépassé la première jeunesse."
+        },
+        {
+          "id": "if-r2374",
+          "difficulty": 2,
+          "answer": "faucon",
+          "clue": "Dans le langage politique, je peux désigner un partisan d’une ligne dure."
+        },
+        {
+          "id": "if-r2375",
+          "difficulty": 2,
+          "answer": "colombe",
+          "clue": "Dans le langage politique, je peux désigner un partisan de la conciliation."
+        },
+        {
+          "id": "if-r2376",
+          "difficulty": 1,
+          "answer": "papillon",
+          "clue": "Dans l’expression en avoir dans le ventre, je représente l’agitation d’une émotion amoureuse."
+        },
+        {
+          "id": "if-r2377",
+          "difficulty": 1,
+          "answer": "puce",
+          "clue": "Secouer les miennes à quelqu’un signifie le réprimander vigoureusement."
+        },
+        {
+          "id": "if-r2378",
+          "difficulty": 1,
+          "answer": "pou",
+          "clue": "Chercher mes semblables dans la tête de quelqu’un signifie lui faire de petites querelles."
+        },
+        {
+          "id": "if-r2379",
+          "difficulty": 1,
+          "answer": "fourmi",
+          "clue": "Un travail de mon espèce demande patience et accumulation de petits efforts."
+        },
+        {
+          "id": "if-r2380",
+          "difficulty": 1,
+          "answer": "cigale",
+          "clue": "Dans la comparaison inspirée de La Fontaine, je représente celui qui profite sans prévoir."
+        }
+      ]
+    },
+    {
+      "category": "Expressions françaises",
+      "puzzles": [
+        {
+          "id": "if-r2381",
+          "difficulty": 2,
+          "answer": "cloche",
+          "clue": "Déménager à ma forme de bois signifie partir discrètement sans régler ce qu’on doit."
+        },
+        {
+          "id": "if-r2382",
+          "difficulty": 1,
+          "answer": "tambour",
+          "clue": "Sans moi ni trompette, on agit discrètement, sans annonce spectaculaire."
+        },
+        {
+          "id": "if-r2383",
+          "difficulty": 1,
+          "answer": "batterie",
+          "clue": "Recharger les miennes signifie se reposer pour retrouver de l’énergie."
+        },
+        {
+          "id": "if-r2384",
+          "difficulty": 1,
+          "answer": "flûte",
+          "clue": "Mon nom peut servir d’exclamation modérée lorsqu’une chose se passe mal."
+        },
+        {
+          "id": "if-r2385",
+          "difficulty": 1,
+          "answer": "pipeau",
+          "clue": "Dans le langage familier, c’est du mien quand on estime qu’un discours cherche à tromper."
+        },
+        {
+          "id": "if-r2386",
+          "difficulty": 1,
+          "answer": "musique",
+          "clue": "Connaître ma matière, au figuré, c’est être habitué à la façon dont une affaire se déroule."
+        },
+        {
+          "id": "if-r2387",
+          "difficulty": 1,
+          "answer": "note",
+          "clue": "En prendre, dans une expression, signifie retenir une remarque pour en tenir compte."
+        },
+        {
+          "id": "if-r2388",
+          "difficulty": 1,
+          "answer": "gamme",
+          "clue": "Faire les siennes, au figuré, c’est s’exercer aux bases d’un métier."
+        },
+        {
+          "id": "if-r2389",
+          "difficulty": 1,
+          "answer": "corde",
+          "clue": "Sensible dans une expression, je suis ce qu’un propos peut toucher pour émouvoir."
+        },
+        {
+          "id": "if-r2390",
+          "difficulty": 1,
+          "answer": "mesure",
+          "clue": "La garder, au figuré, consiste à éviter l’excès dans ses paroles ou ses actions."
+        },
+        {
+          "id": "if-r2391",
+          "difficulty": 1,
+          "answer": "partition",
+          "clue": "Jouer la sienne signifie remplir son rôle dans une action collective."
+        },
+        {
+          "id": "if-r2392",
+          "difficulty": 1,
+          "answer": "refrain",
+          "clue": "Toujours le même, je suis un propos que l’on entend revenir sans cesse."
+        },
+        {
+          "id": "if-r2393",
+          "difficulty": 1,
+          "answer": "ton",
+          "clue": "Le donner, au figuré, consiste à fixer l’ambiance ou la manière de se comporter."
+        },
+        {
+          "id": "if-r2394",
+          "difficulty": 2,
+          "answer": "diapason",
+          "clue": "Se mettre à moi signifie adapter son comportement pour être en harmonie avec les autres."
+        },
+        {
+          "id": "if-r2395",
+          "difficulty": 1,
+          "answer": "tempo",
+          "clue": "Imposer le mien signifie décider du rythme d’une action."
+        },
+        {
+          "id": "if-r2396",
+          "difficulty": 1,
+          "answer": "cavalier",
+          "clue": "Je complète « faire … seul » quand quelqu’un agit sans s’associer aux autres."
+        },
+        {
+          "id": "if-r2397",
+          "difficulty": 1,
+          "answer": "clé",
+          "clue": "Donner celle d’un mystère permet enfin de le comprendre."
+        },
+        {
+          "id": "if-r2398",
+          "difficulty": 1,
+          "answer": "chanson",
+          "clue": "Je complète « changer de… » quand on demande un autre discours ou une autre attitude."
+        },
+        {
+          "id": "if-r2399",
+          "difficulty": 1,
+          "answer": "bémol",
+          "clue": "En mettre un, au figuré, signifie apporter une réserve ou modérer une affirmation."
+        },
+        {
+          "id": "if-r2400",
+          "difficulty": 1,
+          "answer": "sourdine",
+          "clue": "Mettre son enthousiasme en moi signifie l’exprimer avec davantage de retenue."
+        }
+      ]
+    }
+  ]
+}

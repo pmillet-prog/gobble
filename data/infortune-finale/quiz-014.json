@@ -1,0 +1,671 @@
+{
+  "schemaVersion": 1,
+  "kind": "quiz",
+  "references": {
+    "versailles": {
+      "title": "Château de Versailles — Le traité de Versailles",
+      "url": "https://www.chateauversailles.fr/decouvrir/histoire/grandes-dates/traite-versailles"
+    }
+  },
+  "groups": [
+    {
+      "category": "Histoire",
+      "puzzles": [
+        {
+          "id": "if-q1202",
+          "difficulty": 2,
+          "answer": "Waterloo",
+          "clue": "Quelle bataille marque la défaite définitive de Napoléon face aux armées alliées en Belgique ?"
+        },
+        {
+          "id": "if-q1203",
+          "difficulty": 2,
+          "answer": "Austerlitz",
+          "clue": "Quelle victoire de Napoléon est surnommée la bataille des Trois Empereurs ?"
+        },
+        {
+          "id": "if-q1204",
+          "difficulty": 2,
+          "answer": "Verdun",
+          "clue": "Quelle bataille de la Première Guerre mondiale est associée au fort de Douaumont et à une longue résistance française ?"
+        },
+        {
+          "id": "if-q1205",
+          "difficulty": 2,
+          "answer": "Normandie",
+          "clue": "Dans quelle région française les forces alliées débarquent-elles lors du Jour J de la Seconde Guerre mondiale ?"
+        },
+        {
+          "id": "if-q1206",
+          "difficulty": 2,
+          "answer": "Versailles",
+          "clue": "Dans quel château est signé le traité de paix imposé à l’Allemagne après la Première Guerre mondiale ?",
+          "reference": "versailles"
+        },
+        {
+          "id": "if-q1207",
+          "difficulty": 2,
+          "answer": "Hiroshima",
+          "clue": "Quelle ville japonaise a subi la première attaque atomique de l’histoire ?"
+        },
+        {
+          "id": "if-q1208",
+          "difficulty": 2,
+          "answer": "Nagasaki",
+          "clue": "Quelle ville japonaise a subi une attaque atomique trois jours après Hiroshima ?"
+        },
+        {
+          "id": "if-q1209",
+          "difficulty": 2,
+          "answer": "armistice",
+          "clue": "Quel accord suspend les combats sans être nécessairement un traité de paix ?"
+        },
+        {
+          "id": "if-q1210",
+          "difficulty": 2,
+          "answer": "tranchée",
+          "clue": "Quel long fossé permettait aux soldats de se déplacer et de combattre à couvert sur le front occidental ?"
+        },
+        {
+          "id": "if-q1211",
+          "difficulty": 2,
+          "answer": "poilu",
+          "clue": "Quel surnom familier désignait le soldat français de la Première Guerre mondiale ?"
+        },
+        {
+          "id": "if-q1212",
+          "difficulty": 2,
+          "answer": "Résistance",
+          "clue": "Quel nom rassemble les mouvements qui ont combattu clandestinement l’occupation et le nazisme en France ?"
+        },
+        {
+          "id": "if-q1213",
+          "difficulty": 2,
+          "answer": "maquis",
+          "clue": "Quel nom désignait un groupe de résistants cachés dans des lieux difficiles d’accès, notamment en montagne ?"
+        },
+        {
+          "id": "if-q1214",
+          "difficulty": 2,
+          "answer": "Débarquement",
+          "clue": "Quel événement du Jour J a fait arriver les armées alliées sur les plages normandes ?"
+        },
+        {
+          "id": "if-q1215",
+          "difficulty": 2,
+          "answer": "Libération",
+          "clue": "Quel nom donne-t-on à la fin de l’occupation allemande d’un territoire français pendant la Seconde Guerre mondiale ?"
+        },
+        {
+          "id": "if-q1216",
+          "difficulty": 2,
+          "answer": "rationnement",
+          "clue": "Quel système limite les quantités de produits que chacun peut obtenir lorsque les ressources manquent ?"
+        },
+        {
+          "id": "if-q1217",
+          "difficulty": 2,
+          "answer": "exode",
+          "clue": "Quel mot désigne le départ massif de populations qui fuient leur région, notamment devant une armée ?"
+        },
+        {
+          "id": "if-q1218",
+          "difficulty": 2,
+          "answer": "décolonisation",
+          "clue": "Quel processus conduit des territoires colonisés à devenir indépendants ?"
+        },
+        {
+          "id": "if-q1219",
+          "difficulty": 2,
+          "answer": "abolition",
+          "clue": "Quel mot désigne la suppression officielle d’une pratique ou d’une institution, comme l’esclavage ?"
+        },
+        {
+          "id": "if-q1220",
+          "difficulty": 2,
+          "answer": "suffragette",
+          "clue": "Quel nom désigne une militante britannique qui revendiquait le droit de vote pour les femmes ?"
+        },
+        {
+          "id": "if-q1221",
+          "difficulty": 2,
+          "answer": "guillotine",
+          "clue": "Quel instrument d’exécution à lame descendante est fortement associé à la Révolution française ?"
+        }
+      ]
+    },
+    {
+      "category": "Cinéma et séries",
+      "puzzles": [
+        {
+          "id": "if-q1222",
+          "difficulty": 1,
+          "answer": "Frodon",
+          "clue": "Quel hobbit reçoit la mission de détruire l’Anneau unique dans Le Seigneur des anneaux ?",
+          "acceptedAnswers": [
+            "Frodo"
+          ]
+        },
+        {
+          "id": "if-q1223",
+          "difficulty": 1,
+          "answer": "Sam",
+          "clue": "Quel jardinier hobbit accompagne fidèlement Frodon jusqu’au Mordor ?",
+          "acceptedAnswers": [
+            "Samsagace"
+          ]
+        },
+        {
+          "id": "if-q1224",
+          "difficulty": 1,
+          "answer": "Aragorn",
+          "clue": "Quel rôdeur surnommé Grands-Pas devient roi dans Le Seigneur des anneaux ?"
+        },
+        {
+          "id": "if-q1225",
+          "difficulty": 2,
+          "answer": "Legolas",
+          "clue": "Quel archer elfe forme un duo amical avec le nain Gimli dans Le Seigneur des anneaux ?"
+        },
+        {
+          "id": "if-q1226",
+          "difficulty": 2,
+          "answer": "Gimli",
+          "clue": "Quel nain accompagne Legolas et Aragorn dans Le Seigneur des anneaux ?"
+        },
+        {
+          "id": "if-q1227",
+          "difficulty": 2,
+          "answer": "Sauron",
+          "clue": "Quel seigneur des ténèbres a forgé l’Anneau unique dans l’univers du Seigneur des anneaux ?"
+        },
+        {
+          "id": "if-q1228",
+          "difficulty": 1,
+          "answer": "Voldemort",
+          "clue": "Quel mage noir surnommé Celui-Dont-On-Ne-Doit-Pas-Prononcer-Le-Nom est l’ennemi de Harry Potter ?"
+        },
+        {
+          "id": "if-q1229",
+          "difficulty": 1,
+          "answer": "Hermione",
+          "clue": "Quel prénom porte l’amie de Harry Potter dont le nom de famille est Granger ?"
+        },
+        {
+          "id": "if-q1230",
+          "difficulty": 1,
+          "answer": "Ron",
+          "clue": "Quel prénom porte le meilleur ami de Harry Potter, membre de la famille Weasley ?"
+        },
+        {
+          "id": "if-q1231",
+          "difficulty": 1,
+          "answer": "Hagrid",
+          "clue": "Quel garde-chasse de très grande taille accueille Harry Potter et lui révèle ses origines de sorcier ?"
+        },
+        {
+          "id": "if-q1232",
+          "difficulty": 1,
+          "answer": "Dumbledore",
+          "clue": "Quel directeur de Poudlard prénommé Albus guide Harry Potter dans la lutte contre les forces du mal ?"
+        },
+        {
+          "id": "if-q1233",
+          "difficulty": 1,
+          "answer": "Poudlard",
+          "clue": "Quel est le nom français de l’école de sorcellerie fréquentée par Harry Potter ?",
+          "acceptedAnswers": [
+            "Hogwarts"
+          ]
+        },
+        {
+          "id": "if-q1234",
+          "difficulty": 1,
+          "answer": "Quidditch",
+          "clue": "Quel sport fictif pratiqué sur des balais oppose les maisons de Poudlard ?"
+        },
+        {
+          "id": "if-q1235",
+          "difficulty": 2,
+          "answer": "Hedwige",
+          "clue": "Quel nom porte la chouette blanche de Harry Potter ?"
+        },
+        {
+          "id": "if-q1236",
+          "difficulty": 2,
+          "answer": "Rogue",
+          "clue": "Quel professeur de potions prénommé Severus enseigne à Harry Potter dans la version française ?",
+          "acceptedAnswers": [
+            "Snape"
+          ]
+        },
+        {
+          "id": "if-q1237",
+          "difficulty": 1,
+          "answer": "Leia",
+          "clue": "Quelle princesse de Star Wars est la sœur jumelle de Luke Skywalker ?"
+        },
+        {
+          "id": "if-q1238",
+          "difficulty": 1,
+          "answer": "Luke",
+          "clue": "Quel prénom porte le jeune Skywalker formé notamment par Yoda dans la trilogie originale de Star Wars ?"
+        },
+        {
+          "id": "if-q1239",
+          "difficulty": 1,
+          "answer": "Anakin",
+          "clue": "Quel prénom porte Skywalker avant de devenir Dark Vador ?"
+        },
+        {
+          "id": "if-q1240",
+          "difficulty": 1,
+          "answer": "Solo",
+          "clue": "Quel nom porte Han, le contrebandier pilote du Faucon Millenium dans Star Wars ?"
+        },
+        {
+          "id": "if-q1241",
+          "difficulty": 1,
+          "answer": "Jedi",
+          "clue": "Quel ordre de chevaliers utilise la Force et compte notamment Yoda et Luke Skywalker parmi ses membres ?"
+        }
+      ]
+    },
+    {
+      "category": "Bande dessinée",
+      "puzzles": [
+        {
+          "id": "if-q1242",
+          "difficulty": 1,
+          "answer": "faucille",
+          "clue": "Quel outil à lame courbe le druide Panoramix porte-t-il pour récolter le gui ?"
+        },
+        {
+          "id": "if-q1243",
+          "difficulty": 2,
+          "answer": "Assurancetourix",
+          "clue": "Quel barde du village d’Astérix est régulièrement empêché de chanter ?"
+        },
+        {
+          "id": "if-q1244",
+          "difficulty": 2,
+          "answer": "Abraracourcix",
+          "clue": "Quel chef du village d’Astérix est porté debout sur un bouclier ?"
+        },
+        {
+          "id": "if-q1245",
+          "difficulty": 2,
+          "answer": "Falbala",
+          "clue": "De quelle jeune Gauloise blonde Obélix est-il amoureux ?"
+        },
+        {
+          "id": "if-q1246",
+          "difficulty": 1,
+          "answer": "Tournesol",
+          "clue": "Quel professeur inventeur de l’univers de Tintin entend souvent de travers ?"
+        },
+        {
+          "id": "if-q1247",
+          "difficulty": 1,
+          "answer": "Castafiore",
+          "clue": "Quel nom porte Bianca, la cantatrice surnommée le Rossignol milanais dans Tintin ?"
+        },
+        {
+          "id": "if-q1248",
+          "difficulty": 1,
+          "answer": "Tintin",
+          "clue": "Quel reporter de bande dessinée part au Tibet pour retrouver son ami Tchang après un accident d’avion ?"
+        },
+        {
+          "id": "if-q1249",
+          "difficulty": 2,
+          "answer": "Moulinsart",
+          "clue": "Comment se nomme le château qui devient la demeure du capitaine Haddock ?"
+        },
+        {
+          "id": "if-q1250",
+          "difficulty": 1,
+          "answer": "Tintin",
+          "clue": "Quel reporter enquête sur des faux-monnayeurs installés dans un château écossais dans L’Île noire ?"
+        },
+        {
+          "id": "if-q1251",
+          "difficulty": 2,
+          "answer": "Spip",
+          "clue": "Comment se nomme le petit écureuil compagnon de Spirou ?"
+        },
+        {
+          "id": "if-q1252",
+          "difficulty": 2,
+          "answer": "Prunelle",
+          "clue": "Quel collègue moustachu de Gaston Lagaffe tente désespérément de le faire travailler ?"
+        },
+        {
+          "id": "if-q1253",
+          "difficulty": 1,
+          "answer": "blanc",
+          "clue": "De quelle couleur est principalement le cheval Jolly Jumper, le fidèle compagnon de Lucky Luke ?"
+        },
+        {
+          "id": "if-q1254",
+          "difficulty": 1,
+          "answer": "Dalton",
+          "clue": "Quel nom de famille partagent Joe, William, Jack et Averell, les bandits de Lucky Luke ?"
+        },
+        {
+          "id": "if-q1255",
+          "difficulty": 1,
+          "answer": "Joe",
+          "clue": "Quel prénom porte le plus petit et le plus colérique des frères Dalton dans Lucky Luke ?"
+        },
+        {
+          "id": "if-q1256",
+          "difficulty": 1,
+          "answer": "Averell",
+          "clue": "Quel prénom porte le plus grand et le plus gourmand des frères Dalton dans Lucky Luke ?"
+        },
+        {
+          "id": "if-q1257",
+          "difficulty": 1,
+          "answer": "Mafalda",
+          "clue": "Quelle petite fille de bande dessinée créée par Quino déteste la soupe et s’inquiète de l’état du monde ?"
+        },
+        {
+          "id": "if-q1258",
+          "difficulty": 1,
+          "answer": "sanglier",
+          "clue": "Quel animal sauvage constitue le mets favori d’Obélix dans les albums d’Astérix ?"
+        },
+        {
+          "id": "if-q1259",
+          "difficulty": 1,
+          "answer": "Gaston",
+          "clue": "Quel employé de bureau invente un instrument de musique appelé le gaffophone dans les bandes dessinées de Franquin ?"
+        },
+        {
+          "id": "if-q1260",
+          "difficulty": 1,
+          "answer": "champignon",
+          "clue": "À quel organisme à chapeau ressemblent les maisons du village des Schtroumpfs ?"
+        },
+        {
+          "id": "if-q1261",
+          "difficulty": 1,
+          "answer": "Schtroumpfette",
+          "clue": "Quel personnage féminin blond des Schtroumpfs porte généralement une robe blanche ?"
+        }
+      ]
+    },
+    {
+      "category": "Musique",
+      "puzzles": [
+        {
+          "id": "if-q1262",
+          "difficulty": 1,
+          "answer": "duo",
+          "clue": "Quel mot désigne un ensemble de deux interprètes, ou un morceau prévu pour eux ?"
+        },
+        {
+          "id": "if-q1263",
+          "difficulty": 1,
+          "answer": "trio",
+          "clue": "Quel mot désigne un ensemble de trois musiciens ?"
+        },
+        {
+          "id": "if-q1264",
+          "difficulty": 1,
+          "answer": "quatuor",
+          "clue": "Quel mot désigne un ensemble de quatre musiciens, souvent à cordes ?",
+          "acceptedAnswers": [
+            "quartet"
+          ]
+        },
+        {
+          "id": "if-q1265",
+          "difficulty": 2,
+          "answer": "quintette",
+          "clue": "Quel mot désigne un ensemble musical composé de cinq interprètes ?",
+          "acceptedAnswers": [
+            "quintet"
+          ]
+        },
+        {
+          "id": "if-q1266",
+          "difficulty": 2,
+          "answer": "soprano",
+          "clue": "Quel nom donne-t-on à la voix féminine la plus aiguë dans la classification classique ?",
+          "acceptedAnswers": [
+            "soprane"
+          ]
+        },
+        {
+          "id": "if-q1267",
+          "difficulty": 1,
+          "answer": "ténor",
+          "clue": "Quelle voix masculine aiguë tient souvent le rôle du héros dans les opéras ?"
+        },
+        {
+          "id": "if-q1268",
+          "difficulty": 2,
+          "answer": "baryton",
+          "clue": "Quelle voix masculine se situe entre le ténor et la basse ?"
+        },
+        {
+          "id": "if-q1269",
+          "difficulty": 1,
+          "answer": "basse",
+          "clue": "Quelle est la voix masculine la plus grave dans la classification classique ?"
+        },
+        {
+          "id": "if-q1270",
+          "difficulty": 2,
+          "answer": "vibrato",
+          "clue": "Quel effet fait osciller légèrement la hauteur d’une note tenue par un chanteur ou un instrumentiste ?"
+        },
+        {
+          "id": "if-q1271",
+          "difficulty": 1,
+          "answer": "crescendo",
+          "clue": "Quel mot italien demande une augmentation progressive de l’intensité sonore ?"
+        },
+        {
+          "id": "if-q1272",
+          "difficulty": 2,
+          "answer": "decrescendo",
+          "clue": "Quel mot italien demande de jouer progressivement moins fort ?",
+          "acceptedAnswers": [
+            "diminuendo"
+          ]
+        },
+        {
+          "id": "if-q1273",
+          "difficulty": 2,
+          "answer": "pizzicato",
+          "clue": "Quel terme indique aux instruments à cordes de pincer les cordes au lieu d’utiliser l’archet ?"
+        },
+        {
+          "id": "if-q1274",
+          "difficulty": 1,
+          "answer": "archet",
+          "clue": "Quel accessoire tendu de crins frotte les cordes du violon ?"
+        },
+        {
+          "id": "if-q1275",
+          "difficulty": 2,
+          "answer": "médiator",
+          "clue": "Quel petit accessoire tenu entre les doigts sert à pincer ou gratter les cordes de guitare ?",
+          "acceptedAnswers": [
+            "plectre"
+          ]
+        },
+        {
+          "id": "if-q1276",
+          "difficulty": 2,
+          "answer": "anche",
+          "clue": "Quelle fine lamelle vibre pour produire le son de la clarinette ou du saxophone ?"
+        },
+        {
+          "id": "if-q1277",
+          "difficulty": 2,
+          "answer": "embouchure",
+          "clue": "Quelle pièce reçoit les lèvres du musicien sur une trompette ou un trombone ?"
+        },
+        {
+          "id": "if-q1278",
+          "difficulty": 2,
+          "answer": "coulisse",
+          "clue": "Quelle partie mobile en U permet de modifier la longueur du tube d’un trombone ?"
+        },
+        {
+          "id": "if-q1279",
+          "difficulty": 2,
+          "answer": "piston",
+          "clue": "Quelle pièce enfonce-t-on sur une trompette classique pour modifier le trajet de l’air ?"
+        },
+        {
+          "id": "if-q1280",
+          "difficulty": 2,
+          "answer": "sourdine",
+          "clue": "Quel accessoire peut atténuer ou modifier le timbre d’un instrument, notamment d’une trompette ?"
+        },
+        {
+          "id": "if-q1281",
+          "difficulty": 1,
+          "answer": "pupitre",
+          "clue": "Quel support incliné tient la partition devant le musicien ?"
+        }
+      ]
+    },
+    {
+      "category": "Boulangerie et pâtisserie",
+      "puzzles": [
+        {
+          "id": "if-q1282",
+          "difficulty": 1,
+          "answer": "éclair",
+          "clue": "Quelle pâtisserie allongée en pâte à choux est fourrée de crème et couverte d’un glaçage ?"
+        },
+        {
+          "id": "if-q1283",
+          "difficulty": 1,
+          "answer": "religieuse",
+          "clue": "Quelle pâtisserie superpose deux choux fourrés de tailles différentes, décorés de crème ?"
+        },
+        {
+          "id": "if-q1284",
+          "difficulty": 1,
+          "answer": "profiterole",
+          "clue": "Quel petit chou garni, souvent de glace à la vanille, se sert volontiers avec une sauce au chocolat ?",
+          "acceptedAnswers": [
+            "profiteroles"
+          ]
+        },
+        {
+          "id": "if-q1285",
+          "difficulty": 1,
+          "answer": "macaron",
+          "clue": "Quelle pâtisserie assemble deux petites coques à base d’amande autour d’une garniture ?"
+        },
+        {
+          "id": "if-q1286",
+          "difficulty": 1,
+          "answer": "madeleine",
+          "clue": "Quel petit gâteau traditionnel lorrain est moulé en forme de coquillage ?"
+        },
+        {
+          "id": "if-q1287",
+          "difficulty": 1,
+          "answer": "financier",
+          "clue": "Quel petit gâteau moelleux aux amandes porte le nom d’un métier lié à l’argent ?"
+        },
+        {
+          "id": "if-q1288",
+          "difficulty": 1,
+          "answer": "cannelé",
+          "clue": "Quel petit gâteau bordelais possède une croûte caramélisée et un intérieur moelleux parfumé au rhum et à la vanille ?",
+          "acceptedAnswers": [
+            "canelé"
+          ]
+        },
+        {
+          "id": "if-q1289",
+          "difficulty": 1,
+          "answer": "clafoutis",
+          "clue": "Quel dessert limousin fait cuire des cerises dans une pâte proche de celle d’un flan ?"
+        },
+        {
+          "id": "if-q1290",
+          "difficulty": 1,
+          "answer": "flan",
+          "clue": "Quel dessert prend une consistance ferme mais tendre grâce à une préparation à base de lait et d’œufs ?"
+        },
+        {
+          "id": "if-q1291",
+          "difficulty": 1,
+          "answer": "charlotte",
+          "clue": "Quel dessert moulé entoure une garniture de crème ou de fruits d’une paroi de biscuits ?"
+        },
+        {
+          "id": "if-q1292",
+          "difficulty": 2,
+          "answer": "bavarois",
+          "clue": "Quel dessert moulé associe généralement crème anglaise, gélatine et crème fouettée ?"
+        },
+        {
+          "id": "if-q1293",
+          "difficulty": 1,
+          "answer": "tarte",
+          "clue": "Quelle pâtisserie présente une garniture de fruits ou de crème sur un fond de pâte à rebords ?"
+        },
+        {
+          "id": "if-q1294",
+          "difficulty": 1,
+          "answer": "tourte",
+          "clue": "Quelle préparation enferme sa garniture entre un fond de pâte et un couvercle de pâte ?"
+        },
+        {
+          "id": "if-q1295",
+          "difficulty": 1,
+          "answer": "chausson",
+          "clue": "Quelle pâtisserie repliée en demi-lune peut enfermer une compote de pommes ?"
+        },
+        {
+          "id": "if-q1296",
+          "difficulty": 1,
+          "answer": "palmier",
+          "clue": "Quelle pâtisserie feuilletée et sucrée présente deux spirales jointes qui évoquent un cœur ?"
+        },
+        {
+          "id": "if-q1297",
+          "difficulty": 1,
+          "answer": "chouquette",
+          "clue": "Quel petit chou non fourré est parsemé de grains de sucre ?"
+        },
+        {
+          "id": "if-q1298",
+          "difficulty": 1,
+          "answer": "sablé",
+          "clue": "Quel biscuit friable tient son nom de la texture que prend sa pâte lorsqu’on mélange farine et beurre ?"
+        },
+        {
+          "id": "if-q1299",
+          "difficulty": 2,
+          "answer": "génoise",
+          "clue": "Quel biscuit léger à base d’œufs battus sert de base à de nombreux gâteaux garnis ?"
+        },
+        {
+          "id": "if-q1300",
+          "difficulty": 1,
+          "answer": "gaufrette",
+          "clue": "Quel biscuit très mince, léger et quadrillé peut former les couches croustillantes d’une confiserie fourrée ?"
+        },
+        {
+          "id": "if-q1301",
+          "difficulty": 1,
+          "answer": "levain",
+          "clue": "Quel mélange fermenté de farine et d’eau peut faire lever le pain grâce aux microorganismes qu’il contient ?"
+        }
+      ]
+    }
+  ]
+}

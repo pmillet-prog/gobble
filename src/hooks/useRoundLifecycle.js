@@ -8,10 +8,13 @@ import { createRoundBreakHandler } from "../features/round/createRoundBreakHandl
 import { prepareVocabRoundProgress } from "../features/stats/prepareVocabRoundProgress.js";
 import { resolveTournamentFinaleGate } from "../features/celebration/tournamentFinaleGate.js";
 import { useFeatureRuntime } from "../app/react/useFeatureRuntime.js";
+import { RELEASE_SCOPE } from "../../shared/releaseScope.js";
 
 export default function useRoundLifecycle(runtime) {
   const targetQuiz = useFeatureRuntime("targetQuiz");
   const gotus = useFeatureRuntime("gotus");
+  const infortune = useFeatureRuntime("infortune");
+  const resultsFeature = useFeatureRuntime("results");
   const finaleGateRef = React.useRef(null);
   const {
     appViewRef,
@@ -139,6 +142,7 @@ export default function useRoundLifecycle(runtime) {
         return;
       }
       gotus.reconcile({ roundId: endedId, results });
+      if (RELEASE_SCOPE.roundResultsReadiness) resultsFeature.set("receivedRound", { roomId: endedRoomId || currentRoomIdRef.current, roundId: endedId });
       if (endedRoomId) {
         setCurrentRoomId(endedRoomId);
         setRoomId(endedRoomId);
@@ -453,6 +457,28 @@ export default function useRoundLifecycle(runtime) {
       const roundKey = payload?.roundId ?? roundIdRef.current ?? null;
       targetQuiz.reconcile(payload);
       gotus.reconcile(payload);
+      const intermission = RELEASE_SCOPE.infortuneTournament && !isDailyPlayRef.current && !standaloneTrainingSessionRef.current
+        ? infortune.begin(roundKey, payload, getNowServerMs()) : null;
+      if (intermission) {
+        if (!intermission.started) return;
+        outroInFlightRef.current = true;
+        outroRoundRef.current = roundKey;
+        setInputLocked(true); inputLockedRef.current = true;
+        stopRoundEndTickSound({ fadeMs: 80 });
+        if (draggingRef.current) { draggingRef.current = false; clearSelection(); }
+        const completed = await intermission.promise;
+        if (!isEffectSessionCurrent() || completed.cancelled) return;
+        if (gotus.hasPlayed(roundKey)) await gotus.showRecap(roundKey, completed.payload);
+        else if (targetQuiz.hasPlayed(roundKey)) await targetQuiz.showRecap(roundKey, completed.payload);
+        if (!isEffectSessionCurrent()) return;
+        pendingRoundEndRef.current = null;
+        processRoundEndedRef.current?.(completed.payload);
+        const pendingBreak = pendingBreakStartRef.current;
+        pendingBreakStartRef.current = null;
+        if (pendingBreak) processBreakStartedRef.current?.(pendingBreak);
+        outroInFlightRef.current = false;
+        return;
+      }
       const quizRecap = targetQuiz.hasPlayed(roundKey) && !currentRoundTrainingRef.current && !isDailyPlayRef.current;
       const gotusRecap = gotus.hasPlayed(roundKey) && !currentRoundTrainingRef.current && !isDailyPlayRef.current;
       const waitingGameRecap = gotusRecap || quizRecap;
@@ -772,7 +798,7 @@ export default function useRoundLifecycle(runtime) {
 
       outroInFlightRef.current = false;
     },
-    [clearSelection, targetQuiz, gotus]
+    [clearSelection, targetQuiz, gotus, infortune]
   );
 
   useEffect(() => {

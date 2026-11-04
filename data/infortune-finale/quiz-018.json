@@ -1,0 +1,637 @@
+{
+  "schemaVersion": 1,
+  "kind": "quiz",
+  "groups": [
+    {
+      "category": "Cinéma et séries",
+      "puzzles": [
+        {
+          "id": "if-q1602",
+          "difficulty": 1,
+          "answer": "Bourvil",
+          "clue": "Quel acteur français joue le naïf Antoine Maréchal dans Le Corniaud ?"
+        },
+        {
+          "id": "if-q1603",
+          "difficulty": 1,
+          "answer": "Belmondo",
+          "clue": "Quel acteur surnommé Bébel joue dans À bout de souffle et L’As des as ?"
+        },
+        {
+          "id": "if-q1604",
+          "difficulty": 1,
+          "answer": "Delon",
+          "clue": "Quel acteur prénommé Alain incarne un tueur solitaire dans Le Samouraï de Jean-Pierre Melville ?"
+        },
+        {
+          "id": "if-q1605",
+          "difficulty": 1,
+          "answer": "Gabin",
+          "clue": "Quel acteur prénommé Jean incarne le commissaire Maigret et joue dans La Grande Illusion ?"
+        },
+        {
+          "id": "if-q1606",
+          "difficulty": 1,
+          "answer": "Ventura",
+          "clue": "Quel acteur prénommé Lino incarne Fernand Naudin dans Les Tontons flingueurs ?"
+        },
+        {
+          "id": "if-q1607",
+          "difficulty": 1,
+          "answer": "Fernandel",
+          "clue": "Quel comédien marseillais incarne le prêtre Don Camillo face au maire Peppone ?"
+        },
+        {
+          "id": "if-q1608",
+          "difficulty": 2,
+          "answer": "Raimu",
+          "clue": "Quel acteur incarne César dans la trilogie marseillaise de Marcel Pagnol ?"
+        },
+        {
+          "id": "if-q1609",
+          "difficulty": 2,
+          "answer": "Rochefort",
+          "clue": "Quel acteur prénommé Jean joue l’époux infidèle Étienne dans Un éléphant ça trompe énormément ?"
+        },
+        {
+          "id": "if-q1610",
+          "difficulty": 1,
+          "answer": "Noiret",
+          "clue": "Quel acteur prénommé Philippe joue le projectionniste Alfredo dans Cinema Paradiso ?"
+        },
+        {
+          "id": "if-q1611",
+          "difficulty": 1,
+          "answer": "Depardieu",
+          "clue": "Quel acteur prénommé Gérard incarne Cyrano de Bergerac dans le film de Jean-Paul Rappeneau ?"
+        },
+        {
+          "id": "if-q1612",
+          "difficulty": 1,
+          "answer": "Reno",
+          "clue": "Quel acteur prénommé Jean joue Godefroy de Montmirail dans Les Visiteurs ?"
+        },
+        {
+          "id": "if-q1613",
+          "difficulty": 1,
+          "answer": "Auteuil",
+          "clue": "Quel acteur prénommé Daniel incarne Ugolin dans Jean de Florette et Manon des sources ?"
+        },
+        {
+          "id": "if-q1614",
+          "difficulty": 2,
+          "answer": "Cluzet",
+          "clue": "Quel acteur prénommé François tient le rôle du médecin Alexandre Beck dans Ne le dis à personne de Guillaume Canet ?"
+        },
+        {
+          "id": "if-q1615",
+          "difficulty": 1,
+          "answer": "Dujardin",
+          "clue": "Quel acteur français joue l’espion Hubert Bonisseur de La Bath dans Le Caire, nid d’espions ?"
+        },
+        {
+          "id": "if-q1616",
+          "difficulty": 1,
+          "answer": "Cotillard",
+          "clue": "Quelle actrice prénommée Marion incarne Édith Piaf dans La Môme ?"
+        },
+        {
+          "id": "if-q1617",
+          "difficulty": 1,
+          "answer": "Tautou",
+          "clue": "Quelle actrice prénommée Audrey tient le rôle principal du Fabuleux Destin d’Amélie Poulain ?"
+        },
+        {
+          "id": "if-q1618",
+          "difficulty": 1,
+          "answer": "Deneuve",
+          "clue": "Quelle actrice prénommée Catherine joue dans Les Parapluies de Cherbourg et Belle de jour ?"
+        },
+        {
+          "id": "if-q1619",
+          "difficulty": 2,
+          "answer": "Binoche",
+          "clue": "Quelle actrice prénommée Juliette joue dans Le Patient anglais et Le Chocolat ?"
+        },
+        {
+          "id": "if-q1620",
+          "difficulty": 1,
+          "answer": "Moreau",
+          "clue": "Quelle actrice prénommée Jeanne incarne Catherine dans Jules et Jim ?"
+        },
+        {
+          "id": "if-q1621",
+          "difficulty": 2,
+          "answer": "Huppert",
+          "clue": "Quelle actrice prénommée Isabelle joue dans La Pianiste et Elle ?"
+        }
+      ]
+    },
+    {
+      "category": "Cinéma et séries",
+      "puzzles": [
+        {
+          "id": "if-q1622",
+          "difficulty": 1,
+          "answer": "Chaplin",
+          "clue": "Quel cinéaste incarne un barbier et le dictateur Hynkel dans Le Dictateur ?"
+        },
+        {
+          "id": "if-q1623",
+          "difficulty": 1,
+          "answer": "Hanks",
+          "clue": "Quel acteur prénommé Tom tient le rôle-titre de Forrest Gump ?"
+        },
+        {
+          "id": "if-q1624",
+          "difficulty": 1,
+          "answer": "DiCaprio",
+          "clue": "Quel acteur prénommé Leonardo incarne Jack dans Titanic ?"
+        },
+        {
+          "id": "if-q1625",
+          "difficulty": 1,
+          "answer": "Winslet",
+          "clue": "Quelle actrice prénommée Kate incarne Rose dans Titanic ?"
+        },
+        {
+          "id": "if-q1626",
+          "difficulty": 1,
+          "answer": "Ford",
+          "clue": "Quel acteur prénommé Harrison incarne Indiana Jones ?"
+        },
+        {
+          "id": "if-q1627",
+          "difficulty": 1,
+          "answer": "Connery",
+          "clue": "Quel acteur écossais prénommé Sean incarne James Bond dans les premiers films de la série officielle ?"
+        },
+        {
+          "id": "if-q1628",
+          "difficulty": 1,
+          "answer": "Craig",
+          "clue": "Quel acteur prénommé Daniel incarne James Bond de Casino Royale à Mourir peut attendre ?"
+        },
+        {
+          "id": "if-q1629",
+          "difficulty": 1,
+          "answer": "Schwarzenegger",
+          "clue": "Quel acteur d’origine autrichienne incarne le robot Terminator dans le film de James Cameron ?"
+        },
+        {
+          "id": "if-q1630",
+          "difficulty": 1,
+          "answer": "Stallone",
+          "clue": "Quel acteur prénommé Sylvester incarne un sauveteur de montagne dans Cliffhanger ?"
+        },
+        {
+          "id": "if-q1631",
+          "difficulty": 1,
+          "answer": "Willis",
+          "clue": "Quel acteur prénommé Bruce joue le policier John McClane dans Piège de cristal ?"
+        },
+        {
+          "id": "if-q1632",
+          "difficulty": 1,
+          "answer": "Cruise",
+          "clue": "Quel acteur prénommé Tom incarne Ethan Hunt dans la saga Mission : Impossible ?"
+        },
+        {
+          "id": "if-q1633",
+          "difficulty": 1,
+          "answer": "Pitt",
+          "clue": "Quel acteur prénommé Brad incarne Tyler Durden dans Fight Club ?"
+        },
+        {
+          "id": "if-q1634",
+          "difficulty": 1,
+          "answer": "Clooney",
+          "clue": "Quel acteur prénommé George joue Danny Ocean dans Ocean’s Eleven ?"
+        },
+        {
+          "id": "if-q1635",
+          "difficulty": 1,
+          "answer": "Freeman",
+          "clue": "Quel acteur prénommé Morgan joue le détenu Red dans Les Évadés ?"
+        },
+        {
+          "id": "if-q1636",
+          "difficulty": 1,
+          "answer": "Nicholson",
+          "clue": "Quel acteur prénommé Jack incarne Jack Torrance dans Shining ?"
+        },
+        {
+          "id": "if-q1637",
+          "difficulty": 1,
+          "answer": "Hopkins",
+          "clue": "Quel acteur prénommé Anthony joue Hannibal Lecter dans Le Silence des agneaux ?"
+        },
+        {
+          "id": "if-q1638",
+          "difficulty": 1,
+          "answer": "Portman",
+          "clue": "Quelle actrice prénommée Natalie incarne la ballerine Nina dans Black Swan ?"
+        },
+        {
+          "id": "if-q1639",
+          "difficulty": 1,
+          "answer": "Streep",
+          "clue": "Quelle actrice prénommée Meryl joue la redoutable Miranda Priestly dans Le Diable s’habille en Prada ?"
+        },
+        {
+          "id": "if-q1640",
+          "difficulty": 1,
+          "answer": "Roberts",
+          "clue": "Quelle actrice prénommée Julia incarne Vivian dans Pretty Woman ?"
+        },
+        {
+          "id": "if-q1641",
+          "difficulty": 1,
+          "answer": "Weaver",
+          "clue": "Quelle actrice prénommée Sigourney incarne Ellen Ripley dans la saga Alien ?"
+        }
+      ]
+    },
+    {
+      "category": "Chanson française",
+      "puzzles": [
+        {
+          "id": "if-q1642",
+          "difficulty": 1,
+          "answer": "Dalida",
+          "clue": "Quelle chanteuse, née au Caire, a interprété Bambino et Gigi l’amoroso ?"
+        },
+        {
+          "id": "if-q1643",
+          "difficulty": 1,
+          "answer": "Gall",
+          "clue": "Quel nom porte France, l’interprète de Poupée de cire, poupée de son et de Résiste ?"
+        },
+        {
+          "id": "if-q1644",
+          "difficulty": 1,
+          "answer": "Hardy",
+          "clue": "Quel nom porte Françoise, l’interprète de Tous les garçons et les filles ?"
+        },
+        {
+          "id": "if-q1645",
+          "difficulty": 1,
+          "answer": "Sanson",
+          "clue": "Quel nom porte Véronique, chanteuse et pianiste, interprète d’Amoureuse ?"
+        },
+        {
+          "id": "if-q1646",
+          "difficulty": 1,
+          "answer": "Farmer",
+          "clue": "Quel nom porte Mylène, l’interprète de Désenchantée et Libertine ?"
+        },
+        {
+          "id": "if-q1647",
+          "difficulty": 1,
+          "answer": "Goya",
+          "clue": "Quel nom porte Chantal, chanteuse associée à Bécassine et au lapin qui a tué un chasseur ?"
+        },
+        {
+          "id": "if-q1648",
+          "difficulty": 1,
+          "answer": "Dorothée",
+          "clue": "Quelle animatrice et chanteuse a donné son prénom à un célèbre club télévisé pour la jeunesse ?"
+        },
+        {
+          "id": "if-q1649",
+          "difficulty": 1,
+          "answer": "Zazie",
+          "clue": "Quelle chanteuse française a interprété Je suis un homme et Zen ?"
+        },
+        {
+          "id": "if-q1650",
+          "difficulty": 1,
+          "answer": "Zaz",
+          "clue": "Quelle chanteuse française s’est fait connaître avec Je veux ?"
+        },
+        {
+          "id": "if-q1651",
+          "difficulty": 1,
+          "answer": "Lara",
+          "clue": "Quel prénom porte Fabian, la chanteuse qui a interprété Je t’aime ?"
+        },
+        {
+          "id": "if-q1652",
+          "difficulty": 1,
+          "answer": "Pagny",
+          "clue": "Quel nom porte Florent, l’interprète de Savoir aimer et Ma liberté de penser ?"
+        },
+        {
+          "id": "if-q1653",
+          "difficulty": 1,
+          "answer": "Obispo",
+          "clue": "Quel nom porte Pascal, l’interprète de Lucie et de Tombé pour elle ?"
+        },
+        {
+          "id": "if-q1654",
+          "difficulty": 1,
+          "answer": "Bruel",
+          "clue": "Quel nom porte Patrick, l’interprète de Casser la voix et Place des grands hommes ?"
+        },
+        {
+          "id": "if-q1655",
+          "difficulty": 1,
+          "answer": "Bénabar",
+          "clue": "Quel chanteur français a notamment raconté une soirée refusée dans Le Dîner ?"
+        },
+        {
+          "id": "if-q1656",
+          "difficulty": 1,
+          "answer": "Raphaël",
+          "clue": "Quel chanteur français a enregistré l’album Caravane et la chanson du même nom ?"
+        },
+        {
+          "id": "if-q1657",
+          "difficulty": 1,
+          "answer": "Stromae",
+          "clue": "Quel artiste belge a interprété Alors on danse, Papaoutai et Formidable ?"
+        },
+        {
+          "id": "if-q1658",
+          "difficulty": 1,
+          "answer": "Angèle",
+          "clue": "Quelle chanteuse belge, sœur du rappeur Roméo Elvis, a interprété Balance ton quoi ?"
+        },
+        {
+          "id": "if-q1659",
+          "difficulty": 1,
+          "answer": "Louane",
+          "clue": "Quelle chanteuse et actrice incarne Paula dans La Famille Bélier ?"
+        },
+        {
+          "id": "if-q1660",
+          "difficulty": 1,
+          "answer": "Vianney",
+          "clue": "Quel chanteur français a interprété Pas là et Je m’en vais ?"
+        },
+        {
+          "id": "if-q1661",
+          "difficulty": 1,
+          "answer": "Soprano",
+          "clue": "Quel rappeur marseillais a interprété Clown et Le Coach ?"
+        }
+      ]
+    },
+    {
+      "category": "Jeux vidéo",
+      "puzzles": [
+        {
+          "id": "if-q1662",
+          "difficulty": 1,
+          "answer": "fantômes",
+          "clue": "Dans le jeu Pac-Man, quelles créatures colorées poursuivent le personnage jaune dans le labyrinthe ?",
+          "acceptedAnswers": [
+            "fantôme"
+          ]
+        },
+        {
+          "id": "if-q1663",
+          "difficulty": 1,
+          "answer": "tonneau",
+          "clue": "Quel objet en bois Donkey Kong lance-t-il vers le héros dans le jeu d’arcade original ?"
+        },
+        {
+          "id": "if-q1664",
+          "difficulty": 2,
+          "answer": "Samus",
+          "clue": "Quel prénom porte Aran, la chasseuse de primes en armure de la série Metroid ?"
+        },
+        {
+          "id": "if-q1665",
+          "difficulty": 2,
+          "answer": "Ryu",
+          "clue": "Quel combattant de Street Fighter porte un kimono blanc et un bandeau rouge ?"
+        },
+        {
+          "id": "if-q1666",
+          "difficulty": 2,
+          "answer": "Ken",
+          "clue": "Quel combattant blond de Street Fighter porte un kimono rouge et rivalise avec son ami Ryu ?"
+        },
+        {
+          "id": "if-q1667",
+          "difficulty": 1,
+          "answer": "Sacha",
+          "clue": "Quel prénom français porte le jeune dresseur accompagné de Pikachu dans la série animée Pokémon ?"
+        },
+        {
+          "id": "if-q1668",
+          "difficulty": 2,
+          "answer": "Salamèche",
+          "clue": "Quel Pokémon de départ de type Feu porte une flamme au bout de sa queue ?"
+        },
+        {
+          "id": "if-q1669",
+          "difficulty": 2,
+          "answer": "Carapuce",
+          "clue": "Quel Pokémon de départ de type Eau ressemble à une petite tortue bleue ?"
+        },
+        {
+          "id": "if-q1670",
+          "difficulty": 2,
+          "answer": "Bulbizarre",
+          "clue": "Quel Pokémon de départ porte un bulbe sur le dos ?"
+        },
+        {
+          "id": "if-q1671",
+          "difficulty": 2,
+          "answer": "Rondoudou",
+          "clue": "Quel Pokémon rose et rond endort les autres en chantant ?"
+        },
+        {
+          "id": "if-q1672",
+          "difficulty": 2,
+          "answer": "Miaouss",
+          "clue": "Quel Pokémon félin porte une pièce dorée sur le front et accompagne souvent la Team Rocket ?"
+        },
+        {
+          "id": "if-q1673",
+          "difficulty": 2,
+          "answer": "Évoli",
+          "clue": "Quel Pokémon à la fourrure brune est célèbre pour ses nombreuses évolutions possibles ?"
+        },
+        {
+          "id": "if-q1674",
+          "difficulty": 2,
+          "answer": "Magicarpe",
+          "clue": "Quel Pokémon poisson est surtout connu pour son attaque Trempette ?"
+        },
+        {
+          "id": "if-q1675",
+          "difficulty": 1,
+          "answer": "Dracaufeu",
+          "clue": "Quel Pokémon orange ailé est l’évolution finale de Salamèche dans sa lignée de base ?"
+        },
+        {
+          "id": "if-q1676",
+          "difficulty": 1,
+          "answer": "Wii",
+          "clue": "Quelle console Nintendo a popularisé une manette détectant les mouvements avec un jeu de tennis fourni ?"
+        },
+        {
+          "id": "if-q1677",
+          "difficulty": 1,
+          "answer": "Toad",
+          "clue": "Quel petit personnage de l’univers Mario possède une tête évoquant un champignon ?"
+        },
+        {
+          "id": "if-q1678",
+          "difficulty": 1,
+          "answer": "Wario",
+          "clue": "Quel rival moustachu de Mario est vêtu de jaune et de violet et se montre très gourmand ?"
+        },
+        {
+          "id": "if-q1679",
+          "difficulty": 2,
+          "answer": "Waluigi",
+          "clue": "Quel rival de Luigi, grand et maigre, porte une casquette violette marquée d’un L renversé ?"
+        },
+        {
+          "id": "if-q1680",
+          "difficulty": 1,
+          "answer": "kart",
+          "clue": "Quel type de petit véhicule Mario et ses amis pilotent-ils dans une célèbre série de courses Nintendo ?"
+        },
+        {
+          "id": "if-q1681",
+          "difficulty": 1,
+          "answer": "Tails",
+          "clue": "Quel renard à deux queues accompagne Sonic dans ses aventures ?"
+        }
+      ]
+    },
+    {
+      "category": "Cuisine",
+      "puzzles": [
+        {
+          "id": "if-q1682",
+          "difficulty": 1,
+          "answer": "amertume",
+          "clue": "Quelle saveur caractérise notamment le café noir très peu sucré et l’endive ?"
+        },
+        {
+          "id": "if-q1683",
+          "difficulty": 1,
+          "answer": "acidité",
+          "clue": "Quelle sensation gustative le citron et le vinaigre ont-ils particulièrement en commun ?"
+        },
+        {
+          "id": "if-q1684",
+          "difficulty": 2,
+          "answer": "umami",
+          "clue": "Quelle saveur, distincte du sucré, du salé, de l’acide et de l’amer, évoque notamment les bouillons savoureux ?"
+        },
+        {
+          "id": "if-q1685",
+          "difficulty": 1,
+          "answer": "piquant",
+          "clue": "Quel caractère fait ressentir une brûlure en bouche lorsqu’un plat contient beaucoup de piment ?"
+        },
+        {
+          "id": "if-q1686",
+          "difficulty": 2,
+          "answer": "astringence",
+          "clue": "Quel terme désigne la sensation de bouche sèche que peuvent produire certains thés très infusés ?"
+        },
+        {
+          "id": "if-q1687",
+          "difficulty": 2,
+          "answer": "tannin",
+          "clue": "Quel composé végétal contribue notamment à la sensation astringente dans le vin rouge et le thé ?",
+          "acceptedAnswers": [
+            "tanin"
+          ]
+        },
+        {
+          "id": "if-q1688",
+          "difficulty": 1,
+          "answer": "caféine",
+          "clue": "Quelle substance stimulante est présente notamment dans le café et le thé ?"
+        },
+        {
+          "id": "if-q1689",
+          "difficulty": 1,
+          "answer": "gluten",
+          "clue": "Quel ensemble de protéines du blé contribue à l’élasticité de nombreuses pâtes à pain ?"
+        },
+        {
+          "id": "if-q1690",
+          "difficulty": 1,
+          "answer": "lactose",
+          "clue": "Quel sucre est naturellement présent dans le lait des mammifères ?"
+        },
+        {
+          "id": "if-q1691",
+          "difficulty": 1,
+          "answer": "amidon",
+          "clue": "Quelle réserve végétale, abondante dans les féculents, peut épaissir une sauce après cuisson ?"
+        },
+        {
+          "id": "if-q1692",
+          "difficulty": 2,
+          "answer": "pectine",
+          "clue": "Quelle substance naturellement présente dans certains fruits aide les confitures à prendre ?"
+        },
+        {
+          "id": "if-q1693",
+          "difficulty": 1,
+          "answer": "gélatine",
+          "clue": "Quel ingrédient d’origine animale permet de faire prendre certaines préparations en gel ?"
+        },
+        {
+          "id": "if-q1694",
+          "difficulty": 2,
+          "answer": "albumine",
+          "clue": "Quel nom désigne une famille de protéines dont certaines sont présentes dans le blanc d’œuf ?"
+        },
+        {
+          "id": "if-q1695",
+          "difficulty": 2,
+          "answer": "saccharose",
+          "clue": "Quel est le nom chimique du sucre de table ordinaire ?"
+        },
+        {
+          "id": "if-q1696",
+          "difficulty": 2,
+          "answer": "fructose",
+          "clue": "Quel sucre porte un nom qui rappelle sa présence dans les fruits ?"
+        },
+        {
+          "id": "if-q1697",
+          "difficulty": 2,
+          "answer": "glucose",
+          "clue": "Quel sucre simple est utilisé comme source d’énergie par de nombreuses cellules ?"
+        },
+        {
+          "id": "if-q1698",
+          "difficulty": 2,
+          "answer": "lipide",
+          "clue": "Quel terme scientifique désigne une matière grasse dans l’alimentation ?"
+        },
+        {
+          "id": "if-q1699",
+          "difficulty": 1,
+          "answer": "protéine",
+          "clue": "Quel grand type de nutriment est constitué de chaînes d’acides aminés ?"
+        },
+        {
+          "id": "if-q1700",
+          "difficulty": 1,
+          "answer": "vitamine",
+          "clue": "Quel type de substance nécessaire en petite quantité à l’organisme peut être désigné par une lettre, comme C ?"
+        },
+        {
+          "id": "if-q1701",
+          "difficulty": 1,
+          "answer": "fibre",
+          "clue": "Quel constituant des végétaux est peu ou pas digéré par les enzymes humaines et contribue au transit ?"
+        }
+      ]
+    }
+  ]
+}

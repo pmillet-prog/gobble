@@ -1,0 +1,151 @@
+{
+  "schemaVersion": 1,
+  "kind": "riddle",
+  "references": {
+    "furet": {"title":"RSPCA — Keeping ferrets as pets","url":"https://www.rspca.org.uk/adviceandwelfare/pets/ferrets"}
+  },
+  "groups": [
+    { "category": "Littérature", "puzzles": [
+      {"id":"if-r801","difficulty":1,"answer":"corbeau","clue":"Dans la fable de La Fontaine, je perds mon fromage pour avoir voulu montrer ma belle voix au renard."}
+    ] },
+    { "category": "Nature", "puzzles": [
+      {"id":"if-r802","difficulty":1,"answer":"moineau","clue":"Petit oiseau brun familier des villes, je cherche des miettes près des terrasses et niche volontiers sous les toits.","acceptedAnswers":["piaf"]},
+      {"id":"if-r803","difficulty":2,"answer":"merle","clue":"Chez moi, le mâle est noir avec un bec jaune orangé ; mon chant s’entend souvent dans les jardins."},
+      {"id":"if-r804","difficulty":1,"answer":"hirondelle","clue":"Ma queue fourchue et mon vol rapide se remarquent au printemps ; je construis souvent mon nid avec de la boue."},
+      {"id":"if-r805","difficulty":2,"answer":"mésange","clue":"Petit oiseau des mangeoires, je compte des cousines appelées bleue et charbonnière."},
+      {"id":"if-r806","difficulty":1,"answer":"pigeon","clue":"Familier des places des villes, je roucoule ; certains de mes cousins étaient utilisés pour transporter des messages."},
+      {"id":"if-r807","difficulty":1,"answer":"colombe","clue":"Oiseau blanc dans les représentations de la paix, je tiens souvent un rameau d’olivier dans le bec."},
+      {"id":"if-r808","difficulty":1,"answer":"pélican","clue":"Grand oiseau pêcheur, je possède sous le bec une poche qui peut s’élargir pour capturer mes proies."},
+      {"id":"if-r809","difficulty":1,"answer":"cygne","clue":"Grand oiseau aquatique au long cou courbé, je suis souvent blanc et glisse sur l’eau avec élégance."},
+      {"id":"if-r810","difficulty":1,"answer":"oie","clue":"Oiseau de basse-cour au long cou, je cacarde et peux donner l’alerte quand un inconnu approche."},
+      {"id":"if-r811","difficulty":1,"answer":"canari","clue":"Petit oiseau de cage réputé pour son chant, je suis souvent jaune et descends d’un oiseau des îles Canaries.","acceptedAnswers":["serin"]},
+      {"id":"if-r812","difficulty":2,"answer":"mouette","clue":"Ma cousine dite rieuse porte un capuchon brun en été ; nous sommes souvent observées près de l’eau."},
+      {"id":"if-r813","difficulty":1,"answer":"cigogne","clue":"Grand oiseau blanc et noir au long bec rouge, je construis parfois mon nid en haut d’un toit alsacien."},
+      {"id":"if-r814","difficulty":1,"answer":"perroquet","clue":"Oiseau au bec crochu, je peux imiter des sons et parfois répéter des mots entendus dans la maison."},
+      {"id":"if-r815","difficulty":1,"answer":"perruche","clue":"Petite cousine des grands oiseaux qui imitent la voix, je suis notamment dite ondulée et possède une longue queue."},
+      {"id":"if-r816","difficulty":1,"answer":"toucan","clue":"Oiseau d’Amérique tropicale, mon très grand bec coloré attire plus l’œil que mon corps."},
+      {"id":"if-r817","difficulty":1,"answer":"aigle","clue":"Grand rapace à bec crochu, je compte un cousin dit royal et symbolise souvent la puissance."},
+      {"id":"if-r818","difficulty":2,"answer":"faucon","clue":"Chez mon cousin dit pèlerin, le piqué atteint des vitesses spectaculaires ; certains humains nous dressent pour chasser."},
+      {"id":"if-r819","difficulty":1,"answer":"vautour","clue":"Rapace charognard, je plane à la recherche de cadavres plutôt que de poursuivre mes proies."},
+      {"id":"if-r820","difficulty":1,"answer":"flamant","clue":"Grand échassier, je peux dormir sur une patte ; chez mon cousin rose, la nourriture contribue à la couleur des plumes."},
+      {"id":"if-r821","difficulty":1,"answer":"hamster","clue":"Petit rongeur de compagnie, je transporte des réserves de nourriture dans des poches à l’intérieur de mes joues."},
+      {"id":"if-r822","difficulty":2,"answer":"cobaye","clue":"Petit rongeur aussi appelé cochon d’Inde, mon nom désigne également un sujet d’expérience."},
+      {"id":"if-r823","difficulty":1,"answer":"cerf","clue":"Le mâle de mon espèce porte des bois ramifiés et fait entendre son brame pendant la période des amours."},
+      {"id":"if-r824","difficulty":2,"answer":"chevreuil","clue":"Petit cervidé des lisières, mon mâle s’appelle le brocard et ma femelle la chevrette."},
+      {"id":"if-r825","difficulty":2,"answer":"élan","clue":"Très grand cervidé des régions froides, mon mâle porte de larges bois aplatis et mon museau est imposant.","acceptedAnswers":["orignal"]},
+      {"id":"if-r826","difficulty":1,"answer":"renne","clue":"Cervidé du Grand Nord, je tire le traîneau du père Noël dans les histoires ; mes femelles peuvent aussi porter des bois.","acceptedAnswers":["caribou"]},
+      {"id":"if-r827","difficulty":2,"answer":"chamois","clue":"Agile habitant des Alpes, je possède des cornes dont l’extrémité forme un petit crochet."},
+      {"id":"if-r828","difficulty":2,"answer":"bouquetin","clue":"Caprin des rochers alpins, mon mâle porte de longues cornes recourbées vers l’arrière et marquées de bourrelets."},
+      {"id":"if-r829","difficulty":1,"answer":"marmotte","clue":"Rongeur des montagnes, je siffle pour donner l’alerte et passe l’hiver à dormir dans mon terrier."},
+      {"id":"if-r830","difficulty":1,"answer":"loutre","clue":"Mammifère au corps allongé et à la fourrure dense, je nage habilement dans les rivières pour chercher ma nourriture."},
+      {"id":"if-r831","difficulty":2,"answer":"phoque","clue":"Mammifère marin, je n’ai pas de pavillons d’oreilles visibles et me déplace à terre sans me dresser sur mes nageoires."},
+      {"id":"if-r832","difficulty":1,"answer":"furet","clue":"Petit carnivore domestiqué à partir du putois, j’ai un corps souple et allongé qui se faufile facilement.","reference":"furet"},
+      {"id":"if-r833","difficulty":1,"answer":"morse","clue":"Grand mammifère marin de l’Arctique, mes deux longues défenses descendent de ma mâchoire supérieure."},
+      {"id":"if-r834","difficulty":1,"answer":"orque","clue":"Grand cétacé noir et blanc de la famille des dauphins, je porte une tache claire derrière chaque œil.","acceptedAnswers":["épaulard"]},
+      {"id":"if-r835","difficulty":2,"answer":"léopard","clue":"Félin d’Afrique et d’Asie au pelage tacheté, je peux hisser mes proies dans les arbres pour les mettre à l’abri.","acceptedAnswers":["panthère"]},
+      {"id":"if-r836","difficulty":2,"answer":"jaguar","clue":"Grand félin des Amériques, mes taches forment souvent des rosettes contenant un ou plusieurs points."},
+      {"id":"if-r837","difficulty":2,"answer":"puma","clue":"Grand félin américain au pelage adulte uni, je suis surnommé le lion des montagnes.","acceptedAnswers":["couguar","cougar"]},
+      {"id":"if-r838","difficulty":1,"answer":"suricate","clue":"Petit mammifère d’Afrique australe, je me tiens volontiers debout en sentinelle pendant que mon groupe cherche à manger."},
+      {"id":"if-r839","difficulty":1,"answer":"bison","clue":"Grand bovin sauvage associé aux plaines d’Amérique, je possède une bosse sur les épaules et une tête très massive."},
+      {"id":"if-r840","difficulty":2,"answer":"buffle","clue":"Grand bovin, mon cousin d’eau domestiqué travaille dans les rizières d’Asie et apprécie les bains de boue."}
+    ] },
+    { "category": "Langue française", "puzzles": [
+      {"id":"if-r841","difficulty":1,"answer":"lettre","clue":"Seule ou avec mes voisines, je forme des mots ; je peux aussi être un message envoyé dans une enveloppe."},
+      {"id":"if-r842","difficulty":1,"answer":"alphabet","clue":"Je range les signes utilisés pour écrire une langue ; en français, ma liste commence par A et se termine par Z."},
+      {"id":"if-r843","difficulty":1,"answer":"mot","clue":"Entre deux espaces, je peux porter un sens ; le dictionnaire me réserve parfois plusieurs définitions."},
+      {"id":"if-r844","difficulty":1,"answer":"phrase","clue":"À l’écrit, je commence généralement par une majuscule et me termine par un signe comme le point."},
+      {"id":"if-r845","difficulty":2,"answer":"syllabe","clue":"Je rassemble un ou plusieurs sons prononcés d’un seul élan ; on peut me compter en découpant un mot à l’oral."},
+      {"id":"if-r846","difficulty":1,"answer":"rime","clue":"À la fin de deux vers, je fais entendre des sons qui se répondent, comme dans bateau et château."}
+    ] },
+    { "category": "Jeux de mots", "puzzles": [
+      {"id":"if-r847","difficulty":1,"answer":"rébus","clue":"Mes dessins se lisent pour leurs sons ; réunis, ils vous font découvrir un mot ou une phrase cachée."},
+      {"id":"if-r848","difficulty":1,"answer":"charade","clue":"Mon premier et mon deuxième désignent des morceaux sonores ; mon tout est le mot qu’il faut deviner."}
+    ] },
+    { "category": "Langue française", "puzzles": [
+      {"id":"if-r849","difficulty":1,"answer":"proverbe","clue":"Petite phrase transmise au fil des générations, j’exprime souvent un conseil ou une sagesse populaire.","acceptedAnswers":["dicton"]}
+    ] },
+    { "category": "Communication", "puzzles": [
+      {"id":"if-r850","difficulty":1,"answer":"slogan","clue":"Formule courte et facile à retenir, je défends une idée ou vante une marque pour rester dans les esprits."}
+    ] },
+    { "category": "Langue française", "puzzles": [
+      {"id":"if-r851","difficulty":2,"answer":"devise","clue":"Courte formule qui exprime un idéal, je peux accompagner un blason ; celle de la France rassemble trois valeurs."},
+      {"id":"if-r852","difficulty":1,"answer":"initiale","clue":"Première lettre d’un prénom ou d’un nom, je peux le représenter seule, suivie d’un point."}
+    ] },
+    { "category": "Orthographe et ponctuation", "puzzles": [
+      {"id":"if-r853","difficulty":1,"answer":"majuscule","clue":"Grande forme d’une lettre, je me place normalement au début de la phrase et des noms propres."},
+      {"id":"if-r854","difficulty":1,"answer":"minuscule","clue":"Petite forme d’une lettre, je remplis généralement la plus grande partie d’un texte courant."}
+    ] },
+    { "category": "Langue française", "puzzles": [
+      {"id":"if-r855","difficulty":2,"answer":"orthographe","clue":"Je fixe la manière correcte d’écrire les mots ; une dictée permet de voir si l’on me maîtrise."},
+      {"id":"if-r856","difficulty":2,"answer":"conjugaison","clue":"Je fais changer la forme du verbe selon la personne, le temps et le mode employés."},
+      {"id":"if-r857","difficulty":2,"answer":"grammaire","clue":"Ensemble de règles d’une langue, j’explique notamment les accords et la façon de construire les phrases."}
+    ] },
+    { "category": "Jeux de mots", "puzzles": [
+      {"id":"if-r858","difficulty":2,"answer":"acrostiche","clue":"Dans mon poème, les premières lettres des vers, lues de haut en bas, révèlent un mot ou un nom."}
+    ] },
+    { "category": "Théâtre et spectacle", "puzzles": [
+      {"id":"if-r859","difficulty":1,"answer":"dialogue","clue":"Au théâtre, je fais alterner les paroles de plusieurs personnages qui se répondent."},
+      {"id":"if-r860","difficulty":1,"answer":"monologue","clue":"Au théâtre, je laisse un personnage parler longuement seul pour exprimer sa pensée."}
+    ] },
+    { "category": "Informatique", "puzzles": [
+      {"id":"if-r861","difficulty":1,"answer":"onglet","clue":"En haut du navigateur, je garde une page ouverte pendant que vous en consultez une autre."},
+      {"id":"if-r862","difficulty":1,"answer":"fenêtre","clue":"Zone rectangulaire à l’écran, je peux être déplacée, agrandie ou fermée sans toucher aux murs de la maison."},
+      {"id":"if-r863","difficulty":1,"answer":"curseur","clue":"À l’écran, je suis le petit repère mobile que vous déplacez avec la souris pour désigner un endroit.","acceptedAnswers":["pointeur"]},
+      {"id":"if-r864","difficulty":1,"answer":"icône","clue":"Petit dessin à l’écran, je représente un fichier, une application ou une commande."},
+      {"id":"if-r865","difficulty":1,"answer":"menu","clue":"En informatique, ma liste de choix vous propose des commandes plutôt que les plats du restaurant."},
+      {"id":"if-r866","difficulty":1,"answer":"dossier","clue":"Dans l’ordinateur, je rassemble des fichiers et parfois d’autres éléments de mon espèce pour les organiser.","acceptedAnswers":["répertoire"]},
+      {"id":"if-r867","difficulty":1,"answer":"fichier","clue":"Enregistré sous un nom dans l’ordinateur, je peux contenir une photo, un texte ou un morceau de musique."},
+      {"id":"if-r868","difficulty":1,"answer":"raccourci","clue":"Combinaison de touches comme celles utilisées pour copier, je lance une commande sans passer par les menus."},
+      {"id":"if-r869","difficulty":1,"answer":"antivirus","clue":"Logiciel de protection, je cherche les programmes malveillants et tente de les bloquer ou de les supprimer."},
+      {"id":"if-r870","difficulty":1,"answer":"identifiant","clue":"Nom ou code utilisé à la connexion, je dis quel compte vous voulez ouvrir avant de prouver qu’il vous appartient.","acceptedAnswers":["login"]},
+      {"id":"if-r871","difficulty":1,"answer":"avatar","clue":"Petit personnage ou portrait choisi en ligne, je vous représente auprès des autres joueurs.","editorial":{"note":"Représentation d’un utilisateur en ligne ; if-q513 porte sur le film de James Cameron."}}
+    ] },
+    { "category": "Communication", "puzzles": [
+      {"id":"if-r872","difficulty":1,"answer":"emoji","clue":"Petit pictogramme inséré dans un message, je peux représenter un visage souriant, un animal ou un objet."},
+      {"id":"if-r873","difficulty":2,"answer":"émoticône","clue":"Avec des signes comme deux points suivis d’une parenthèse, je dessine un visage pour donner le ton du message.","acceptedAnswers":["smiley"]}
+    ] },
+    { "category": "Informatique", "puzzles": [
+      {"id":"if-r874","difficulty":1,"answer":"lien","clue":"Dans une page web, un clic sur moi peut ouvrir une autre page sans que vous tapiez son adresse.","acceptedAnswers":["hyperlien"]}
+    ] },
+    { "category": "Communication", "puzzles": [
+      {"id":"if-r875","difficulty":1,"answer":"hashtag","clue":"Précédé du signe dièse, je marque un sujet dans une publication pour la retrouver avec d’autres du même thème."}
+    ] },
+    { "category": "Presse", "puzzles": [
+      {"id":"if-r876","difficulty":1,"answer":"blog","clue":"Site fait de billets publiés au fil du temps, je peux raconter des voyages ou partager des recettes."}
+    ] },
+    { "category": "Communication", "puzzles": [
+      {"id":"if-r877","difficulty":1,"answer":"forum","clue":"Sur Internet, mes discussions sont rangées par sujets et les participants peuvent répondre aux messages des autres."},
+      {"id":"if-r878","difficulty":1,"answer":"courriel","clue":"Message envoyé d’une boîte électronique à une autre, je peux emporter des pièces jointes sans facteur.","acceptedAnswers":["mail","email"]},
+      {"id":"if-r879","difficulty":1,"answer":"spam","clue":"Message électronique indésirable envoyé en masse, je remplis les boîtes de publicités ou de tentatives d’arnaque.","acceptedAnswers":["pourriel"]}
+    ] },
+    { "category": "Informatique", "puzzles": [
+      {"id":"if-r880","difficulty":2,"answer":"captcha","clue":"Petit test à l’entrée d’un site, je demande parfois de reconnaître des images pour distinguer une personne d’un robot."}
+    ] },
+    { "category": "Temps et calendrier", "puzzles": [
+      {"id":"if-r881","difficulty":1,"answer":"printemps","clue":"Dans les régions tempérées, mon retour réveille les bourgeons et suit les mois les plus froids."},
+      {"id":"if-r882","difficulty":1,"answer":"été","clue":"Dans l’hémisphère Nord, je commence en juin ; les grandes vacances et les journées longues me sont associées."},
+      {"id":"if-r883","difficulty":1,"answer":"automne","clue":"Dans les régions tempérées, je colore les feuilles avant leur chute et précède la saison la plus froide."},
+      {"id":"if-r884","difficulty":1,"answer":"hiver","clue":"Dans l’hémisphère Nord, je commence en décembre ; les jours sont courts et la neige m’accompagne parfois."},
+      {"id":"if-r885","difficulty":1,"answer":"semaine","clue":"Je rassemble sept journées et recommence après le dimanche dans le calendrier habituel."},
+      {"id":"if-r886","difficulty":1,"answer":"mois","clue":"Le calendrier en compte douze par an ; nous n’avons pas tous le même nombre de jours."},
+      {"id":"if-r887","difficulty":1,"answer":"année","clue":"Je déroule les saisons et relance le compteur des anniversaires ; le calendrier me donne parfois un jour de plus."},
+      {"id":"if-r888","difficulty":1,"answer":"siècle","clue":"Je réunis cent années ; mon nom sert à ranger de longues périodes dans les livres d’histoire."},
+      {"id":"if-r889","difficulty":2,"answer":"millénaire","clue":"Il faut dix siècles pour me remplir ; mes changements de numéro sont bien plus rares que les anniversaires."},
+      {"id":"if-r890","difficulty":2,"answer":"décennie","clue":"Je dure dix ans, assez pour faire défiler toute une série de modes et de souvenirs.","excludedAnswers":["décade"]},
+      {"id":"if-r891","difficulty":1,"answer":"aube","clue":"Première clarté du matin, j’arrive avant que le soleil dépasse l’horizon."},
+      {"id":"if-r892","difficulty":2,"answer":"crépuscule","clue":"Le soir, je garde un peu de clarté après la disparition du soleil avant de céder complètement à la nuit."},
+      {"id":"if-r893","difficulty":1,"answer":"midi","clue":"Sur une horloge réglée à l’heure civile, je marque douze heures au milieu de la journée."},
+      {"id":"if-r894","difficulty":1,"answer":"minuit","clue":"Je ferme une date et en ouvre une autre sans pause ; l’horloge me marque par douze coups ou par zéro heure."}
+    ] },
+    { "category": "Astronomie", "puzzles": [
+      {"id":"if-r895","difficulty":2,"answer":"équinoxe","clue":"Je reviens deux fois par an, quand le Soleil traverse le plan de l’équateur terrestre et que jour et nuit sont presque égaux."}
+    ] },
+    { "category": "Temps et calendrier", "puzzles": [
+      {"id":"if-r896","difficulty":1,"answer":"minute","clue":"La grande aiguille de l’horloge avance d’une graduation pour me compter ; soixante secondes me composent."},
+      {"id":"if-r897","difficulty":1,"answer":"seconde","clue":"La trotteuse m’égrène ; soixante de mes semblables suffisent pour remplir une minute."},
+      {"id":"if-r898","difficulty":1,"answer":"heure","clue":"Soixante minutes me remplissent ; dans une journée ordinaire, on me compte vingt-quatre fois."},
+      {"id":"if-r899","difficulty":1,"answer":"nuit","clue":"Quand notre côté de la Terre se détourne du Soleil, je remplace la lumière du jour et invite beaucoup de gens au sommeil."},
+      {"id":"if-r900","difficulty":1,"answer":"jour","clue":"Entre le lever et le coucher du Soleil, ma lumière naturelle accompagne les activités ; mon opposée est la nuit."}
+    ] }
+  ]
+}

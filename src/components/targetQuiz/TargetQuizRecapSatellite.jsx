@@ -4,12 +4,13 @@ import { useFeatureRuntime, useFeatureSelector } from "../../app/react/useFeatur
 import { formatTargetQuizPoints } from "../../../shared/targetQuizSummary.js";
 import "./targetQuizResults.css";
 import TargetQuizRecapProgress from "./TargetQuizRecapProgress.jsx";
+import { TARGET_QUIZ_LOGO_SRC } from "../../features/targetQuiz/targetQuizAssets.js";
 
 export function TargetQuizRecap({ summary }) {
   const answered = summary.correctCount + summary.wrongCount;
   return <section className="target-quiz-recap" role="status" aria-live="polite" aria-label="Bilan du mini-jeu">
     <div className="target-quiz-recap__card">
-      <img className="target-quiz-recap__logo" src="/bots/foucault/millions-logo.png" alt="Qui veut gagner des Gobblars" />
+      <img className="target-quiz-recap__logo" src={TARGET_QUIZ_LOGO_SRC} alt="Qui veut gagner des Gobblars" />
       <h2>Bilan du mini-jeu</h2>
       <div className={`target-quiz-recap__score${summary.score < 0 ? " target-quiz-recap__score--negative" : ""}`}>{formatTargetQuizPoints(summary.score)}</div>
       <div className="target-quiz-recap__unit">{summary.cancelled ? "FouKro assommé · points annulés" : "points mini-jeu"}</div>

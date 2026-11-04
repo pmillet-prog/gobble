@@ -106,6 +106,22 @@ export default function StandaloneTrainingPicker({
                         {entry.value === "gotus" ? <img src="/gotus/gotus-logo.webp" alt="Gotus" className="mx-auto h-9 w-24 object-contain" /> : entry.label}
                       </button>
                     ))}
+                    <a
+                      href="/entrainement/roue/"
+                      aria-disabled={busy}
+                      tabIndex={busy ? -1 : undefined}
+                      onClick={(event) => {
+                        if (busy || (typeof onRequestOpen === "function" && onRequestOpen() === false)) { event.preventDefault(); return; }
+                        playUiClickSound?.(); close();
+                      }}
+                      className={`col-span-2 rounded-xl border px-4 py-3 text-center no-underline transition sm:col-span-3 ${busy ? "opacity-50" : ""} ${
+                        darkMode ? "border-amber-400/50 bg-amber-400/10 text-amber-100 hover:bg-amber-400/20"
+                          : "border-amber-300 bg-amber-100 text-amber-950 hover:bg-amber-200"
+                      }`}
+                    >
+                      <strong className="block text-sm">Tester le lancer de roue <span className="ml-1 text-xs font-normal">· Bêta</span></strong>
+                      <span className="mt-1 block text-xs opacity-75">Test guidé 3D / 2D, puis un petit questionnaire. Quelques minutes, gains fictifs.</span>
+                    </a>
                   </div>
                 )}
               </div>

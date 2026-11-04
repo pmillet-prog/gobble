@@ -1,0 +1,163 @@
+{
+  "schemaVersion": 1,
+  "kind": "riddle",
+  "references": {
+    "tiare": {"title":"Saint-Siège — Le Trirègne","url":"https://press.vatican.va/roman_curia/secretariat_state/documents/insigne/triregno_fr.html"}
+  },
+  "groups": [
+    { "category": "Fêtes et traditions", "puzzles": [
+      {"id":"if-r601","difficulty":1,"answer":"confetti","clue":"Petit morceau de papier coloré, je vole avec des milliers de semblables au-dessus des invités en fête."},
+      {"id":"if-r602","difficulty":1,"answer":"guirlande","clue":"Longue décoration que l’on suspend, je peux relier des fanions ou porter des petites lumières."},
+      {"id":"if-r603","difficulty":1,"answer":"lampion","clue":"Petite enveloppe décorative, souvent en papier, je cache une lumière pour illuminer une fête en plein air."}
+    ] },
+    { "category": "Objets du quotidien", "puzzles": [
+      {"id":"if-r604","difficulty":1,"answer":"lanterne","clue":"J’abrite une lumière derrière des parois protectrices ; ma poignée permet de m’emporter dans la nuit."}
+    ] },
+    { "category": "Fêtes et traditions", "puzzles": [
+      {"id":"if-r605","difficulty":1,"answer":"couronne","clue":"Cercle porté sur la tête, je peux être en or pour le roi ou en carton pour qui trouve la fève."},
+      {"id":"if-r606","difficulty":1,"answer":"fève","clue":"Cachée dans la galette, ma petite figurine désigne le roi ou la reine du jour."}
+    ] },
+    { "category": "Boulangerie et pâtisserie", "puzzles": [
+      {"id":"if-r607","difficulty":1,"answer":"galette","clue":"À l’Épiphanie, on me partage en espérant trouver une surprise ; ma version feuilletée se garnit souvent de frangipane."}
+    ] },
+    { "category": "Fêtes et traditions", "puzzles": [
+      {"id":"if-r608","difficulty":1,"answer":"déguisement","clue":"Je vous transforme en pirate ou en sorcière pour la fête, le temps de porter une autre tenue.","acceptedAnswers":["costume"]},
+      {"id":"if-r609","difficulty":1,"answer":"crèche","clue":"À Noël, ma scène miniature rassemble notamment Marie, Joseph et l’enfant dans une étable."},
+      {"id":"if-r610","difficulty":2,"answer":"santon","clue":"Petite figurine traditionnelle de Provence, je représente un personnage que l’on place dans la crèche."},
+      {"id":"if-r611","difficulty":1,"answer":"hotte","clue":"Grand panier porté sur le dos, je transporte des récoltes ou, dans les histoires, les cadeaux du père Noël."},
+      {"id":"if-r612","difficulty":1,"answer":"ruban","clue":"Longue bande étroite, je fais un joli nœud autour du paquet avant qu’on m’enlève pour ouvrir le cadeau."},
+      {"id":"if-r613","difficulty":1,"answer":"pétard","clue":"Petit objet de fête, ma mèche se consume avant que j’explose avec un bruit sec."},
+      {"id":"if-r614","difficulty":2,"answer":"piñata","clue":"Suspendue et remplie de friandises, je dois être cassée pendant la fête pour libérer mon trésor."},
+      {"id":"if-r615","difficulty":1,"answer":"serpentin","clue":"Rouleau de papier de fête, je me déroule en une longue bande colorée quand vous me lancez."}
+    ] },
+    { "category": "Vêtements et accessoires", "puzzles": [
+      {"id":"if-r616","difficulty":2,"answer":"tiare","clue":"Couronne portée notamment par le pape dans les représentations anciennes, je superpose trois étages.","reference":"tiare","acceptedAnswers":["trirègne"]}
+    ] },
+    { "category": "Histoire", "puzzles": [
+      {"id":"if-r617","difficulty":1,"answer":"sceptre","clue":"Bâton précieux tenu par un souverain, je montre son autorité sans servir à marcher."},
+      {"id":"if-r618","difficulty":1,"answer":"trône","clue":"Siège du roi ou de la reine, je symbolise aussi le pouvoir de celui qui s’assoit sur moi."},
+      {"id":"if-r619","difficulty":2,"answer":"blason","clue":"Sur un écu, mes couleurs et mes figures permettent de reconnaître une famille, une ville ou un seigneur.","acceptedAnswers":["armoiries"]}
+    ] },
+    { "category": "Objets du quotidien", "puzzles": [
+      {"id":"if-r620","difficulty":1,"answer":"fanion","clue":"Petit drapeau souvent triangulaire, je peux décorer une guirlande ou signaler l’arrivée d’une course."}
+    ] },
+    { "category": "Matériaux", "puzzles": [
+      {"id":"if-r621","difficulty":1,"answer":"papier","clue":"Feuille légère issue le plus souvent de fibres de bois, je reçois vos mots avant de finir parfois en avion."},
+      {"id":"if-r622","difficulty":1,"answer":"carton","clue":"Plus épais que le papier, je forme des boîtes et protège les objets pendant un déménagement."},
+      {"id":"if-r623","difficulty":1,"answer":"plastique","clue":"Je peux devenir bouteille, jouet ou coque de téléphone ; beaucoup de mes variétés se moulent facilement à chaud."},
+      {"id":"if-r624","difficulty":2,"answer":"acier","clue":"Alliage de fer et de carbone, je construis des ponts et des outils ; une de mes familles est inoxydable."},
+      {"id":"if-r625","difficulty":2,"answer":"bronze","clue":"Alliage de cuivre et d’étain, je donne mon nom à une médaille et sers à couler des statues."},
+      {"id":"if-r626","difficulty":2,"answer":"laiton","clue":"Mon mélange de cuivre et de zinc donne un métal jaune utilisé pour des poignées et des instruments de musique."},
+      {"id":"if-r627","difficulty":2,"answer":"fonte","clue":"Riche en carbone, cet alliage à base de fer fait de moi une cocotte lourde qui garde bien la chaleur."},
+      {"id":"if-r628","difficulty":1,"answer":"béton","clue":"Mélange de ciment, d’eau, de sable et de gravier, je durcis dans un coffrage et peux être armé de métal."},
+      {"id":"if-r629","difficulty":2,"answer":"ciment","clue":"Poudre qui durcit une fois mélangée à l’eau, je lie le sable et le gravier dans la construction."},
+      {"id":"if-r630","difficulty":1,"answer":"brique","clue":"Petit bloc de construction souvent en terre cuite rouge, je m’empile avec du mortier pour former un mur."},
+      {"id":"if-r631","difficulty":1,"answer":"tuile","clue":"Plaque souvent faite de terre cuite, je chevauche mes voisines pour empêcher la pluie de traverser le toit."},
+      {"id":"if-r632","difficulty":1,"answer":"ardoise","clue":"Roche sombre qui se sépare en plaques, je couvre des toits et accueille les mots écrits à la craie."},
+      {"id":"if-r633","difficulty":2,"answer":"marbre","clue":"Pierre que l’on polit, souvent veinée, je compose des statues et des sols prestigieux ; on peut rester de moi sans émotion."},
+      {"id":"if-r634","difficulty":2,"answer":"granit","clue":"Pierre très dure aux grains visibles, je sers pour des bordures et des plans de travail.","acceptedAnswers":["granite"]},
+      {"id":"if-r635","difficulty":1,"answer":"liège","clue":"Écorce légère et imperméable d’un certain chêne, je ferme les bouteilles de vin sans être du plastique."},
+      {"id":"if-r636","difficulty":1,"answer":"cuir","clue":"Peau animale préparée par tannage, je deviens chaussure, ceinture ou canapé."},
+      {"id":"if-r637","difficulty":1,"answer":"laine","clue":"Tondue sur le mouton, je me file avant de devenir un pull qui tient chaud."},
+      {"id":"if-r638","difficulty":1,"answer":"coton","clue":"Duvet blanc autour des graines d’une plante, je fournis des fibres pour les vêtements et des disques de toilette."},
+      {"id":"if-r639","difficulty":1,"answer":"soie","clue":"Fil produit par le ver du bombyx pour son cocon, je donne un tissu fin et brillant."},
+      {"id":"if-r640","difficulty":2,"answer":"velours","clue":"Tissu dont les petits poils serrés font la douceur, je peux couvrir un fauteuil ou former un pantalon côtelé."}
+    ] },
+    { "category": "Architecture", "puzzles": [
+      {"id":"if-r641","difficulty":1,"answer":"balcon","clue":"Plateforme extérieure en hauteur, je dépasse de la façade et vous laisse prendre l’air sans descendre au jardin."},
+      {"id":"if-r642","difficulty":1,"answer":"terrasse","clue":"Espace extérieur aménagé où l’on place une table, je peux prolonger la maison au niveau du jardin."},
+      {"id":"if-r643","difficulty":1,"answer":"véranda","clue":"Pièce largement vitrée ajoutée à la maison, je protège du vent tout en laissant voir le jardin."}
+    ] },
+    { "category": "Jardinage", "puzzles": [
+      {"id":"if-r644","difficulty":2,"answer":"pergola","clue":"Mes poteaux portent une structure ouverte où grimpent les plantes pour ombrager un coin du jardin."}
+    ] },
+    { "category": "Architecture", "puzzles": [
+      {"id":"if-r645","difficulty":2,"answer":"porche","clue":"Passage couvert devant l’entrée d’un bâtiment, je vous abrite avant que vous franchissiez la porte."},
+      {"id":"if-r646","difficulty":2,"answer":"auvent","clue":"Petit toit fixé au-dessus d’une ouverture, je vous protège de la pluie quand vous cherchez vos clés.","acceptedAnswers":["marquise"]},
+      {"id":"if-r647","difficulty":2,"answer":"mezzanine","clue":"Étage partiel à l’intérieur d’une pièce haute, je laisse voir l’espace du dessous au-delà de ma rambarde."}
+    ] },
+    { "category": "Maison", "puzzles": [
+      {"id":"if-r648","difficulty":1,"answer":"grenier","clue":"Sous le toit, je conserve les cartons et les souvenirs que vous montez rarement chercher."},
+      {"id":"if-r649","difficulty":1,"answer":"cave","clue":"Pièce sous le niveau du sol, je garde volontiers les bouteilles au frais et à l’abri de la lumière."},
+      {"id":"if-r650","difficulty":2,"answer":"cellier","clue":"Petite pièce de réserve, je garde des provisions près de la cuisine sans être forcément sous terre."},
+      {"id":"if-r651","difficulty":2,"answer":"vestibule","clue":"Pièce d’entrée d’un logement ou d’un bâtiment, je vous accueille avant les autres pièces.","acceptedAnswers":["hall"]},
+      {"id":"if-r652","difficulty":1,"answer":"palier","clue":"Plateforme entre deux volées de marches, je vous laisse reprendre souffle et peux desservir les portes d’un étage."},
+      {"id":"if-r653","difficulty":1,"answer":"couloir","clue":"Passage intérieur allongé, je relie plusieurs pièces sans être moi-même une pièce où l’on séjourne.","acceptedAnswers":["corridor"]},
+      {"id":"if-r654","difficulty":1,"answer":"rampe","clue":"Le long de l’escalier, vous posez la main sur moi pour monter ou descendre plus sûrement."}
+    ] },
+    { "category": "Architecture", "puzzles": [
+      {"id":"if-r655","difficulty":2,"answer":"balustrade","clue":"Rangée de petits piliers surmontée d’une barre, je protège le bord d’un balcon ou d’un escalier."}
+    ] },
+    { "category": "Jardinage", "puzzles": [
+      {"id":"if-r656","difficulty":1,"answer":"palissade","clue":"Clôture faite de planches ou de pieux serrés, je cache parfois un chantier aux passants."}
+    ] },
+    { "category": "Maison", "puzzles": [
+      {"id":"if-r657","difficulty":1,"answer":"portail","clue":"Grande fermeture à l’entrée d’une propriété, je laisse passer la voiture quand mes battants s’ouvrent."}
+    ] },
+    { "category": "Jardinage", "puzzles": [
+      {"id":"if-r658","difficulty":1,"answer":"haie","clue":"Rangée d’arbustes plantés serrés, je sépare des jardins sans être un mur."}
+    ] },
+    { "category": "Maison", "puzzles": [
+      {"id":"if-r659","difficulty":2,"answer":"persienne","clue":"Mes lames inclinées masquent la fenêtre en laissant passer de l’air et un peu de lumière."}
+    ] },
+    { "category": "Jardinage", "puzzles": [
+      {"id":"if-r660","difficulty":2,"answer":"treillage","clue":"Assemblage de lattes croisées contre un mur, je donne un appui aux plantes grimpantes.","acceptedAnswers":["treillis"]}
+    ] },
+    { "category": "Littérature", "puzzles": [
+      {"id":"if-r661","difficulty":1,"answer":"livre","clue":"Mes pages réunies sous une couverture peuvent vous emmener très loin sans quitter votre fauteuil."},
+      {"id":"if-r662","difficulty":1,"answer":"roman","clue":"Long récit de fiction en prose, je vous fais suivre des personnages de chapitre en chapitre."}
+    ] },
+    { "category": "Papeterie", "puzzles": [
+      {"id":"if-r663","difficulty":1,"answer":"album","clue":"Mes pages accueillent des photos collées ou glissées dans des pochettes pour conserver vos souvenirs."}
+    ] },
+    { "category": "Littérature", "puzzles": [
+      {"id":"if-r664","difficulty":2,"answer":"biographie","clue":"Récit de la vie d’une personne, je suis écrit par quelqu’un d’autre que celle dont je parle."},
+      {"id":"if-r665","difficulty":2,"answer":"autobiographie","clue":"Dans mon récit, l’auteur raconte sa propre vie et devient lui-même le personnage principal."},
+      {"id":"if-r666","difficulty":2,"answer":"préface","clue":"Texte placé avant l’œuvre, je la présente au lecteur et peux être signé par une autre personne que son auteur."},
+      {"id":"if-r667","difficulty":1,"answer":"sommaire","clue":"Au début du magazine, ma liste de rubriques et de pages vous aide à trouver l’article voulu."},
+      {"id":"if-r668","difficulty":2,"answer":"index","clue":"En fin d’ouvrage, je classe des noms ou des sujets par ordre alphabétique et indique où les retrouver."},
+      {"id":"if-r669","difficulty":2,"answer":"glossaire","clue":"Petite liste explicative, souvent en fin de livre, je donne le sens des termes particuliers employés dans le texte.","acceptedAnswers":["lexique"]},
+      {"id":"if-r670","difficulty":1,"answer":"couverture","clue":"Je protège les pages du livre ; sur mon devant figurent généralement le titre et le nom de l’auteur."},
+      {"id":"if-r671","difficulty":2,"answer":"reliure","clue":"Je tiens ensemble les pages du livre et les rattache à leur couverture pour qu’elles ne s’éparpillent pas."},
+      {"id":"if-r672","difficulty":1,"answer":"page","clue":"L’un des deux côtés d’un feuillet, je porte souvent un numéro et me tourne pour poursuivre la lecture."},
+      {"id":"if-r673","difficulty":1,"answer":"chapitre","clue":"Partie d’un livre, je porte parfois un numéro et un titre ; le suivant commence souvent sur une nouvelle page."}
+    ] },
+    { "category": "Langue française", "puzzles": [
+      {"id":"if-r674","difficulty":2,"answer":"paragraphe","clue":"Bloc de texte consacré à une idée, je suis séparé du suivant par un retour à la ligne."}
+    ] },
+    { "category": "Littérature", "puzzles": [
+      {"id":"if-r675","difficulty":1,"answer":"titre","clue":"Nom donné à un livre ou à un film, je figure en grand sur sa couverture ou son affiche."},
+      {"id":"if-r676","difficulty":2,"answer":"dédicace","clue":"Quelques mots personnels écrits par l’auteur sur votre exemplaire, je rends ce livre un peu différent des autres."}
+    ] },
+    { "category": "Papeterie", "puzzles": [
+      {"id":"if-r677","difficulty":2,"answer":"signet","clue":"Petit ruban fixé à certains livres, je reste entre deux pages pour retrouver l’endroit où vous avez arrêté la lecture."}
+    ] },
+    { "category": "Communication", "puzzles": [
+      {"id":"if-r678","difficulty":1,"answer":"affiche","clue":"Grande feuille placardée sur un mur, j’annonce un spectacle ou vante un produit aux passants."},
+      {"id":"if-r679","difficulty":2,"answer":"prospectus","clue":"Feuille publicitaire distribuée ou déposée dans la boîte aux lettres, je présente une offre ou un commerce.","acceptedAnswers":["tract","flyer"]},
+      {"id":"if-r680","difficulty":2,"answer":"brochure","clue":"Petit ouvrage de quelques pages assemblées, je présente par exemple un séjour ou un musée."}
+    ] },
+    { "category": "Corps humain", "puzzles": [
+      {"id":"if-r681","difficulty":1,"answer":"frisson","clue":"Le froid ou une émotion peut me provoquer ; je vous fais trembler brièvement sans le décider."},
+      {"id":"if-r682","difficulty":1,"answer":"bâillement","clue":"La fatigue m’invite souvent : la bouche s’ouvre grand pour une longue inspiration."},
+      {"id":"if-r683","difficulty":1,"answer":"hoquet","clue":"Mes secousses involontaires du diaphragme produisent des petits hic répétés, parfois après un repas trop rapide."},
+      {"id":"if-r684","difficulty":1,"answer":"éternuement","clue":"Le nez vous chatouille, puis je chasse brusquement de l’air ; on vous répond parfois à vos souhaits."},
+      {"id":"if-r685","difficulty":1,"answer":"toux","clue":"Je chasse de l’air par la bouche en une secousse bruyante, souvent quand la gorge ou les bronches sont irritées."},
+      {"id":"if-r686","difficulty":1,"answer":"ronflement","clue":"Bruit de gorge pendant le sommeil, je peux empêcher de dormir la personne couchée à côté."},
+      {"id":"if-r687","difficulty":1,"answer":"sourire","clue":"Je relève les coins de la bouche pour montrer la joie ou la gentillesse, parfois sans laisser voir les dents."},
+      {"id":"if-r688","difficulty":1,"answer":"rire","clue":"Une bonne blague peut me déclencher ; je secoue parfois le ventre et peux devenir difficile à arrêter."},
+      {"id":"if-r689","difficulty":1,"answer":"larme","clue":"Petite goutte née près de l’œil, je peux rouler sur la joue de tristesse comme de joie."},
+      {"id":"if-r690","difficulty":1,"answer":"sueur","clue":"Quand vous avez trop chaud, mes gouttes apparaissent sur la peau et leur évaporation aide à vous refroidir.","acceptedAnswers":["transpiration"]},
+      {"id":"if-r691","difficulty":1,"answer":"salive","clue":"Dans la bouche, je mouille les aliments avant qu’ils soient avalés et aide déjà leur digestion."},
+      {"id":"if-r692","difficulty":1,"answer":"sang","clue":"Je circule dans les vaisseaux, entraîné par le cœur, et transporte notamment l’oxygène."},
+      {"id":"if-r693","difficulty":1,"answer":"cil","clue":"Petit poil au bord de la paupière, je contribue à protéger l’œil des poussières."},
+      {"id":"if-r694","difficulty":1,"answer":"sourcil","clue":"Bande de poils au-dessus de l’œil, je bouge avec les expressions du visage."},
+      {"id":"if-r695","difficulty":1,"answer":"paupière","clue":"Je me ferme sur l’œil pendant le sommeil et cligne régulièrement pour le protéger et l’humidifier."},
+      {"id":"if-r696","difficulty":1,"answer":"ongle","clue":"Plaque dure au bout du doigt, je pousse lentement et reçois parfois une couche de vernis."},
+      {"id":"if-r697","difficulty":1,"answer":"nombril","clue":"Petite marque au milieu du ventre, je reste après la chute de ce qui reliait le bébé au placenta."},
+      {"id":"if-r698","difficulty":1,"answer":"ride","clue":"Petit pli de la peau, je m’accentue avec l’âge ou quand le visage répète certaines expressions."},
+      {"id":"if-r699","difficulty":2,"answer":"fossette","clue":"Petit creux naturel de la joue, j’apparais souvent plus nettement quand vous souriez."},
+      {"id":"if-r700","difficulty":1,"answer":"cicatrice","clue":"Marque laissée sur la peau après la guérison d’une blessure, je peux rappeler une chute longtemps après."}
+    ] }
+  ]
+}

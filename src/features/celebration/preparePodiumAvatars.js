@@ -1,4 +1,5 @@
-import { createAvatarRenderer } from "../avatar/avatarRenderer.js";
+import { prepareSavedAvatar } from "../avatar/prepareSavedAvatar.js";
+import { RELEASE_SCOPE } from "../../../shared/releaseScope.js";
 import { loadAvatarImage } from "../avatar/avatarAssetCache.js";
 import { getPresenterPodiumAvatar, preparePresenterPodiumAvatar } from "./presenterPodiumAvatars.js";
 
@@ -35,14 +36,19 @@ export async function preparePodiumAvatars(players, { signal, onProgress } = {})
         onProgress?.(actors.length);
         continue;
       }
-      renderer ||= await createAvatarRenderer();
       for (const pose of player.previewOnly ? ["happy"] : ["neutral", "happy", "blink"]) {
         signal?.throwIfAborted();
-        const frame = await renderer.prepare(player.avatar, {
+        const options = {
+          view: "portrait",
           transparent: true, expression: pose === "neutral" ? "neutral" : "happy", blink: pose === "blink", nickname: player.nick,
           // Keep the full chest above the plinth, unlike the lower profile crop.
           portraitOffsetY: 0,
-        });
+        };
+        let frame = RELEASE_SCOPE.avatarRenderAssets ? await prepareSavedAvatar(player.avatar, options) : null;
+        if (!frame) {
+          renderer ||= await (await import("../avatar/avatarRenderer.js")).createAvatarRenderer();
+          frame = await renderer.prepare(player.avatar, options);
+        }
         signal?.throwIfAborted();
         const canvas = Object.assign(document.createElement("canvas"), { width: 600, height: 600 });
         actor.frames[pose] = canvas;

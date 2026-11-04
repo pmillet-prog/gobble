@@ -1,0 +1,119 @@
+{
+  "schemaVersion": 1,
+  "kind": "quiz",
+  "references": {
+    "vanilla": {
+      "title": "Muséum national d’Histoire naturelle — Vanille",
+      "url": "https://www.mnhn.fr/fr/vanille"
+    },
+    "paella": {
+      "title": "Visit Valencia — La paella valenciana",
+      "url": "https://blog.visitvalencia.com/paella-valenciana"
+    },
+    "cheetah": {
+      "title": "Zoo de La Palmyre — Guépard",
+      "url": "https://www.zoo-palmyre.fr/index.php/fr/guepard"
+    },
+    "oslo": {
+      "title": "Fondation Nobel — Lieux des cérémonies",
+      "url": "https://educationalgames.nobelprize.org/educational/nobelprize_info/index.html"
+    },
+    "parliament": {
+      "title": "EUR-Lex — Le Parlement européen et son siège",
+      "url": "https://eur-lex.europa.eu/EN/legal-content/summary/the-european-parliament.html"
+    }
+  },
+  "groups": [
+    { "category": "Villes et capitales", "puzzles": [
+      {"id":"if-q152","difficulty":1,"clue":"Dans quelle capitale espagnole se trouvent le musée du Prado et la place Puerta del Sol ?","answer":"Madrid"},
+      {"id":"if-q153","difficulty":1,"clue":"Quelle capitale allemande a été coupée par un mur dont la chute symbolise la fin de la guerre froide ?","answer":"Berlin"},
+      {"id":"if-q154","difficulty":1,"clue":"Dans quelle capitale belge peut-on voir l’Atomium et le Manneken-Pis ?","answer":"Bruxelles"},
+      {"id":"if-q155","difficulty":2,"clue":"Quelle capitale néerlandaise est célèbre pour ses canaux et abrite la maison où Anne Frank s’est cachée ?","answer":"Amsterdam"},
+      {"id":"if-q156","difficulty":2,"clue":"Quelle ville est la capitale de la Suède, alors que Göteborg est un autre grand port du pays ?","answer":"Stockholm"},
+      {"id":"if-q157","difficulty":2,"clue":"Quelle capitale scandinave accueille la remise du prix Nobel de la paix, en Norvège ?","answer":"Oslo","reference":"oslo"},
+      {"id":"if-q158","difficulty":2,"clue":"Dans quelle capitale danoise une statue de la Petite Sirène est-elle installée au bord de l’eau ?","answer":"Copenhague","acceptedAnswers":["Copenhagen"]},
+      {"id":"if-q159","difficulty":2,"clue":"Quelle capitale de la Finlande fait face à Tallinn de l’autre côté du golfe de Finlande ?","answer":"Helsinki"},
+      {"id":"if-q160","difficulty":2,"clue":"Quelle capitale autrichienne est associée aux valses de Strauss et au château de Schönbrunn ?","answer":"Vienne","acceptedAnswers":["Wien","Vienna"]},
+      {"id":"if-q161","difficulty":2,"clue":"Quelle capitale tchèque est traversée par la Vltava et possède le célèbre pont Charles ?","answer":"Prague","acceptedAnswers":["Praha"]},
+      {"id":"if-q162","difficulty":2,"clue":"Quelle est la capitale de la Pologne, à distinguer de l’ancienne capitale Cracovie ?","answer":"Varsovie","acceptedAnswers":["Warszawa","Warsaw"]},
+      {"id":"if-q163","difficulty":2,"clue":"Quelle capitale de la république d’Irlande abrite Trinity College et est traversée par la Liffey ?","answer":"Dublin"},
+      {"id":"if-q164","difficulty":2,"clue":"Quelle capitale hongroise réunit les anciennes villes de Buda et de Pest de part et d’autre du Danube ?","answer":"Budapest"},
+      {"id":"if-q165","difficulty":1,"clue":"Dans quelle ville italienne les gondoles passent-elles sous le pont du Rialto ?","answer":"Venise","acceptedAnswers":["Venezia"]},
+      {"id":"if-q166","difficulty":1,"clue":"Quelle ville catalane abrite la Sagrada Família et le parc Güell, tous deux associés à Gaudí ?","answer":"Barcelone","acceptedAnswers":["Barcelona"]},
+      {"id":"if-q167","difficulty":2,"clue":"Quelle grande ville du sud de l’Italie donne son nom à la baie dominée par le Vésuve ?","answer":"Naples","acceptedAnswers":["Napoli"]},
+      {"id":"if-q168","difficulty":1,"clue":"Quelle ville française associe le Vieux-Port, la basilique Notre-Dame de la Garde et les calanques ?","answer":"Marseille"},
+      {"id":"if-q169","difficulty":1,"clue":"Dans quelle ville française la Saône rejoint-elle le Rhône, près du quartier appelé Confluence ?","answer":"Lyon"},
+      {"id":"if-q170","difficulty":1,"clue":"Quelle ville sur la Garonne donne son nom à un vignoble célèbre et abrite la place de la Bourse ?","answer":"Bordeaux"},
+      {"id":"if-q171","difficulty":1,"clue":"Quelle ville alsacienne abrite le quartier de la Petite France et le siège du Parlement européen ?","answer":"Strasbourg","reference":"parliament"},
+      {"id":"if-q172","difficulty":1,"clue":"Quelle ville française doit son surnom de ville rose à ses nombreuses constructions en brique ?","answer":"Toulouse"},
+      {"id":"if-q173","difficulty":2,"clue":"Dans quelle ville de Loire peut-on visiter le château des ducs de Bretagne et les Machines de l’île ?","answer":"Nantes"},
+      {"id":"if-q174","difficulty":1,"clue":"Quelle ville provençale est connue pour son palais des Papes et son pont chanté dans une ronde ?","answer":"Avignon"},
+      {"id":"if-q175","difficulty":2,"clue":"Dans quelle ville de Champagne la cathédrale accueillait-elle traditionnellement le sacre des rois de France ?","answer":"Reims"},
+      {"id":"if-q176","difficulty":1,"clue":"Quelle ville de la Côte d’Azur possède la promenade des Anglais le long de la baie des Anges ?","answer":"Nice"}
+    ] },
+    { "category": "Cuisine", "puzzles": [
+      {"id":"if-q177","difficulty":1,"clue":"Quel ingrédient issu de fèves torréfiées donne au chocolat son goût caractéristique ?","answer":"cacao"},
+      {"id":"if-q178","difficulty":2,"clue":"Quelle épice vient du fruit d’une orchidée et se vend en longues gousses sombres pour parfumer les desserts ?","answer":"vanille","reference":"vanilla"},
+      {"id":"if-q179","difficulty":2,"clue":"Quelle épice à la saveur douce et chaude provient d’une écorce et se vend notamment en bâtons enroulés ?","answer":"cannelle"},
+      {"id":"if-q180","difficulty":2,"clue":"Quelle épice est obtenue en séchant les stigmates rouges d’un crocus et colore les plats en jaune ?","answer":"safran"},
+      {"id":"if-q181","difficulty":2,"clue":"Quelle épice jaune, issue d’un rhizome, est souvent appelée safran des Indes ?","answer":"curcuma"},
+      {"id":"if-q182","difficulty":2,"clue":"Quel rhizome au goût piquant se consomme notamment confit ou en fines lamelles marinées avec les sushis ?","answer":"gingembre"},
+      {"id":"if-q183","difficulty":1,"clue":"Quelle herbe fraîche est l’ingrédient végétal principal du pesto vert traditionnel de Gênes ?","answer":"basilic"},
+      {"id":"if-q184","difficulty":1,"clue":"Quelle herbe parfumée donne une sensation de fraîcheur et accompagne traditionnellement le thé au Maroc ?","answer":"menthe"},
+      {"id":"if-q185","difficulty":2,"clue":"Quel arbre fournit des feuilles aromatiques pour le bouquet garni et des couronnes symbolisant la victoire ?","answer":"laurier"}
+    ] },
+    { "category": "Nature", "puzzles": [
+      {"id":"if-q186","difficulty":1,"clue":"Quelle plante forme des champs violets en Provence et parfume de petits sachets placés dans le linge ?","answer":"lavande","acceptedAnswers":["lavandin"]}
+    ] },
+    { "category": "Cuisine", "puzzles": [
+      {"id":"if-q187","difficulty":2,"clue":"Quelle épice existe en grains noirs, blancs ou verts provenant des fruits de la même plante grimpante ?","answer":"poivre"},
+      {"id":"if-q188","difficulty":1,"clue":"Quel condiment piquant fabriqué à partir de graines est particulièrement associé à Dijon ?","answer":"moutarde"},
+      {"id":"if-q189","difficulty":1,"clue":"Quelle sauce froide obtient-on en incorporant progressivement de l’huile à un jaune d’œuf ?","answer":"mayonnaise","acceptedAnswers":["mayo"]},
+      {"id":"if-q190","difficulty":2,"clue":"Quelle sauce blanche mélange du lait à un roux de beurre et de farine, notamment pour des gratins ?","answer":"béchamel"},
+      {"id":"if-q191","difficulty":2,"clue":"Quel dessert italien superpose des biscuits imbibés de café et une crème au mascarpone ?","answer":"tiramisu"},
+      {"id":"if-q192","difficulty":1,"clue":"Quelle préparation mexicaine à base d’avocat écrasé accompagne souvent les chips de maïs ?","answer":"guacamole"},
+      {"id":"if-q193","difficulty":2,"clue":"Quelle purée de pois chiches au sésame et au citron sert de tartinade dans la cuisine du Levant ?","answer":"houmous","acceptedAnswers":["hummus","houmos","hommos"]},
+      {"id":"if-q194","difficulty":1,"clue":"Quel plat du Maghreb associe de la semoule cuite à la vapeur à un bouillon garni de légumes ?","answer":"couscous"},
+      {"id":"if-q195","difficulty":1,"clue":"Quel plat de riz espagnol, originaire de Valence, cuit dans une large poêle peu profonde ?","answer":"paella","reference":"paella"},
+      {"id":"if-q196","difficulty":2,"clue":"Quel plat italien de riz crémeux se prépare en ajoutant le bouillon progressivement pendant la cuisson ?","answer":"risotto"},
+      {"id":"if-q197","difficulty":2,"clue":"Quelle préparation italienne à base de semoule de maïs peut être servie souple ou refroidie puis découpée ?","answer":"polenta"},
+      {"id":"if-q198","difficulty":1,"clue":"Quelle spécialité italienne se compose d’une pâte étalée en disque, garnie puis cuite au four ?","answer":"pizza"},
+      {"id":"if-q199","difficulty":1,"clue":"Quel plat provençal fait mijoter aubergines, courgettes, poivrons et tomates ?","answer":"ratatouille"},
+      {"id":"if-q200","difficulty":1,"clue":"Quel chou fermenté donne son nom à un plat alsacien souvent garni de pommes de terre et de charcuterie ?","answer":"choucroute"},
+      {"id":"if-q201","difficulty":2,"clue":"Quelle spécialité marseillaise de poissons cuits dans un bouillon s’accompagne traditionnellement de rouille ?","answer":"bouillabaisse"}
+    ] },
+    { "category": "Nature", "puzzles": [
+      {"id":"if-q202","difficulty":1,"clue":"Chez quel grand félin le mâle adulte porte-t-il habituellement une crinière autour de la tête ?","answer":"lion"},
+      {"id":"if-q203","difficulty":1,"clue":"Quel grand félin asiatique possède généralement une robe orange traversée de rayures noires ?","answer":"tigre"},
+      {"id":"if-q204","difficulty":2,"clue":"Quel félin tacheté est célèbre pour ses pointes de vitesse et les traits noirs qui descendent de ses yeux ?","answer":"guépard","reference":"cheetah"},
+      {"id":"if-q205","difficulty":1,"clue":"Quel mammifère africain reconnaît-on à son cou très allongé et à sa robe couverte de grandes taches ?","answer":"girafe"},
+      {"id":"if-q206","difficulty":1,"clue":"Quel cousin africain du cheval est reconnaissable à ses rayures noires et blanches ?","answer":"zèbre"},
+      {"id":"if-q207","difficulty":1,"clue":"Quel grand mammifère utilise une trompe pour saisir sa nourriture et porter de l’eau à sa bouche ?","answer":"éléphant"},
+      {"id":"if-q208","difficulty":1,"clue":"Quel gros herbivore porte une ou deux cornes sur le nez et possède une peau épaisse, presque sans poils ?","answer":"rhinocéros"},
+      {"id":"if-q209","difficulty":1,"clue":"Quel gros mammifère africain à très large gueule passe une grande partie de la journée dans les rivières ?","answer":"hippopotame"},
+      {"id":"if-q210","difficulty":1,"clue":"Quel cousin du chameau se distingue de lui par son unique bosse ?","answer":"dromadaire"},
+      {"id":"if-q211","difficulty":1,"clue":"Quel grand oiseau africain ne vole pas, court sur de longues pattes et pond d’énormes œufs ?","answer":"autruche"},
+      {"id":"if-q212","difficulty":2,"clue":"Quel animal domestique des Andes sert traditionnellement au transport des charges et peut cracher ?","answer":"lama"},
+      {"id":"if-q213","difficulty":1,"clue":"Quel mammifère d’Amérique tropicale reste suspendu aux branches et doit son nom à sa grande lenteur ?","answer":"paresseux"},
+      {"id":"if-q214","difficulty":1,"clue":"Quel marsupial australien gris, souvent pris pour un petit ours, se nourrit principalement d’eucalyptus ?","answer":"koala"},
+      {"id":"if-q215","difficulty":1,"clue":"Quel ours noir et blanc originaire de Chine se nourrit surtout de bambou ?","answer":"panda"},
+      {"id":"if-q216","difficulty":2,"clue":"Chez quel grand singe africain appelle-t-on dos argenté un mâle adulte arrivé à maturité ?","answer":"gorille"},
+      {"id":"if-q217","difficulty":1,"clue":"Quel animal domestique aux longues oreilles a pour cousin sauvage celui que l’on dit de garenne ?","answer":"lapin"},
+      {"id":"if-q218","difficulty":1,"clue":"De quel animal d’élevage la truie est-elle la femelle et le porcelet le petit ?","answer":"porc","acceptedAnswers":["cochon"]},
+      {"id":"if-q219","difficulty":1,"clue":"Quel petit mammifère couvert de piquants peut se mettre en boule pour se protéger ?","answer":"hérisson"},
+      {"id":"if-q220","difficulty":1,"clue":"Quel petit mammifère creuse des galeries et laisse sur les pelouses des monticules de terre caractéristiques ?","answer":"taupe"},
+      {"id":"if-q221","difficulty":1,"clue":"Quel petit rongeur à queue touffue grimpe dans les arbres et cache notamment des noisettes pour ses réserves ?","answer":"écureuil"}
+    ] },
+    { "category": "Littérature", "puzzles": [
+      {"id":"if-q222","difficulty":1,"clue":"Quel canidé rusé flatte le corbeau pour lui faire lâcher son fromage dans la fable de La Fontaine ?","answer":"renard"},
+      {"id":"if-q223","difficulty":1,"clue":"Dans Le Petit Chaperon rouge, quel prédateur prend la place de la grand-mère pour tromper l’enfant ?","answer":"loup"}
+    ] },
+    { "category": "Nature", "puzzles": [
+      {"id":"if-q224","difficulty":1,"clue":"Quel grand mammifère peut être brun ou polaire et est souvent représenté sous forme de peluche ?","answer":"ours"},
+      {"id":"if-q225","difficulty":1,"clue":"Quel nom courant de mammifère marin à fanons désigne notamment les espèces dites bleue et à bosse ?","answer":"baleine"}
+    ] },
+    { "category": "Cinéma et séries", "puzzles": [
+      {"id":"if-q226","difficulty":1,"clue":"Quel mammifère marin est le héros de la série télévisée Flipper ?","answer":"dauphin"}
+    ] }
+  ]
+}

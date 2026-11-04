@@ -1,0 +1,139 @@
+{
+  "schemaVersion": 1,
+  "kind": "quiz",
+  "references": {
+    "retina": {
+      "title": "Inserm — Rétine artificielle : structure de la rétine",
+      "url": "https://www.inserm.fr/dossier/retine-artificielle/"
+    },
+    "matter": {
+      "title": "CEA — La matière",
+      "url": "https://www.cea.fr/comprendre/Pages/matiere-univers/essentiel-sur-la-matiere.aspx"
+    },
+    "versailles": {
+      "title": "Château de Versailles — Louis XIV",
+      "url": "https://www.chateauversailles.fr/decouvrir/histoire/grands-personnages/louis-xiv"
+    },
+    "carter": {
+      "title": "Griffith Institute, Oxford — Howard Carter",
+      "url": "https://tutankhamun.griffith.ox.ac.uk/people/howard-carter"
+    },
+    "nemo": {
+      "title": "Pixar — Le Monde de Nemo, histoire et personnages",
+      "url": "https://www.pixar.com/finding-nemo"
+    },
+    "shrek": {
+      "title": "DreamWorks — Shrek",
+      "url": "https://www.dreamworks.com/movies/shrek"
+    },
+    "spartacus": {
+      "title": "World History Encyclopedia — The Spartacus Revolt",
+      "url": "https://www.worldhistory.org/article/871/the-spartacus-revolt/"
+    }
+  },
+  "groups": [
+    { "category": "Corps humain", "puzzles": [
+      {"id":"if-q227","difficulty":1,"clue":"Quel organe musculaire agit comme une pompe pour faire circuler le sang dans le corps ?","answer":"cœur"},
+      {"id":"if-q228","difficulty":1,"clue":"Dans quels organes les alvéoles permettent-elles les échanges de gaz entre l’air et le sang ?","answer":"poumons","acceptedAnswers":["poumon"]},
+      {"id":"if-q229","difficulty":2,"clue":"Quel organe produit la bile, ensuite stockée dans la vésicule biliaire ?","answer":"foie"},
+      {"id":"if-q230","difficulty":1,"clue":"Quels organes filtrent le sang pour former l’urine, avant son passage dans la vessie ?","answer":"reins","acceptedAnswers":["rein"]},
+      {"id":"if-q231","difficulty":1,"clue":"Quel organe protégé par le crâne joue le rôle principal dans la pensée, la mémoire et la commande des mouvements ?","answer":"cerveau"},
+      {"id":"if-q232","difficulty":2,"clue":"Quelle partie de l’encéphale, située à l’arrière sous le cerveau, contribue à l’équilibre et à la coordination ?","answer":"cervelet"},
+      {"id":"if-q233","difficulty":2,"clue":"Quelle couche au fond de l’œil porte les cônes et les bâtonnets sensibles à la lumière ?","answer":"rétine","reference":"retina"},
+      {"id":"if-q234","difficulty":1,"clue":"Quelle partie colorée de l’œil entoure l’ouverture centrale par laquelle entre la lumière ?","answer":"iris"},
+      {"id":"if-q235","difficulty":1,"clue":"Comment appelle-t-on l’ouverture noire au centre de l’iris, qui s’élargit dans l’obscurité ?","answer":"pupille"},
+      {"id":"if-q236","difficulty":2,"clue":"Quelle fine membrane de l’oreille vibre sous l’effet des sons et transmet ces vibrations aux osselets ?","answer":"tympan"},
+      {"id":"if-q237","difficulty":1,"clue":"Quel nom donne-t-on à l’ensemble des os qui forment la charpente du corps humain ?","answer":"squelette"},
+      {"id":"if-q238","difficulty":2,"clue":"Quel os de la cuisse relie la hanche au genou et est le plus long du corps humain ?","answer":"fémur"},
+      {"id":"if-q239","difficulty":2,"clue":"Quel petit os mobile, aussi appelé patella, se trouve à l’avant du genou ?","answer":"rotule"},
+      {"id":"if-q240","difficulty":2,"clue":"Quel nom porte chacun des os empilés qui composent la colonne du dos et protègent la moelle épinière ?","answer":"vertèbre"},
+      {"id":"if-q241","difficulty":2,"clue":"Quel cordon fibreux relie un muscle à un os pour transmettre la force de sa contraction ?","answer":"tendon"}
+    ] },
+    { "category": "Sciences", "puzzles": [
+      {"id":"if-q242","difficulty":1,"clue":"Quelle forme d’énergie les prises de la maison fournissent-elles aux appareils que l’on y branche ?","answer":"électricité"},
+      {"id":"if-q243","difficulty":2,"clue":"Quelle grandeur, mesurée en joules, peut être stockée dans une batterie ou transférée sous forme de chaleur ?","answer":"énergie"},
+      {"id":"if-q244","difficulty":1,"clue":"Quelle grandeur moyenne calcule-t-on en divisant la distance parcourue par la durée du trajet ?","answer":"vitesse"},
+      {"id":"if-q245","difficulty":2,"clue":"Quel nombre sans unité compare la masse d’un volume de liquide à celle du même volume d’eau ?","answer":"densité"},
+      {"id":"if-q246","difficulty":2,"clue":"Quel phénomène s’oppose au glissement de deux surfaces en contact et permet aux patins de freiner une roue ?","answer":"frottement","acceptedAnswers":["friction","frottements"]},
+      {"id":"if-q247","difficulty":2,"clue":"Quelle propriété d’un corps traduit sa résistance à une modification de sa vitesse ?","answer":"inertie"},
+      {"id":"if-q248","difficulty":2,"clue":"Quel constituant de la matière comprend un noyau entouré d’un nuage d’électrons ?","answer":"atome","reference":"matter"},
+      {"id":"if-q249","difficulty":2,"clue":"Quel assemblage d’atomes liés entre eux est formé de deux hydrogènes et d’un oxygène dans le cas de l’eau ?","answer":"molécule","reference":"matter"}
+    ] },
+    { "category": "Corps humain", "puzzles": [
+      {"id":"if-q250","difficulty":2,"clue":"Quel sigle de trois lettres désigne la molécule en double hélice qui porte notre information génétique ?","answer":"ADN","acceptedAnswers":["DNA"]}
+    ] },
+    { "category": "Nature", "puzzles": [
+      {"id":"if-q251","difficulty":2,"clue":"Quelle unité de base du vivant, entourée d’une membrane, peut se diviser pour en former de nouvelles ?","answer":"cellule"}
+    ] },
+    { "category": "Cinéma et séries", "puzzles": [
+      {"id":"if-q252","difficulty":1,"clue":"Quelle héroïne perd une pantoufle de verre en quittant le bal dans le dessin animé classique de Disney ?","answer":"Cendrillon"}
+    ] },
+    { "category": "Littérature", "puzzles": [
+      {"id":"if-q253","difficulty":1,"clue":"Quelle héroïne de conte, enfermée dans une tour, laisse tomber sa très longue chevelure pour qu’on la rejoigne ?","answer":"Raiponce","acceptedAnswers":["Rapunzel"]}
+    ] },
+    { "category": "Cinéma et séries", "puzzles": [
+      {"id":"if-q254","difficulty":1,"clue":"Quelle héroïne de Disney, fille de Maurice, tombe amoureuse d’un prince transformé en Bête ?","answer":"Belle"},
+      {"id":"if-q255","difficulty":1,"clue":"Comment se prénomme la fille du roi Triton qui rêve de vivre parmi les humains dans La Petite Sirène de Disney ?","answer":"Ariel"},
+      {"id":"if-q256","difficulty":1,"clue":"Dans La Reine des neiges de Disney, quelle sœur d’Anna possède le pouvoir de créer de la glace ?","answer":"Elsa"},
+      {"id":"if-q257","difficulty":1,"clue":"Quel bonhomme de neige au nez en carotte rêve de découvrir l’été dans La Reine des neiges de Disney ?","answer":"Olaf"},
+      {"id":"if-q258","difficulty":1,"clue":"Dans Le Roi lion de Disney, comment s’appelle le fils de Mufasa qui doit reprendre sa place de souverain ?","answer":"Simba"},
+      {"id":"if-q259","difficulty":1,"clue":"Quel faon apprend la vie en forêt avec le lapin Panpan dans un classique d’animation Disney ?","answer":"Bambi"},
+      {"id":"if-q260","difficulty":1,"clue":"Quel petit éléphant de Disney apprend à voler grâce à ses oreilles exceptionnellement grandes ?","answer":"Dumbo"},
+      {"id":"if-q261","difficulty":1,"clue":"Quel jeune poisson-clown se retrouve dans l’aquarium d’un dentiste de Sydney dans un film Pixar ?","answer":"Nemo","reference":"nemo"},
+      {"id":"if-q262","difficulty":1,"clue":"Quel poisson bleu souffrant de troubles de la mémoire accompagne Marin dans sa recherche de son fils chez Pixar ?","answer":"Dory","reference":"nemo"},
+      {"id":"if-q263","difficulty":1,"clue":"Quel ogre vert de DreamWorks voudrait vivre tranquille dans son marais avant de rencontrer un âne bavard ?","answer":"Shrek","reference":"shrek"},
+      {"id":"if-q264","difficulty":1,"clue":"Quelle princesse épouse Shrek et choisit de garder sa forme d’ogresse ?","answer":"Fiona"},
+      {"id":"if-q265","difficulty":2,"clue":"Quelle grande créature de la forêt rencontre les sœurs Satsuki et Mei dans un film de Hayao Miyazaki ?","answer":"Totoro"},
+      {"id":"if-q266","difficulty":1,"clue":"Quel Pokémon jaune aux joues rouges et à la queue en éclair est le compagnon emblématique de Sacha ?","answer":"Pikachu"}
+    ] },
+    { "category": "Jeux vidéo", "puzzles": [
+      {"id":"if-q267","difficulty":1,"clue":"Quel plombier moustachu de Nintendo porte une casquette rouge et a pour frère Luigi ?","answer":"Mario"},
+      {"id":"if-q268","difficulty":1,"clue":"Quel hérisson bleu de Sega court à très grande vitesse et collecte des anneaux dorés ?","answer":"Sonic"}
+    ] },
+    { "category": "Bande dessinée", "puzzles": [
+      {"id":"if-q269","difficulty":1,"clue":"Quel petit guerrier gaulois porte un casque ailé et boit la potion de Panoramix pour combattre les Romains ?","answer":"Astérix"},
+      {"id":"if-q270","difficulty":1,"clue":"Quel ami d’Astérix livre des menhirs et est tombé dans la marmite de potion magique quand il était petit ?","answer":"Obélix"},
+      {"id":"if-q271","difficulty":1,"clue":"Comment s’appelle le petit chien blanc d’Obélix, très attaché aux arbres ?","answer":"Idéfix"}
+    ] },
+    { "category": "Cinéma et séries", "puzzles": [
+      {"id":"if-q272","difficulty":1,"clue":"Quel justicier masqué à cape noire signe ses exploits d’un Z tracé à la pointe de son épée ?","answer":"Zorro"}
+    ] },
+    { "category": "Bande dessinée", "puzzles": [
+      {"id":"if-q273","difficulty":1,"clue":"Quel petit fox-terrier blanc accompagne Tintin dans ses aventures ?","answer":"Milou"},
+      {"id":"if-q274","difficulty":1,"clue":"Quel chat orange de bande dessinée adore les lasagnes et partage la maison de Jon avec le chien Odie ?","answer":"Garfield"},
+      {"id":"if-q275","difficulty":1,"clue":"Quel chien de la bande dessinée Peanuts appartient à Charlie Brown et dort souvent sur le toit de sa niche ?","answer":"Snoopy"}
+    ] },
+    { "category": "Cinéma et séries", "puzzles": [
+      {"id":"if-q276","difficulty":1,"clue":"Quel marin de dessin animé aux avant-bras puissants retrouve une force extraordinaire en mangeant des épinards ?","answer":"Popeye"}
+    ] },
+    { "category": "Histoire", "puzzles": [
+      {"id":"if-q277","difficulty":2,"clue":"Quel empereur des Français a été vaincu à Waterloo avant d’être exilé à Sainte-Hélène ?","answer":"Napoléon","acceptedAnswers":["Bonaparte"]},
+      {"id":"if-q278","difficulty":2,"clue":"Quel roi des Francs fut couronné empereur à Rome le jour de Noël de l’an huit cents ?","answer":"Charlemagne"},
+      {"id":"if-q279","difficulty":2,"clue":"Quel roi des Francs a été baptisé à Reims par l’évêque Remi, selon le récit traditionnel ?","answer":"Clovis"},
+      {"id":"if-q280","difficulty":2,"clue":"Quel général romain a franchi le Rubicon avec son armée avant de devenir dictateur à vie ?","answer":"César"},
+      {"id":"if-q281","difficulty":2,"clue":"Quelle reine d’Égypte, alliée de Jules César puis de Marc Antoine, est la dernière souveraine de sa dynastie ?","answer":"Cléopâtre"},
+      {"id":"if-q282","difficulty":2,"clue":"Quel conquérant macédonien, élève d’Aristote, est connu sous le surnom de Grand ?","answer":"Alexandre"},
+      {"id":"if-q283","difficulty":2,"clue":"De quel jeune pharaon Howard Carter a-t-il découvert le tombeau rempli de trésors dans la vallée des Rois ?","answer":"Toutankhamon","reference":"carter"},
+      {"id":"if-q284","difficulty":2,"clue":"Quel gladiateur originaire de Thrace a mené une grande révolte d’esclaves contre Rome dans l’Antiquité ?","answer":"Spartacus","reference":"spartacus"},
+      {"id":"if-q285","difficulty":2,"clue":"Quel chef gaulois s’est rendu à Jules César après le siège d’Alésia ?","answer":"Vercingétorix"},
+      {"id":"if-q286","difficulty":1,"clue":"Quel château doté d’une galerie des Glaces est devenu le symbole du règne de Louis XIV ?","answer":"Versailles","reference":"versailles"},
+      {"id":"if-q287","difficulty":1,"clue":"Quelle forteresse et prison parisienne fut prise le quatorze juillet au début de la Révolution française ?","answer":"Bastille"},
+      {"id":"if-q288","difficulty":2,"clue":"Quelle période succède au Moyen Âge en renouant avec les arts de l’Antiquité et en développant l’humanisme ?","answer":"Renaissance"},
+      {"id":"if-q289","difficulty":1,"clue":"Quel titre donne-t-on habituellement aux souverains de l’Égypte antique ?","answer":"pharaon"},
+      {"id":"if-q290","difficulty":1,"clue":"Quel combattant de la Rome antique affrontait d’autres hommes en spectacle dans une arène ?","answer":"gladiateur"},
+      {"id":"if-q291","difficulty":1,"clue":"Comment appelle-t-on un corps conservé par embaumement, souvent enveloppé de bandelettes en Égypte antique ?","answer":"momie"},
+      {"id":"if-q292","difficulty":2,"clue":"Quel nom donne-t-on à un grand coffre funéraire, souvent en pierre, destiné à recevoir un corps ou son cercueil ?","answer":"sarcophage"},
+      {"id":"if-q293","difficulty":2,"clue":"Quel nom porte un signe de l’écriture figurée utilisée sur les monuments de l’Égypte antique ?","answer":"hiéroglyphe"}
+    ] },
+    { "category": "Mythologie", "puzzles": [
+      {"id":"if-q294","difficulty":1,"clue":"Quel dieu grec souverain de l’Olympe est traditionnellement représenté avec la foudre ?","answer":"Zeus"},
+      {"id":"if-q295","difficulty":2,"clue":"Quel dieu grec règne sur les mers et porte un trident ?","answer":"Poséidon"},
+      {"id":"if-q296","difficulty":2,"clue":"Quel dieu grec gouverne le royaume des morts, avec Perséphone à ses côtés ?","answer":"Hadès"},
+      {"id":"if-q297","difficulty":2,"clue":"Quelle déesse grecque de la sagesse et de la stratégie guerrière a la chouette pour emblème ?","answer":"Athéna"},
+      {"id":"if-q298","difficulty":2,"clue":"Quelle déesse grecque de l’amour et de la beauté correspond à la Vénus des Romains ?","answer":"Aphrodite"},
+      {"id":"if-q299","difficulty":2,"clue":"Quel héros de l’Odyssée tente de retrouver son île d’Ithaque après la guerre de Troie ?","answer":"Ulysse"},
+      {"id":"if-q300","difficulty":2,"clue":"Quelle épouse d’Ulysse défait la nuit le tissu qu’elle a tissé le jour pour faire attendre ses prétendants ?","answer":"Pénélope"},
+      {"id":"if-q301","difficulty":2,"clue":"Quel fils de Dédale tombe dans la mer après avoir volé trop près du soleil avec des ailes assemblées à la cire ?","answer":"Icare"}
+    ] }
+  ]
+}

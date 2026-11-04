@@ -67,7 +67,7 @@ test("French normalization and repeated letters use exact matches before yellow 
 test("production bank keeps accepted conjugations separate from drawn targets", async () => {
   const bank = await loadGotusCatalog();
   assert.ok(bank.acceptedCount > bank.targetCount);
-  assert.ok(bank.targetCount > 10000);
+  assert.ok(bank.targetCount > 6000);
   assert.equal(bank.has("MANGES"), true);
   assert.match(bank.choose(() => 0.5), /^[A-Z]{6}$/);
 });

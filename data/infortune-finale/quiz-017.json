@@ -1,0 +1,638 @@
+{
+  "schemaVersion": 1,
+  "kind": "quiz",
+  "groups": [
+    {
+      "category": "Langue française",
+      "puzzles": [
+        {
+          "id": "if-q1502",
+          "difficulty": 2,
+          "answer": "homonyme",
+          "clue": "Quel mot se prononce ou s’écrit comme un autre tout en ayant un sens différent ?"
+        },
+        {
+          "id": "if-q1503",
+          "difficulty": 2,
+          "answer": "paronyme",
+          "clue": "Quel mot ressemble à un autre sans lui être identique, comme « attention » et « intention » ?"
+        },
+        {
+          "id": "if-q1504",
+          "difficulty": 1,
+          "answer": "préfixe",
+          "clue": "Quel élément ajoute-t-on avant une base pour former un mot, comme « re » dans « refaire » ?"
+        },
+        {
+          "id": "if-q1505",
+          "difficulty": 1,
+          "answer": "suffixe",
+          "clue": "Quel élément ajoute-t-on après une base pour former un mot, comme « ette » dans « maisonnette » ?"
+        },
+        {
+          "id": "if-q1506",
+          "difficulty": 1,
+          "answer": "radical",
+          "clue": "Quelle partie d’un mot sert de base à d’autres mots de la même famille ?"
+        },
+        {
+          "id": "if-q1507",
+          "difficulty": 2,
+          "answer": "étymologie",
+          "clue": "Quelle étude cherche l’origine des mots et l’évolution de leur sens ?"
+        },
+        {
+          "id": "if-q1508",
+          "difficulty": 1,
+          "answer": "lexique",
+          "clue": "Quel mot désigne l’ensemble des termes d’une langue, d’un domaine ou d’un texte ?",
+          "acceptedAnswers": [
+            "vocabulaire"
+          ]
+        },
+        {
+          "id": "if-q1509",
+          "difficulty": 1,
+          "answer": "argot",
+          "clue": "Quel vocabulaire propre à un groupe peut comporter des mots comme « fric » ou « bagnole » ?"
+        },
+        {
+          "id": "if-q1510",
+          "difficulty": 1,
+          "answer": "verlan",
+          "clue": "Quel procédé familier inverse des syllabes, comme dans « meuf » à partir de « femme » ?"
+        },
+        {
+          "id": "if-q1511",
+          "difficulty": 1,
+          "answer": "jargon",
+          "clue": "Quel vocabulaire spécialisé peut rendre un discours difficile à comprendre pour les non-initiés ?"
+        },
+        {
+          "id": "if-q1512",
+          "difficulty": 2,
+          "answer": "dialecte",
+          "clue": "Quelle variété d’une langue est utilisée par une communauté ou dans une aire géographique particulière ?"
+        },
+        {
+          "id": "if-q1513",
+          "difficulty": 1,
+          "answer": "bilingue",
+          "clue": "Quel adjectif décrit une personne qui utilise deux langues ?"
+        },
+        {
+          "id": "if-q1514",
+          "difficulty": 2,
+          "answer": "polyglotte",
+          "clue": "Quel adjectif désigne une personne capable de parler plusieurs langues ?"
+        },
+        {
+          "id": "if-q1515",
+          "difficulty": 1,
+          "answer": "francophone",
+          "clue": "Quel adjectif désigne quelqu’un qui parle français ?"
+        },
+        {
+          "id": "if-q1516",
+          "difficulty": 2,
+          "answer": "euphémisme",
+          "clue": "Quelle figure atténue une réalité difficile, comme dire « il nous a quittés » pour annoncer une mort ?"
+        },
+        {
+          "id": "if-q1517",
+          "difficulty": 2,
+          "answer": "hyperbole",
+          "clue": "Quelle figure exagère volontairement une idée, comme dans « je meurs de faim » ?"
+        },
+        {
+          "id": "if-q1518",
+          "difficulty": 2,
+          "answer": "métaphore",
+          "clue": "Quelle figure rapproche deux réalités sans outil de comparaison, comme appeler un homme courageux « un lion » ?"
+        },
+        {
+          "id": "if-q1519",
+          "difficulty": 1,
+          "answer": "comparaison",
+          "clue": "Quelle figure rapproche deux réalités avec un outil tel que « comme » ?"
+        },
+        {
+          "id": "if-q1520",
+          "difficulty": 2,
+          "answer": "personnification",
+          "clue": "Quelle figure attribue des comportements humains à un objet, comme une maison qui sourit ?"
+        },
+        {
+          "id": "if-q1521",
+          "difficulty": 2,
+          "answer": "oxymore",
+          "clue": "Quelle figure réunit deux mots apparemment contradictoires, comme une obscure clarté ?"
+        }
+      ]
+    },
+    {
+      "category": "Grammaire",
+      "puzzles": [
+        {
+          "id": "if-q1522",
+          "difficulty": 1,
+          "answer": "féminin",
+          "clue": "Quel genre grammatical s’oppose au masculin dans la grammaire française ?"
+        },
+        {
+          "id": "if-q1523",
+          "difficulty": 1,
+          "answer": "singulier",
+          "clue": "Quel nombre grammatical emploie-t-on généralement quand on parle d’un seul objet ?"
+        },
+        {
+          "id": "if-q1524",
+          "difficulty": 1,
+          "answer": "accord",
+          "clue": "Quel mécanisme fait varier un adjectif en fonction du nom auquel il se rapporte ?"
+        },
+        {
+          "id": "if-q1525",
+          "difficulty": 2,
+          "answer": "auxiliaire",
+          "clue": "Quel rôle jouent les verbes être et avoir lorsqu’ils servent à former un temps composé ?"
+        },
+        {
+          "id": "if-q1526",
+          "difficulty": 2,
+          "answer": "pronominal",
+          "clue": "Comment qualifie-t-on un verbe accompagné d’un pronom comme dans « se souvenir » ?"
+        },
+        {
+          "id": "if-q1527",
+          "difficulty": 2,
+          "answer": "intransitif",
+          "clue": "Comment qualifie-t-on un verbe employé sans complément d’objet, comme « dormir » ?"
+        },
+        {
+          "id": "if-q1528",
+          "difficulty": 2,
+          "answer": "transitif",
+          "clue": "Comment qualifie-t-on un verbe qui peut se construire avec un complément d’objet ?"
+        },
+        {
+          "id": "if-q1529",
+          "difficulty": 1,
+          "answer": "négation",
+          "clue": "Quel procédé grammatical transforme une affirmation en son contraire avec « ne… pas », par exemple ?"
+        },
+        {
+          "id": "if-q1530",
+          "difficulty": 1,
+          "answer": "interrogation",
+          "clue": "Quel type de phrase pose une question à son interlocuteur ?"
+        },
+        {
+          "id": "if-q1531",
+          "difficulty": 1,
+          "answer": "exclamation",
+          "clue": "Quel type de phrase exprime fortement une émotion et peut se terminer par un point spécialisé ?"
+        },
+        {
+          "id": "if-q1532",
+          "difficulty": 1,
+          "answer": "complément",
+          "clue": "Quel terme général désigne un élément qui précise le sens d’un verbe, d’un nom ou d’un adjectif ?"
+        },
+        {
+          "id": "if-q1533",
+          "difficulty": 2,
+          "answer": "attribut",
+          "clue": "Dans « ce gâteau est délicieux », quelle fonction l’adjectif exerce-t-il par rapport au sujet ?"
+        },
+        {
+          "id": "if-q1534",
+          "difficulty": 2,
+          "answer": "épithète",
+          "clue": "Dans « un délicieux gâteau », quelle fonction l’adjectif exerce-t-il directement auprès du nom ?"
+        },
+        {
+          "id": "if-q1535",
+          "difficulty": 2,
+          "answer": "apposition",
+          "clue": "Dans « Paris, capitale de la France », quelle fonction a le groupe qui précise le nom de la ville ?"
+        },
+        {
+          "id": "if-q1536",
+          "difficulty": 2,
+          "answer": "proposition",
+          "clue": "Quel ensemble grammatical est généralement organisé autour d’un verbe conjugué ?"
+        },
+        {
+          "id": "if-q1537",
+          "difficulty": 2,
+          "answer": "subordonnée",
+          "clue": "Comment appelle-t-on une proposition qui dépend d’une autre, comme celle introduite par « parce que » ?"
+        },
+        {
+          "id": "if-q1538",
+          "difficulty": 2,
+          "answer": "principale",
+          "clue": "Comment qualifie-t-on la proposition dont dépend une subordonnée ?"
+        },
+        {
+          "id": "if-q1539",
+          "difficulty": 2,
+          "answer": "relative",
+          "clue": "Quel type de subordonnée complète souvent un nom et commence par « qui », « que » ou « dont » ?"
+        },
+        {
+          "id": "if-q1540",
+          "difficulty": 2,
+          "answer": "coordination",
+          "clue": "Quel lien unit des éléments de même niveau avec « et », « mais » ou « ou » ?"
+        },
+        {
+          "id": "if-q1541",
+          "difficulty": 2,
+          "answer": "juxtaposition",
+          "clue": "Quel procédé relie des propositions sans mot de liaison, avec une virgule ou un point-virgule ?"
+        }
+      ]
+    },
+    {
+      "category": "Orthographe et ponctuation",
+      "puzzles": [
+        {
+          "id": "if-q1542",
+          "difficulty": 1,
+          "answer": "minuscule",
+          "clue": "Par quel type de lettre commence le nom d’un jour de la semaine, au milieu d’une phrase en français ?"
+        },
+        {
+          "id": "if-q1543",
+          "difficulty": 1,
+          "answer": "tiret",
+          "clue": "Quel signe peut introduire les répliques des personnages dans un dialogue écrit ?"
+        },
+        {
+          "id": "if-q1544",
+          "difficulty": 1,
+          "answer": "majuscule",
+          "clue": "Quel type de lettre initiale distingue, à l’écrit, « les Français » de « le français » ?"
+        },
+        {
+          "id": "if-q1545",
+          "difficulty": 2,
+          "answer": "pléonasme",
+          "clue": "Quel terme désigne une répétition de sens souvent inutile, comme dans « monter en haut » ?",
+          "category": "Langue française"
+        },
+        {
+          "id": "if-q1546",
+          "difficulty": 2,
+          "answer": "ligature",
+          "clue": "Quel terme désigne la réunion de deux lettres dans un seul caractère, comme œ ?"
+        },
+        {
+          "id": "if-q1547",
+          "difficulty": 1,
+          "answer": "chou",
+          "clue": "Quel légume donne son nom à de petites pâtisseries et prend un x au pluriel ?"
+        },
+        {
+          "id": "if-q1548",
+          "difficulty": 1,
+          "answer": "circonflexe",
+          "clue": "Quel accent apparaît notamment sur le a de « château » ?"
+        },
+        {
+          "id": "if-q1549",
+          "difficulty": 1,
+          "answer": "grave",
+          "clue": "Quel accent distingue la préposition « à » de la forme du verbe avoir ?"
+        },
+        {
+          "id": "if-q1550",
+          "difficulty": 1,
+          "answer": "aigu",
+          "clue": "Quel accent trouve-t-on sur la première lettre du mot « école » ?"
+        },
+        {
+          "id": "if-q1551",
+          "difficulty": 1,
+          "answer": "hibou",
+          "clue": "Quel rapace nocturne appartient à la liste des noms en ou qui prennent un x au pluriel ?"
+        },
+        {
+          "id": "if-q1552",
+          "difficulty": 1,
+          "answer": "accueil",
+          "clue": "Dans quel mot signifiant la manière de recevoir quelqu’un le u précède-t-il le e après deux c ?"
+        },
+        {
+          "id": "if-q1553",
+          "difficulty": 1,
+          "answer": "italique",
+          "clue": "Comment appelle-t-on un style de caractères inclinés, souvent utilisé pour les titres d’œuvres ?"
+        },
+        {
+          "id": "if-q1554",
+          "difficulty": 1,
+          "answer": "gras",
+          "clue": "Quel style épaissit les caractères pour les faire ressortir dans un texte ?"
+        },
+        {
+          "id": "if-q1555",
+          "difficulty": 1,
+          "answer": "soulignement",
+          "clue": "Quel procédé trace une ligne sous le texte pour le mettre en évidence ?"
+        },
+        {
+          "id": "if-q1556",
+          "difficulty": 1,
+          "answer": "alinéa",
+          "clue": "Quel retrait marque souvent le début d’un paragraphe dans un texte imprimé ?"
+        },
+        {
+          "id": "if-q1557",
+          "difficulty": 1,
+          "answer": "interligne",
+          "clue": "Quel espace sépare deux lignes successives d’un texte ?"
+        },
+        {
+          "id": "if-q1558",
+          "difficulty": 1,
+          "answer": "marge",
+          "clue": "Quel espace laissé vide borde le texte sur une page ?"
+        },
+        {
+          "id": "if-q1559",
+          "difficulty": 2,
+          "answer": "césure",
+          "clue": "Quel mot désigne la coupure d’un mot en fin de ligne, généralement signalée par un trait ?"
+        },
+        {
+          "id": "if-q1560",
+          "difficulty": 1,
+          "answer": "astérisque",
+          "clue": "Quel petit signe en forme d’étoile peut renvoyer à une note en bas de page ?"
+        },
+        {
+          "id": "if-q1561",
+          "difficulty": 1,
+          "answer": "crochet",
+          "clue": "Quel signe encadre souvent un ajout explicatif à l’intérieur d’une citation ?"
+        }
+      ]
+    },
+    {
+      "category": "Sports",
+      "puzzles": [
+        {
+          "id": "if-q1562",
+          "difficulty": 1,
+          "answer": "peloton",
+          "clue": "Comment appelle-t-on le groupe principal de coureurs dans une course cycliste ?"
+        },
+        {
+          "id": "if-q1563",
+          "difficulty": 1,
+          "answer": "échappée",
+          "clue": "Quel groupe de cyclistes s’est détaché à l’avant du peloton pour tenter de le devancer ?"
+        },
+        {
+          "id": "if-q1564",
+          "difficulty": 1,
+          "answer": "maillot",
+          "clue": "Quel vêtement distinctif porte le leader du Tour de France, traditionnellement en jaune ?"
+        },
+        {
+          "id": "if-q1565",
+          "difficulty": 1,
+          "answer": "chute",
+          "clue": "Quel incident peut envoyer plusieurs coureurs au sol lorsqu’un vélo se déséquilibre dans le peloton ?"
+        },
+        {
+          "id": "if-q1566",
+          "difficulty": 2,
+          "answer": "braquet",
+          "clue": "Quel terme désigne le rapport entre le plateau et le pignon choisis sur un vélo ?"
+        },
+        {
+          "id": "if-q1567",
+          "difficulty": 2,
+          "answer": "chistera",
+          "clue": "Quel panier courbe fixé à la main sert à lancer la balle dans certaines spécialités de pelote basque ?"
+        },
+        {
+          "id": "if-q1568",
+          "difficulty": 2,
+          "answer": "fronton",
+          "clue": "Quel mur sert de surface de rebond dans de nombreuses formes de pelote basque ?"
+        },
+        {
+          "id": "if-q1569",
+          "difficulty": 1,
+          "answer": "tatami",
+          "clue": "Quel tapis traditionnel japonais recouvre notamment la surface de pratique du judo ?"
+        },
+        {
+          "id": "if-q1570",
+          "difficulty": 1,
+          "answer": "kimono",
+          "clue": "Quel vêtement traditionnel japonais donne son nom usuel à la tenue portée dans plusieurs arts martiaux ?"
+        },
+        {
+          "id": "if-q1571",
+          "difficulty": 2,
+          "answer": "dojo",
+          "clue": "Quel nom japonais porte le lieu où l’on pratique notamment le judo ou le karaté ?"
+        },
+        {
+          "id": "if-q1572",
+          "difficulty": 1,
+          "answer": "ring",
+          "clue": "Sur quelle enceinte carrée entourée de cordes se disputent les combats de boxe ?"
+        },
+        {
+          "id": "if-q1573",
+          "difficulty": 2,
+          "answer": "uppercut",
+          "clue": "Quel coup de poing remonte de bas en haut vers le menton de l’adversaire ?"
+        },
+        {
+          "id": "if-q1574",
+          "difficulty": 1,
+          "answer": "crochet",
+          "clue": "Quel coup de poing décrit une trajectoire latérale courbe vers l’adversaire ?"
+        },
+        {
+          "id": "if-q1575",
+          "difficulty": 1,
+          "answer": "direct",
+          "clue": "Quel coup de poing suit une trajectoire presque droite devant le boxeur ?"
+        },
+        {
+          "id": "if-q1576",
+          "difficulty": 1,
+          "answer": "garde",
+          "clue": "Quelle position des bras et du corps prépare un boxeur à attaquer tout en se protégeant ?"
+        },
+        {
+          "id": "if-q1577",
+          "difficulty": 2,
+          "answer": "assaut",
+          "clue": "Quel mot désigne un combat ou un échange de touches en escrime ?"
+        },
+        {
+          "id": "if-q1578",
+          "difficulty": 2,
+          "answer": "fleuret",
+          "clue": "Quelle arme d’escrime porte le même nom qu’une petite fleur et possède une lame fine ?"
+        },
+        {
+          "id": "if-q1579",
+          "difficulty": 1,
+          "answer": "sabre",
+          "clue": "Quelle arme d’escrime évoque une arme de cavalerie à lame longue ?"
+        },
+        {
+          "id": "if-q1580",
+          "difficulty": 1,
+          "answer": "fente",
+          "clue": "Quel mouvement d’escrime porte rapidement le pied avant vers l’adversaire en allongeant la jambe arrière ?"
+        },
+        {
+          "id": "if-q1581",
+          "difficulty": 1,
+          "answer": "masque",
+          "clue": "Quelle protection grillagée couvre le visage des escrimeurs pendant un assaut ?"
+        }
+      ]
+    },
+    {
+      "category": "Fêtes et traditions",
+      "puzzles": [
+        {
+          "id": "if-q1582",
+          "difficulty": 1,
+          "answer": "bougie",
+          "clue": "Quel petit objet allumé souffle-t-on traditionnellement sur un gâteau d’anniversaire ?"
+        },
+        {
+          "id": "if-q1583",
+          "difficulty": 1,
+          "answer": "alliance",
+          "clue": "Quel anneau les époux échangent-ils souvent lors d’une cérémonie de mariage ?"
+        },
+        {
+          "id": "if-q1584",
+          "difficulty": 1,
+          "answer": "diadème",
+          "clue": "Quel bijou de tête, évoquant une petite couronne, peut orner la coiffure d’une mariée ?"
+        },
+        {
+          "id": "if-q1585",
+          "difficulty": 1,
+          "answer": "carnaval",
+          "clue": "Quelle fête précède traditionnellement le carême et permet de se déguiser ?"
+        },
+        {
+          "id": "if-q1586",
+          "difficulty": 1,
+          "answer": "carême",
+          "clue": "Quel nom porte la période de préparation à Pâques, traditionnellement associée au jeûne chrétien ?"
+        },
+        {
+          "id": "if-q1587",
+          "difficulty": 1,
+          "answer": "Avent",
+          "clue": "Quel nom porte la période précédant Noël, souvent représentée par un calendrier à petites fenêtres ?"
+        },
+        {
+          "id": "if-q1588",
+          "difficulty": 1,
+          "answer": "réveillon",
+          "clue": "Comment appelle-t-on le repas festif pris tard le soir à Noël ou au passage à la nouvelle année ?"
+        },
+        {
+          "id": "if-q1589",
+          "difficulty": 1,
+          "answer": "étrennes",
+          "clue": "Quel nom donne-t-on aux cadeaux ou à l’argent offerts à l’occasion du début de l’année ?"
+        },
+        {
+          "id": "if-q1590",
+          "difficulty": 1,
+          "answer": "travail",
+          "clue": "Quelle activité donne son nom à la fête célébrée au début du mois de mai en France ?"
+        },
+        {
+          "id": "if-q1591",
+          "difficulty": 1,
+          "answer": "chocolat",
+          "clue": "De quelle matière gourmande sont faits de nombreux œufs cachés pour les enfants à Pâques ?"
+        },
+        {
+          "id": "if-q1592",
+          "difficulty": 1,
+          "answer": "cloche",
+          "clue": "Quel objet d’église est censé rapporter les œufs de Pâques dans une tradition française ?"
+        },
+        {
+          "id": "if-q1593",
+          "difficulty": 1,
+          "answer": "lapin",
+          "clue": "Quel animal est associé à la distribution des œufs de Pâques dans d’autres traditions européennes ?"
+        },
+        {
+          "id": "if-q1594",
+          "difficulty": 1,
+          "answer": "étoile",
+          "clue": "Quel astre de Bethléem est souvent représenté au sommet du sapin de Noël ?"
+        },
+        {
+          "id": "if-q1595",
+          "difficulty": 1,
+          "answer": "bûche",
+          "clue": "Quel dessert de Noël reprend la forme d’un morceau de bois destiné à la cheminée ?"
+        },
+        {
+          "id": "if-q1596",
+          "difficulty": 1,
+          "answer": "dinde",
+          "clue": "Quelle volaille est traditionnellement servie pour Thanksgiving en Amérique du Nord ?"
+        },
+        {
+          "id": "if-q1597",
+          "difficulty": 1,
+          "answer": "bonbons",
+          "clue": "Quelles friandises les enfants réclament-ils aux portes pendant Halloween ?",
+          "acceptedAnswers": [
+            "bonbon"
+          ]
+        },
+        {
+          "id": "if-q1598",
+          "difficulty": 1,
+          "answer": "lanterne",
+          "clue": "Quel objet lumineux en papier est associé à une fête chinoise qui conclut la période du Nouvel An traditionnel ?"
+        },
+        {
+          "id": "if-q1599",
+          "difficulty": 1,
+          "answer": "dragon",
+          "clue": "Quelle créature est représentée par un long costume porté par plusieurs danseurs lors de fêtes chinoises ?"
+        },
+        {
+          "id": "if-q1600",
+          "difficulty": 1,
+          "answer": "rouge",
+          "clue": "Quelle couleur symbolise notamment la chance et accompagne largement le Nouvel An chinois ?"
+        },
+        {
+          "id": "if-q1601",
+          "difficulty": 1,
+          "answer": "vert",
+          "clue": "Quelle couleur porte-t-on volontiers pour célébrer la Saint-Patrick ?"
+        }
+      ]
+    }
+  ]
+}

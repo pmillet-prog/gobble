@@ -89,6 +89,7 @@ import useMobileRoundIntro from "./hooks/useMobileRoundIntro.js";
 import useMobileExperience from "./features/mobile/useMobileExperience.js";
 import useTargetQuizPlacement from "./features/targetQuiz/useTargetQuizPlacement.js";
 import TargetQuizRecapSatellite from "./components/targetQuiz/TargetQuizRecapSatellite.jsx";
+import InfortuneIntermissionSatellite from "./components/infortune/InfortuneIntermissionSatellite.jsx";
 import useGotusPlacement from "./features/gotus/useGotusPlacement.js";
 import useGotusWaiting from "./features/gotus/useGotusWaiting.js";
 import GotusWaitingSatellite from "./components/gotus/GotusWaitingSatellite.jsx";
@@ -9812,6 +9813,7 @@ function handleTouchEnd() {
       renderBackdrop={false}
       roundDescription={mobileRoundIntroRoundDescription}
       roundTypeLabel={mobileRoundIntroRoundTypeLabel}
+      specialRound={standaloneTrainingSession ? null : specialRound}
       stage={mobileRoundIntroStage}
       titleFadeMs={MOBILE_ROUND_INTRO_TITLE_FADE_MS}
     />
@@ -12169,6 +12171,7 @@ function handleTouchEnd() {
       ) : null}
       {aboutModalView}
       <TargetQuizRecapSatellite />
+      <InfortuneIntermissionSatellite muted={isSfxMuted} />
       <GotusRecapSatellite onOpenDefinition={openDefinition} />
       <ChatReactionToastSatellite />
       <NotificationToastLayer darkMode={darkMode} />

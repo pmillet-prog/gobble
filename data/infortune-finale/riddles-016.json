@@ -1,0 +1,656 @@
+{
+  "schemaVersion": 1,
+  "kind": "riddle",
+  "groups": [
+    {
+      "category": "Cuisine",
+      "puzzles": [
+        {
+          "id": "if-r1401",
+          "difficulty": 1,
+          "answer": "épluchure",
+          "clue": "Retirée d’un fruit ou d’un légume avant la préparation, je peux finir au compost plutôt que dans l’assiette."
+        },
+        {
+          "id": "if-r1402",
+          "difficulty": 1,
+          "answer": "panure",
+          "clue": "Autour d’un aliment avant la friture, je forme une enveloppe qui deviendra croustillante."
+        },
+        {
+          "id": "if-r1403",
+          "difficulty": 1,
+          "answer": "chapelure",
+          "clue": "Pain séché puis réduit en petits grains, je sers à couvrir des aliments avant leur cuisson."
+        },
+        {
+          "id": "if-r1404",
+          "difficulty": 1,
+          "answer": "farce",
+          "clue": "Préparation glissée dans une volaille ou un légume creusé, je garnis le plat sans raconter une plaisanterie."
+        },
+        {
+          "id": "if-r1405",
+          "difficulty": 1,
+          "answer": "marinade",
+          "clue": "Bain aromatisé, je laisse les aliments s’imprégner de saveurs avant leur préparation ou leur cuisson."
+        },
+        {
+          "id": "if-r1406",
+          "difficulty": 1,
+          "answer": "papillote",
+          "clue": "Enveloppe fermée autour d’un aliment, je retiens la vapeur et les parfums pendant la cuisson."
+        },
+        {
+          "id": "if-r1407",
+          "difficulty": 1,
+          "answer": "gratin",
+          "clue": "Au four, ma surface dorée devient le morceau que certains convives réclament en premier."
+        },
+        {
+          "id": "if-r1408",
+          "difficulty": 1,
+          "answer": "croûton",
+          "clue": "Petit morceau de pain sec ou grillé, je peux flotter sur la soupe ou croquer dans une salade."
+        },
+        {
+          "id": "if-r1409",
+          "difficulty": 1,
+          "answer": "dressage",
+          "clue": "Juste avant le service, j’organise les éléments du plat dans l’assiette pour les présenter joliment."
+        },
+        {
+          "id": "if-r1410",
+          "difficulty": 2,
+          "answer": "flambage",
+          "clue": "À la fin de certaines recettes, on allume brièvement les vapeurs d’alcool pour me réaliser."
+        },
+        {
+          "id": "if-r1411",
+          "difficulty": 2,
+          "answer": "réduction",
+          "clue": "En laissant évaporer une partie du liquide d’une sauce, j’en concentre la saveur et la consistance."
+        },
+        {
+          "id": "if-r1412",
+          "difficulty": 1,
+          "answer": "pétrissage",
+          "clue": "Sous les mains ou dans la machine, je travaille longuement la pâte pour la rendre homogène et élastique."
+        },
+        {
+          "id": "if-r1413",
+          "difficulty": 1,
+          "answer": "mijotage",
+          "clue": "Cuisson lente et douce, je laisse les saveurs se mêler sans imposer de grands bouillonnements."
+        },
+        {
+          "id": "if-r1414",
+          "difficulty": 2,
+          "answer": "pochage",
+          "clue": "Je cuis doucement l’aliment dans un liquide chaud ; les œufs sans coquille peuvent être préparés ainsi."
+        },
+        {
+          "id": "if-r1415",
+          "difficulty": 1,
+          "answer": "confit",
+          "clue": "Cuit lentement puis conservé dans la graisse, je peux être une spécialité de canard du Sud-Ouest."
+        },
+        {
+          "id": "if-r1416",
+          "difficulty": 1,
+          "answer": "ragoût",
+          "clue": "Plat de morceaux mijotés en sauce, je peux réunir viande et légumes dans la même cocotte."
+        },
+        {
+          "id": "if-r1417",
+          "difficulty": 1,
+          "answer": "potage",
+          "clue": "Préparation servie chaude dans un bol ou une assiette creuse, je peux contenir des légumes mixés ou en morceaux.",
+          "acceptedAnswers": [
+            "soupe"
+          ]
+        },
+        {
+          "id": "if-r1418",
+          "difficulty": 1,
+          "answer": "velouté",
+          "clue": "Potage à la texture douce et lisse, mon nom promet à la bouche une sensation proche d’une étoffe."
+        },
+        {
+          "id": "if-r1419",
+          "difficulty": 2,
+          "answer": "consommé",
+          "clue": "Bouillon clarifié et concentré, je reste limpide dans l’assiette malgré ma saveur prononcée."
+        },
+        {
+          "id": "if-r1420",
+          "difficulty": 2,
+          "answer": "émulsion",
+          "clue": "Je disperse de très fines gouttes d’un liquide dans un autre avec lequel il ne se mélange pas spontanément."
+        }
+      ]
+    },
+    {
+      "category": "Informatique",
+      "puzzles": [
+        {
+          "id": "if-r1421",
+          "difficulty": 1,
+          "answer": "sauvegarde",
+          "clue": "Copie gardée à l’abri, je peux sauver vos documents si leur support principal tombe en panne."
+        },
+        {
+          "id": "if-r1422",
+          "difficulty": 1,
+          "answer": "téléchargement",
+          "clue": "Je transfère un fichier depuis une ressource distante vers votre appareil pour que vous puissiez le conserver."
+        },
+        {
+          "id": "if-r1423",
+          "difficulty": 1,
+          "answer": "installation",
+          "clue": "Avant de pouvoir utiliser certains programmes, je place leurs fichiers et leurs réglages sur l’ordinateur."
+        },
+        {
+          "id": "if-r1424",
+          "difficulty": 1,
+          "answer": "désinstallation",
+          "clue": "Je retire un programme de l’appareil avec les éléments nécessaires à son fonctionnement."
+        },
+        {
+          "id": "if-r1425",
+          "difficulty": 1,
+          "answer": "redémarrage",
+          "clue": "Je ferme le système puis le relance, sans que vous ayez forcément à couper son alimentation."
+        },
+        {
+          "id": "if-r1426",
+          "difficulty": 1,
+          "answer": "veille",
+          "clue": "Je réduis l’activité de l’appareil lorsqu’on ne l’utilise plus, tout en permettant une reprise rapide."
+        },
+        {
+          "id": "if-r1427",
+          "difficulty": 1,
+          "answer": "corbeille",
+          "clue": "Sur le bureau numérique, je garde provisoirement certains fichiers supprimés avant leur effacement définitif."
+        },
+        {
+          "id": "if-r1428",
+          "difficulty": 1,
+          "answer": "archive",
+          "clue": "Je peux rassembler et compresser plusieurs fichiers dans un seul paquet facile à transporter."
+        },
+        {
+          "id": "if-r1429",
+          "difficulty": 2,
+          "answer": "compression",
+          "clue": "Je réduis la place occupée par les données ; selon la méthode, des détails peuvent être conservés ou perdus."
+        },
+        {
+          "id": "if-r1430",
+          "difficulty": 2,
+          "answer": "extension",
+          "clue": "À la fin du nom d’un fichier, je suis souvent précédée d’un point et renseigne sur son format."
+        },
+        {
+          "id": "if-r1431",
+          "difficulty": 1,
+          "answer": "navigateur",
+          "clue": "Programme qui ouvre les pages du Web, je peux gérer des onglets, des favoris et votre historique."
+        },
+        {
+          "id": "if-r1432",
+          "difficulty": 1,
+          "answer": "favori",
+          "clue": "Enregistré dans le navigateur, je garde l’adresse d’une page pour y retourner sans la chercher à nouveau.",
+          "acceptedAnswers": [
+            "signet"
+          ]
+        },
+        {
+          "id": "if-r1433",
+          "difficulty": 1,
+          "answer": "historique",
+          "clue": "Dans le navigateur, je conserve une liste des pages consultées ; on peut me vider sans réécrire le passé."
+        },
+        {
+          "id": "if-r1434",
+          "difficulty": 1,
+          "answer": "cookie",
+          "clue": "Petit ensemble de données conservé par le navigateur, je peux mémoriser un choix ; on ne me mange pas."
+        },
+        {
+          "id": "if-r1435",
+          "difficulty": 1,
+          "answer": "serveur",
+          "clue": "Ordinateur ou programme qui répond aux demandes d’autres appareils, je peux leur fournir des pages ou des fichiers."
+        },
+        {
+          "id": "if-r1436",
+          "difficulty": 1,
+          "answer": "réseau",
+          "clue": "Je relie plusieurs appareils pour qu’ils échangent des données, dans une maison ou à grande distance."
+        },
+        {
+          "id": "if-r1437",
+          "difficulty": 1,
+          "answer": "modem",
+          "clue": "Je relie un équipement à un réseau en adaptant les signaux ; les anciens modèles faisaient un bruit reconnaissable."
+        },
+        {
+          "id": "if-r1438",
+          "difficulty": 1,
+          "answer": "Bluetooth",
+          "clue": "Mon nom de technologie désigne une liaison radio de courte portée utilisée notamment par les écouteurs sans fil."
+        },
+        {
+          "id": "if-r1439",
+          "difficulty": 1,
+          "answer": "piratage",
+          "clue": "Je peux consister à accéder sans autorisation à un système informatique ou à en détourner l’usage."
+        },
+        {
+          "id": "if-r1440",
+          "difficulty": 2,
+          "answer": "chiffrement",
+          "clue": "Je transforme les données pour les rendre illisibles à qui ne dispose pas du moyen prévu pour les décoder."
+        }
+      ]
+    },
+    {
+      "category": "Électricité",
+      "puzzles": [
+        {
+          "id": "if-r1441",
+          "difficulty": 1,
+          "answer": "disjoncteur",
+          "clue": "Je coupe automatiquement un circuit en cas de défaut ; contrairement à certains fusibles, on peut me réarmer."
+        },
+        {
+          "id": "if-r1442",
+          "difficulty": 1,
+          "answer": "rallonge",
+          "clue": "Mon câble permet d’utiliser un appareil plus loin de la prise sans déplacer l’installation fixe."
+        },
+        {
+          "id": "if-r1443",
+          "difficulty": 1,
+          "answer": "multiprise",
+          "clue": "Branchée sur une prise murale, je propose plusieurs emplacements pour raccorder des appareils."
+        },
+        {
+          "id": "if-r1444",
+          "difficulty": 1,
+          "answer": "adaptateur",
+          "clue": "Je rends compatibles deux formats de connexion qui ne s’emboîteraient pas directement."
+        },
+        {
+          "id": "if-r1445",
+          "difficulty": 2,
+          "answer": "transformateur",
+          "clue": "Dans un circuit adapté, je modifie une tension alternative ; mon nom ne me donne aucun pouvoir magique."
+        },
+        {
+          "id": "if-r1446",
+          "difficulty": 1,
+          "answer": "variateur",
+          "clue": "Avec moi, on augmente ou réduit progressivement la lumière d’un éclairage compatible."
+        },
+        {
+          "id": "if-r1447",
+          "difficulty": 1,
+          "answer": "thermostat",
+          "clue": "Je compare une température au réglage choisi pour commander le chauffage ou le refroidissement."
+        },
+        {
+          "id": "if-r1448",
+          "difficulty": 1,
+          "answer": "programmateur",
+          "clue": "Je commande un appareil aux horaires choisis, même lorsque personne n’est là pour appuyer sur le bouton."
+        },
+        {
+          "id": "if-r1449",
+          "difficulty": 1,
+          "answer": "détecteur",
+          "clue": "Mon nom général désigne un appareil qui signale une présence, un mouvement ou de la fumée selon son modèle."
+        },
+        {
+          "id": "if-r1450",
+          "difficulty": 1,
+          "answer": "sonde",
+          "clue": "Plongée dans le milieu à mesurer, je fournis une information comme la température à un appareil."
+        },
+        {
+          "id": "if-r1451",
+          "difficulty": 2,
+          "answer": "contacteur",
+          "clue": "Interrupteur commandé à distance, je peux établir ou couper l’alimentation d’un équipement."
+        },
+        {
+          "id": "if-r1452",
+          "difficulty": 1,
+          "answer": "isolant",
+          "clue": "Autour d’un fil électrique, je limite le passage du courant vers ce qui le touche."
+        },
+        {
+          "id": "if-r1453",
+          "difficulty": 1,
+          "answer": "conducteur",
+          "clue": "Dans un câble, je laisse circuler le courant ; je peux être en cuivre sans tenir un volant."
+        },
+        {
+          "id": "if-r1454",
+          "difficulty": 2,
+          "answer": "polarité",
+          "clue": "Sur une pile, je distingue la borne positive de la borne négative pour éviter de les confondre."
+        },
+        {
+          "id": "if-r1455",
+          "difficulty": 1,
+          "answer": "tension",
+          "clue": "Mesurée en volts, je représente une différence de potentiel entre deux points d’un circuit."
+        },
+        {
+          "id": "if-r1456",
+          "difficulty": 2,
+          "answer": "intensité",
+          "clue": "Mesurée en ampères, je renseigne sur le courant qui traverse un circuit."
+        },
+        {
+          "id": "if-r1457",
+          "difficulty": 1,
+          "answer": "résistance",
+          "clue": "Dans un circuit, je m’oppose au passage du courant ; dans certains appareils, je chauffe grâce à lui."
+        },
+        {
+          "id": "if-r1458",
+          "difficulty": 2,
+          "answer": "alternateur",
+          "clue": "Entraîné par un mouvement, je produis un courant alternatif ; une voiture m’utilise notamment pour recharger sa batterie."
+        },
+        {
+          "id": "if-r1459",
+          "difficulty": 1,
+          "answer": "dynamo",
+          "clue": "Petit générateur autrefois courant sur les vélos, je fournissais la lumière grâce au mouvement de la roue."
+        },
+        {
+          "id": "if-r1460",
+          "difficulty": 2,
+          "answer": "onduleur",
+          "clue": "Entre le secteur et un ordinateur, certains de mes modèles fournissent du courant de secours pendant une coupure."
+        }
+      ]
+    },
+    {
+      "category": "Lieux publics",
+      "puzzles": [
+        {
+          "id": "if-r1461",
+          "difficulty": 1,
+          "answer": "bibliothèque",
+          "clue": "J’offre des livres à consulter ou à emprunter ; le lecteur peut repartir avec une histoire sans l’acheter."
+        },
+        {
+          "id": "if-r1462",
+          "difficulty": 1,
+          "answer": "médiathèque",
+          "clue": "Lieu de prêt culturel, je propose des livres mais aussi des films, de la musique ou d’autres supports."
+        },
+        {
+          "id": "if-r1463",
+          "difficulty": 1,
+          "answer": "ludothèque",
+          "clue": "J’accueille surtout les jeux que l’on découvre sur place ou que l’on emprunte pour jouer ailleurs."
+        },
+        {
+          "id": "if-r1464",
+          "difficulty": 1,
+          "answer": "musée",
+          "clue": "Je conserve et présente des collections pour les faire découvrir au public, de l’art aux sciences."
+        },
+        {
+          "id": "if-r1465",
+          "difficulty": 1,
+          "answer": "planétarium",
+          "clue": "Sous mon dôme, les visiteurs regardent une projection du ciel sans attendre la tombée de la nuit."
+        },
+        {
+          "id": "if-r1466",
+          "difficulty": 1,
+          "answer": "observatoire",
+          "clue": "Équipé pour surveiller le ciel ou d’autres phénomènes, je peux abriter de puissants télescopes."
+        },
+        {
+          "id": "if-r1467",
+          "difficulty": 2,
+          "answer": "auditorium",
+          "clue": "Ma salle est conçue pour écouter un concert ou une conférence dans de bonnes conditions sonores."
+        },
+        {
+          "id": "if-r1468",
+          "difficulty": 1,
+          "answer": "conservatoire",
+          "clue": "Dans mon établissement, on enseigne notamment la musique, la danse ou l’art dramatique."
+        },
+        {
+          "id": "if-r1469",
+          "difficulty": 1,
+          "answer": "gymnase",
+          "clue": "Ma grande salle couverte accueille des activités sportives, même quand il pleut dehors."
+        },
+        {
+          "id": "if-r1470",
+          "difficulty": 1,
+          "answer": "piscine",
+          "clue": "Mon bassin aménagé accueille les nageurs ; les lignes d’eau peuvent séparer ceux qui s’entraînent."
+        },
+        {
+          "id": "if-r1471",
+          "difficulty": 1,
+          "answer": "patinoire",
+          "clue": "Ma surface glacée aménagée permet de glisser, de danser ou de jouer au hockey."
+        },
+        {
+          "id": "if-r1472",
+          "difficulty": 1,
+          "answer": "vélodrome",
+          "clue": "Ma piste aux virages relevés est réservée aux courses de bicyclettes."
+        },
+        {
+          "id": "if-r1473",
+          "difficulty": 1,
+          "answer": "hippodrome",
+          "clue": "Mon parcours accueille les courses de chevaux, tandis que le public les suit depuis les tribunes."
+        },
+        {
+          "id": "if-r1474",
+          "difficulty": 1,
+          "answer": "stade",
+          "clue": "Mon enceinte accueille des compétitions sportives devant des spectateurs, souvent autour d’un terrain."
+        },
+        {
+          "id": "if-r1475",
+          "difficulty": 1,
+          "answer": "aérodrome",
+          "clue": "Mon terrain possède les installations permettant le départ et l’arrivée d’avions, sans forcément accueillir de gros vols."
+        },
+        {
+          "id": "if-r1476",
+          "difficulty": 1,
+          "answer": "héliport",
+          "clue": "Mon aire est aménagée pour les décollages et atterrissages d’hélicoptères."
+        },
+        {
+          "id": "if-r1477",
+          "difficulty": 1,
+          "answer": "caserne",
+          "clue": "Mon bâtiment peut loger des militaires ou accueillir les pompiers et leurs véhicules."
+        },
+        {
+          "id": "if-r1478",
+          "difficulty": 1,
+          "answer": "commissariat",
+          "clue": "Mon bâtiment accueille des services de police ; on peut notamment y déposer une plainte."
+        },
+        {
+          "id": "if-r1479",
+          "difficulty": 2,
+          "answer": "dispensaire",
+          "clue": "Mon établissement assure des consultations et des soins, généralement sans hospitalisation."
+        },
+        {
+          "id": "if-r1480",
+          "difficulty": 1,
+          "answer": "crématorium",
+          "clue": "Mon installation accueille la crémation des personnes décédées et les cérémonies qui l’accompagnent."
+        }
+      ]
+    },
+    {
+      "category": "Théâtre et spectacle",
+      "puzzles": [
+        {
+          "id": "if-r1481",
+          "difficulty": 1,
+          "answer": "loge",
+          "clue": "Avant d’entrer en scène, l’artiste peut se préparer dans ma pièce ; mon nom désigne aussi certains sièges réservés."
+        },
+        {
+          "id": "if-r1482",
+          "difficulty": 1,
+          "answer": "rideau",
+          "clue": "Au théâtre, je peux cacher le décor avant le spectacle ; quand je me lève, les regards se tournent vers la scène."
+        },
+        {
+          "id": "if-r1483",
+          "difficulty": 1,
+          "answer": "trappe",
+          "clue": "Ouverture dissimulée dans le plancher de scène, je peux permettre une apparition ou une disparition spectaculaire."
+        },
+        {
+          "id": "if-r1484",
+          "difficulty": 1,
+          "answer": "souffleur",
+          "clue": "Discret près de la scène, j’aide l’acteur qui a oublié ses répliques sans jouer son rôle à sa place."
+        },
+        {
+          "id": "if-r1485",
+          "difficulty": 1,
+          "answer": "costumier",
+          "clue": "Je prépare les vêtements que porteront les interprètes pour devenir leurs personnages.",
+          "acceptedAnswers": [
+            "costumière"
+          ]
+        },
+        {
+          "id": "if-r1486",
+          "difficulty": 2,
+          "answer": "accessoiriste",
+          "clue": "Je prépare les objets que les comédiens manipulent pendant le spectacle ou le tournage."
+        },
+        {
+          "id": "if-r1487",
+          "difficulty": 2,
+          "answer": "régisseur",
+          "clue": "Je coordonne les moyens techniques pour que les lumières, le son et les changements se déroulent comme prévu.",
+          "acceptedAnswers": [
+            "régisseuse"
+          ]
+        },
+        {
+          "id": "if-r1488",
+          "difficulty": 1,
+          "answer": "répétition",
+          "clue": "Avant la représentation, je permets aux artistes de travailler leur jeu, leurs déplacements et leur coordination."
+        },
+        {
+          "id": "if-r1489",
+          "difficulty": 2,
+          "answer": "générale",
+          "clue": "Dernière répétition dans les conditions du spectacle, je porte un nom qui évoque aussi un grade militaire."
+        },
+        {
+          "id": "if-r1490",
+          "difficulty": 1,
+          "answer": "première",
+          "clue": "Je suis la représentation qui ouvre la série des soirées publiques d’un spectacle."
+        },
+        {
+          "id": "if-r1491",
+          "difficulty": 1,
+          "answer": "rappel",
+          "clue": "À la fin d’un concert, les applaudissements peuvent me réclamer ; l’artiste revient alors sur scène."
+        },
+        {
+          "id": "if-r1492",
+          "difficulty": 1,
+          "answer": "ovation",
+          "clue": "Salve d’acclamations particulièrement enthousiaste, je peux faire lever toute la salle."
+        },
+        {
+          "id": "if-r1493",
+          "difficulty": 1,
+          "answer": "clown",
+          "clue": "Avec un nez rouge, un costume décalé et des maladresses calculées, je cherche à faire rire la piste et les gradins."
+        },
+        {
+          "id": "if-r1494",
+          "difficulty": 1,
+          "answer": "trac",
+          "clue": "Juste avant d’entrer sur scène, je serre parfois le ventre d’un artiste même très expérimenté."
+        },
+        {
+          "id": "if-r1495",
+          "difficulty": 1,
+          "answer": "improvisation",
+          "clue": "Je crée les paroles ou les gestes sur le moment, sans suivre un texte entièrement préparé."
+        },
+        {
+          "id": "if-r1496",
+          "difficulty": 1,
+          "answer": "mime",
+          "clue": "Avec mes gestes et mes expressions, je peux raconter une histoire sans prononcer un seul mot."
+        },
+        {
+          "id": "if-r1497",
+          "difficulty": 1,
+          "answer": "jongleur",
+          "clue": "Je lance plusieurs objets en rythme et les rattrape tour à tour pour les garder en mouvement.",
+          "acceptedAnswers": ["jongleuse"]
+        },
+        {
+          "id": "if-r1498",
+          "difficulty": 1,
+          "answer": "ventriloque",
+          "clue": "Je fais croire qu’une marionnette parle en produisant sa voix tout en bougeant très peu les lèvres."
+        },
+        {
+          "id": "if-r1499",
+          "difficulty": 1,
+          "answer": "illusionniste",
+          "clue": "Je crée des effets apparemment impossibles sur scène grâce à des procédés que le public ne voit pas.",
+          "acceptedAnswers": [
+            "magicien",
+            "magicienne",
+            "prestidigitateur",
+            "prestidigitatrice"
+          ]
+        },
+        {
+          "id": "if-r1500",
+          "difficulty": 2,
+          "answer": "prestidigitateur",
+          "clue": "Mes mains font apparaître ou disparaître de petits objets avec une habileté que les yeux suivent difficilement.",
+          "acceptedAnswers": [
+            "magicien",
+            "magicienne",
+            "illusionniste",
+            "prestidigitatrice"
+          ]
+        }
+      ]
+    }
+  ]
+}

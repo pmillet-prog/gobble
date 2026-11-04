@@ -1,0 +1,652 @@
+{
+  "schemaVersion": 1,
+  "kind": "quiz",
+  "groups": [
+    {
+      "category": "Astronomie",
+      "puzzles": [
+        {
+          "id": "if-q1702",
+          "difficulty": 2,
+          "answer": "constellation",
+          "clue": "Quel ensemble d’étoiles dessine une figure conventionnelle vue depuis la Terre, comme Orion ?"
+        },
+        {
+          "id": "if-q1703",
+          "difficulty": 2,
+          "answer": "galaxie",
+          "clue": "Quel immense ensemble d’étoiles, de gaz et de poussières peut prendre une forme spirale ?"
+        },
+        {
+          "id": "if-q1704",
+          "difficulty": 2,
+          "answer": "nébuleuse",
+          "clue": "Quel nuage de gaz et de poussières dans l’espace peut être le lieu de naissance d’étoiles ?"
+        },
+        {
+          "id": "if-q1705",
+          "difficulty": 2,
+          "answer": "supernova",
+          "clue": "Quel nom porte l’explosion très lumineuse qui marque la fin de certaines étoiles ?"
+        },
+        {
+          "id": "if-q1706",
+          "difficulty": 2,
+          "answer": "météorite",
+          "clue": "Quel nom donne-t-on à un fragment venu de l’espace qui atteint le sol ?"
+        },
+        {
+          "id": "if-q1707",
+          "difficulty": 2,
+          "answer": "astéroïde",
+          "clue": "Quel petit corps rocheux tourne autour du Soleil, notamment dans la ceinture entre Mars et Jupiter ?"
+        },
+        {
+          "id": "if-q1708",
+          "difficulty": 2,
+          "answer": "cratère",
+          "clue": "Quelle dépression souvent circulaire peut être créée par l’impact d’un corps venu de l’espace ?"
+        },
+        {
+          "id": "if-q1709",
+          "difficulty": 2,
+          "answer": "orbite",
+          "clue": "Quel nom porte la trajectoire d’un astre ou d’un satellite autour d’un autre corps ?"
+        },
+        {
+          "id": "if-q1710",
+          "difficulty": 2,
+          "answer": "rotation",
+          "clue": "Quel mouvement fait tourner un astre sur lui-même ?"
+        },
+        {
+          "id": "if-q1711",
+          "difficulty": 2,
+          "answer": "révolution",
+          "clue": "Quel mouvement conduit un astre à faire un tour complet autour d’un autre ?"
+        },
+        {
+          "id": "if-q1712",
+          "difficulty": 2,
+          "answer": "zénith",
+          "clue": "Quel point du ciel se trouve exactement à la verticale au-dessus d’un observateur ?"
+        },
+        {
+          "id": "if-q1713",
+          "difficulty": 1,
+          "answer": "étoile",
+          "clue": "Quelle sorte d’astre produit sa lumière grâce aux réactions nucléaires qui se déroulent en son cœur ?"
+        },
+        {
+          "id": "if-q1714",
+          "difficulty": 2,
+          "answer": "équateur",
+          "clue": "Quel cercle imaginaire partage la Terre en hémisphères Nord et Sud ?"
+        },
+        {
+          "id": "if-q1715",
+          "difficulty": 2,
+          "answer": "méridien",
+          "clue": "Quel demi-cercle imaginaire relie les deux pôles sur un globe terrestre ?"
+        },
+        {
+          "id": "if-q1716",
+          "difficulty": 2,
+          "answer": "longitude",
+          "clue": "Quelle coordonnée géographique mesure l’écart vers l’est ou l’ouest par rapport au méridien de référence ?"
+        },
+        {
+          "id": "if-q1717",
+          "difficulty": 2,
+          "answer": "latitude",
+          "clue": "Quelle coordonnée géographique mesure l’écart vers le nord ou le sud par rapport à l’équateur ?"
+        },
+        {
+          "id": "if-q1718",
+          "difficulty": 2,
+          "answer": "tropique",
+          "clue": "Quel nom porte chacun des deux parallèles particuliers appelés Cancer et Capricorne ?"
+        },
+        {
+          "id": "if-q1719",
+          "difficulty": 2,
+          "answer": "hémisphère",
+          "clue": "Quel mot désigne l’une des deux moitiés d’une sphère, notamment de la Terre ?"
+        },
+        {
+          "id": "if-q1720",
+          "difficulty": 2,
+          "answer": "lunaison",
+          "clue": "Quel nom porte le cycle complet des phases de la Lune ?"
+        },
+        {
+          "id": "if-q1721",
+          "difficulty": 2,
+          "answer": "croissant",
+          "clue": "Quelle forme présente la Lune lorsque seule une petite partie courbée de son disque est éclairée à nos yeux ?"
+        }
+      ]
+    },
+    {
+      "category": "Exploration",
+      "puzzles": [
+        {
+          "id": "if-q1722",
+          "difficulty": 1,
+          "answer": "Apollo",
+          "clue": "Quel programme spatial américain a permis les missions habitées qui se sont posées sur la Lune ?"
+        },
+        {
+          "id": "if-q1723",
+          "difficulty": 2,
+          "answer": "Spoutnik",
+          "clue": "Quel nom porte le premier satellite artificiel placé en orbite terrestre par l’Union soviétique ?",
+          "acceptedAnswers": [
+            "Sputnik"
+          ]
+        },
+        {
+          "id": "if-q1724",
+          "difficulty": 2,
+          "answer": "Laïka",
+          "clue": "Quel était le nom de la chienne envoyée en orbite dans un satellite soviétique ?"
+        },
+        {
+          "id": "if-q1725",
+          "difficulty": 1,
+          "answer": "Ariane",
+          "clue": "Quel nom porte une famille européenne de lanceurs spatiaux ?"
+        },
+        {
+          "id": "if-q1726",
+          "difficulty": 2,
+          "answer": "Kourou",
+          "clue": "De quelle commune guyanaise partent les fusées du Centre spatial guyanais ?"
+        },
+        {
+          "id": "if-q1727",
+          "difficulty": 1,
+          "answer": "NASA",
+          "clue": "Quel sigle désigne l’agence spatiale civile des États-Unis ?"
+        },
+        {
+          "id": "if-q1728",
+          "difficulty": 2,
+          "answer": "ESA",
+          "clue": "Quel sigle désigne l’Agence spatiale européenne ?"
+        },
+        {
+          "id": "if-q1729",
+          "difficulty": 2,
+          "answer": "CNES",
+          "clue": "Quel sigle désigne le Centre national d’études spatiales français ?"
+        },
+        {
+          "id": "if-q1730",
+          "difficulty": 2,
+          "answer": "ISS",
+          "clue": "Quel sigle anglais désigne la Station spatiale internationale ?"
+        },
+        {
+          "id": "if-q1731",
+          "difficulty": 2,
+          "answer": "Hubble",
+          "clue": "Quel télescope spatial porte le nom de l’astronome Edwin qui a étudié l’expansion de l’Univers ?"
+        },
+        {
+          "id": "if-q1732",
+          "difficulty": 2,
+          "answer": "rover",
+          "clue": "Quel mot anglais désigne un véhicule robotisé capable de rouler sur la surface d’une planète ?"
+        },
+        {
+          "id": "if-q1733",
+          "difficulty": 1,
+          "answer": "scaphandre",
+          "clue": "Quel équipement protège un astronaute lors d’une sortie dans l’espace ?"
+        },
+        {
+          "id": "if-q1734",
+          "difficulty": 1,
+          "answer": "capsule",
+          "clue": "Quel habitacle spatial compact peut accueillir un équipage et revenir sur Terre ?"
+        },
+        {
+          "id": "if-q1735",
+          "difficulty": 1,
+          "answer": "amerrissage",
+          "clue": "Quel mot désigne une arrivée contrôlée sur l’eau, notamment pour une capsule spatiale ?"
+        },
+        {
+          "id": "if-q1736",
+          "difficulty": 1,
+          "answer": "alunissage",
+          "clue": "Quel mot désigne le fait de se poser sur le satellite naturel de la Terre ?"
+        },
+        {
+          "id": "if-q1737",
+          "difficulty": 1,
+          "answer": "apesanteur",
+          "clue": "Quel état apparent ressent-on lorsqu’on est en chute libre, comme les astronautes en orbite ?"
+        },
+        {
+          "id": "if-q1738",
+          "difficulty": 1,
+          "answer": "astronaute",
+          "clue": "Quel terme désigne une personne entraînée à voyager dans l’espace ?",
+          "acceptedAnswers": [
+            "cosmonaute",
+            "spationaute"
+          ]
+        },
+        {
+          "id": "if-q1739",
+          "difficulty": 1,
+          "answer": "astronomie",
+          "clue": "Quelle science étudie les astres et l’Univers ?"
+        },
+        {
+          "id": "if-q1740",
+          "difficulty": 2,
+          "answer": "cosmologie",
+          "clue": "Quelle branche de l’astronomie étudie l’Univers dans son ensemble, son origine et son évolution ?"
+        },
+        {
+          "id": "if-q1741",
+          "difficulty": 1,
+          "answer": "astronome",
+          "clue": "Quel nom porte le scientifique qui étudie les astres, sans être forcément un voyageur de l’espace ?"
+        }
+      ]
+    },
+    {
+      "category": "Sciences",
+      "puzzles": [
+        {
+          "id": "if-q1742",
+          "difficulty": 2,
+          "answer": "réfraction",
+          "clue": "Quel phénomène dévie la lumière quand elle passe d’un milieu à un autre, par exemple de l’air à l’eau ?"
+        },
+        {
+          "id": "if-q1743",
+          "difficulty": 2,
+          "answer": "réflexion",
+          "clue": "Quel phénomène renvoie la lumière sur une surface comme celle d’un miroir ?"
+        },
+        {
+          "id": "if-q1744",
+          "difficulty": 2,
+          "answer": "dispersion",
+          "clue": "Quel phénomène sépare la lumière blanche en différentes couleurs lorsqu’elle traverse un prisme ?"
+        },
+        {
+          "id": "if-q1745",
+          "difficulty": 2,
+          "answer": "diffraction",
+          "clue": "Quel phénomène fait s’étaler une onde lorsqu’elle rencontre une ouverture ou un obstacle de taille adaptée ?"
+        },
+        {
+          "id": "if-q1746",
+          "difficulty": 2,
+          "answer": "interférence",
+          "clue": "Quel phénomène résulte de la superposition d’ondes qui se renforcent ou s’atténuent ?"
+        },
+        {
+          "id": "if-q1747",
+          "difficulty": 2,
+          "answer": "résonance",
+          "clue": "Quel phénomène amplifie une vibration lorsqu’une excitation correspond à une fréquence propre du système ?"
+        },
+        {
+          "id": "if-q1748",
+          "difficulty": 2,
+          "answer": "Doppler",
+          "clue": "Quel nom porte l’effet qui fait paraître plus aigu le son d’une sirène qui approche ?"
+        },
+        {
+          "id": "if-q1749",
+          "difficulty": 2,
+          "answer": "ultrason",
+          "clue": "Quel son a une fréquence supérieure à la limite habituelle d’audition de l’être humain ?"
+        },
+        {
+          "id": "if-q1750",
+          "difficulty": 2,
+          "answer": "infrason",
+          "clue": "Quel son a une fréquence inférieure à la limite habituelle d’audition de l’être humain ?"
+        },
+        {
+          "id": "if-q1751",
+          "difficulty": 2,
+          "answer": "infrarouge",
+          "clue": "Quel rayonnement invisible situé au-delà du rouge est notamment utilisé par les caméras thermiques ?"
+        },
+        {
+          "id": "if-q1752",
+          "difficulty": 2,
+          "answer": "ultraviolet",
+          "clue": "Quel rayonnement invisible situé au-delà du violet contribue notamment au bronzage ?"
+        },
+        {
+          "id": "if-q1753",
+          "difficulty": 2,
+          "answer": "spectre",
+          "clue": "Quel terme désigne la répartition d’un rayonnement selon ses différentes fréquences ou couleurs ?"
+        },
+        {
+          "id": "if-q1754",
+          "difficulty": 2,
+          "answer": "fréquence",
+          "clue": "Quelle grandeur mesure le nombre d’oscillations ou de cycles par seconde ?"
+        },
+        {
+          "id": "if-q1755",
+          "difficulty": 2,
+          "answer": "amplitude",
+          "clue": "Quelle grandeur décrit l’importance maximale d’une oscillation autour de sa position de repos ?"
+        },
+        {
+          "id": "if-q1756",
+          "difficulty": 2,
+          "answer": "onde",
+          "clue": "Quelle perturbation se propage en transportant de l’énergie sans transporter globalement la matière avec elle ?"
+        },
+        {
+          "id": "if-q1757",
+          "difficulty": 2,
+          "answer": "optique",
+          "clue": "Quelle branche de la physique étudie la lumière et les phénomènes qui lui sont liés ?"
+        },
+        {
+          "id": "if-q1758",
+          "difficulty": 2,
+          "answer": "acoustique",
+          "clue": "Quelle science étudie les sons, leur production et leur propagation ?"
+        },
+        {
+          "id": "if-q1759",
+          "difficulty": 2,
+          "answer": "thermique",
+          "clue": "Quel adjectif qualifie ce qui concerne la chaleur ?"
+        },
+        {
+          "id": "if-q1760",
+          "difficulty": 2,
+          "answer": "conduction",
+          "clue": "Quel transfert de chaleur se produit notamment le long d’une cuillère métallique plongée dans une soupe chaude ?"
+        },
+        {
+          "id": "if-q1761",
+          "difficulty": 2,
+          "answer": "convection",
+          "clue": "Quel transfert de chaleur s’accompagne d’un déplacement de liquide ou de gaz ?"
+        }
+      ]
+    },
+    {
+      "category": "Matériaux",
+      "puzzles": [
+        {
+          "id": "if-q1762",
+          "difficulty": 1,
+          "answer": "argile",
+          "clue": "Quelle terre fine et malléable lorsqu’elle est humide sert notamment à la poterie ?"
+        },
+        {
+          "id": "if-q1763",
+          "difficulty": 1,
+          "answer": "céramique",
+          "clue": "Quel nom général désigne des objets obtenus notamment en façonnant puis en cuisant de l’argile ?"
+        },
+        {
+          "id": "if-q1764",
+          "difficulty": 1,
+          "answer": "porcelaine",
+          "clue": "Quelle céramique fine, dure et souvent blanche peut devenir translucide quand elle est très mince ?"
+        },
+        {
+          "id": "if-q1765",
+          "difficulty": 1,
+          "answer": "faïence",
+          "clue": "Quelle poterie à pâte poreuse est généralement recouverte d’un émail opaque ?"
+        },
+        {
+          "id": "if-q1766",
+          "difficulty": 1,
+          "answer": "grès",
+          "clue": "Quelle céramique cuite à haute température possède une pâte dure et peu poreuse ?"
+        },
+        {
+          "id": "if-q1767",
+          "difficulty": 1,
+          "answer": "émail",
+          "clue": "Quelle couche vitrifiée recouvre certaines céramiques ou certains objets métalliques ?"
+        },
+        {
+          "id": "if-q1768",
+          "difficulty": 2,
+          "answer": "kaolin",
+          "clue": "Quelle argile blanche entre traditionnellement dans la fabrication de la porcelaine ?"
+        },
+        {
+          "id": "if-q1769",
+          "difficulty": 2,
+          "answer": "gypse",
+          "clue": "Quel minéral sert de matière première à la fabrication du plâtre ?"
+        },
+        {
+          "id": "if-q1770",
+          "difficulty": 2,
+          "answer": "chaux",
+          "clue": "Quel liant minéral obtenu en chauffant du calcaire entre dans des mortiers traditionnels ?"
+        },
+        {
+          "id": "if-q1771",
+          "difficulty": 1,
+          "answer": "mortier",
+          "clue": "Quel mélange de liant, de sable et d’eau sert à assembler les briques ou les pierres ?"
+        },
+        {
+          "id": "if-q1772",
+          "difficulty": 2,
+          "answer": "granulat",
+          "clue": "Quel nom général désigne les grains de sable et de gravier utilisés notamment dans le béton ?"
+        },
+        {
+          "id": "if-q1773",
+          "difficulty": 2,
+          "answer": "bitume",
+          "clue": "Quelle matière noire et visqueuse sert de liant dans de nombreux revêtements routiers ?"
+        },
+        {
+          "id": "if-q1774",
+          "difficulty": 2,
+          "answer": "asphalte",
+          "clue": "Quel nom désigne notamment un matériau routier noir contenant un liant bitumineux ?"
+        },
+        {
+          "id": "if-q1775",
+          "difficulty": 1,
+          "answer": "caoutchouc",
+          "clue": "Quelle matière élastique sert notamment à fabriquer des pneus et des joints ?"
+        },
+        {
+          "id": "if-q1776",
+          "difficulty": 1,
+          "answer": "latex",
+          "clue": "Quel liquide végétal, récolté notamment sur l’hévéa, sert à produire du caoutchouc naturel ?"
+        },
+        {
+          "id": "if-q1777",
+          "difficulty": 1,
+          "answer": "nylon",
+          "clue": "Quel nom désigne une famille de fibres synthétiques utilisée notamment dans les bas et les cordages ?",
+          "acceptedAnswers": [
+            "polyamide"
+          ]
+        },
+        {
+          "id": "if-q1778",
+          "difficulty": 1,
+          "answer": "polyester",
+          "clue": "Quelle fibre synthétique, souvent abrégée PES sur les étiquettes, entre dans la fabrication de nombreuses polaires ?"
+        },
+        {
+          "id": "if-q1779",
+          "difficulty": 2,
+          "answer": "viscose",
+          "clue": "Quelle fibre textile est fabriquée à partir de cellulose transformée par un procédé chimique ?"
+        },
+        {
+          "id": "if-q1780",
+          "difficulty": 1,
+          "answer": "feutre",
+          "clue": "Quelle matière textile est obtenue en agglomérant des fibres plutôt qu’en les tissant ?"
+        },
+        {
+          "id": "if-q1781",
+          "difficulty": 1,
+          "answer": "jean",
+          "clue": "Quel tissu solide de coton, souvent bleu, donne son nom à un pantalon très courant ?",
+          "acceptedAnswers": [
+            "denim"
+          ]
+        }
+      ]
+    },
+    {
+      "category": "Fruits et légumes",
+      "puzzles": [
+        {
+          "id": "if-q1782",
+          "difficulty": 1,
+          "answer": "patate",
+          "clue": "Quel tubercule donne son nom à une expression familière qui signifie être plein d’énergie ?",
+          "category": "Expressions françaises"
+        },
+        {
+          "id": "if-q1783",
+          "difficulty": 2,
+          "answer": "pâtisson",
+          "clue": "Quelle courge souvent blanche a la forme d’une soucoupe aplatie au bord festonné ?"
+        },
+        {
+          "id": "if-q1784",
+          "difficulty": 1,
+          "answer": "butternut",
+          "clue": "Quelle courge beige en forme de poire possède une chair orange au goût doux et légèrement beurré ?",
+          "acceptedAnswers": [
+            "doubeurre"
+          ]
+        },
+        {
+          "id": "if-q1785",
+          "difficulty": 2,
+          "answer": "panais",
+          "clue": "Quel légume racine blanchâtre ressemble à une carotte et a une saveur légèrement sucrée ?"
+        },
+        {
+          "id": "if-q1786",
+          "difficulty": 2,
+          "answer": "topinambour",
+          "clue": "Quel tubercule bosselé a une saveur qui rappelle celle de l’artichaut ?"
+        },
+        {
+          "id": "if-q1787",
+          "difficulty": 2,
+          "answer": "rutabaga",
+          "clue": "Quel légume racine, souvent jaune à l’intérieur, ressemble à un gros navet ?"
+        },
+        {
+          "id": "if-q1788",
+          "difficulty": 2,
+          "answer": "salsifis",
+          "clue": "Quel légume est cultivé pour sa longue racine claire, consommée cuite ?"
+        },
+        {
+          "id": "if-q1789",
+          "difficulty": 2,
+          "answer": "romanesco",
+          "clue": "Quel chou vert possède une pomme faite de petites pointes disposées en spirales répétées ?"
+        },
+        {
+          "id": "if-q1790",
+          "difficulty": 1,
+          "answer": "blette",
+          "clue": "Quel légume possède de grandes feuilles vertes et des côtes épaisses à cuisiner ?",
+          "acceptedAnswers": [
+            "bette"
+          ]
+        },
+        {
+          "id": "if-q1791",
+          "difficulty": 2,
+          "answer": "scarole",
+          "clue": "Quelle chicorée à larges feuilles ondulées se mange en salade, avec un cœur plus clair ?"
+        },
+        {
+          "id": "if-q1792",
+          "difficulty": 2,
+          "answer": "frisée",
+          "clue": "Quel adjectif nomme une chicorée à salade dont les feuilles sont fortement découpées et recourbées ?"
+        },
+        {
+          "id": "if-q1793",
+          "difficulty": 2,
+          "answer": "mesclun",
+          "clue": "Quel mélange de jeunes pousses et de feuilles de salades porte un nom d’origine provençale ?"
+        },
+        {
+          "id": "if-q1794",
+          "difficulty": 1,
+          "answer": "chou",
+          "clue": "Quel légume constitue la base de la choucroute après fermentation ?"
+        },
+        {
+          "id": "if-q1795",
+          "difficulty": 1,
+          "answer": "betterave",
+          "clue": "De quelle racine, dans sa variété sucrière, extrait-on une grande partie du sucre produit en France ?"
+        },
+        {
+          "id": "if-q1796",
+          "difficulty": 2,
+          "answer": "échalote",
+          "clue": "Quel bulbe condimentaire complète l’expression « course à l’… » pour évoquer une compétition effrénée ?",
+          "category": "Expressions françaises"
+        },
+        {
+          "id": "if-q1797",
+          "difficulty": 2,
+          "answer": "raifort",
+          "clue": "Quelle racine à la saveur très forte se râpe pour accompagner certains plats, notamment en Europe centrale ?"
+        },
+        {
+          "id": "if-q1798",
+          "difficulty": 2,
+          "answer": "wasabi",
+          "clue": "Quel condiment japonais vert et piquant accompagne souvent les sushis ?"
+        },
+        {
+          "id": "if-q1799",
+          "difficulty": 1,
+          "answer": "câpre",
+          "clue": "Quel petit bouton floral se conserve dans le sel ou le vinaigre pour relever les plats ?"
+        },
+        {
+          "id": "if-q1800",
+          "difficulty": 1,
+          "answer": "coco",
+          "clue": "Quel mot désigne la noix du cocotier, dont on utilise la chair, l’eau et le lait en cuisine ?"
+        },
+        {
+          "id": "if-q1801",
+          "difficulty": 1,
+          "answer": "fruit",
+          "clue": "En botanique, quel organe issu de la fleur contient généralement les graines ?"
+        }
+      ]
+    }
+  ]
+}

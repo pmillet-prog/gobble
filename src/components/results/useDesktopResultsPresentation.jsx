@@ -9,6 +9,10 @@ import AutoScaleInline from "../AutoScaleInline.jsx";
 import DefinitionDetails from "../DefinitionDetails.jsx";
 import LepersAnswerSummary from "./LepersAnswerSummary.jsx";
 import { DAILY_SPECIAL_MODE } from "../daily/dailyModes.js";
+import { useApplicationSelector } from "../../app/react/ApplicationRuntimeProvider.jsx";
+import { useFeatureRuntime, useFeatureSelector } from "../../app/react/useFeatureRuntime.js";
+import { areRoundResultsPending } from "../../features/results/roundResultsReadiness.js";
+import { RELEASE_SCOPE } from "../../../shared/releaseScope.js";
 import {
   FAKE_TWINS_TYPE,
   computeScore,
@@ -17,6 +21,13 @@ import {
 } from "../gameLogic.js";
 
 export default function useDesktopResultsPresentation(runtime) {
+  const feature = useFeatureRuntime("results");
+  const receivedRound = useFeatureSelector(feature, state => state.receivedRound);
+  const live = useApplicationSelector(state => state.navigation.view === "live");
+  const currentRoomId = useApplicationSelector(state => state.game.currentRoomId || state.game.roomId);
+  const currentRoundId = useApplicationSelector(state => state.realtime.roundId);
+  const resultsPending = RELEASE_SCOPE.roundResultsReadiness && areRoundResultsPending({ live, training: runtime.standaloneTrainingSession,
+    roomId: currentRoomId, roundId: currentRoundId, receivedRound });
   const {
     analyzeWord,
     board,
@@ -117,7 +128,7 @@ export default function useDesktopResultsPresentation(runtime) {
       selfNickForResults && Array.isArray(finalResults)
         ? finalResults.find((entry) => normalizeNickKey(entry?.nick) === selfNickKeyForResults)
         : null;
-    const showOfflineLabel = !standaloneTrainingSession && !selfResultEntry;
+    const showOfflineLabel = !resultsPending && !standaloneTrainingSession && !selfResultEntry;
     const compactPillClass = darkMode
       ? "inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-800 border border-slate-700 text-gray-100 text-[11px] sm:text-xs"
       : "inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gray-100 border border-gray-200 text-gray-800 text-[11px] sm:text-xs";
@@ -255,7 +266,7 @@ export default function useDesktopResultsPresentation(runtime) {
             <span className={`${roundBlueDeltaClass} text-[11px] sm:text-xs align-middle`}>+{roundBlueDelta}</span>
           </div>
         </div>
-        {showOfflineLabel ? (
+        {resultsPending ? <div className="text-center text-[11px]" role="status">Calcul des résultats en cours…</div> : showOfflineLabel ? (
           <div className="text-center text-[11px] text-amber-500">
             Vous etiez hors ligne sur cette manche.
           </div>
@@ -880,7 +891,7 @@ export default function useDesktopResultsPresentation(runtime) {
       selfNickForResults && Array.isArray(finalResults)
         ? finalResults.find((entry) => normalizeNickKey(entry?.nick) === selfNickKeyForResults)
         : null;
-    const showOfflineLabel = !standaloneTrainingSession && !selfResultEntry;
+    const showOfflineLabel = !resultsPending && !standaloneTrainingSession && !selfResultEntry;
 
     return (
       <div className={`rounded-2xl border p-3 shadow-lg space-y-2 ${panelClass}`}>
@@ -902,7 +913,7 @@ export default function useDesktopResultsPresentation(runtime) {
             <span className={`${roundBlueDeltaClass} text-[11px] align-middle`}>+{roundBlueDelta}</span>
           </div>
         </div>
-        {showOfflineLabel ? (
+        {resultsPending ? <div className="text-center text-[11px]" role="status">Calcul des résultats en cours…</div> : showOfflineLabel ? (
           <div className="text-center text-[11px] text-amber-500">
             Vous étiez hors ligne sur cette manche.
           </div>

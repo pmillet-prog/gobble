@@ -1,3 +1,5 @@
+import { RELEASE_SCOPE } from "../../../shared/releaseScope.js";
+
 const MESSAGES = {
   maintenance_mode: "L’atelier d’avatar est fermé pendant la mise à jour. Réessaie une fois celle-ci terminée.",
   avatar_locked: "Débloque les pièces sélectionnées avant d’enregistrer cet avatar.",
@@ -20,8 +22,8 @@ export async function requestAccountAvatar(userId, { avatar, expectedRevision, s
   const abort = () => controller.abort();
   if (signal?.aborted) abort();
   signal?.addEventListener("abort", abort, { once: true });
-  const timeout = setTimeout(abort, 12000);
   const saving = avatar !== undefined;
+  const timeout = setTimeout(abort, saving && RELEASE_SCOPE.avatarRenderAssets ? 60000 : 12000);
   try {
     const response = await fetch(`/api/auth/avatar${saving ? "" : `?userId=${userId}`}`, {
       method: saving ? "PUT" : "GET", credentials: "include", cache: "no-store", signal: controller.signal,

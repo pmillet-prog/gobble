@@ -1,0 +1,6 @@
+Use case: text-localization.
+Asset type: transparent circular quiz-show logo for the French browser game Gobble, used from 24px badges to a 150px round-introduction panel.
+Input image 1 is the edit target: the existing circular 'Qui veut gagner des millions' logo.
+Primary request: turn it into the parody logo 'Qui veut gagner des Gobblars'.
+Change only the big central word 'MILLIONS' to 'GOBBLARS' (exact spelling G O B B L A R S). Use large, crisp, bold white serif capitals with the same dark purple outline and subtle shadow. Fit the word completely inside the emblem without clipping any letter. Preserve the existing curved white text 'QUI VEUT GAGNER DES' on the top and bottom arcs, the circular composition, purple and blue palette, gold currency motifs, cyan circular outlines and radiating decorative lines.
+Keep the whole circular emblem centered, with a small transparent margin around its outer edge. Output on a genuinely transparent alpha background outside the circle; no square backdrop, no checkerboard pattern, no additional words, no watermark. The central label must read exactly GOBBLARS, with no remaining MILLIONS anywhere.

@@ -1,0 +1,668 @@
+{
+  "schemaVersion": 1,
+  "kind": "riddle",
+  "groups": [
+    {
+      "category": "Argent et budget",
+      "puzzles": [
+        {
+          "id": "if-r1601",
+          "difficulty": 1,
+          "answer": "épargne",
+          "clue": "Partie de l’argent mise de côté, je ne suis pas dépensée immédiatement."
+        },
+        {
+          "id": "if-r1602",
+          "difficulty": 1,
+          "answer": "dépense",
+          "clue": "Je fais sortir de l’argent du budget pour payer un achat ou un service."
+        },
+        {
+          "id": "if-r1603",
+          "difficulty": 1,
+          "answer": "recette",
+          "clue": "En comptabilité, je fais entrer de l’argent ; en cuisine, mon nom indique comment préparer un plat."
+        },
+        {
+          "id": "if-r1604",
+          "difficulty": 1,
+          "answer": "bénéfice",
+          "clue": "Quand les recettes d’une activité dépassent ses charges, je représente leur différence positive."
+        },
+        {
+          "id": "if-r1605",
+          "difficulty": 2,
+          "answer": "déficit",
+          "clue": "Je signale que les dépenses dépassent les recettes sur la période observée."
+        },
+        {
+          "id": "if-r1606",
+          "difficulty": 1,
+          "answer": "dette",
+          "clue": "Somme que l’on doit encore à quelqu’un, je ne disparais pas simplement parce qu’on m’oublie."
+        },
+        {
+          "id": "if-r1607",
+          "difficulty": 1,
+          "answer": "crédit",
+          "clue": "Je mets une somme à disposition aujourd’hui, avec l’obligation prévue de la rembourser plus tard."
+        },
+        {
+          "id": "if-r1608",
+          "difficulty": 1,
+          "answer": "intérêt",
+          "clue": "Je peux rémunérer un prêteur ou un épargnant ; mon montant dépend notamment du taux et de la durée."
+        },
+        {
+          "id": "if-r1609",
+          "difficulty": 1,
+          "answer": "budget",
+          "clue": "Je prévois les recettes et les dépenses pour aider à organiser l’argent disponible.",
+          "category": "Vie quotidienne"
+        },
+        {
+          "id": "if-r1610",
+          "difficulty": 1,
+          "answer": "salaire",
+          "clue": "En échange de son travail, un salarié me reçoit de son employeur."
+        },
+        {
+          "id": "if-r1611",
+          "difficulty": 1,
+          "answer": "loyer",
+          "clue": "Somme payée pour utiliser un logement loué, je reviens généralement à échéance chaque mois."
+        },
+        {
+          "id": "if-r1612",
+          "difficulty": 1,
+          "answer": "pension",
+          "clue": "Je peux être une somme régulièrement versée pour la retraite ou l’entretien d’une personne."
+        },
+        {
+          "id": "if-r1613",
+          "difficulty": 1,
+          "answer": "bourse",
+          "clue": "Aide financière aux études, je peux soutenir un élève sans désigner la place où s’échangent des actions."
+        },
+        {
+          "id": "if-r1614",
+          "difficulty": 1,
+          "answer": "don",
+          "clue": "Je transmets un bien ou de l’argent sans demander un prix en retour."
+        },
+        {
+          "id": "if-r1615",
+          "difficulty": 1,
+          "answer": "prêt",
+          "clue": "Je confie temporairement un objet ou une somme, en attendant son retour ou son remboursement."
+        },
+        {
+          "id": "if-r1616",
+          "difficulty": 1,
+          "answer": "remboursement",
+          "clue": "Je restitue l’argent avancé ou payé, en une fois ou en plusieurs versements."
+        },
+        {
+          "id": "if-r1617",
+          "difficulty": 1,
+          "answer": "virement",
+          "clue": "Je déplace une somme d’un compte bancaire à un autre sans transporter de billets."
+        },
+        {
+          "id": "if-r1618",
+          "difficulty": 1,
+          "answer": "prélèvement",
+          "clue": "Autorisé sur un compte, je permets de régler une somme demandée par un créancier."
+        },
+        {
+          "id": "if-r1619",
+          "difficulty": 1,
+          "answer": "échéance",
+          "clue": "Je fixe la date à laquelle un paiement ou une obligation doit être honoré."
+        },
+        {
+          "id": "if-r1620",
+          "difficulty": 1,
+          "answer": "solde",
+          "clue": "Sur un compte, je donne le montant résultant des entrées et des sorties enregistrées."
+        }
+      ]
+    },
+    {
+      "category": "École et apprentissage",
+      "puzzles": [
+        {
+          "id": "if-r1621",
+          "difficulty": 1,
+          "answer": "leçon",
+          "clue": "Je rassemble ce que l’on étudie sur un sujet ; on peut me relire avant un exercice."
+        },
+        {
+          "id": "if-r1622",
+          "difficulty": 1,
+          "answer": "exercice",
+          "clue": "Je fais appliquer une règle ou une méthode pour s’entraîner à mieux la maîtriser."
+        },
+        {
+          "id": "if-r1623",
+          "difficulty": 1,
+          "answer": "devoir",
+          "clue": "Travail demandé à l’élève, je peux être préparé à la maison puis rendu au professeur."
+        },
+        {
+          "id": "if-r1624",
+          "difficulty": 1,
+          "answer": "dictée",
+          "clue": "Pendant mon exercice, quelqu’un prononce le texte que les élèves doivent écrire correctement."
+        },
+        {
+          "id": "if-r1625",
+          "difficulty": 1,
+          "answer": "rédaction",
+          "clue": "Je demande à l’élève de composer un texte, souvent à partir d’un sujet ou d’une consigne."
+        },
+        {
+          "id": "if-r1626",
+          "difficulty": 1,
+          "answer": "récitation",
+          "clue": "Je fais redire de mémoire un texte appris, parfois un poème devant la classe."
+        },
+        {
+          "id": "if-r1627",
+          "difficulty": 1,
+          "answer": "exposé",
+          "clue": "Je présente oralement un sujet préparé, éventuellement avec des images pour aider l’auditoire."
+        },
+        {
+          "id": "if-r1628",
+          "difficulty": 1,
+          "answer": "révision",
+          "clue": "Avant une évaluation, je reprends les connaissances déjà étudiées pour mieux les retrouver."
+        },
+        {
+          "id": "if-r1629",
+          "difficulty": 1,
+          "answer": "évaluation",
+          "clue": "Je cherche à apprécier ce qui a été compris ou acquis, avec ou sans note chiffrée."
+        },
+        {
+          "id": "if-r1630",
+          "difficulty": 1,
+          "answer": "examen",
+          "clue": "Épreuve organisée pour vérifier des connaissances, je peux contribuer à l’obtention d’un diplôme."
+        },
+        {
+          "id": "if-r1631",
+          "difficulty": 1,
+          "answer": "concours",
+          "clue": "Je classe les candidats pour attribuer un nombre limité de places ou de récompenses."
+        },
+        {
+          "id": "if-r1632",
+          "difficulty": 1,
+          "answer": "diplôme",
+          "clue": "Document qui atteste une réussite ou un niveau de formation, je ne me confonds pas avec le bulletin de notes."
+        },
+        {
+          "id": "if-r1633",
+          "difficulty": 1,
+          "answer": "bulletin",
+          "clue": "À l’école, je présente périodiquement les résultats et appréciations de l’élève."
+        },
+        {
+          "id": "if-r1634",
+          "difficulty": 1,
+          "answer": "récréation",
+          "clue": "Entre deux périodes de classe, je laisse les élèves faire une pause et jouer dans la cour."
+        },
+        {
+          "id": "if-r1635",
+          "difficulty": 1,
+          "answer": "cantine",
+          "clue": "À l’école, mon service ou ma salle permet de prendre le repas du midi."
+        },
+        {
+          "id": "if-r1636",
+          "difficulty": 1,
+          "answer": "préau",
+          "clue": "Partie couverte de la cour, je protège les élèves de la pluie sans être une salle de classe."
+        },
+        {
+          "id": "if-r1637",
+          "difficulty": 1,
+          "answer": "internat",
+          "clue": "Dans mon établissement, les élèves restent dormir pendant une partie de la semaine scolaire."
+        },
+        {
+          "id": "if-r1638",
+          "difficulty": 1,
+          "answer": "pensionnaire",
+          "clue": "Élève logé dans l’établissement, je ne rentre pas forcément chez moi après chaque journée de cours."
+        },
+        {
+          "id": "if-r1639",
+          "difficulty": 1,
+          "answer": "apprenti",
+          "clue": "Je me forme à un métier en alternant notamment enseignement et pratique auprès d’un employeur.",
+          "acceptedAnswers": [
+            "apprentie"
+          ]
+        },
+        {
+          "id": "if-r1640",
+          "difficulty": 1,
+          "answer": "stage",
+          "clue": "Période de découverte ou de pratique dans un milieu professionnel, je complète parfois une formation."
+        }
+      ]
+    },
+    {
+      "category": "Écriture et édition",
+      "puzzles": [
+        {
+          "id": "if-r1641",
+          "difficulty": 1,
+          "answer": "manuscrit",
+          "clue": "Texte écrit à la main ou version remise à l’éditeur, je précède souvent le livre imprimé."
+        },
+        {
+          "id": "if-r1642",
+          "difficulty": 2,
+          "answer": "pastiche",
+          "clue": "J’imite le style d’un auteur ou d’une œuvre, sans viser forcément la moquerie."
+        },
+        {
+          "id": "if-r1643",
+          "difficulty": 1,
+          "answer": "éditeur",
+          "clue": "Je sélectionne et accompagne des ouvrages pour les publier ; je ne vends pas uniquement des livres en boutique.",
+          "acceptedAnswers": [
+            "éditrice"
+          ]
+        },
+        {
+          "id": "if-r1644",
+          "difficulty": 1,
+          "answer": "libraire",
+          "clue": "Dans mon commerce, je conseille et vends des livres aux lecteurs."
+        },
+        {
+          "id": "if-r1645",
+          "difficulty": 1,
+          "answer": "bibliothécaire",
+          "clue": "Je gère des collections et guide les lecteurs dans un lieu où l’on peut consulter ou emprunter des ouvrages."
+        },
+        {
+          "id": "if-r1646",
+          "difficulty": 1,
+          "answer": "illustrateur",
+          "clue": "Je crée des images pour accompagner un texte, raconter ou expliquer.",
+          "acceptedAnswers": [
+            "illustratrice"
+          ]
+        },
+        {
+          "id": "if-r1647",
+          "difficulty": 1,
+          "answer": "correcteur",
+          "clue": "Avant publication, je traque les fautes, les incohérences typographiques et les erreurs dans le texte.",
+          "acceptedAnswers": [
+            "correctrice"
+          ]
+        },
+        {
+          "id": "if-r1648",
+          "difficulty": 1,
+          "answer": "traducteur",
+          "clue": "Je fais passer un texte écrit d’une langue à une autre en cherchant à préserver son sens.",
+          "acceptedAnswers": [
+            "traductrice"
+          ]
+        },
+        {
+          "id": "if-r1649",
+          "difficulty": 1,
+          "answer": "relecteur",
+          "clue": "Je reprends un texte pour y repérer ce qui mérite correction ou clarification avant sa diffusion.",
+          "acceptedAnswers": [
+            "relectrice"
+          ]
+        },
+        {
+          "id": "if-r1650",
+          "difficulty": 2,
+          "answer": "typographe",
+          "clue": "Mon métier compose et organise les caractères destinés à l’impression."
+        },
+        {
+          "id": "if-r1651",
+          "difficulty": 1,
+          "answer": "imprimeur",
+          "clue": "Je reproduis textes et images sur le papier avec des machines adaptées.",
+          "acceptedAnswers": [
+            "imprimeuse"
+          ]
+        },
+        {
+          "id": "if-r1652",
+          "difficulty": 2,
+          "answer": "relieur",
+          "clue": "J’assemble les feuillets et les protège sous une couverture pour former ou restaurer un livre.",
+          "acceptedAnswers": [
+            "relieuse"
+          ]
+        },
+        {
+          "id": "if-r1653",
+          "difficulty": 1,
+          "answer": "tirage",
+          "clue": "Dans l’édition, je désigne une fabrication d’exemplaires ; mon nombre indique combien ont été imprimés."
+        },
+        {
+          "id": "if-r1654",
+          "difficulty": 2,
+          "answer": "réédition",
+          "clue": "Je remets une œuvre en circulation dans une nouvelle édition, qui peut apporter des corrections ou des commentaires."
+        },
+        {
+          "id": "if-r1655",
+          "difficulty": 2,
+          "answer": "réimpression",
+          "clue": "Je fabrique de nouveaux exemplaires d’une édition existante, sans en faire une nouvelle rédaction."
+        },
+        {
+          "id": "if-r1656",
+          "difficulty": 1,
+          "answer": "collection",
+          "clue": "En édition, je réunis des ouvrages sous un même nom ou une présentation commune."
+        },
+        {
+          "id": "if-r1657",
+          "difficulty": 1,
+          "answer": "tome",
+          "clue": "Je suis une partie publiée séparément d’un ouvrage qui en compte plusieurs."
+        },
+        {
+          "id": "if-r1658",
+          "difficulty": 1,
+          "answer": "volume",
+          "clue": "Livre matériel pris comme unité, je peux appartenir à une œuvre en plusieurs parties."
+        },
+        {
+          "id": "if-r1659",
+          "difficulty": 1,
+          "answer": "exemplaire",
+          "clue": "Une seule copie d’un ouvrage imprimé, je peux être vendu, prêté ou dédicacé."
+        },
+        {
+          "id": "if-r1660",
+          "difficulty": 1,
+          "answer": "bandeau",
+          "clue": "Bande de papier amovible autour d’un livre, j’annonce parfois un prix littéraire ou un argument de vente."
+        }
+      ]
+    },
+    {
+      "category": "Presse",
+      "puzzles": [
+        {
+          "id": "if-r1661",
+          "difficulty": 1,
+          "answer": "quotidien",
+          "clue": "Journal publié chaque jour, je donne régulièrement de nouvelles informations à mes lecteurs."
+        },
+        {
+          "id": "if-r1662",
+          "difficulty": 1,
+          "answer": "hebdomadaire",
+          "clue": "Publication qui paraît chaque semaine, je laisse passer sept jours entre deux numéros réguliers."
+        },
+        {
+          "id": "if-r1663",
+          "difficulty": 1,
+          "answer": "mensuel",
+          "clue": "Publication qui paraît une fois par mois, je compte normalement douze numéros dans une année."
+        },
+        {
+          "id": "if-r1664",
+          "difficulty": 1,
+          "answer": "trimestriel",
+          "clue": "Publication qui paraît tous les trois mois, je laisse davantage de temps entre deux numéros."
+        },
+        {
+          "id": "if-r1665",
+          "difficulty": 1,
+          "answer": "une",
+          "clue": "Première page d’un journal, je présente ses titres les plus visibles et les sujets mis en avant."
+        },
+        {
+          "id": "if-r1666",
+          "difficulty": 2,
+          "answer": "manchette",
+          "clue": "En haut de la première page du journal, je porte notamment son titre et ses informations d’identification."
+        },
+        {
+          "id": "if-r1667",
+          "difficulty": 2,
+          "answer": "éditorial",
+          "clue": "Article qui exprime une position ou un regard du journal, je ne me présente pas comme un simple compte rendu neutre."
+        },
+        {
+          "id": "if-r1668",
+          "difficulty": 1,
+          "answer": "reportage",
+          "clue": "Mon enquête de terrain raconte ce qu’un journaliste a observé et recueilli sur place."
+        },
+        {
+          "id": "if-r1669",
+          "difficulty": 1,
+          "answer": "interview",
+          "clue": "Je fais découvrir les réponses d’une personne aux questions d’un journaliste.",
+          "acceptedAnswers": [
+            "entretien"
+          ]
+        },
+        {
+          "id": "if-r1670",
+          "difficulty": 1,
+          "answer": "chronique",
+          "clue": "Rubrique régulière signée, je donne un regard sur un sujet dans un journal ou une émission."
+        },
+        {
+          "id": "if-r1671",
+          "difficulty": 1,
+          "answer": "rubrique",
+          "clue": "Dans un journal, je rassemble les articles d’un même domaine comme les sports ou la culture."
+        },
+        {
+          "id": "if-r1672",
+          "difficulty": 1,
+          "answer": "brève",
+          "clue": "Courte information publiée en quelques lignes, je vais directement à l’essentiel."
+        },
+        {
+          "id": "if-r1673",
+          "difficulty": 2,
+          "answer": "dépêche",
+          "clue": "Message d’information transmis rapidement, je peux être produit par une agence de presse."
+        },
+        {
+          "id": "if-r1674",
+          "difficulty": 1,
+          "answer": "scoop",
+          "clue": "Information importante révélée avant les concurrents, je fais le bonheur d’une rédaction."
+        },
+        {
+          "id": "if-r1675",
+          "difficulty": 1,
+          "answer": "rectificatif",
+          "clue": "Après une erreur publiée, je rétablis l’information correcte auprès du public."
+        },
+        {
+          "id": "if-r1676",
+          "difficulty": 2,
+          "answer": "erratum",
+          "clue": "Petite note qui signale une erreur dans un texte publié et indique sa correction."
+        },
+        {
+          "id": "if-r1677",
+          "difficulty": 1,
+          "answer": "légende",
+          "clue": "Sous une photographie, j’explique ce qu’elle montre ; je ne raconte alors pas un vieux mythe."
+        },
+        {
+          "id": "if-r1678",
+          "difficulty": 1,
+          "answer": "crédit",
+          "clue": "Près d’une image publiée, je mentionne son auteur ou son origine ; je ne prête pas d’argent."
+        },
+        {
+          "id": "if-r1679",
+          "difficulty": 1,
+          "answer": "abonnement",
+          "clue": "Je donne accès à des livraisons ou à un service pendant une durée convenue."
+        },
+        {
+          "id": "if-r1680",
+          "difficulty": 1,
+          "answer": "numéro",
+          "clue": "Exemplaire daté d’un périodique, je porte souvent un nombre permettant de me situer dans la série."
+        }
+      ]
+    },
+    {
+      "category": "Communication",
+      "puzzles": [
+        {
+          "id": "if-r1681",
+          "difficulty": 1,
+          "answer": "destinataire",
+          "clue": "Personne à qui le message est adressé, je ne suis pas nécessairement celle qui l’a écrit."
+        },
+        {
+          "id": "if-r1682",
+          "difficulty": 1,
+          "answer": "expéditeur",
+          "clue": "Personne qui envoie un courrier ou un colis, je laisse parfois mon adresse pour un éventuel retour.",
+          "acceptedAnswers": [
+            "expéditrice"
+          ]
+        },
+        {
+          "id": "if-r1683",
+          "difficulty": 1,
+          "answer": "affranchissement",
+          "clue": "Je règle le transport postal d’un envoi, par exemple au moyen d’un timbre."
+        },
+        {
+          "id": "if-r1684",
+          "difficulty": 2,
+          "answer": "oblitération",
+          "clue": "Marque apposée sur un timbre utilisé, je l’empêche de servir une seconde fois comme timbre neuf."
+        },
+        {
+          "id": "if-r1685",
+          "difficulty": 1,
+          "answer": "cachet",
+          "clue": "Apposé par la poste, je peux indiquer la date et le lieu du traitement du courrier."
+        },
+        {
+          "id": "if-r1686",
+          "difficulty": 1,
+          "answer": "colis",
+          "clue": "Objet ou ensemble d’objets emballés pour l’expédition, je voyage sans être une simple lettre."
+        },
+        {
+          "id": "if-r1687",
+          "difficulty": 1,
+          "answer": "pli",
+          "clue": "Dans le vocabulaire postal, je désigne un courrier dans son enveloppe ; je ne suis pas seulement une trace sur le papier."
+        },
+        {
+          "id": "if-r1688",
+          "difficulty": 1,
+          "answer": "messagerie",
+          "clue": "Mon service permet d’envoyer, de recevoir et de conserver des messages."
+        },
+        {
+          "id": "if-r1689",
+          "difficulty": 1,
+          "answer": "répondeur",
+          "clue": "Quand personne ne décroche, je peux diffuser une annonce et enregistrer le message de l’appelant."
+        },
+        {
+          "id": "if-r1690",
+          "difficulty": 1,
+          "answer": "notification",
+          "clue": "Petit signal visuel ou sonore, je préviens qu’un message ou un événement demande peut-être votre attention."
+        },
+        {
+          "id": "if-r1691",
+          "difficulty": 1,
+          "answer": "réception",
+          "clue": "Pour un envoi, je marque son arrivée chez le destinataire ; un accusé peut attester que j’ai eu lieu."
+        },
+        {
+          "id": "if-r1692",
+          "difficulty": 1,
+          "answer": "annuaire",
+          "clue": "Je rassemble des noms et des coordonnées pour aider à retrouver une personne ou un service."
+        },
+        {
+          "id": "if-r1693",
+          "difficulty": 1,
+          "answer": "indicatif",
+          "clue": "Au début d’un numéro international, je précise le pays ou la zone à joindre."
+        },
+        {
+          "id": "if-r1694",
+          "difficulty": 1,
+          "answer": "standard",
+          "clue": "Dans une organisation, je reçois les appels et les oriente vers les bons interlocuteurs."
+        },
+        {
+          "id": "if-r1695",
+          "difficulty": 1,
+          "answer": "conférence",
+          "clue": "Téléphonique, je permets à plusieurs personnes éloignées de participer à la même conversation."
+        },
+        {
+          "id": "if-r1696",
+          "difficulty": 1,
+          "answer": "visioconférence",
+          "clue": "Je réunis des interlocuteurs à distance en transmettant leur image et leur voix."
+        },
+        {
+          "id": "if-r1697",
+          "difficulty": 1,
+          "answer": "messager",
+          "clue": "Je porte une information d’une personne à une autre, comme le faisait autrefois un courrier à cheval.",
+          "acceptedAnswers": [
+            "messagère"
+          ]
+        },
+        {
+          "id": "if-r1698",
+          "difficulty": 1,
+          "answer": "télégramme",
+          "clue": "Court message autrefois transmis par un réseau spécialisé puis remis au destinataire, je me payais souvent au mot."
+        },
+        {
+          "id": "if-r1699",
+          "difficulty": 1,
+          "answer": "fax",
+          "clue": "Je transmets à distance la copie d’un document par une liaison téléphonique.",
+          "acceptedAnswers": [
+            "télécopie"
+          ]
+        },
+        {
+          "id": "if-r1700",
+          "difficulty": 2,
+          "answer": "sémaphore",
+          "clue": "Système de signalisation visuelle, je peux transmettre des indications au moyen de bras ou de signaux visibles."
+        }
+      ]
+    }
+  ]
+}

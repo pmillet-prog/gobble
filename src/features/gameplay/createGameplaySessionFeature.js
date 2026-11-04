@@ -11,6 +11,7 @@ const ORIGIN_VIEWS = Object.freeze({
 function createInitialState() {
   return {
     capabilities: null,
+    infortune: null,
     entryKind: null,
     generation: 0,
     origin: null,
@@ -84,6 +85,7 @@ export function createGameplaySessionFeature({ getKernel, scope }) {
 
   function openSession({
     capabilities = null,
+    infortune = null,
     endsAt = null,
     entryKind = "start",
     origin,
@@ -101,6 +103,7 @@ export function createGameplaySessionFeature({ getKernel, scope }) {
     disposeSessionResources();
     sessionScope = createResourceScope(`gameplay:${normalizedOrigin}:${generation}`);
     const next = {
+      infortune: normalizedOrigin === "live" ? infortune : null,
       capabilities:
         capabilities && typeof capabilities === "object"
           ? Object.freeze({ ...capabilities })
@@ -137,6 +140,7 @@ export function createGameplaySessionFeature({ getKernel, scope }) {
       return { accepted: false, duplicate: true, state: current };
     }
     return openSession({
+      infortune: payload?.infortune,
       endsAt: payload?.endsAt,
       entryKind,
       origin: nextOrigin,
@@ -155,6 +159,7 @@ export function createGameplaySessionFeature({ getKernel, scope }) {
     const phase = normalizePhase(snapshot.phase || "lobby");
     const currentRound = snapshot.currentRound || null;
     return openSession({
+      infortune: currentRound?.infortune,
       endsAt: currentRound?.endsAt,
       entryKind,
       origin: "live",

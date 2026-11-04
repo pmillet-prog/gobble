@@ -10,7 +10,7 @@ const ERROR_MESSAGES = {
   duplicate_guess: "Ce mot a déjà été proposé.", request_conflict: "Cette proposition a déjà été traitée. Reprends la partie.",
 };
 let trainingBankPromise;
-const loadBrowserTrainingWords = () => trainingBankPromise ||= fetch("/gotus/words.json").then(response => {
+const loadBrowserTrainingWords = () => trainingBankPromise ||= fetch("/gotus/words.json", { cache: "no-cache" }).then(response => {
   if (!response.ok) throw new Error("Banque indisponible");
   return response.json();
 }).catch(error => { trainingBankPromise = null; throw error; });

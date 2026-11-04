@@ -1,0 +1,134 @@
+{
+  "schemaVersion": 1,
+  "kind": "quiz",
+  "references": {
+    "coriandre": {"title":"Eriksson et al. — A genetic variant near olfactory receptor genes influences cilantro preference","url":"https://flavourjournal.biomedcentral.com/counter/pdf/10.1186/2044-7248-1-22.pdf"},
+    "cumin": {"title":"Androuet — Gouda","url":"https://androuet.com/fromages/gouda/"},
+    "duchamp": {"title":"Museum of Modern Art — Marcel Duchamp, Fountain","url":"https://www.moma.org/audio/playlist/352/4931"},
+    "goya": {"title":"Museo Nacional del Prado — The Third of May 1808 or The Executions","url":"https://www.museodelprado.es/en/whats-on/multimedia/the-third-of-may-1808-or-the-executions-goya/9cd56487-45e7-5345-b265-f42ce572115a"}
+  },
+  "groups": [
+    { "category": "Herbes et épices", "puzzles": [
+      {"id":"if-q802","difficulty":1,"answer":"persil","clue":"Quelle herbe aromatique existe notamment en variétés dites plate et frisée ?"},
+      {"id":"if-q803","difficulty":1,"answer":"ciboulette","clue":"Quelle herbe aromatique possède de fines feuilles creuses que l’on cisèle dans les salades ou le fromage frais ?"},
+      {"id":"if-q804","difficulty":2,"answer":"coriandre","clue":"Quelle herbe, dont on consomme les feuilles et les graines, a pour certaines personnes une saveur évoquant le savon ?","reference":"coriandre"},
+      {"id":"if-q805","difficulty":2,"answer":"estragon","clue":"Quelle herbe au parfum légèrement anisé est caractéristique de la sauce béarnaise ?"},
+      {"id":"if-q806","difficulty":1,"answer":"thym","clue":"Quelle petite plante aromatique méditerranéenne aux feuilles minuscules entre souvent dans le bouquet garni ?"},
+      {"id":"if-q807","difficulty":1,"answer":"romarin","clue":"Quel arbuste aromatique méditerranéen porte des feuilles étroites évoquant des aiguilles et parfume les grillades ?"},
+      {"id":"if-q808","difficulty":2,"answer":"origan","clue":"Quelle herbe aromatique, proche de la marjolaine, est souvent séchée pour parfumer les pizzas ?"},
+      {"id":"if-q809","difficulty":2,"answer":"sauge","clue":"Quelle plante aromatique, souvent à feuilles gris-vert veloutées, accompagne notamment les saltimboccas italiens ?"},
+      {"id":"if-q810","difficulty":2,"answer":"aneth","clue":"Quelle herbe aux feuilles très fines et au goût anisé accompagne traditionnellement le saumon gravlax ?"}
+    ] },
+    { "category": "Fruits et légumes", "puzzles": [
+      {"id":"if-q811","difficulty":1,"answer":"fenouil","clue":"Quel légume au goût anisé présente une base blanche renflée et un feuillage très fin ?"},
+      {"id":"if-q812","difficulty":2,"answer":"oseille","clue":"Quelle plante à feuilles vertes au goût acidulé se prépare notamment en sauce pour accompagner le saumon ?"},
+      {"id":"if-q813","difficulty":2,"answer":"cresson","clue":"Quelle plante comestible à petites feuilles se cultive traditionnellement dans des bassins alimentés en eau courante ?"},
+      {"id":"if-q814","difficulty":1,"answer":"roquette","clue":"Quelle salade aux feuilles découpées a une saveur poivrée et se pose souvent sur une pizza après cuisson ?"},
+      {"id":"if-q815","difficulty":1,"answer":"mâche","clue":"Quelle petite salade forme des bouquets de feuilles arrondies et se récolte volontiers pendant la saison froide ?","acceptedAnswers":["doucette"]},
+      {"id":"if-q816","difficulty":1,"answer":"brocoli","clue":"Quel légume ressemble à un petit arbre vert dont on mange les bouquets encore fermés ?"},
+      {"id":"if-q817","difficulty":1,"answer":"chou","clue":"Quel légume complète « faire … blanc », une expression qui signifie ne pas atteindre son but ?"},
+      {"id":"if-q818","difficulty":1,"answer":"céleri","clue":"Quel légume existe sous une forme à longues branches et une forme à grosse racine utilisée en rémoulade ?"}
+    ] },
+    { "category": "Herbes et épices", "puzzles": [
+      {"id":"if-q819","difficulty":1,"answer":"sésame","clue":"Quelles graines, souvent parsemées sur les pains à hamburger, servent aussi à fabriquer le tahini ?"},
+      {"id":"if-q820","difficulty":2,"answer":"cumin","clue":"Quelle épice aux graines allongées donne son nom à une variété de gouda et ne doit pas être confondue avec le carvi ?","reference":"cumin"},
+      {"id":"if-q821","difficulty":1,"answer":"muscade","clue":"Quelle épice râpe-t-on à partir d’une noix dure pour parfumer notamment une sauce béchamel ?"}
+    ] },
+    { "category": "Cuisine", "puzzles": [
+      {"id":"if-q822","difficulty":1,"answer":"truffe","clue":"Quel champignon souterrain odorant est recherché avec l’aide de chiens dressés, notamment dans le Périgord ?"}
+    ] },
+    { "category": "Herbes et épices", "puzzles": [
+      {"id":"if-q823","difficulty":1,"answer":"réglisse","clue":"Quelle plante donne des racines sucrées que l’on peut mâchonner et qui parfument des confiseries noires ?"},
+      {"id":"if-q824","difficulty":1,"answer":"anis","clue":"Quelle plante aromatique donne leur saveur aux petites confiseries blanches de Flavigny ?"},
+      {"id":"if-q825","difficulty":1,"answer":"paprika","clue":"Quelle poudre rouge obtenue à partir de poivrons entre notamment dans la préparation du goulasch hongrois ?"},
+      {"id":"if-q826","difficulty":1,"answer":"curry","clue":"Quel mélange d’épices, souvent jaune, donne aussi son nom à de nombreux plats en sauce de tradition indienne ?"}
+    ] },
+    { "category": "Sciences", "puzzles": [
+      {"id":"if-q827","difficulty":1,"answer":"ébullition","clue":"Quel phénomène se produit quand un liquide se met à former des bulles de vapeur dans toute sa masse ?"},
+      {"id":"if-q828","difficulty":2,"answer":"distillation","clue":"Quelle technique sépare des substances en faisant évaporer un liquide puis en refroidissant sa vapeur ?"},
+      {"id":"if-q829","difficulty":1,"answer":"filtration","clue":"Quelle opération retient des particules solides en faisant passer un liquide à travers une matière poreuse ?"},
+      {"id":"if-q830","difficulty":2,"answer":"décantation","clue":"Quelle opération laisse reposer un mélange pour séparer ses constituants selon leur densité ?"},
+      {"id":"if-q831","difficulty":2,"answer":"dissolution","clue":"Comment appelle-t-on la formation d’un mélange homogène quand le sucre se disperse dans l’eau ?"},
+      {"id":"if-q832","difficulty":2,"answer":"cristallisation","clue":"Quel processus forme des cristaux, comme lorsque du sel apparaît après l’évaporation d’une eau salée ?"},
+      {"id":"if-q833","difficulty":1,"answer":"combustion","clue":"Quelle réaction chimique libère de la chaleur lorsque du bois brûle avec le dioxygène de l’air ?"},
+      {"id":"if-q834","difficulty":2,"answer":"oxydation","clue":"Quel type de réaction chimique implique une perte d’électrons et explique notamment l’altération du fer à l’air humide ?"},
+      {"id":"if-q835","difficulty":1,"answer":"rouille","clue":"Quel produit brun rougeâtre se forme sur le fer exposé à l’eau et au dioxygène ?"},
+      {"id":"if-q836","difficulty":2,"answer":"fermentation","clue":"Quel processus permet aux levures de transformer des sucres en alcool et en dioxyde de carbone ?"},
+      {"id":"if-q837","difficulty":1,"answer":"magnétisme","clue":"Quel phénomène explique l’attraction exercée par un aimant sur un objet en fer ?"},
+      {"id":"if-q838","difficulty":2,"answer":"radioactivité","clue":"Quel phénomène correspond à la transformation spontanée de noyaux atomiques instables avec émission de rayonnements ?"},
+      {"id":"if-q839","difficulty":1,"answer":"biologie","clue":"Quelle science étudie les êtres vivants et leur fonctionnement ?"},
+      {"id":"if-q840","difficulty":1,"answer":"géologie","clue":"Quelle science étudie notamment les roches, la structure et l’histoire de la Terre ?"},
+      {"id":"if-q841","difficulty":1,"answer":"archéologie","clue":"Quelle discipline étudie les sociétés du passé à partir de leurs vestiges matériels, notamment grâce aux fouilles ?"},
+      {"id":"if-q842","difficulty":2,"answer":"paléontologie","clue":"Quelle discipline étudie les êtres vivants du passé à partir de leurs fossiles ?"},
+      {"id":"if-q843","difficulty":2,"answer":"botanique","clue":"Quelle branche de la biologie étudie les végétaux ?"},
+      {"id":"if-q844","difficulty":1,"answer":"écologie","clue":"Quelle science étudie les relations des êtres vivants entre eux et avec leur milieu ?"},
+      {"id":"if-q845","difficulty":1,"answer":"météorologie","clue":"Quelle discipline étudie l’atmosphère et permet notamment de prévoir le temps ?"},
+      {"id":"if-q846","difficulty":2,"answer":"sismologie","clue":"Quelle science étudie les tremblements de terre et les ondes qu’ils produisent ?"}
+    ] },
+    { "category": "Mathématiques", "puzzles": [
+      {"id":"if-q847","difficulty":2,"answer":"algèbre","clue":"Quelle branche des mathématiques emploie notamment des lettres pour représenter des nombres et résoudre des équations ?"},
+      {"id":"if-q848","difficulty":2,"answer":"arithmétique","clue":"Quelle branche des mathématiques étudie les nombres, en particulier les entiers, et leurs propriétés ?"},
+      {"id":"if-q849","difficulty":2,"answer":"statistique","clue":"Quelle discipline recueille et analyse des données, par exemple pour décrire les réponses à un sondage ?","acceptedAnswers":["statistiques"]},
+      {"id":"if-q850","difficulty":1,"answer":"probabilité","clue":"Quel nombre compris entre zéro et un mesure la chance qu’un événement se produise ?"}
+    ] },
+    { "category": "Géométrie", "puzzles": [
+      {"id":"if-q851","difficulty":1,"answer":"symétrie","clue":"Quelle propriété fait qu’une figure se superpose à elle-même après un retournement par rapport à un axe ?"}
+    ] },
+    { "category": "Expressions françaises", "puzzles": [
+      {"id":"if-q852","difficulty":1,"answer":"lapin","clue":"Quel animal pose-t-on, au sens figuré, lorsqu’on ne vient pas à un rendez-vous sans prévenir ?","editorial":{"note":"Emploi figuré ou expression française ; if-q217 traite de l’objet, du vivant ou du sens propre. Fait distinct de sa description matérielle."}},
+      {"id":"if-q853","difficulty":1,"answer":"langue","clue":"Que donne-t-on au chat quand on renonce à trouver la réponse à une devinette ?"},
+      {"id":"if-q854","difficulty":1,"answer":"puce","clue":"Quel petit insecte met-on à l’oreille de quelqu’un lorsqu’on éveille ses soupçons ?"},
+      {"id":"if-q855","difficulty":1,"answer":"mouche","clue":"Quel insecte prend-on, au sens figuré, lorsqu’on se vexe brusquement ?","editorial":{"note":"Emploi figuré ou expression française ; if-r482 traite de l’objet, du vivant ou du sens propre. Fait distinct de sa description matérielle."}},
+      {"id":"if-q856","difficulty":1,"answer":"moutarde","clue":"Quel condiment monte au nez dans une expression qui décrit une colère grandissante ?","editorial":{"note":"Emploi figuré ou expression française ; if-q188 traite de l’objet, du vivant ou du sens propre. Fait distinct de sa description matérielle."}},
+      {"id":"if-q857","difficulty":1,"answer":"poire","clue":"Quel fruit garde-t-on pour la soif quand on conserve une réserve pour plus tard ?","editorial":{"note":"Emploi figuré ou expression française ; if-r302 traite de l’objet, du vivant ou du sens propre. Fait distinct de sa description matérielle."}},
+      {"id":"if-q858","difficulty":1,"answer":"pêche","clue":"Quel fruit dit-on avoir lorsqu’on se sent plein d’énergie ?","editorial":{"note":"Emploi figuré ou expression française ; if-r311 traite de l’objet, du vivant ou du sens propre. Fait distinct de sa description matérielle."}},
+      {"id":"if-q859","difficulty":1,"answer":"banane","clue":"Quel fruit dit-on avoir pour évoquer un large sourire ?","editorial":{"note":"Emploi figuré ou expression française ; if-r303 traite de l’objet, du vivant ou du sens propre. Fait distinct de sa description matérielle."}},
+      {"id":"if-q860","difficulty":1,"answer":"fraise","clue":"Quel fruit ramène-t-on, dans une expression familière, lorsqu’on intervient sans être invité ?","editorial":{"note":"Emploi figuré ou expression française ; if-r314 traite de l’objet, du vivant ou du sens propre. Fait distinct de sa description matérielle."}},
+      {"id":"if-q861","difficulty":1,"answer":"carotte","clue":"Quel légume est déclaré cuit, au pluriel, quand tout espoir de réussite semble perdu ?","acceptedAnswers":["carottes"],"editorial":{"note":"Emploi figuré ou expression française ; if-r331 traite de l’objet, du vivant ou du sens propre. Fait distinct de sa description matérielle."}},
+      {"id":"if-q862","difficulty":1,"answer":"pomme","clue":"Dans quels fruits tombe-t-on, au pluriel, lorsqu’on s’évanouit ?","acceptedAnswers":["pommes"],"editorial":{"note":"Emploi figuré ou expression française ; if-r301 traite de l’objet, du vivant ou du sens propre. Fait distinct de sa description matérielle."}},
+      {"id":"if-q863","difficulty":1,"answer":"chou","clue":"Quel légume fait-on blanc, dans une expression, lorsque l’on échoue à obtenir ce que l’on cherchait ?","editorial":{"note":"Emploi figuré ou expression française ; if-q817 traite de l’objet, du vivant ou du sens propre. Fait distinct de sa description matérielle."}},
+      {"id":"if-q864","difficulty":1,"answer":"lune","clue":"Dans quel astre dit-on être lorsqu’on est distrait ou perdu dans ses pensées ?","editorial":{"note":"Emploi figuré ou expression française ; if-q016 traite de l’objet, du vivant ou du sens propre. Fait distinct de sa description matérielle."}},
+      {"id":"if-q865","difficulty":1,"answer":"blé","clue":"Quelle céréale désigne familièrement de l’argent ?","editorial":{"note":"Emploi figuré ou expression française ; if-r359 traite de l’objet, du vivant ou du sens propre. Fait distinct de sa description matérielle."}},
+      {"id":"if-q866","difficulty":1,"answer":"oseille","clue":"Quel nom de plante à feuilles acidulées peut aussi désigner familièrement de l’argent ?","editorial":{"note":"Emploi figuré ou expression française ; if-q812 traite de l’objet, du vivant ou du sens propre. Fait distinct de sa description matérielle."}},
+      {"id":"if-q867","difficulty":1,"answer":"salade","clue":"Quel plat raconte-t-on, au pluriel, lorsqu’on invente des histoires mensongères ?","acceptedAnswers":["salades"]},
+      {"id":"if-q868","difficulty":1,"answer":"prune","clue":"Quel fruit désigne familièrement une amende ?","editorial":{"note":"Emploi figuré ou expression française ; if-r312 traite de l’objet, du vivant ou du sens propre. Fait distinct de sa description matérielle."}},
+      {"id":"if-q869","difficulty":1,"answer":"casserole","clue":"Quel ustensile traîne-t-on derrière soi, au sens figuré, quand une affaire embarrassante ternit sa réputation ?","editorial":{"note":"Emploi figuré ou expression française ; if-r547 traite de l’objet, du vivant ou du sens propre. Fait distinct de sa description matérielle."}},
+      {"id":"if-q870","difficulty":1,"answer":"cloche","clue":"Quel objet sonore complète « le même son de… » pour évoquer un avis identique ?"},
+      {"id":"if-q871","difficulty":1,"answer":"violon","clue":"Quel instrument accorde-t-on, au pluriel, lorsqu’on cherche à se mettre d’accord avant d’agir ?","acceptedAnswers":["violons"],"editorial":{"note":"Emploi figuré ou expression française ; if-q114 traite de l’objet, du vivant ou du sens propre. Fait distinct de sa description matérielle."}},
+      {"id":"if-q872","difficulty":1,"answer":"marteau","clue":"Quel outil désigne familièrement une personne considérée comme folle ?","editorial":{"note":"Emploi figuré ou expression française ; if-r042 traite de l’objet, du vivant ou du sens propre. Fait distinct de sa description matérielle."}},
+      {"id":"if-q873","difficulty":1,"answer":"éponge","clue":"Quel objet jette-t-on, au sens figuré, lorsque l’on abandonne un combat ou une entreprise ?","editorial":{"note":"Emploi figuré ou expression française ; if-r078 traite de l’objet, du vivant ou du sens propre. Fait distinct de sa description matérielle."}},
+      {"id":"if-q874","difficulty":1,"answer":"bouchon","clue":"Quel petit objet dit-on pousser trop loin quand quelqu’un dépasse les limites ?","editorial":{"note":"Emploi figuré ou expression française ; if-r396 traite de l’objet, du vivant ou du sens propre. Fait distinct de sa description matérielle."}},
+      {"id":"if-q875","difficulty":1,"answer":"poudre","clue":"Quelle matière jette-t-on aux yeux de quelqu’un lorsqu’on l’éblouit avec des apparences trompeuses ?"},
+      {"id":"if-q876","difficulty":1,"answer":"pavé","clue":"Quel bloc lance-t-on dans la mare, au sens figuré, lorsqu’une intervention trouble une situation jusque-là calme ?"}
+    ] },
+    { "category": "Arts", "puzzles": [
+      {"id":"if-q877","difficulty":1,"answer":"Renoir","clue":"Quel peintre impressionniste prénommé Auguste a réalisé Le Déjeuner des canotiers ?"},
+      {"id":"if-q878","difficulty":1,"answer":"Cézanne","clue":"Quel peintre né à Aix-en-Provence a représenté de nombreuses fois la montagne Sainte-Victoire ?"},
+      {"id":"if-q879","difficulty":2,"answer":"Manet","clue":"Quel peintre prénommé Édouard a réalisé Olympia et Le Déjeuner sur l’herbe ?"},
+      {"id":"if-q880","difficulty":2,"answer":"Klimt","clue":"Quel peintre autrichien a réalisé Le Baiser, où l’or occupe une grande place ?"},
+      {"id":"if-q881","difficulty":1,"answer":"Magritte","clue":"Quel peintre belge a représenté une pipe en précisant par écrit que ce n’en était pas une ?"},
+      {"id":"if-q882","difficulty":2,"answer":"Munch","clue":"Quel peintre norvégien est l’auteur du Cri ?"},
+      {"id":"if-q883","difficulty":2,"answer":"Kandinsky","clue":"Quel peintre né à Moscou est l’un des pionniers de l’art abstrait et a créé la série des Compositions ?"},
+      {"id":"if-q884","difficulty":2,"answer":"Chagall","clue":"Quel peintre né à Vitebsk a réalisé le plafond coloré de la salle de l’opéra Garnier à Paris ?"},
+      {"id":"if-q885","difficulty":1,"answer":"Warhol","clue":"Quel artiste du pop art a multiplié les portraits de Marilyn Monroe et les images de boîtes de soupe Campbell ?"},
+      {"id":"if-q886","difficulty":2,"answer":"Pollock","clue":"Quel peintre américain prénommé Jackson projetait et faisait couler de la peinture sur des toiles posées au sol ?"},
+      {"id":"if-q887","difficulty":2,"answer":"Duchamp","clue":"Quel artiste français a présenté un urinoir comme œuvre sous le titre Fontaine ?","reference":"duchamp"},
+      {"id":"if-q888","difficulty":2,"answer":"Botticelli","clue":"Quel peintre florentin a réalisé La Naissance de Vénus, où la déesse se tient sur une grande coquille ?"},
+      {"id":"if-q889","difficulty":2,"answer":"Raphaël","clue":"Quel peintre de la Renaissance a réalisé L’École d’Athènes dans les appartements du Vatican ?"},
+      {"id":"if-q890","difficulty":2,"answer":"Goya","clue":"Quel peintre espagnol a réalisé Le Trois Mai, représentant une exécution par des soldats ?","reference":"goya"},
+      {"id":"if-q891","difficulty":2,"answer":"Vélasquez","clue":"Quel peintre espagnol du dix-septième siècle a réalisé Les Ménines ?","acceptedAnswers":["Velázquez"]}
+    ] },
+    { "category": "Chanson française", "puzzles": [
+      {"id":"if-q892","difficulty":1,"answer":"Brel","clue":"Quel chanteur belge prénommé Jacques a interprété Ne me quitte pas et Amsterdam ?"},
+      {"id":"if-q893","difficulty":1,"answer":"Brassens","clue":"Quel chanteur né à Sète a interprété Les Copains d’abord en s’accompagnant à la guitare ?"},
+      {"id":"if-q894","difficulty":1,"answer":"Piaf","clue":"Quelle chanteuse surnommée la Môme a interprété La Vie en rose ?","editorial":{"note":"Nom de scène d’Édith ; if-r802 accepte le terme familier pour le moineau."}},
+      {"id":"if-q895","difficulty":1,"answer":"Aznavour","clue":"Quel chanteur prénommé Charles a interprété La Bohème ?"},
+      {"id":"if-q896","difficulty":1,"answer":"Ferrat","clue":"Quel chanteur prénommé Jean a interprété La Montagne et mis en musique des poèmes d’Aragon ?"},
+      {"id":"if-q897","difficulty":1,"answer":"Barbara","clue":"Quelle chanteuse surnommée la Dame en noir a écrit et interprété L’Aigle noir ?"},
+      {"id":"if-q898","difficulty":1,"answer":"Trenet","clue":"Quel chanteur surnommé le Fou chantant a interprété La Mer ?"},
+      {"id":"if-q899","difficulty":1,"answer":"Souchon","clue":"Quel chanteur prénommé Alain a interprété Foule sentimentale et collaboré avec Laurent Voulzy ?"},
+      {"id":"if-q900","difficulty":1,"answer":"Cabrel","clue":"Quel chanteur originaire d’Agen a interprété Je l’aime à mourir et La Corrida ?"},
+      {"id":"if-q901","difficulty":1,"answer":"Gainsbourg","clue":"Quel auteur-compositeur prénommé Serge a écrit La Javanaise et Le Poinçonneur des Lilas ?"}
+    ] }
+  ]
+}

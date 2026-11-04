@@ -1,0 +1,632 @@
+{
+  "schemaVersion": 1,
+  "kind": "quiz",
+  "groups": [
+    {
+      "category": "Astronomie",
+      "puzzles": [
+        {
+          "id": "if-q2102",
+          "difficulty": 1,
+          "answer": "Mercure",
+          "clue": "Quelle planète du Système solaire possède l’année la plus courte ?"
+        },
+        {
+          "id": "if-q2103",
+          "difficulty": 1,
+          "answer": "Vénus",
+          "clue": "Quelle planète est plus chaude en surface que Mercure malgré sa plus grande distance au Soleil ?"
+        },
+        {
+          "id": "if-q2104",
+          "difficulty": 1,
+          "answer": "Mars",
+          "clue": "Sur quelle planète se trouve le gigantesque volcan Olympus Mons ?"
+        },
+        {
+          "id": "if-q2105",
+          "difficulty": 1,
+          "answer": "Jupiter",
+          "clue": "Quelle planète possède une immense tempête connue sous le nom de Grande Tache rouge ?"
+        },
+        {
+          "id": "if-q2106",
+          "difficulty": 2,
+          "answer": "Saturne",
+          "clue": "Autour de quelle planète tourne Titan, une lune dotée d’une atmosphère épaisse ?"
+        },
+        {
+          "id": "if-q2107",
+          "difficulty": 2,
+          "answer": "Uranus",
+          "clue": "Quelle planète tourne avec un axe tellement incliné qu’elle semble rouler sur son orbite ?"
+        },
+        {
+          "id": "if-q2108",
+          "difficulty": 2,
+          "answer": "Neptune",
+          "clue": "Quelle planète a été identifiée grâce aux calculs d’Urbain Le Verrier avant son observation décisive ?"
+        },
+        {
+          "id": "if-q2109",
+          "difficulty": 1,
+          "answer": "Pluton",
+          "clue": "Quel ancien membre de la liste des neuf planètes partage son système avec la lune Charon ?"
+        },
+        {
+          "id": "if-q2110",
+          "difficulty": 1,
+          "answer": "Lune",
+          "clue": "Quel astre présente presque toujours la même face à un observateur terrestre ?"
+        },
+        {
+          "id": "if-q2111",
+          "difficulty": 1,
+          "answer": "Soleil",
+          "clue": "Quel astre transforme principalement de l’hydrogène en hélium au cœur de notre système planétaire ?"
+        },
+        {
+          "id": "if-q2112",
+          "difficulty": 2,
+          "answer": "Halley",
+          "clue": "Quel astronome a donné son nom à la comète qui revient près du Soleil environ tous les soixante-seize ans ?"
+        },
+        {
+          "id": "if-q2113",
+          "difficulty": 2,
+          "answer": "météore",
+          "clue": "Quel phénomène lumineux produit un petit corps qui traverse rapidement l’atmosphère terrestre ?"
+        },
+        {
+          "id": "if-q2114",
+          "difficulty": 2,
+          "answer": "bolide",
+          "clue": "Quel nom donne-t-on à un météore particulièrement brillant, visible comme une boule de feu ?"
+        },
+        {
+          "id": "if-q2115",
+          "difficulty": 1,
+          "answer": "Terre",
+          "clue": "Quelle planète possède une atmosphère riche en dioxygène et de vastes océans d’eau liquide à sa surface ?"
+        },
+        {
+          "id": "if-q2116",
+          "difficulty": 1,
+          "answer": "éclipse",
+          "clue": "Quel événement peut faire apparaître la couronne solaire autour d’un disque noir, en plein jour ?"
+        },
+        {
+          "id": "if-q2117",
+          "difficulty": 2,
+          "answer": "équateur",
+          "clue": "Sur quel grand cercle terrestre le Soleil passe-t-il au zénith lors des équinoxes ?"
+        },
+        {
+          "id": "if-q2118",
+          "difficulty": 1,
+          "answer": "anneau",
+          "clue": "Quelle structure de particules entoure Saturne en plusieurs bandes aplaties ?"
+        },
+        {
+          "id": "if-q2119",
+          "difficulty": 1,
+          "answer": "atmosphère",
+          "clue": "Quelle enveloppe gazeuse freine et échauffe les petits corps qui arrivent de l’espace ?"
+        },
+        {
+          "id": "if-q2120",
+          "difficulty": 1,
+          "answer": "mer",
+          "clue": "Quel nom aquatique a-t-on donné à de grandes plaines sombres de la Lune, bien qu’elles soient sèches ?"
+        },
+        {
+          "id": "if-q2121",
+          "difficulty": 2,
+          "answer": "Hubble",
+          "clue": "Quel télescope spatial a été réparé en orbite pour corriger un défaut de son miroir principal ?"
+        }
+      ]
+    },
+    {
+      "category": "Langue française",
+      "puzzles": [
+        {
+          "id": "if-q2122",
+          "difficulty": 1,
+          "answer": "cousu",
+          "clue": "Quel est le participe passé masculin singulier du verbe coudre ?"
+        },
+        {
+          "id": "if-q2123",
+          "difficulty": 2,
+          "answer": "résolu",
+          "clue": "Quel est le participe passé masculin singulier du verbe résoudre ?"
+        },
+        {
+          "id": "if-q2124",
+          "difficulty": 2,
+          "answer": "acquis",
+          "clue": "Quel est le participe passé masculin singulier du verbe acquérir ?"
+        },
+        {
+          "id": "if-q2125",
+          "difficulty": 2,
+          "answer": "conquis",
+          "clue": "Quel est le participe passé masculin singulier du verbe conquérir ?"
+        },
+        {
+          "id": "if-q2126",
+          "difficulty": 2,
+          "answer": "moulu",
+          "clue": "Quel est le participe passé masculin singulier du verbe moudre ?"
+        },
+        {
+          "id": "if-q2127",
+          "difficulty": 1,
+          "answer": "vécu",
+          "clue": "Quel est le participe passé masculin singulier du verbe vivre ?"
+        },
+        {
+          "id": "if-q2128",
+          "difficulty": 1,
+          "answer": "plu",
+          "clue": "Quel est le participe passé du verbe plaire ?"
+        },
+        {
+          "id": "if-q2129",
+          "difficulty": 1,
+          "answer": "fallu",
+          "clue": "Quel est le participe passé du verbe falloir ?"
+        },
+        {
+          "id": "if-q2130",
+          "difficulty": 1,
+          "answer": "valu",
+          "clue": "Quel est le participe passé masculin singulier du verbe valoir ?"
+        },
+        {
+          "id": "if-q2131",
+          "difficulty": 1,
+          "answer": "bu",
+          "clue": "Quel est le participe passé masculin singulier du verbe boire ?"
+        },
+        {
+          "id": "if-q2132",
+          "difficulty": 1,
+          "answer": "lu",
+          "clue": "Quel est le participe passé masculin singulier du verbe lire ?"
+        },
+        {
+          "id": "if-q2133",
+          "difficulty": 1,
+          "answer": "su",
+          "clue": "Quel est le participe passé masculin singulier du verbe savoir ?"
+        },
+        {
+          "id": "if-q2134",
+          "difficulty": 1,
+          "answer": "voulu",
+          "clue": "Quel est le participe passé masculin singulier du verbe vouloir ?"
+        },
+        {
+          "id": "if-q2135",
+          "difficulty": 1,
+          "answer": "pu",
+          "clue": "Quel est le participe passé du verbe pouvoir ?"
+        },
+        {
+          "id": "if-q2136",
+          "difficulty": 1,
+          "answer": "reçu",
+          "clue": "Quel est le participe passé masculin singulier du verbe recevoir ?"
+        },
+        {
+          "id": "if-q2137",
+          "difficulty": 1,
+          "answer": "aperçu",
+          "clue": "Quel est le participe passé masculin singulier du verbe apercevoir ?"
+        },
+        {
+          "id": "if-q2138",
+          "difficulty": 1,
+          "answer": "conçu",
+          "clue": "Quel est le participe passé masculin singulier du verbe concevoir ?"
+        },
+        {
+          "id": "if-q2139",
+          "difficulty": 1,
+          "answer": "déçu",
+          "clue": "Quel est le participe passé masculin singulier du verbe décevoir ?"
+        },
+        {
+          "id": "if-q2140",
+          "difficulty": 1,
+          "answer": "peint",
+          "clue": "Quel est le participe passé masculin singulier du verbe peindre ?"
+        },
+        {
+          "id": "if-q2141",
+          "difficulty": 2,
+          "answer": "joint",
+          "clue": "Quel est le participe passé masculin singulier du verbe joindre ?"
+        }
+      ]
+    },
+    {
+      "category": "Cuisine",
+      "puzzles": [
+        {
+          "id": "if-q2142",
+          "difficulty": 2,
+          "answer": "émulsion",
+          "clue": "Quel mélange permet à la mayonnaise de réunir durablement de l’huile avec une phase aqueuse ?"
+        },
+        {
+          "id": "if-q2143",
+          "difficulty": 2,
+          "answer": "éthanol",
+          "clue": "Quel alcool les levures produisent-elles à partir du sucre pendant la fabrication du vin ou de la bière ?"
+        },
+        {
+          "id": "if-q2144",
+          "difficulty": 2,
+          "answer": "caramélisation",
+          "clue": "Quelle transformation donne au sucre chauffé sa couleur ambrée et des arômes nouveaux ?"
+        },
+        {
+          "id": "if-q2145",
+          "difficulty": 2,
+          "answer": "pression",
+          "clue": "Quelle grandeur atmosphérique, plus faible en altitude, fait bouillir l’eau à une température inférieure ?"
+        },
+        {
+          "id": "if-q2146",
+          "difficulty": 2,
+          "answer": "coagulation",
+          "clue": "Quel phénomène fait passer le blanc d’œuf d’une matière fluide à une matière ferme à la cuisson ?"
+        },
+        {
+          "id": "if-q2147",
+          "difficulty": 1,
+          "answer": "fécule",
+          "clue": "Quel produit poudreux extrait notamment de la pomme de terre sert à épaissir une sauce ?"
+        },
+        {
+          "id": "if-q2148",
+          "difficulty": 2,
+          "answer": "roux",
+          "clue": "Quel mélange de farine et de matière grasse cuites sert de base à certaines sauces ?"
+        },
+        {
+          "id": "if-q2149",
+          "difficulty": 2,
+          "answer": "salaison",
+          "clue": "Quel procédé de conservation repose principalement sur l’ajout de sel aux aliments ?"
+        },
+        {
+          "id": "if-q2150",
+          "difficulty": 1,
+          "answer": "fumage",
+          "clue": "Quel procédé expose un aliment à de la fumée pour le parfumer et contribuer à sa conservation ?"
+        },
+        {
+          "id": "if-q2151",
+          "difficulty": 2,
+          "answer": "pasteurisation",
+          "clue": "Quel traitement chauffe un aliment à une température contrôlée pour réduire les microorganismes indésirables ?"
+        },
+        {
+          "id": "if-q2152",
+          "difficulty": 2,
+          "answer": "stérilisation",
+          "clue": "Quel traitement thermique plus poussé permet notamment de conserver des aliments dans des bocaux hermétiques ?"
+        },
+        {
+          "id": "if-q2153",
+          "difficulty": 2,
+          "answer": "surgélation",
+          "clue": "Quel procédé abaisse très rapidement la température d’un aliment pour le congeler ?"
+        },
+        {
+          "id": "if-q2154",
+          "difficulty": 2,
+          "answer": "déshydratation",
+          "clue": "Quel procédé conserve un aliment en lui retirant une grande partie de son eau ?"
+        },
+        {
+          "id": "if-q2155",
+          "difficulty": 2,
+          "answer": "saumure",
+          "clue": "Quel liquide salé utilise-t-on notamment pour conserver des olives ou certains fromages ?"
+        },
+        {
+          "id": "if-q2156",
+          "difficulty": 1,
+          "answer": "bicarbonate",
+          "clue": "Quel produit en poudre réagit avec un ingrédient acide pour produire du gaz et aider certaines pâtes à lever ?"
+        },
+        {
+          "id": "if-q2157",
+          "difficulty": 2,
+          "answer": "tempura",
+          "clue": "Quel nom japonais désigne des beignets légers de légumes ou de fruits de mer ?"
+        },
+        {
+          "id": "if-q2158",
+          "difficulty": 2,
+          "answer": "aspic",
+          "clue": "Quel nom désigne une préparation froide dans laquelle les ingrédients sont pris dans une gelée ?"
+        },
+        {
+          "id": "if-q2159",
+          "difficulty": 2,
+          "answer": "déglaçage",
+          "clue": "Quelle opération verse un liquide dans le récipient de cuisson pour en dissoudre les sucs ?"
+        },
+        {
+          "id": "if-q2160",
+          "difficulty": 1,
+          "answer": "sorbet",
+          "clue": "Quel dessert glacé est traditionnellement arrosé de calvados pour servir un trou normand ?"
+        },
+        {
+          "id": "if-q2161",
+          "difficulty": 2,
+          "answer": "blanchiment",
+          "clue": "Quelle opération plonge brièvement un légume dans l’eau bouillante, souvent avant un refroidissement rapide ?"
+        }
+      ]
+    },
+    {
+      "category": "Nature",
+      "puzzles": [
+        {
+          "id": "if-q2162",
+          "difficulty": 2,
+          "answer": "castor",
+          "clue": "Quel rongeur peut frapper bruyamment l’eau avec sa queue aplatie pour avertir ses congénères ?"
+        },
+        {
+          "id": "if-q2163",
+          "difficulty": 2,
+          "answer": "loutre",
+          "clue": "Quel mammifère marin flotte souvent sur le dos et utilise la fourrure la plus dense du règne animal pour s’isoler ?"
+        },
+        {
+          "id": "if-q2164",
+          "difficulty": 1,
+          "answer": "canard",
+          "clue": "Chez quel oiseau de basse-cour le mâle colvert porte-t-il une tête verte brillante ?"
+        },
+        {
+          "id": "if-q2165",
+          "difficulty": 1,
+          "answer": "autruche",
+          "clue": "Quel grand oiseau africain possède deux doigts à chaque pied et court sans voler ?"
+        },
+        {
+          "id": "if-q2166",
+          "difficulty": 2,
+          "answer": "kiwi",
+          "clue": "Quel oiseau néo-zélandais a des narines près de l’extrémité de son long bec ?"
+        },
+        {
+          "id": "if-q2167",
+          "difficulty": 1,
+          "answer": "flamant",
+          "clue": "Quel oiseau aux longues pattes filtre sa nourriture à l’aide d’un bec coudé, souvent tourné vers le bas ?"
+        },
+        {
+          "id": "if-q2168",
+          "difficulty": 2,
+          "answer": "huppe",
+          "clue": "Quel oiseau au long bec courbé déploie une crête orangée aux pointes noires sur sa tête ?"
+        },
+        {
+          "id": "if-q2169",
+          "difficulty": 2,
+          "answer": "cormoran",
+          "clue": "Quel oiseau pêcheur est souvent observé les ailes étendues après ses plongées ?"
+        },
+        {
+          "id": "if-q2170",
+          "difficulty": 2,
+          "answer": "martinet",
+          "clue": "Quel oiseau passe une très grande partie de sa vie en vol et peut dormir dans les airs ?"
+        },
+        {
+          "id": "if-q2171",
+          "difficulty": 2,
+          "answer": "colibri",
+          "clue": "Quel petit oiseau américain peut voler sur place et reculer grâce aux battements de ses ailes ?"
+        },
+        {
+          "id": "if-q2172",
+          "difficulty": 1,
+          "answer": "araignée",
+          "clue": "Quel arthropode produit de la soie grâce à des organes situés au bout de son abdomen ?"
+        },
+        {
+          "id": "if-q2173",
+          "difficulty": 1,
+          "answer": "scorpion",
+          "clue": "Quel arachnide porte des pinces et un aiguillon venimeux au bout de la queue ?"
+        },
+        {
+          "id": "if-q2174",
+          "difficulty": 1,
+          "answer": "panda",
+          "clue": "Quel ours possède un os du poignet agrandi qui joue le rôle d’un faux pouce pour saisir le bambou ?",
+          "sourceUrl": "https://www.nationalzoo.si.edu/animals/giant-panda"
+        },
+        {
+          "id": "if-q2175",
+          "difficulty": 2,
+          "answer": "homard",
+          "clue": "Quel crustacé possède deux grandes pinces de formes différentes, l’une broyeuse et l’autre coupante ?"
+        },
+        {
+          "id": "if-q2176",
+          "difficulty": 1,
+          "answer": "écrevisse",
+          "clue": "Quel crustacé d’eau douce ressemble à un petit homard ?"
+        },
+        {
+          "id": "if-q2177",
+          "difficulty": 1,
+          "answer": "grenouille",
+          "clue": "Quel amphibien capture souvent ses proies avec une langue projetée rapidement hors de la bouche ?"
+        },
+        {
+          "id": "if-q2178",
+          "difficulty": 1,
+          "answer": "escargot",
+          "clue": "Quel mollusque terrestre se déplace sur un pied musculaire en laissant une traînée de mucus ?"
+        },
+        {
+          "id": "if-q2179",
+          "difficulty": 2,
+          "answer": "moule",
+          "clue": "Quel coquillage se fixe à un support grâce à des filaments appelés byssus ?"
+        },
+        {
+          "id": "if-q2180",
+          "difficulty": 2,
+          "answer": "palourde",
+          "clue": "Quel coquillage fouisseur, souvent cuisiné avec des pâtes, porte le nom italien vongola ?"
+        },
+        {
+          "id": "if-q2181",
+          "difficulty": 1,
+          "answer": "bigorneau",
+          "clue": "Quel petit escargot de mer se déguste souvent à l’aide d’une épingle ?"
+        }
+      ]
+    },
+    {
+      "category": "Musique",
+      "puzzles": [
+        {
+          "id": "if-q2182",
+          "difficulty": 1,
+          "answer": "Mozart",
+          "clue": "Quel compositeur a laissé inachevé son Requiem, complété après sa mort par Süssmayr ?"
+        },
+        {
+          "id": "if-q2183",
+          "difficulty": 1,
+          "answer": "Beethoven",
+          "clue": "Quel compositeur a écrit Fidelio, son unique opéra ?"
+        },
+        {
+          "id": "if-q2184",
+          "difficulty": 2,
+          "answer": "Vivaldi",
+          "clue": "Quel compositeur prénommé Antonio a publié les concertos réunis sous le titre L’Estro armonico ?"
+        },
+        {
+          "id": "if-q2185",
+          "difficulty": 2,
+          "answer": "Bach",
+          "clue": "Quel compositeur prénommé Jean-Sébastien a écrit les Concertos brandebourgeois ?"
+        },
+        {
+          "id": "if-q2186",
+          "difficulty": 1,
+          "answer": "Chopin",
+          "clue": "Quel pianiste compositeur né en Pologne est notamment célèbre pour ses nombreuses mazurkas ?"
+        },
+        {
+          "id": "if-q2187",
+          "difficulty": 2,
+          "answer": "Liszt",
+          "clue": "Quel pianiste virtuose hongrois a composé des Rhapsodies hongroises ?"
+        },
+        {
+          "id": "if-q2188",
+          "difficulty": 2,
+          "answer": "Schubert",
+          "clue": "Quel compositeur autrichien a laissé une symphonie célèbre sous le nom d’Inachevée ?"
+        },
+        {
+          "id": "if-q2189",
+          "difficulty": 2,
+          "answer": "Schumann",
+          "clue": "Quel compositeur prénommé Robert a épousé la pianiste Clara Wieck ?"
+        },
+        {
+          "id": "if-q2190",
+          "difficulty": 2,
+          "answer": "Brahms",
+          "clue": "Quel compositeur prénommé Johannes a écrit une berceuse souvent chantée pour endormir les enfants ?"
+        },
+        {
+          "id": "if-q2191",
+          "difficulty": 2,
+          "answer": "Tchaïkovski",
+          "clue": "Quel compositeur russe a écrit l’opéra Eugène Onéguine d’après Pouchkine ?"
+        },
+        {
+          "id": "if-q2192",
+          "difficulty": 2,
+          "answer": "Prokofiev",
+          "clue": "Quel compositeur russe a écrit le ballet Roméo et Juliette et sa Danse des chevaliers ?"
+        },
+        {
+          "id": "if-q2193",
+          "difficulty": 2,
+          "answer": "Stravinsky",
+          "clue": "Quel compositeur a créé L’Oiseau de feu pour les Ballets russes ?"
+        },
+        {
+          "id": "if-q2194",
+          "difficulty": 2,
+          "answer": "Debussy",
+          "clue": "Quel compositeur prénommé Claude a écrit les trois esquisses symphoniques intitulées La Mer ?"
+        },
+        {
+          "id": "if-q2195",
+          "difficulty": 2,
+          "answer": "Ravel",
+          "clue": "Quel compositeur prénommé Maurice a écrit un concerto pour la seule main gauche à la demande de Paul Wittgenstein ?"
+        },
+        {
+          "id": "if-q2196",
+          "difficulty": 2,
+          "answer": "Satie",
+          "clue": "Quel compositeur prénommé Erik a écrit les pièces pour piano appelées Gnossiennes ?"
+        },
+        {
+          "id": "if-q2197",
+          "difficulty": 2,
+          "answer": "Fauré",
+          "clue": "Quel compositeur français a écrit un Requiem dont l’In paradisum est particulièrement célèbre ?"
+        },
+        {
+          "id": "if-q2198",
+          "difficulty": 2,
+          "answer": "Camille",
+          "clue": "Quel prénom porte Saint-Saëns, le compositeur du Carnaval des animaux ?"
+        },
+        {
+          "id": "if-q2199",
+          "difficulty": 2,
+          "answer": "Bizet",
+          "clue": "Quel compositeur a écrit Les Pêcheurs de perles avant Carmen ?"
+        },
+        {
+          "id": "if-q2200",
+          "difficulty": 2,
+          "answer": "Gounod",
+          "clue": "Quel compositeur français a créé un opéra intitulé Faust, inspiré de Goethe ?"
+        },
+        {
+          "id": "if-q2201",
+          "difficulty": 2,
+          "answer": "Massenet",
+          "clue": "Quel compositeur français a écrit l’opéra Thaïs et sa célèbre Méditation pour violon ?"
+        }
+      ]
+    }
+  ]
+}

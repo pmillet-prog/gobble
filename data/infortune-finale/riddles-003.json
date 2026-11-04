@@ -1,0 +1,111 @@
+{
+  "schemaVersion": 1,
+  "kind": "riddle",
+  "groups": [
+    { "category": "Maison", "puzzles": [
+      {"id":"if-r151","difficulty":1,"clue":"Avec mon dossier et mes accoudoirs, j’accueille plusieurs personnes assises devant le même film.","answer":"canapé","acceptedAnswers":["sofa","divan"]},
+      {"id":"if-r152","difficulty":1,"clue":"Mes pieds ne marchent pas ; mon grand plateau réunit les assiettes de ceux qui viennent dîner.","answer":"table"},
+      {"id":"if-r153","difficulty":1,"clue":"J’offre une assise et un dossier à une seule personne ; autour de la table, nous sommes souvent plusieurs.","answer":"chaise"},
+      {"id":"if-r154","difficulty":1,"clue":"Je vous laisse vous asseoir sur mes pieds, mais je n’ai ni dossier où vous appuyer ni accoudoirs.","answer":"tabouret"},
+      {"id":"if-r155","difficulty":1,"clue":"Mes planches superposées portent vos livres ; chacun peut montrer son dos sans quitter sa place.","answer":"étagère","acceptedAnswers":["bibliothèque"]},
+      {"id":"if-r156","difficulty":1,"clue":"Derrière mes grandes portes, vos habits restent pliés ou suspendus jusqu’au prochain changement de tenue.","answer":"armoire","acceptedAnswers":["placard"]},
+      {"id":"if-r157","difficulty":1,"clue":"Tirez sur ma poignée : je sors du meuble avec tout ce que vous aviez rangé dans mon ventre.","answer":"tiroir"},
+      {"id":"if-r158","difficulty":1,"clue":"On me déploie avant le repas pour habiller la table ; après le dessert, je garde parfois quelques taches.","answer":"nappe"},
+      {"id":"if-r159","difficulty":1,"clue":"Étendu sur le sol du salon, je réchauffe vos pieds et décore la pièce sans recouvrir forcément tout le plancher.","answer":"tapis"},
+      {"id":"if-r160","difficulty":1,"clue":"Le soir, je ferme la fenêtre par l’extérieur ; battant ou roulant, je laisse ses vitres intactes.","answer":"volet"},
+      {"id":"if-r161","difficulty":2,"clue":"Ma toile s’enroule au-dessus de la fenêtre ; déployée, elle arrête le soleil avant qu’il entre.","answer":"store"},
+      {"id":"if-r162","difficulty":1,"clue":"Vous me prenez en main pour ouvrir la porte, mais je reste fixée à elle quand vous êtes passé.","answer":"poignée"},
+      {"id":"if-r163","difficulty":1,"clue":"Une pression près de la porte me fait annoncer votre visite à ceux qui se trouvent à l’intérieur.","answer":"sonnette"},
+      {"id":"if-r164","difficulty":2,"clue":"Je fais parler le visiteur resté devant l’immeuble avec l’habitant qui peut lui ouvrir depuis son appartement.","answer":"interphone"},
+      {"id":"if-r165","difficulty":2,"clue":"Petit œil dans la porte, je vous montre le visiteur sans vous obliger à lui ouvrir.","answer":"judas"},
+      {"id":"if-r166","difficulty":1,"clue":"Fixé au mur, je chauffe la pièce sans flamme ; on me sollicite surtout quand l’hiver s’installe.","answer":"radiateur","acceptedAnswers":["convecteur"]},
+      {"id":"if-r167","difficulty":1,"clue":"Des bûches brûlent dans mon foyer ; mon conduit offre à leur fumée une sortie au-dessus du toit.","answer":"cheminée"},
+      {"id":"if-r168","difficulty":1,"clue":"Je retiens l’eau dans les tuyaux jusqu’à ce que votre main m’autorise à la laisser couler.","answer":"robinet","acceptedAnswers":["mitigeur","mélangeur"]},
+      {"id":"if-r169","difficulty":2,"clue":"Sous le lavabo, ma courbe garde un peu d’eau pour barrer la route aux mauvaises odeurs des canalisations.","answer":"siphon"},
+      {"id":"if-r170","difficulty":1,"clue":"Mon grand bassin vous accueille allongé dans l’eau chaude ; retirez ma bonde et votre bain s’en va.","answer":"baignoire"},
+      {"id":"if-r171","difficulty":1,"clue":"Chez moi, on se lave debout sous une pluie que l’on peut arrêter d’un geste.","answer":"douche"},
+      {"id":"if-r172","difficulty":1,"clue":"Dans la cuisine, mon bac reçoit les assiettes sales ; un robinet m’aide à leur rendre leur propreté.","answer":"évier"},
+      {"id":"if-r173","difficulty":1,"clue":"Dans la salle de bains, je reçois l’eau de vos mains et de votre visage, bien trop petit pour un bain entier.","answer":"lavabo","acceptedAnswers":["vasque"]}
+    ] },
+    { "category": "Bricolage", "puzzles": [
+      {"id":"if-r174","difficulty":2,"clue":"Déplié, je tiens debout sur mes deux côtés et vous prête quelques marches pour atteindre le haut du placard.","answer":"escabeau"}
+    ] },
+    { "category": "Maison", "puzzles": [
+      {"id":"if-r175","difficulty":1,"clue":"Je garde vos déchets dans mon sac ; quand je suis pleine, il faut me vider pour que le ménage continue.","answer":"poubelle","acceptedAnswers":["corbeille"]}
+    ] },
+    { "category": "Vêtements et accessoires", "puzzles": [
+      {"id":"if-r176","difficulty":1,"clue":"Je coiffe votre tête et mon bord en fait le tour ; on peut me soulever pour saluer quelqu’un.","answer":"chapeau"},
+      {"id":"if-r177","difficulty":1,"clue":"Tricoté pour l’hiver, je couvre votre crâne et souvent vos oreilles, avec parfois un pompon au sommet.","answer":"bonnet"},
+      {"id":"if-r178","difficulty":1,"clue":"Longue et souple, je fais plusieurs tours de votre cou pour que le froid y trouve moins de passages.","answer":"écharpe"},
+      {"id":"if-r179","difficulty":1,"clue":"Mon nœud se place sous le col de votre chemise, tandis que ma longue pointe descend sur votre poitrine.","answer":"cravate"},
+      {"id":"if-r180","difficulty":1,"clue":"Nous passons sur vos épaules pour retenir votre pantalon, sans avoir besoin de lui serrer la taille.","answer":"bretelles"},
+      {"id":"if-r181","difficulty":2,"clue":"Bijou sur votre veste, je m’y accroche avec une petite épingle cachée derrière mon décor.","answer":"broche"},
+      {"id":"if-r182","difficulty":1,"clue":"Je fais le tour d’un seul doigt ; avec une pierre ou un simple anneau, je peux marquer une promesse.","answer":"bague","acceptedAnswers":["alliance"]},
+      {"id":"if-r183","difficulty":1,"clue":"Je décore votre poignet en l’entourant, sans être une montre ni vous donner l’heure.","answer":"bracelet"},
+      {"id":"if-r184","difficulty":1,"clue":"Mes perles ou mes maillons entourent votre cou ; je sers de bijou, sans tenir chaud.","answer":"collier","acceptedAnswers":["chaîne"]},
+      {"id":"if-r185","difficulty":2,"clue":"Suspendu à une chaîne, mon petit boîtier s’ouvre pour révéler le portrait que vous portez près du cœur.","answer":"médaillon"},
+      {"id":"if-r186","difficulty":1,"clue":"Plié dans votre poche, je range côte à côte vos billets, vos cartes et parfois une photo.","answer":"portefeuille"}
+    ] },
+    { "category": "Voyages et transports", "puzzles": [
+      {"id":"if-r187","difficulty":1,"clue":"Vous me remplissez de vêtements avant le départ ; ma poignée et mes roulettes m’aident à suivre votre voyage.","answer":"valise"},
+      {"id":"if-r188","difficulty":2,"clue":"Mon petit livret officiel porte votre photo et votre nationalité ; certaines frontières veulent me voir.","answer":"passeport"},
+      {"id":"if-r189","difficulty":1,"clue":"Avec de la toile, des piquets et des arceaux, je vous offre une chambre que l’on replie après le camping.","answer":"tente"},
+      {"id":"if-r190","difficulty":1,"clue":"Petite maison sur roues sans moteur, je suis la voiture jusqu’au camping où vous dormirez en moi.","answer":"caravane"}
+    ] },
+    { "category": "Sports", "puzzles": [
+      {"id":"if-r191","difficulty":1,"clue":"Assis sur moi, vous descendez la pente enneigée ; pour remonter, c’est souvent vous qui devez me tirer.","answer":"luge","acceptedAnswers":["traîneau"]},
+      {"id":"if-r192","difficulty":1,"clue":"Sous votre chaussure, ma lame glisse sur la glace ; mon jumeau attend sous votre autre pied.","answer":"patin"},
+      {"id":"if-r193","difficulty":1,"clue":"Mon manche conduit un cadre cordé ; la balle rebondit sur mes fils quand vous la renvoyez à votre adversaire.","answer":"raquette"},
+      {"id":"if-r194","difficulty":1,"clue":"J’allonge votre pied dans l’eau avec une large lame souple ; à deux, nous aidons le nageur à avancer.","answer":"palme"},
+      {"id":"if-r195","difficulty":1,"clue":"Gonflée autour de votre taille, je flotte pour vous aider à garder la tête hors de l’eau.","answer":"bouée"}
+    ] },
+    { "category": "Voyages et transports", "puzzles": [
+      {"id":"if-r196","difficulty":1,"clue":"Ma coque protège votre tête à moto ; attaché sous le menton, je reste en place pendant le trajet.","answer":"casque"}
+    ] },
+    { "category": "Vêtements et accessoires", "puzzles": [
+      {"id":"if-r197","difficulty":2,"clue":"Je m’avance au-dessus de vos yeux sur le devant d’une casquette pour leur faire un petit toit contre le soleil.","answer":"visière"},
+      {"id":"if-r198","difficulty":1,"clue":"Je touche le sol à chaque pas et m’use à votre place, fixée sous votre chaussure.","answer":"semelle"},
+      {"id":"if-r199","difficulty":2,"clue":"Je désigne l’arrière du pied, mais aussi la partie de la chaussure qui peut le faire monter bien haut.","answer":"talon"},
+      {"id":"if-r200","difficulty":1,"clue":"Je dors derrière votre cou, attachée au manteau ; sous la pluie, vous me rabattez sur votre tête.","answer":"capuche","acceptedAnswers":["capuchon"]}
+    ] },
+    { "category": "Jeux et jouets", "puzzles": [
+      {"id":"if-r201","difficulty":1,"clue":"Mes six faces portent des points ; lancez-moi et comptez-les pour avancer sur les cases du jeu.","answer":"dé"},
+      {"id":"if-r202","difficulty":2,"clue":"Dans mon royaume à cases, deux armées se disputent la victoire sans jamais pouvoir capturer le roi.","answer":"échecs"},
+      {"id":"if-r203","difficulty":1,"clue":"Un caillou et des cases tracées au sol : on me parcourt en sautant sur un pied jusqu’au ciel dessiné.","answer":"marelle"},
+      {"id":"if-r204","difficulty":1,"clue":"Sur ma pointe, je reste debout tant que je tourne assez vite ; quand je ralentis, je finis par tomber.","answer":"toupie"},
+      {"id":"if-r205","difficulty":1,"clue":"Grand anneau léger, je tourne autour de votre taille tant que vos hanches savent me relancer.","answer":"cerceau"},
+      {"id":"if-r206","difficulty":2,"clue":"Ma boule reste attachée à mon manche par une ficelle ; d’un geste, il faut la rattraper sur ma pointe.","answer":"bilboquet"},
+      {"id":"if-r207","difficulty":2,"clue":"Bien lancé dans ma version de jeu, je dessine un retour dans les airs pour revenir vers votre main.","answer":"boomerang"},
+      {"id":"if-r208","difficulty":1,"clue":"Je descends au bout de ma ficelle, puis je remonte vers votre main en enroulant ce que j’avais déroulé.","answer":"yoyo"},
+      {"id":"if-r209","difficulty":1,"clue":"Mes petites ailettes guident ma pointe vers les cases d’une cible ; le centre vaut souvent très cher.","answer":"fléchette"},
+      {"id":"if-r210","difficulty":1,"clue":"Vous sautez sur ma toile tendue et mes ressorts vous renvoient en l’air, sans quitter le jardin.","answer":"trampoline"}
+    ] },
+    { "category": "Musique", "puzzles": [
+      {"id":"if-r211","difficulty":1,"clue":"Ma peau tendue se met à chanter quand vos baguettes la frappent ; mon corps creux amplifie le rythme.","answer":"tambour"},
+      {"id":"if-r212","difficulty":2,"clue":"Petites coquilles de bois dans les mains du danseur, nous claquons l’une contre l’autre pour marquer le rythme.","answer":"castagnettes"},
+      {"id":"if-r213","difficulty":2,"clue":"Secouez nos manches : dans nos boules creuses, des graines ou des billes font danser le rythme.","answer":"maracas"},
+      {"id":"if-r214","difficulty":2,"clue":"Deux grands disques de métal : on nous entrechoque pour faire éclater un accent dans la musique.","answer":"cymbales"},
+      {"id":"if-r215","difficulty":2,"clue":"Mes lames de bois de longueurs différentes attendent les mailloches pour jouer chacune leur note.","answer":"xylophone","acceptedAnswers":["marimba"]},
+      {"id":"if-r216","difficulty":1,"clue":"Mes six cordes passent sur un long manche ; une main les raccourcit pendant que l’autre les pince.","answer":"guitare"},
+      {"id":"if-r217","difficulty":1,"clue":"Dans ma version à bec, on souffle à une extrémité et l’on bouche mes trous pour changer les notes.","answer":"flûte"}
+    ] },
+    { "category": "Sports", "puzzles": [
+      {"id":"if-r218","difficulty":1,"clue":"L’arbitre souffle dans mon petit corps pour arrêter le jeu, même quand personne ne regarde son geste.","answer":"sifflet"}
+    ] },
+    { "category": "Musique", "puzzles": [
+      {"id":"if-r219","difficulty":1,"clue":"Devant la bouche du chanteur, je capte sa voix pour que les enceintes la portent jusqu’au fond de la salle.","answer":"microphone","acceptedAnswers":["micro"]}
+    ] },
+    { "category": "Cinéma et séries", "puzzles": [
+      {"id":"if-r220","difficulty":2,"clue":"Au cinéma, j’envoie le film sur le grand écran ; mon faisceau part du fond de la salle.","answer":"projecteur","acceptedAnswers":["vidéoprojecteur"]}
+    ] },
+    { "category": "Théâtre et spectacle", "puzzles": [
+      {"id":"if-r221","difficulty":1,"clue":"Les acteurs foulent mes planches pendant que les spectateurs restent assis devant moi.","answer":"scène","acceptedAnswers":["plateau"]},
+      {"id":"if-r222","difficulty":2,"clue":"Au théâtre, les acteurs attendent en nous avant leur entrée ; le public ne voit normalement pas nos préparatifs.","answer":"coulisses"},
+      {"id":"if-r223","difficulty":2,"clue":"Je coupe le spectacle sans le terminer ; les spectateurs peuvent sortir un moment avant la reprise.","answer":"entracte","acceptedAnswers":["pause"]},
+      {"id":"if-r224","difficulty":1,"clue":"Quand les mains du public se rencontrent encore et encore, nous remercions les artistes sans un mot.","answer":"applaudissements","acceptedAnswers":["applaudissement"]}
+    ] },
+    { "category": "Arts", "puzzles": [
+      {"id":"if-r225","difficulty":2,"clue":"Je prends forme sous les coups du ciseau dans la pierre ; contrairement au tableau, on peut faire le tour de moi.","answer":"sculpture","acceptedAnswers":["statue"]}
+    ] }
+  ]
+}

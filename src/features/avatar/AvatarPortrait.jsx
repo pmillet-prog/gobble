@@ -1,6 +1,8 @@
 import React from "react";
 import AvatarMedalsOverlay from "./AvatarMedalsOverlay.jsx";
 import useWeeklyAuraAppearance from "./useWeeklyAuraAppearance.js";
+import { prepareSavedAvatar } from "./prepareSavedAvatar.js";
+import { RELEASE_SCOPE } from "../../../shared/releaseScope.js";
 import "./avatar.css";
 
 export default React.memo(function AvatarPortrait({ value = null, loading = false, size = 160, view = "face", expression = "neutral", medals = null, nickname, label = "Avatar", className = "", onResolved }) {
@@ -17,9 +19,12 @@ export default React.memo(function AvatarPortrait({ value = null, loading = fals
     let active = true;
     setStatus("loading");
     const frame = requestAnimationFrame(() => {
-      if (!renderer.current) renderer.current = import("./avatarRenderer.js").then(module => module.createAvatarRenderer());
-      renderer.current.then(instance => instance.prepare(visibleValue, { expression })).then(result => {
-        if (active && ref.current) {
+      (RELEASE_SCOPE.avatarRenderAssets ? prepareSavedAvatar(visibleValue, { view, expression, nickname }) : Promise.resolve(null)).then(async saved => {
+        if (saved || !active) return saved;
+        renderer.current ||= import("./avatarRenderer.js").then(module => module.createAvatarRenderer());
+        return (await renderer.current).prepare(visibleValue, { expression });
+      }).then(result => {
+        if (active && result && ref.current) {
           result.draw(ref.current, view, null, nickname);
           setCamera({ value, size, view, viewport: ref.current.gobbleViewport });
           setStatus("ready");

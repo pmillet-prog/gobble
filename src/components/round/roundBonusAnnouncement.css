@@ -1,0 +1,71 @@
+.round-intro-title--bonus {
+  container-type: size;
+}
+
+.round-intro-bonus {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(10px, 3cqi, 18px);
+  width: 100%;
+  margin-top: clamp(10px, 3cqi, 20px);
+  padding-top: clamp(10px, 3cqi, 18px);
+  border-top: 1px solid rgba(244, 182, 88, 0.3);
+}
+
+.round-intro-bonus__logo {
+  flex: 0 0 auto;
+  width: clamp(68px, 25cqi, 132px);
+  height: clamp(68px, 25cqi, 132px);
+  object-fit: contain;
+}
+
+.round-intro-bonus__logo--gotus {
+  width: clamp(100px, 35cqi, 180px);
+  height: clamp(52px, 20cqi, 94px);
+}
+
+.round-intro-bonus__copy {
+  max-width: 240px;
+  min-width: 0;
+  text-align: left;
+}
+
+.round-intro-bonus__eyebrow {
+  color: #f5cb87;
+  font-size: clamp(9px, 2.5cqi, 12px);
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.round-intro-bonus__name {
+  margin-top: 3px;
+  color: #fff;
+  font-size: clamp(12px, 3.5cqi, 18px);
+  font-weight: 900;
+  line-height: 1.2;
+}
+
+.round-intro-bonus__hint {
+  margin: 5px 0 0;
+  color: #e2e8f0;
+  font-size: clamp(10px, 2.7cqi, 13px);
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+@container (max-width: 300px) {
+  .round-intro-title--bonus .round-intro-title__type,
+  .round-intro-title--bonus .round-intro-title__description {
+    margin-top: 8px;
+  }
+  .round-intro-title--bonus .round-intro-title__type {
+    font-size: 14px;
+    letter-spacing: 0.04em;
+  }
+  .round-intro-bonus {
+    margin-top: 8px;
+    padding-top: 8px;
+  }
+}

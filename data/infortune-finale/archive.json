@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "editorialNote": "Textes retirés du pool. Ce fichier ne figure pas dans le manifeste ; leurs identifiants restent réservés.",
+  "puzzles": [
+    {
+      "id": "if-q118",
+      "kind": "quiz",
+      "category": "Nature et vivant",
+      "difficulty": 3,
+      "status": "draft",
+      "clue": "Quel amphibien mexicain peut se reproduire en conservant son allure larvaire et ses branchies externes ?",
+      "answer": "axolotl",
+      "source": { "kind": "original", "note": "Rédaction originale pour Gobble. Référence factuelle : Muséum national d’Histoire naturelle — Axolotl.", "url": "https://www.mnhn.fr/fr/axolotl" },
+      "editorial": { "withdrawnReason": "Réponse jugée trop spécialisée par Paul pour le public visé, même au niveau exigeant." }
+    }
+  ]
+}

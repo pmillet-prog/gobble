@@ -1,0 +1,47 @@
+.finale-workshop__sections { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 28px; }
+.finale-workshop__sections button { min-height: 44px; padding: 10px 18px; border: 1px solid #394a60; border-radius: 8px; background: #111e30; color: #bdcadd; font: inherit; font-size: 13px; cursor: pointer; }
+.finale-workshop__sections button[aria-pressed="true"] { color: #ffe2a0; background: #2b271e; border-color: #a68b57; }
+.finale-workshop__sections button:focus-visible, .finale-pool-review :focus-visible { outline: 2px solid #ffe2a0; outline-offset: 3px; }
+.finale-pool-review { max-width: 1120px; margin: auto; }
+.finale-pool-review *, .finale-pool-review *::before, .finale-pool-review *::after { box-sizing: border-box; }
+.finale-pool-review__heading h1 { margin: 0; color: #fff1d5; font-size: clamp(25px, 4vw, 36px); letter-spacing: -.03em; }
+.finale-pool-review__heading p { max-width: 720px; color: #aab9cf; font-size: 13px; line-height: 1.8; margin: 12px 0 24px; }
+.finale-pool-review__filters { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; padding: 18px; background: #0e1929; border: 1px solid #2b3b51; border-radius: 12px; }
+.finale-pool-review__filters label { flex: 1 1 150px; color: #bdcadd; font-size: 11px; }
+.finale-pool-review__filters .finale-pool-review__search { flex-basis: 280px; }
+.finale-pool-review input, .finale-pool-review select { display: block; width: 100%; margin-top: 7px; min-height: 42px; padding: 10px; border: 1px solid #41516a; border-radius: 6px; background: #070e19; color: #eef3fa; font: inherit; font-size: 13px; }
+.finale-pool-review input::placeholder { color: #8193ac; }
+.finale-pool-review button { min-height: 42px; padding: 9px 13px; border: 1px solid #485d77; border-radius: 6px; background: #192b43; color: #e3eaf4; cursor: pointer; font: inherit; font-size: 12px; }
+.finale-pool-review button:not(:disabled):hover { background: #253b54; border-color: #9baac0; }
+.finale-pool-review button:disabled { opacity: .35; cursor: default; }
+.finale-pool-review__results { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; margin: 20px 0 14px; }
+.finale-pool-review__results h2 { font-size: 14px; font-weight: 600; margin: 0; scroll-margin-top: 20px; }
+.finale-pool-review__results small { font-weight: 400; color: #a0b0c6; font-size: 12px; }
+.finale-pool-review__pagination { display: flex; justify-content: center; align-items: center; gap: 14px; }
+.finale-pool-review__pagination > span { color: #aab9cc; font-size: 12px; white-space: nowrap; }
+.finale-pool-review__list { display: grid; gap: 14px; margin: 0 0 20px; padding: 0; list-style: none; }
+.finale-pool-card { padding: 22px 24px 16px; border: 1px solid #304058; border-radius: 12px; background: linear-gradient(120deg, #101d30, #0b1422); }
+.finale-pool-card > header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 14px; color: #9aabc2; font-size: 11px; }
+.finale-pool-card h3 { margin: 0; font-size: 12px; font-variant-numeric: tabular-nums; color: #e7c78a; }
+.finale-pool-card__status { margin-left: auto; color: #bbae96; }
+.finale-pool-card__clue { margin: 18px 0; color: #f0f4fa; font-size: clamp(16px, 2vw, 19px); line-height: 1.65; overflow-wrap: anywhere; }
+.finale-pool-card__answers { display: flex; flex-wrap: wrap; gap: 16px 32px; margin: 0; padding: 14px 16px; border-left: 2px solid #bb995e; border-radius: 0 6px 6px 0; background: #d3b06a08; }
+.finale-pool-card__answers dt { color: #a8b3c3; font-size: 10px; text-transform: uppercase; letter-spacing: .07em; margin-bottom: 5px; }
+.finale-pool-card__answers dd { margin: 0; color: #ffe0a3; font-size: 16px; line-height: 1.5; overflow-wrap: anywhere; }
+.finale-pool-card__answers > div:not(:first-child) dd { color: #d2dcea; font-size: 13px; }
+.finale-pool-card__note { color: #d4bf96; font-size: 12px; line-height: 1.7; }
+.finale-pool-card > footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-top: 14px; color: #93a6bf; font-size: 11px; }
+.finale-pool-card > footer a { color: #abcdec; padding: 10px 0; }
+.finale-pool-review__empty { text-align: center; color: #aebed3; padding: 40px 12px; }
+@media (max-width: 650px) {
+  .finale-workshop__sections button { flex: 1; padding-inline: 10px; font-size: 12px; }
+  .finale-pool-review__filters { padding: 12px; gap: 10px; }
+  .finale-pool-review__filters label { flex-basis: 120px; }
+  .finale-pool-review__results { align-items: stretch; }
+  .finale-pool-review__results > * { width: 100%; }
+  .finale-pool-review__pagination { gap: 9px; }
+  .finale-pool-review__pagination button { padding-inline: 10px; }
+  .finale-pool-card { padding: 16px; }
+  .finale-pool-card__status { margin-left: 0; }
+  .finale-pool-card__answers { gap: 12px; flex-direction: column; }
+}

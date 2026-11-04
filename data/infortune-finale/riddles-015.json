@@ -1,0 +1,642 @@
+{
+  "schemaVersion": 1,
+  "kind": "riddle",
+  "groups": [
+    {
+      "category": "Jardinage",
+      "puzzles": [
+        {
+          "id": "if-r1301",
+          "difficulty": 2,
+          "answer": "bourgeon",
+          "clue": "Encore fermé sur le rameau, je protège une future pousse, des feuilles ou des fleurs."
+        },
+        {
+          "id": "if-r1302",
+          "difficulty": 2,
+          "answer": "pétale",
+          "clue": "Coloré autour du cœur de la fleur, je peux être effeuillé par celui qui cherche un amour à compter."
+        },
+        {
+          "id": "if-r1303",
+          "difficulty": 2,
+          "answer": "pistil",
+          "clue": "Au centre de nombreuses fleurs, je suis l’organe femelle qui reçoit le pollen sur son sommet."
+        },
+        {
+          "id": "if-r1304",
+          "difficulty": 2,
+          "answer": "étamine",
+          "clue": "Organe mâle d’une fleur, je porte au bout de mon filet une partie qui produit le pollen."
+        },
+        {
+          "id": "if-r1305",
+          "difficulty": 2,
+          "answer": "bulbe",
+          "clue": "Sous terre, mes réserves entourent une future pousse ; tulipes et oignons possèdent ce type d’organe."
+        },
+        {
+          "id": "if-r1306",
+          "difficulty": 2,
+          "answer": "tubercule",
+          "clue": "Organe renflé riche en réserves, je nourris une future pousse ; la pomme de terre en est un exemple."
+        },
+        {
+          "id": "if-r1307",
+          "difficulty": 2,
+          "answer": "bouture",
+          "clue": "Fragment prélevé sur une plante, je peux prendre racine pour en former une nouvelle."
+        },
+        {
+          "id": "if-r1308",
+          "difficulty": 2,
+          "answer": "semis",
+          "clue": "Je commence lorsque le jardinier place des graines dans la terre pour obtenir de jeunes plants."
+        },
+        {
+          "id": "if-r1309",
+          "difficulty": 2,
+          "answer": "terreau",
+          "clue": "Mélange utilisé dans les pots, j’offre aux racines un support adapté sans être forcément la terre du jardin."
+        },
+        {
+          "id": "if-r1310",
+          "difficulty": 2,
+          "answer": "compost",
+          "clue": "Des déchets organiques décomposés me donnent naissance ; mûr, j’enrichis le sol du potager."
+        },
+        {
+          "id": "if-r1311",
+          "difficulty": 2,
+          "answer": "paillis",
+          "clue": "Couche étendue sur le sol autour des plantes, je limite son dessèchement et la pousse des herbes indésirables."
+        },
+        {
+          "id": "if-r1312",
+          "difficulty": 2,
+          "answer": "humus",
+          "clue": "Matière sombre issue de la transformation des débris vivants, je contribue à la fertilité du sol."
+        },
+        {
+          "id": "if-r1313",
+          "difficulty": 2,
+          "answer": "motte",
+          "clue": "Bloc de terre retenu autour des racines, je les accompagne lorsque l’on sort une plante de son pot."
+        },
+        {
+          "id": "if-r1314",
+          "difficulty": 2,
+          "answer": "sillon",
+          "clue": "Long creux tracé dans la terre, je guide les graines que l’on veut semer en ligne."
+        },
+        {
+          "id": "if-r1315",
+          "difficulty": 2,
+          "answer": "tuteur",
+          "clue": "Planté près d’une tige fragile, je la soutiens ; au jardin, je n’ai aucun élève à surveiller."
+        },
+        {
+          "id": "if-r1316",
+          "difficulty": 2,
+          "answer": "écorce",
+          "clue": "Enveloppe protectrice du tronc et des branches, je peux être lisse, rugueuse ou crevassée selon l’arbre."
+        },
+        {
+          "id": "if-r1317",
+          "difficulty": 2,
+          "answer": "résine",
+          "clue": "Substance collante produite notamment par les pins, je peux couler après une blessure de l’écorce."
+        },
+        {
+          "id": "if-r1318",
+          "difficulty": 2,
+          "answer": "sève",
+          "clue": "Je circule dans les vaisseaux de la plante en transportant de l’eau et des substances utiles à sa vie."
+        },
+        {
+          "id": "if-r1319",
+          "difficulty": 2,
+          "answer": "rameau",
+          "clue": "Petite branche d’un arbre ou d’un arbuste, je peux porter des bourgeons et de nouvelles feuilles."
+        },
+        {
+          "id": "if-r1320",
+          "difficulty": 2,
+          "answer": "rejet",
+          "clue": "Nouvelle pousse issue de la base d’une plante ou de ses racines, je ne suis pas un refus du jardinier."
+        }
+      ]
+    },
+    {
+      "category": "Nature",
+      "puzzles": [
+        {
+          "id": "if-r1321",
+          "difficulty": 1,
+          "answer": "fougère",
+          "clue": "Mes frondes se déroulent souvent en crosse ; je me reproduis par spores et ne porte pas de fleurs."
+        },
+        {
+          "id": "if-r1322",
+          "difficulty": 1,
+          "answer": "houx",
+          "clue": "Mes feuilles persistantes et souvent piquantes accompagnent de petites boules rouges dans les décors de Noël."
+        },
+        {
+          "id": "if-r1323",
+          "difficulty": 1,
+          "answer": "gui",
+          "clue": "Installé sur les branches d’un arbre, je forme une touffe portant des baies blanchâtres ; on s’embrasse parfois sous moi."
+        },
+        {
+          "id": "if-r1324",
+          "difficulty": 1,
+          "answer": "bruyère",
+          "clue": "Petit arbrisseau des landes, je couvre parfois le paysage de minuscules fleurs roses ou mauves."
+        },
+        {
+          "id": "if-r1325",
+          "difficulty": 1,
+          "answer": "violette",
+          "clue": "Petite fleur souvent parfumée, je donne mon nom à une couleur et peux être cristallisée pour décorer les desserts."
+        },
+        {
+          "id": "if-r1326",
+          "difficulty": 1,
+          "answer": "roseau",
+          "clue": "Grande tige des bords de l’eau, je plie sous le vent ; une fable m’oppose au chêne."
+        },
+        {
+          "id": "if-r1327",
+          "difficulty": 1,
+          "answer": "nénuphar",
+          "clue": "Plante aquatique, j’étale de larges feuilles flottantes à côté de mes fleurs à la surface de l’étang."
+        },
+        {
+          "id": "if-r1328",
+          "difficulty": 1,
+          "answer": "jonquille",
+          "clue": "Fleur jaune annonçant le printemps, je porte une sorte de petite trompette au centre de ma corolle."
+        },
+        {
+          "id": "if-r1329",
+          "difficulty": 1,
+          "answer": "orchidée",
+          "clue": "Ma fleur présente notamment un pétale différent des autres, le labelle ; certaines de mes parentes parfument à la vanille."
+        },
+        {
+          "id": "if-r1330",
+          "difficulty": 1,
+          "answer": "lys",
+          "clue": "Avec mes grandes fleurs et mes étamines bien visibles, je porte aussi le nom d’un emblème de la royauté française.",
+          "acceptedAnswers": [
+            "lis"
+          ]
+        },
+        {
+          "id": "if-r1331",
+          "difficulty": 1,
+          "answer": "iris",
+          "clue": "Fleur aux pétales dressés et retombants, je partage mon nom avec la partie colorée de l’œil."
+        },
+        {
+          "id": "if-r1332",
+          "difficulty": 1,
+          "answer": "hortensia",
+          "clue": "Arbuste de jardin, je porte de grosses têtes de fleurs dont certaines deviennent roses ou bleues selon le sol."
+        },
+        {
+          "id": "if-r1333",
+          "difficulty": 1,
+          "answer": "géranium",
+          "clue": "Mon nom désigne couramment les plantes à fleurs rouges ou roses qui garnissent les jardinières des balcons.",
+          "acceptedAnswers": [
+            "pélargonium"
+          ]
+        },
+        {
+          "id": "if-r1334",
+          "difficulty": 1,
+          "answer": "bégonia",
+          "clue": "Plante d’ornement, je porte des feuilles souvent dissymétriques et de nombreuses petites fleurs aux couleurs vives."
+        },
+        {
+          "id": "if-r1335",
+          "difficulty": 1,
+          "answer": "cyclamen",
+          "clue": "Mes pétales se replient vers le haut au-dessus de feuilles souvent en forme de cœur et marbrées de clair."
+        },
+        {
+          "id": "if-r1336",
+          "difficulty": 1,
+          "answer": "pivoine",
+          "clue": "Au jardin, mes grosses fleurs parfois très doubles évoquent des boules de pétales ; mon nom accompagne les joues rouges."
+        },
+        {
+          "id": "if-r1337",
+          "difficulty": 1,
+          "answer": "dahlia",
+          "clue": "Fleur de jardin aux formes très variées, je peux évoquer un pompon ou une étoile et pousse à partir de racines tubéreuses."
+        },
+        {
+          "id": "if-r1338",
+          "difficulty": 1,
+          "answer": "chrysanthème",
+          "clue": "En France, mes fleurs colorées sont souvent déposées sur les tombes autour de la Toussaint."
+        },
+        {
+          "id": "if-r1339",
+          "difficulty": 1,
+          "answer": "jacinthe",
+          "clue": "Fleur à bulbe très parfumée, je rassemble de petites clochettes serrées sur une hampe dressée."
+        },
+        {
+          "id": "if-r1340",
+          "difficulty": 1,
+          "answer": "glycine",
+          "clue": "Plante grimpante à tiges ligneuses, je suspends au printemps de longues grappes de fleurs mauves ou blanches."
+        }
+      ]
+    },
+    {
+      "category": "Nature",
+      "puzzles": [
+        {
+          "id": "if-r1341",
+          "difficulty": 2,
+          "answer": "platane",
+          "clue": "Arbre fréquent le long des avenues, je perds mon écorce par plaques et porte des fruits groupés en boules pendantes."
+        },
+        {
+          "id": "if-r1342",
+          "difficulty": 2,
+          "answer": "tilleul",
+          "clue": "Arbre d’ombrage, je fournis des fleurs parfumées dont on prépare une infusion."
+        },
+        {
+          "id": "if-r1343",
+          "difficulty": 2,
+          "answer": "marronnier",
+          "clue": "Mes feuilles ressemblent à des mains ouvertes ; mes fruits luisants tombent dans des enveloppes vertes épineuses."
+        },
+        {
+          "id": "if-r1344",
+          "difficulty": 2,
+          "answer": "peuplier",
+          "clue": "Arbre souvent planté près de l’eau, certaines de mes variétés dressent une silhouette haute et très étroite."
+        },
+        {
+          "id": "if-r1345",
+          "difficulty": 2,
+          "answer": "érable",
+          "clue": "Mes fruits ailés tourbillonnent en tombant ; certaines de mes espèces donnent une sève utilisée pour fabriquer du sirop."
+        },
+        {
+          "id": "if-r1346",
+          "difficulty": 2,
+          "answer": "hêtre",
+          "clue": "Arbre des forêts tempérées à écorce lisse et grise, je produis de petits fruits appelés faînes."
+        },
+        {
+          "id": "if-r1347",
+          "difficulty": 2,
+          "answer": "cèdre",
+          "clue": "Grand conifère, je peux étaler mes branches en étages ; je suis représenté sur le drapeau du Liban."
+        },
+        {
+          "id": "if-r1348",
+          "difficulty": 2,
+          "answer": "cyprès",
+          "clue": "Conifère souvent dressé comme une colonne, je borde les allées et les cimetières dans les paysages méditerranéens."
+        },
+        {
+          "id": "if-r1349",
+          "difficulty": 2,
+          "answer": "eucalyptus",
+          "clue": "Arbre d’origine principalement australienne, je fournis les feuilles dont se nourrissent les koalas."
+        },
+        {
+          "id": "if-r1350",
+          "difficulty": 2,
+          "answer": "baobab",
+          "clue": "Arbre au tronc particulièrement massif, je donne à certains paysages africains une silhouette impossible à confondre."
+        }
+      ]
+    },
+    {
+      "category": "Jardinage",
+      "puzzles": [
+        {
+          "id": "if-r1351",
+          "difficulty": 1,
+          "answer": "germination",
+          "clue": "Je commence lorsque la graine se réveille et que sa première racine sort de son enveloppe."
+        },
+        {
+          "id": "if-r1352",
+          "difficulty": 1,
+          "answer": "floraison",
+          "clue": "Pendant ma période, la plante ouvre ses fleurs ; les jardiniers attendent souvent mon retour avec impatience."
+        },
+        {
+          "id": "if-r1353",
+          "difficulty": 2,
+          "answer": "fructification",
+          "clue": "Après les fleurs fécondées vient mon étape : la plante forme les fruits qui porteront ses graines."
+        },
+        {
+          "id": "if-r1354",
+          "difficulty": 2,
+          "answer": "pollinisation",
+          "clue": "Je transporte le pollen jusqu’à la partie réceptrice d’une fleur, avec l’aide du vent ou d’animaux."
+        },
+        {
+          "id": "if-r1355",
+          "difficulty": 1,
+          "answer": "taille",
+          "clue": "Au jardin, je raccourcis certaines branches pour former ou entretenir la plante ; mon nom désigne aussi une dimension."
+        },
+        {
+          "id": "if-r1356",
+          "difficulty": 1,
+          "answer": "élagage",
+          "clue": "Sur les arbres, je supprime certaines branches, notamment pour dégager le passage ou limiter leur développement."
+        },
+        {
+          "id": "if-r1357",
+          "difficulty": 1,
+          "answer": "greffe",
+          "clue": "Je réunis un fragment végétal à une autre plante qui le nourrira ; on ne me pratique pas uniquement à l’hôpital."
+        },
+        {
+          "id": "if-r1358",
+          "difficulty": 1,
+          "answer": "désherbage",
+          "clue": "Au potager, j’enlève les plantes indésirables pour laisser davantage de place aux cultures choisies."
+        },
+        {
+          "id": "if-r1359",
+          "difficulty": 1,
+          "answer": "arrosage",
+          "clue": "Je donne de l’eau aux plantes lorsque la pluie ne suffit pas ; trop généreux, je peux aussi leur nuire."
+        },
+        {
+          "id": "if-r1360",
+          "difficulty": 2,
+          "answer": "repiquage",
+          "clue": "Je déplace de jeunes plants issus d’un semis vers un emplacement où ils auront davantage de place."
+        }
+      ]
+    },
+    {
+      "category": "Nature",
+      "puzzles": [
+        {
+          "id": "if-r1361",
+          "difficulty": 2,
+          "answer": "tanière",
+          "clue": "Refuge d’un animal sauvage, je peux abriter le repos d’un ours ou d’un loup."
+        },
+        {
+          "id": "if-r1362",
+          "difficulty": 2,
+          "answer": "terrier",
+          "clue": "Galerie creusée dans le sol, je peux servir de logement au lapin ou au renard."
+        },
+        {
+          "id": "if-r1363",
+          "difficulty": 2,
+          "answer": "ruche",
+          "clue": "Logement construit pour une colonie d’abeilles, je facilite aussi le travail de celui qui récolte leur miel."
+        },
+        {
+          "id": "if-r1364",
+          "difficulty": 2,
+          "answer": "fourmilière",
+          "clue": "Mon réseau de galeries abrite une société d’insectes où les ouvrières s’activent autour de la reine."
+        },
+        {
+          "id": "if-r1365",
+          "difficulty": 2,
+          "answer": "nid",
+          "clue": "Construit pour accueillir la ponte et les petits, je peux être tissé de brindilles dans un arbre."
+        },
+        {
+          "id": "if-r1366",
+          "difficulty": 2,
+          "answer": "cocon",
+          "clue": "Enveloppe de soie fabriquée par certaines larves, je protège leur transformation sans être une coquille d’œuf."
+        },
+        {
+          "id": "if-r1367",
+          "difficulty": 2,
+          "answer": "essaim",
+          "clue": "Groupe d’abeilles rassemblées autour d’une reine, je peux quitter la colonie d’origine pour m’installer ailleurs."
+        },
+        {
+          "id": "if-r1368",
+          "difficulty": 2,
+          "answer": "meute",
+          "clue": "Je rassemble des chiens de chasse ou des loups ; ensemble, mes membres poursuivent parfois la même proie."
+        },
+        {
+          "id": "if-r1369",
+          "difficulty": 2,
+          "answer": "harde",
+          "clue": "Groupe d’animaux sauvages comme les cerfs, je traverse la forêt sans berger."
+        },
+        {
+          "id": "if-r1370",
+          "difficulty": 2,
+          "answer": "troupeau",
+          "clue": "Je rassemble des bêtes d’élevage qui paissent ensemble ; le berger veille parfois sur moi."
+        },
+        {
+          "id": "if-r1371",
+          "difficulty": 2,
+          "answer": "banc",
+          "clue": "Sous l’eau, je réunis un grand nombre de poissons qui se déplacent ensemble ; personne ne peut s’asseoir sur moi."
+        },
+        {
+          "id": "if-r1372",
+          "difficulty": 2,
+          "answer": "nuée",
+          "clue": "Dans le ciel, je peux désigner une multitude d’oiseaux ou d’insectes, pas seulement un nuage."
+        },
+        {
+          "id": "if-r1373",
+          "difficulty": 2,
+          "answer": "colonie",
+          "clue": "Ensemble d’animaux qui vivent réunis, je peux occuper une falaise avec des milliers d’oiseaux marins."
+        },
+        {
+          "id": "if-r1374",
+          "difficulty": 2,
+          "answer": "nichée",
+          "clue": "Je rassemble les oisillons issus d’une même ponte, nourris par leurs parents avant de prendre leur envol."
+        },
+        {
+          "id": "if-r1375",
+          "difficulty": 2,
+          "answer": "portée",
+          "clue": "Je réunis les petits d’une femelle mammifère nés lors de la même mise bas ; je n’ai pas cinq lignes de musique."
+        },
+        {
+          "id": "if-r1376",
+          "difficulty": 2,
+          "answer": "couvée",
+          "clue": "Je rassemble des œufs incubés ensemble, puis les jeunes qui en sortent."
+        },
+        {
+          "id": "if-r1377",
+          "difficulty": 2,
+          "answer": "mue",
+          "clue": "Quand l’animal abandonne son ancienne enveloppe ou renouvelle son plumage, je marque ce changement."
+        },
+        {
+          "id": "if-r1378",
+          "difficulty": 2,
+          "answer": "migration",
+          "clue": "Je mène régulièrement des animaux d’une région à une autre, souvent au rythme des saisons."
+        },
+        {
+          "id": "if-r1379",
+          "difficulty": 2,
+          "answer": "parade",
+          "clue": "Chez certains oiseaux, je déploie couleurs, mouvements et chants pour attirer un partenaire."
+        },
+        {
+          "id": "if-r1380",
+          "difficulty": 2,
+          "answer": "mimétisme",
+          "clue": "En ressemblant à un autre être vivant ou à un élément du décor, je peux aider un animal à tromper ses observateurs."
+        }
+      ]
+    },
+    {
+      "category": "Agriculture",
+      "puzzles": [
+        {
+          "id": "if-r1381",
+          "difficulty": 1,
+          "answer": "moisson",
+          "clue": "Quand les céréales sont mûres, je rassemble leur récolte ; aujourd’hui, de grandes machines accomplissent mon travail."
+        },
+        {
+          "id": "if-r1382",
+          "difficulty": 1,
+          "answer": "vendange",
+          "clue": "Je récolte les raisins destinés notamment au vin, à la main ou avec une machine."
+        },
+        {
+          "id": "if-r1383",
+          "difficulty": 2,
+          "answer": "fenaison",
+          "clue": "Je rassemble les opérations de coupe et de séchage de l’herbe pour obtenir du foin."
+        },
+        {
+          "id": "if-r1384",
+          "difficulty": 1,
+          "answer": "labour",
+          "clue": "Je retourne la terre avec la charrue avant certaines cultures, en laissant derrière moi des sillons."
+        },
+        {
+          "id": "if-r1385",
+          "difficulty": 2,
+          "answer": "jachère",
+          "clue": "Pendant ma période, une terre agricole reste temporairement sans culture de récolte."
+        },
+        {
+          "id": "if-r1386",
+          "difficulty": 2,
+          "answer": "ensilage",
+          "clue": "Je conserve des végétaux humides dans un milieu sans air pour nourrir les animaux plus tard."
+        },
+        {
+          "id": "if-r1387",
+          "difficulty": 1,
+          "answer": "foin",
+          "clue": "Herbe coupée puis séchée, je nourris les animaux ; je ne suis pas la tige sèche restant après la récolte du grain."
+        },
+        {
+          "id": "if-r1388",
+          "difficulty": 1,
+          "answer": "paille",
+          "clue": "Tiges de céréales après récolte, je garnis notamment la litière des animaux."
+        },
+        {
+          "id": "if-r1389",
+          "difficulty": 1,
+          "answer": "fumier",
+          "clue": "Mélange de déjections animales et de litière, je peux enrichir les terres après préparation."
+        },
+        {
+          "id": "if-r1390",
+          "difficulty": 2,
+          "answer": "lisier",
+          "clue": "Mélange liquide de déjections d’élevage, je suis stocké en fosse avant d’être utilisé comme fertilisant."
+        },
+        {
+          "id": "if-r1391",
+          "difficulty": 1,
+          "answer": "silo",
+          "clue": "Grand réservoir agricole, je conserve le grain ou des fourrages ; mon nom ne désigne pas seulement une tour."
+        },
+        {
+          "id": "if-r1392",
+          "difficulty": 1,
+          "answer": "grange",
+          "clue": "Bâtiment agricole, j’abrite souvent les récoltes et le matériel plutôt que les habitants de la maison."
+        },
+        {
+          "id": "if-r1393",
+          "difficulty": 1,
+          "answer": "étable",
+          "clue": "Dans la ferme, je suis le bâtiment destiné à loger les bovins."
+        },
+        {
+          "id": "if-r1394",
+          "difficulty": 1,
+          "answer": "bergerie",
+          "clue": "Je protège les moutons de la ferme quand ils ne sont pas au pâturage."
+        },
+        {
+          "id": "if-r1395",
+          "difficulty": 1,
+          "answer": "porcherie",
+          "clue": "Bâtiment d’élevage destiné aux porcs, mon nom désigne aussi familièrement une pièce très sale."
+        },
+        {
+          "id": "if-r1396",
+          "difficulty": 1,
+          "answer": "poulailler",
+          "clue": "J’abrite les poules, leurs perchoirs et leurs pondoirs ; ma porte peut se fermer le soir."
+        },
+        {
+          "id": "if-r1397",
+          "difficulty": 1,
+          "answer": "clapier",
+          "clue": "Logement aménagé pour des lapins domestiques, je peux comporter plusieurs compartiments grillagés."
+        },
+        {
+          "id": "if-r1398",
+          "difficulty": 1,
+          "answer": "écurie",
+          "clue": "Bâtiment où logent les chevaux, j’abrite leurs boxes et les préparatifs avant la promenade."
+        },
+        {
+          "id": "if-r1399",
+          "difficulty": 1,
+          "answer": "pâturage",
+          "clue": "Terrain couvert d’herbe où les animaux se nourrissent directement, je remplace pour un temps la mangeoire."
+        },
+        {
+          "id": "if-r1400",
+          "difficulty": 1,
+          "answer": "verger",
+          "clue": "Terrain planté d’arbres fruitiers, je peux réunir des pommiers, des poiriers et des pruniers."
+        }
+      ]
+    }
+  ]
+}

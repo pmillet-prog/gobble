@@ -1,0 +1,688 @@
+{
+  "schemaVersion": 1,
+  "kind": "riddle",
+  "groups": [
+    {
+      "category": "Commerces et métiers",
+      "puzzles": [
+        {
+          "id": "if-r1901",
+          "difficulty": 1,
+          "answer": "boulangerie",
+          "clue": "Mon commerce embaume le pain chaud ; les baguettes y attendent souvent debout derrière le comptoir."
+        },
+        {
+          "id": "if-r1902",
+          "difficulty": 1,
+          "answer": "pâtisserie",
+          "clue": "Dans mon commerce, les vitrines présentent surtout gâteaux, tartes et petits desserts."
+        },
+        {
+          "id": "if-r1903",
+          "difficulty": 1,
+          "answer": "boucherie",
+          "clue": "Mon commerce prépare et vend des morceaux de viande ; je ne suis pas destiné à la vente du poisson."
+        },
+        {
+          "id": "if-r1904",
+          "difficulty": 1,
+          "answer": "poissonnerie",
+          "clue": "Sur mon étal refroidi, les produits de la pêche attendent les clients."
+        },
+        {
+          "id": "if-r1905",
+          "difficulty": 1,
+          "answer": "fromagerie",
+          "clue": "Mon commerce rassemble des produits laitiers affinés ou frais, parfois sous des cloches ou dans une cave."
+        },
+        {
+          "id": "if-r1906",
+          "difficulty": 1,
+          "answer": "épicerie",
+          "clue": "Mon commerce vend des produits alimentaires variés, notamment des denrées qui se conservent."
+        },
+        {
+          "id": "if-r1907",
+          "difficulty": 1,
+          "answer": "mercerie",
+          "clue": "Mon commerce fournit boutons, fils, aiguilles et autres accessoires de couture."
+        },
+        {
+          "id": "if-r1908",
+          "difficulty": 1,
+          "answer": "quincaillerie",
+          "clue": "Mon commerce propose vis, outils et petites pièces utiles aux travaux de la maison."
+        },
+        {
+          "id": "if-r1909",
+          "difficulty": 2,
+          "answer": "droguerie",
+          "clue": "Mon commerce traditionnel vend notamment des produits d’entretien et de petits articles ménagers."
+        },
+        {
+          "id": "if-r1910",
+          "difficulty": 1,
+          "answer": "papeterie",
+          "clue": "Dans mon magasin, les cahiers, feuilles et instruments d’écriture occupent une grande place."
+        },
+        {
+          "id": "if-r1911",
+          "difficulty": 1,
+          "answer": "librairie",
+          "clue": "Mon commerce propose des ouvrages à acheter ; on peut y demander un conseil de lecture."
+        },
+        {
+          "id": "if-r1912",
+          "difficulty": 1,
+          "answer": "laverie",
+          "clue": "Dans mon établissement, les clients utilisent des machines pour nettoyer et sécher leur linge."
+        },
+        {
+          "id": "if-r1913",
+          "difficulty": 1,
+          "answer": "pressing",
+          "clue": "Mon établissement nettoie et entretient les vêtements que les clients lui confient."
+        },
+        {
+          "id": "if-r1914",
+          "difficulty": 1,
+          "answer": "bazar",
+          "clue": "Magasin d’objets très variés et souvent bon marché, je porte aussi le nom familier d’un grand désordre."
+        },
+        {
+          "id": "if-r1915",
+          "difficulty": 1,
+          "answer": "bijouterie",
+          "clue": "Mon commerce présente bagues, colliers et bracelets dans des vitrines protégées."
+        },
+        {
+          "id": "if-r1916",
+          "difficulty": 1,
+          "answer": "horlogerie",
+          "clue": "Mon activité fabrique, vend ou répare des appareils destinés à mesurer le temps."
+        },
+        {
+          "id": "if-r1917",
+          "difficulty": 1,
+          "answer": "parfumerie",
+          "clue": "Mon magasin propose des fragrances et souvent des produits de beauté."
+        },
+        {
+          "id": "if-r1918",
+          "difficulty": 1,
+          "answer": "opticien",
+          "clue": "Dans mon commerce, j’adapte et vends notamment des lunettes aux besoins des clients.",
+          "acceptedAnswers": [
+            "opticienne"
+          ]
+        },
+        {
+          "id": "if-r1919",
+          "difficulty": 1,
+          "answer": "pharmacien",
+          "clue": "Dans mon officine, je délivre les médicaments et donne les conseils adaptés à leur usage.",
+          "acceptedAnswers": [
+            "pharmacienne"
+          ]
+        },
+        {
+          "id": "if-r1920",
+          "difficulty": 1,
+          "answer": "supérette",
+          "clue": "Petit magasin en libre-service, je propose des produits alimentaires et courants à proximité des habitations."
+        }
+      ]
+    },
+    {
+      "category": "Commerces et métiers",
+      "puzzles": [
+        {
+          "id": "if-r1921",
+          "difficulty": 1,
+          "answer": "réceptionniste",
+          "clue": "À l’accueil d’un hôtel, je reçois les arrivants et les aide à rejoindre leur chambre."
+        },
+        {
+          "id": "if-r1922",
+          "difficulty": 1,
+          "answer": "concierge",
+          "clue": "Dans un hôtel, je peux organiser des services et répondre aux demandes particulières des clients."
+        },
+        {
+          "id": "if-r1923",
+          "difficulty": 1,
+          "answer": "bagagiste",
+          "clue": "À l’hôtel ou dans un aéroport, mon travail consiste notamment à prendre en charge les valises."
+        },
+        {
+          "id": "if-r1924",
+          "difficulty": 1,
+          "answer": "voiturier",
+          "clue": "À l’entrée d’un établissement, je prends le véhicule du client pour aller le garer."
+        },
+        {
+          "id": "if-r1925",
+          "difficulty": 2,
+          "answer": "sommelier",
+          "clue": "Au restaurant, je conseille les vins et veille notamment à leur conservation et à leur service.",
+          "acceptedAnswers": [
+            "sommelière"
+          ]
+        },
+        {
+          "id": "if-r1926",
+          "difficulty": 1,
+          "answer": "serveur",
+          "clue": "Au restaurant, je prends les commandes et apporte les plats aux tables.",
+          "acceptedAnswers": [
+            "serveuse"
+          ]
+        },
+        {
+          "id": "if-r1927",
+          "difficulty": 1,
+          "answer": "plongeur",
+          "clue": "En cuisine professionnelle, je nettoie la vaisselle et le matériel sans descendre dans la mer.",
+          "acceptedAnswers": [
+            "plongeuse"
+          ]
+        },
+        {
+          "id": "if-r1928",
+          "difficulty": 2,
+          "answer": "commis",
+          "clue": "Dans une brigade de cuisine, j’aide aux préparations sous la direction de cuisiniers plus expérimentés."
+        },
+        {
+          "id": "if-r1929",
+          "difficulty": 1,
+          "answer": "traiteur",
+          "clue": "Je prépare des repas ou des plats à emporter et peux organiser la restauration d’un événement."
+        },
+        {
+          "id": "if-r1930",
+          "difficulty": 1,
+          "answer": "barman",
+          "clue": "Derrière le comptoir, je prépare et sers les boissons, parfois sous forme de cocktails.",
+          "acceptedAnswers": [
+            "barmaid"
+          ]
+        },
+        {
+          "id": "if-r1931",
+          "difficulty": 1,
+          "answer": "caissier",
+          "clue": "À la sortie du magasin, j’enregistre les achats et encaisse leur paiement.",
+          "acceptedAnswers": [
+            "caissière"
+          ]
+        },
+        {
+          "id": "if-r1932",
+          "difficulty": 1,
+          "answer": "vendeur",
+          "clue": "Dans le commerce, je présente les produits et aide les clients à choisir ce qu’ils achètent.",
+          "acceptedAnswers": [
+            "vendeuse"
+          ]
+        },
+        {
+          "id": "if-r1933",
+          "difficulty": 1,
+          "answer": "livreur",
+          "clue": "Je transporte une commande jusqu’à son destinataire, parfois directement à sa porte.",
+          "acceptedAnswers": [
+            "livreuse"
+          ]
+        },
+        {
+          "id": "if-r1934",
+          "difficulty": 1,
+          "answer": "coursier",
+          "clue": "Je transporte rapidement des documents ou de petits colis entre deux adresses.",
+          "acceptedAnswers": [
+            "coursière"
+          ]
+        },
+        {
+          "id": "if-r1935",
+          "difficulty": 1,
+          "answer": "facteur",
+          "clue": "Je distribue le courrier dans les boîtes aux lettres selon ma tournée.",
+          "acceptedAnswers": [
+            "factrice"
+          ]
+        },
+        {
+          "id": "if-r1936",
+          "difficulty": 1,
+          "answer": "gardien",
+          "clue": "Je surveille un lieu ou un bâtiment pour contribuer à sa sécurité et à son bon usage.",
+          "acceptedAnswers": [
+            "gardienne"
+          ]
+        },
+        {
+          "id": "if-r1937",
+          "difficulty": 1,
+          "answer": "veilleur",
+          "clue": "La nuit, je reste en poste pour surveiller un établissement pendant que beaucoup d’autres dorment.",
+          "acceptedAnswers": [
+            "veilleuse"
+          ]
+        },
+        {
+          "id": "if-r1938",
+          "difficulty": 1,
+          "answer": "agent",
+          "clue": "Je suis un terme général pour une personne chargée d’une mission ; immobilier, je facilite des ventes et des locations."
+        },
+        {
+          "id": "if-r1939",
+          "difficulty": 2,
+          "answer": "courtier",
+          "clue": "Je rapproche des clients et des fournisseurs de contrats, notamment en assurance, pour servir d’intermédiaire.",
+          "acceptedAnswers": [
+            "courtière"
+          ]
+        },
+        {
+          "id": "if-r1940",
+          "difficulty": 1,
+          "answer": "expert",
+          "clue": "Mes connaissances spécialisées permettent de donner un avis qualifié ou d’évaluer un bien.",
+          "acceptedAnswers": [
+            "experte"
+          ]
+        }
+      ]
+    },
+    {
+      "category": "Vie quotidienne",
+      "puzzles": [
+        {
+          "id": "if-r1941",
+          "difficulty": 2,
+          "answer": "procuration",
+          "clue": "Je donne à une autre personne le pouvoir d’accomplir une démarche en mon nom."
+        },
+        {
+          "id": "if-r1942",
+          "difficulty": 1,
+          "answer": "guichet",
+          "clue": "Petite ouverture ou comptoir, je sépare l’agent du public venu demander un service."
+        },
+        {
+          "id": "if-r1943",
+          "difficulty": 1,
+          "answer": "ticket",
+          "clue": "Petit justificatif imprimé ou numérique, je peux attester un achat ou donner un numéro d’attente."
+        },
+        {
+          "id": "if-r1944",
+          "difficulty": 1,
+          "answer": "formulaire",
+          "clue": "Mes cases et mes rubriques recueillent les informations nécessaires à une demande."
+        },
+        {
+          "id": "if-r1945",
+          "difficulty": 1,
+          "answer": "dossier",
+          "clue": "Je réunis les documents nécessaires à une démarche ; s’il me manque une pièce, le traitement peut attendre."
+        },
+        {
+          "id": "if-r1946",
+          "difficulty": 1,
+          "answer": "justificatif",
+          "clue": "Document fourni à l’appui d’une demande, je prouve par exemple une adresse ou un paiement."
+        },
+        {
+          "id": "if-r1947",
+          "difficulty": 1,
+          "answer": "attestation",
+          "clue": "Sur l’honneur, je suis un document par lequel une personne certifie elle-même un fait.",
+          "acceptedAnswers": [
+            "déclaration"
+          ]
+        },
+        {
+          "id": "if-r1948",
+          "difficulty": 1,
+          "answer": "certificat",
+          "clue": "Médical, je suis un document par lequel un professionnel atteste notamment un état de santé ou une aptitude.",
+          "acceptedAnswers": [
+            "attestation"
+          ]
+        },
+        {
+          "id": "if-r1949",
+          "difficulty": 2,
+          "answer": "récépissé",
+          "clue": "Document remis après un dépôt ou une déclaration, j’atteste que la démarche a bien été reçue."
+        },
+        {
+          "id": "if-r1950",
+          "difficulty": 1,
+          "answer": "autorisation",
+          "clue": "Je donne le droit de faire quelque chose qui nécessite l’accord d’une personne ou d’un organisme."
+        },
+        {
+          "id": "if-r1951",
+          "difficulty": 1,
+          "answer": "interdiction",
+          "clue": "J’indique ce qu’il ne faut pas faire dans un lieu ou une situation déterminée."
+        },
+        {
+          "id": "if-r1952",
+          "difficulty": 2,
+          "answer": "dérogation",
+          "clue": "Je permets de s’écarter exceptionnellement d’une règle dans les conditions prévues."
+        },
+        {
+          "id": "if-r1953",
+          "difficulty": 1,
+          "answer": "réclamation",
+          "clue": "J’exprime auprès d’un service un mécontentement et demande généralement une correction ou une réponse."
+        },
+        {
+          "id": "if-r1954",
+          "difficulty": 1,
+          "answer": "plainte",
+          "clue": "Je signale à une autorité des faits dont on estime être victime, notamment une infraction."
+        },
+        {
+          "id": "if-r1955",
+          "difficulty": 1,
+          "answer": "pétition",
+          "clue": "Je rassemble des signatures pour soutenir une demande commune."
+        },
+        {
+          "id": "if-r1956",
+          "difficulty": 1,
+          "answer": "sondage",
+          "clue": "Je recueille les réponses d’un groupe pour connaître ou estimer ses opinions."
+        },
+        {
+          "id": "if-r1957",
+          "difficulty": 1,
+          "answer": "questionnaire",
+          "clue": "Ma suite de questions organise les réponses attendues d’une personne."
+        },
+        {
+          "id": "if-r1958",
+          "difficulty": 1,
+          "answer": "entretien",
+          "clue": "Conversation organisée pour échanger des informations, je peux servir à recruter quelqu’un."
+        },
+        {
+          "id": "if-r1959",
+          "difficulty": 1,
+          "answer": "candidature",
+          "clue": "Je propose une personne pour un poste, une sélection ou une responsabilité."
+        },
+        {
+          "id": "if-r1960",
+          "difficulty": 1,
+          "answer": "convocation",
+          "clue": "Je demande officiellement à quelqu’un de se présenter à une date et à un endroit indiqués."
+        }
+      ]
+    },
+    {
+      "category": "Petite enfance",
+      "puzzles": [
+        {
+          "id": "if-r1961",
+          "difficulty": 2,
+          "answer": "layette",
+          "clue": "Je rassemble les premiers vêtements et le linge préparés pour un bébé."
+        },
+        {
+          "id": "if-r1962",
+          "difficulty": 1,
+          "answer": "body",
+          "clue": "Petit vêtement du bébé, je couvre le torse et me ferme souvent entre les jambes."
+        },
+        {
+          "id": "if-r1963",
+          "difficulty": 1,
+          "answer": "grenouillère",
+          "clue": "Vêtement d’une seule pièce, j’enveloppe le bébé en couvrant généralement aussi ses pieds."
+        },
+        {
+          "id": "if-r1964",
+          "difficulty": 1,
+          "answer": "couffin",
+          "clue": "Petit panier aménagé comme un lit, je permets de coucher un nourrisson et de le transporter."
+        },
+        {
+          "id": "if-r1965",
+          "difficulty": 2,
+          "answer": "nacelle",
+          "clue": "Sur un châssis de poussette, mon habitacle permet au bébé de rester allongé."
+        },
+        {
+          "id": "if-r1966",
+          "difficulty": 1,
+          "answer": "mobile",
+          "clue": "Suspendu au-dessus du berceau, je fais doucement bouger de petites formes à regarder."
+        },
+        {
+          "id": "if-r1967",
+          "difficulty": 1,
+          "answer": "transat",
+          "clue": "Dans ma version pour bébé, je suis un petit siège incliné ; l’enfant y regarde autour de lui sans se tenir debout."
+        },
+        {
+          "id": "if-r1968",
+          "difficulty": 1,
+          "answer": "berceuse",
+          "clue": "Chanson douce et répétitive, j’accompagne parfois le bébé vers le sommeil."
+        },
+        {
+          "id": "if-r1969",
+          "difficulty": 1,
+          "answer": "comptine",
+          "clue": "Petite chanson rythmée pour les enfants, je peux associer paroles et gestes."
+        },
+        {
+          "id": "if-r1970",
+          "difficulty": 1,
+          "answer": "dînette",
+          "clue": "Petit ensemble de vaisselle jouet, je permets aux enfants de préparer un repas imaginaire."
+        },
+        {
+          "id": "if-r1971",
+          "difficulty": 1,
+          "answer": "porteur",
+          "clue": "Petit véhicule sans pédales, j’avance lorsque l’enfant assis dessus pousse le sol avec ses pieds."
+        },
+        {
+          "id": "if-r1972",
+          "difficulty": 1,
+          "answer": "tricycle",
+          "clue": "Avec mes trois roues, je laisse l’enfant pédaler sans l’équilibre demandé par un vélo ordinaire."
+        },
+        {
+          "id": "if-r1973",
+          "difficulty": 2,
+          "answer": "draisienne",
+          "clue": "Petit vélo sans pédales, j’aide l’enfant à avancer avec les pieds et à apprendre l’équilibre."
+        },
+        {
+          "id": "if-r1974",
+          "difficulty": 1,
+          "answer": "parc",
+          "clue": "Mon espace fermé de barrières peut accueillir les jeux d’un petit enfant sous surveillance."
+        },
+        {
+          "id": "if-r1975",
+          "difficulty": 1,
+          "answer": "tapis",
+          "clue": "D’éveil, je propose au bébé des couleurs, des textures et parfois une arche de petits jouets."
+        },
+        {
+          "id": "if-r1976",
+          "difficulty": 1,
+          "answer": "anneau",
+          "clue": "De dentition, je suis un petit cercle que le bébé mordille pendant les poussées dentaires."
+        },
+        {
+          "id": "if-r1977",
+          "difficulty": 1,
+          "answer": "allaitement",
+          "clue": "Lorsque la mère nourrit son bébé au sein, je désigne cette façon de lui donner du lait.",
+          "acceptedAnswers": [
+            "tétine"
+          ]
+        },
+        {
+          "id": "if-r1978",
+          "difficulty": 1,
+          "answer": "pot",
+          "clue": "Petit siège sanitaire d’apprentissage, je précède parfois l’usage des toilettes ordinaires."
+        },
+        {
+          "id": "if-r1979",
+          "difficulty": 1,
+          "answer": "marchepied",
+          "clue": "Mon petit support permet à l’enfant d’atteindre plus facilement le lavabo."
+        },
+        {
+          "id": "if-r1980",
+          "difficulty": 1,
+          "answer": "rehausseur",
+          "clue": "Installé sur un siège adapté, j’élève l’enfant pour qu’il soit placé à la bonne hauteur."
+        }
+      ]
+    },
+    {
+      "category": "Navigation",
+      "puzzles": [
+        {
+          "id": "if-r1981",
+          "difficulty": 1,
+          "answer": "proue",
+          "clue": "Je suis l’avant du bateau, la partie qui ouvre sa route dans l’eau."
+        },
+        {
+          "id": "if-r1982",
+          "difficulty": 1,
+          "answer": "poupe",
+          "clue": "Je suis l’arrière du bateau, à l’opposé de la partie qui fend d’abord l’eau."
+        },
+        {
+          "id": "if-r1983",
+          "difficulty": 1,
+          "answer": "bâbord",
+          "clue": "En regardant vers l’avant du bateau, je désigne son côté gauche."
+        },
+        {
+          "id": "if-r1984",
+          "difficulty": 1,
+          "answer": "tribord",
+          "clue": "En regardant vers l’avant du bateau, je désigne son côté droit."
+        },
+        {
+          "id": "if-r1985",
+          "difficulty": 1,
+          "answer": "coque",
+          "clue": "Enveloppe du bateau en contact avec l’eau, je lui donne sa forme et sa flottabilité."
+        },
+        {
+          "id": "if-r1986",
+          "difficulty": 2,
+          "answer": "quille",
+          "clue": "Partie située sous la coque, je contribue notamment à la stabilité et à la tenue de route du voilier."
+        },
+        {
+          "id": "if-r1987",
+          "difficulty": 2,
+          "answer": "dérive",
+          "clue": "Plan immergé qui limite le déplacement latéral d’un bateau, je peux être relevable."
+        },
+        {
+          "id": "if-r1988",
+          "difficulty": 2,
+          "answer": "safran",
+          "clue": "Partie immergée du gouvernail, je dévie l’eau pour orienter le bateau."
+        },
+        {
+          "id": "if-r1989",
+          "difficulty": 1,
+          "answer": "barre",
+          "clue": "À bord, je transmets les gestes du pilote au gouvernail ; je peux être franche ou en forme de roue."
+        },
+        {
+          "id": "if-r1990",
+          "difficulty": 2,
+          "answer": "bôme",
+          "clue": "Pièce à peu près horizontale fixée au mât, je maintiens le bord inférieur de la grand-voile."
+        },
+        {
+          "id": "if-r1991",
+          "difficulty": 2,
+          "answer": "foc",
+          "clue": "Voile triangulaire placée à l’avant du mât, j’aide le voilier à avancer."
+        },
+        {
+          "id": "if-r1992",
+          "difficulty": 1,
+          "answer": "abordage",
+          "clue": "À l’assaut d’un navire ennemi, mon cri accompagne les pirates qui montent sur le pont adverse.",
+          "acceptedAnswers": [
+            "spi"
+          ]
+        },
+        {
+          "id": "if-r1993",
+          "difficulty": 1,
+          "answer": "cordage",
+          "clue": "À bord, je porte un nom général qui remplace souvent celui de corde."
+        },
+        {
+          "id": "if-r1994",
+          "difficulty": 2,
+          "answer": "écoute",
+          "clue": "Cordage qui règle l’orientation d’une voile, je ne tends pourtant aucune oreille."
+        },
+        {
+          "id": "if-r1995",
+          "difficulty": 2,
+          "answer": "drisse",
+          "clue": "Cordage utilisé pour hisser ou descendre une voile, je travaille le long du mât."
+        },
+        {
+          "id": "if-r1996",
+          "difficulty": 2,
+          "answer": "hauban",
+          "clue": "Câble ou cordage qui soutient le mât sur le côté, je limite ses mouvements."
+        },
+        {
+          "id": "if-r1997",
+          "difficulty": 1,
+          "answer": "balise",
+          "clue": "Repère placé sur terre ou sur l’eau, j’aide les navigateurs à suivre un passage ou à repérer un danger."
+        },
+        {
+          "id": "if-r1998",
+          "difficulty": 1,
+          "answer": "bouée",
+          "clue": "Flottante et repérable, je peux marquer un chenal ; je ne sers alors pas à soutenir un baigneur."
+        },
+        {
+          "id": "if-r1999",
+          "difficulty": 2,
+          "answer": "chenal",
+          "clue": "Passage navigable indiqué ou aménagé, je guide les bateaux entre les zones moins profondes."
+        },
+        {
+          "id": "if-r2000",
+          "difficulty": 2,
+          "answer": "mouillage",
+          "clue": "Je désigne le fait de tenir un bateau à l’ancre, ainsi que le lieu où il peut le faire."
+        }
+      ]
+    }
+  ]
+}

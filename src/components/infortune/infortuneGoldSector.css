@@ -1,0 +1,30 @@
+.infortune__gold-label {
+  fill: #382005;
+  stroke: #fff0a5;
+  stroke-width: 0.7px;
+  paint-order: stroke fill;
+}
+.infortune-gold__shine {
+  opacity: 0;
+  animation: infortune-gold-sweep 4.2s ease-in-out infinite;
+}
+.infortune-gold__sparkle {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: infortune-gold-twinkle 3.1s ease-in-out infinite;
+}
+@keyframes infortune-gold-sweep {
+  0%, 12% { transform: translateX(-90px); opacity: 0; }
+  22% { opacity: 0.85; }
+  56% { opacity: 0.85; }
+  68%, 100% { transform: translateX(90px); opacity: 0; }
+}
+@keyframes infortune-gold-twinkle {
+  0%, 100% { opacity: 0.2; transform: scale(0.55); }
+  28%, 42% { opacity: 1; transform: scale(1.25); }
+  65% { opacity: 0.35; transform: scale(0.75); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .infortune-gold__shine { animation: none; opacity: 0; }
+  .infortune-gold__sparkle { animation: none; opacity: 0.8; }
+}

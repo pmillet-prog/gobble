@@ -1,0 +1,14 @@
+Generated with the built-in image_gen tool. Transparent PNG.
+Identity reference: https://i.pinimg.com/736x/d3/04/20/d304204e29e77d2cc1abd4064add175a.jpg
+Style reference: public/bots/presenters/lepers/frame-1.webp (existing project asset).
+Final generation prompt:
+
+Use case: style-transfer.
+Asset type: transparent cartoon presenter cutout for an existing French browser game, placed as a standing bust behind a 3D circular game-show counter.
+Input image 1 is the identity reference: transform ONLY the man on the LEFT, Christian Morin in his La Roue de la Fortune period, into an isolated game character. Remove the woman, set and wheel entirely.
+Input image 2 is a STYLE reference only: match its polished hand-painted cartoon caricature treatment, clean dark contours, soft dimensional shading, expressive slightly enlarged head, believable adult face and detailed hair. Do not copy Julien Lepers' identity, hand gesture, sign or logo.
+Subject: recognizable Christian Morin as shown in reference 1, short dark brown hair brushed back with slightly receding temples, clean shaven with NO moustache, narrow smiling eyes, long expressive nose, relaxed warm half-smile and distinct smile lines. Dark navy early-1990s suit, white shirt, understated patterned blue tie.
+Composition: a SINGLE character centered, frontal shoulders, head looking toward camera, from top of head down to the hips. Head, hair and both elbows fully inside the image with breathing room. Both arms relaxed and slightly bent, hands lightly meeting at waist height, suitable to be partly hidden by a desk. No other person or props.
+Lighting: soft neutral studio light; preserve color and texture without glaring highlights or dramatic shadows.
+Background: genuinely transparent alpha, no background, no shadow plane, no vignette, no checkerboard painted into image.
+No text, no name, no logo, no watermark. Keep a natural broad torso, slightly caricatured head like the style reference; not a plastic 3D doll or photorealistic photograph.

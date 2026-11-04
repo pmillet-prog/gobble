@@ -1,0 +1,158 @@
+{
+  "intro": {
+    "elevation": [
+      {
+        "time": 0,
+        "value": 75
+      },
+      {
+        "time": 1.2,
+        "value": 75
+      },
+      {
+        "time": 2.1,
+        "value": 40
+      },
+      {
+        "time": 5,
+        "value": 27.6
+      }
+    ],
+    "perspective": [
+      {
+        "time": 0,
+        "value": 0
+      },
+      {
+        "time": 1.5,
+        "value": 0
+      },
+      {
+        "time": 5,
+        "value": 100
+      }
+    ],
+    "focal": [
+      {
+        "time": 0,
+        "value": 85
+      },
+      {
+        "time": 1.5,
+        "value": 85
+      },
+      {
+        "time": 5,
+        "value": 20.4
+      }
+    ],
+    "framing": [
+      {
+        "time": 0,
+        "value": 300
+      },
+      {
+        "time": 2.9,
+        "value": 60
+      },
+      {
+        "time": 5,
+        "value": 81.5
+      }
+    ],
+    "offsetX": [
+      {
+        "time": 0,
+        "value": 0
+      }
+    ],
+    "offsetY": [
+      {
+        "time": 0,
+        "value": 10
+      },
+      {
+        "time": 1.5,
+        "value": 0
+      },
+      {
+        "time": 5,
+        "value": 3.8
+      }
+    ],
+    "roll": [
+      {
+        "time": 0,
+        "value": 0
+      },
+      {
+        "time": 5,
+        "value": 0
+      }
+    ]
+  },
+  "results": {
+    "elevation": [
+      {
+        "time": 3,
+        "value": 20
+      }
+    ],
+    "perspective": [
+      {
+        "time": 3,
+        "value": 48
+      }
+    ],
+    "focal": [
+      {
+        "time": 3,
+        "value": 15
+      }
+    ],
+    "framing": [],
+    "offsetX": [],
+    "offsetY": [
+      {
+        "time": 3,
+        "value": 22
+      }
+    ],
+    "roll": []
+  },
+  "launch": {
+    "elevation": [
+      {
+        "time": 3,
+        "value": 40.9
+      }
+    ],
+    "perspective": [
+      {
+        "time": 3,
+        "value": 96.1
+      }
+    ],
+    "focal": [
+      {
+        "time": 3,
+        "value": 20.9
+      }
+    ],
+    "framing": [
+      {
+        "time": 3,
+        "value": 150
+      }
+    ],
+    "offsetX": [],
+    "offsetY": [
+      {
+        "time": 3,
+        "value": -50
+      }
+    ],
+    "roll": []
+  },
+  "launchSpeedThreshold": 1.05
+}

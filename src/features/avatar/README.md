@@ -1,21 +1,59 @@
 # Avatars joueurs — première intégration
 
-## Réutilisation pendant le mini-tournoi
+La livraison Gotus + test volontaire de la roue conserve le comportement public
+précédent des avatars. `RELEASE_SCOPE.avatarRenderAssets` est verrouillé à `false` :
+miniature habituelle uniquement à la sauvegarde, aucun lot de portraits généré,
+aucune nouvelle route d'assets et migration SQL du lot ignorée. Le cache global
+et la consommation de ces portraits dans les profils/podiums restent désactivés.
+Le travail décrit ci-dessous est conservé pour une livraison ultérieure.
 
-`TournamentAvatarsProvider` possède un cache borné au tournoi et au compte
-courants. `AvatarThumbnail` télécharge et décode chaque miniature une seule fois,
-puis réutilise une URL de blob locale dans les résultats et le chat. Les
-remontages, changements de manche et rafraîchissements des versions du chat ne
-provoquent plus de revalidation pendant ce tournoi. L'arrivée d'un joueur ajoute
-seulement sa miniature ; son départ ne vide pas celles des autres.
+## Images générées à l'enregistrement
 
-Au tournoi suivant ou à la sortie du jeu, les requêtes en cours sont annulées,
-les blobs sont révoqués et les nouvelles apparences peuvent être chargées.
-L'atelier et le profil continuent d'utiliser leur aperçu propre, à jour pendant
-l'édition. Hors tournoi, les miniatures gardent leur chargement habituel.
-Une miniature absente ou indisponible utilise le remplacement existant sans
-retenter à chaque rendu. Les poses du podium sont préparées pendant le bilan
-de la finale : voir `../celebration/README.md`.
+Chaque sauvegarde validée génère la miniature de chat (64 px), deux visages
+(neutre/sourire, 256 px), deux portraits de profil (600 px), et trois bustes
+transparents pour le podium et la roue (neutre/sourire/clignement, 600 px).
+Le calcul et l'encodage restent dans le worker serveur, hors de la boucle du jeu.
+Le JSON, la miniature et le lot d'images sont validés dans une même transaction :
+une erreur ou un conflit conserve intégralement la version précédente.
+
+La migration `2026-11-03-avatar-render-assets.sql` conserve le manifeste et les PNG.
+Les réponses d'apparence ajoutent `renderedAssets` ; les brouillons de l'éditeur
+ne le conservent pas. Les URLs incluent compte, révision, version de rendu et pose.
+Elles sont privées, authentifiées et immuables. Les lectures ne déclenchent aucun
+calcul. Une modification, un remboursement ou une suppression invalide les anciens
+assets côté serveur. Les médailles, l'étiquette avec le pseudo courant et la peluche
+sont ajoutées à l'affichage, dans le cadrage enregistré de chaque image.
+
+`prepareSavedAvatar` est commun aux profils, bilans, podium et personnages de la
+roue. Les poses continuent d'alterner selon l'animation existante. Les images décodées
+sont partagées entre écrans dans un cache de 32 Mio ; les canvases de scène sont
+libérés à leur fermeture. Si l'apparence ne correspond plus au manifeste (par
+exemple une aura hebdomadaire expirée), le moteur local conserve le bon rendu.
+Les avatars antérieurs et les aperçus d'édition utilisent également ce moteur.
+
+Rattrapage des anciens comptes, après application de la migration :
+`node server/scripts/rebuild-avatar-render-assets.mjs --db="chemin/auth.sqlite"`.
+Sans `--apply`, la commande compte seulement les lots manquants. Avec `--apply`,
+elle les génère un par un, sans modifier les tenues ni les révisions, et vérifie
+de nouveau chaque révision avant d'écrire. Elle est reprenable et n'est jamais
+lancée automatiquement au démarrage ni pendant une lecture de classement.
+
+## Réutilisation des miniatures
+
+`avatarThumbnailCache` partage les blobs déjà décodés entre chat, classements et
+tournois, avec 128 entrées conservées hors affichages actifs et quatre téléchargements
+simultanés au maximum. Une révision d'avatar ou une reconnexion sélectionne une
+nouvelle entrée. Sans révision connue, une prochaine ouverture après deux minutes
+revalide l'image ; aucune vérification périodique n'est ajoutée aux lignes affichées.
+Les erreurs peuvent être retentées lors d'une nouvelle ouverture après 15 secondes.
+
+## Ressources de cérémonie
+
+`TournamentAvatarsProvider` conserve les ressources de la cérémonie du tournoi
+courant, préparées pendant le bilan de la finale : voir `../celebration/README.md`.
+La fermeture libère les canvases de cette cérémonie sans vider les caches d'images
+partagés. Son ancien accès aux miniatures demeure compatible pour les consommateurs
+directs ; `AvatarThumbnail` utilise désormais le cache commun entre écrans.
 
 Le profil personnel et le bouton de compte de l’accueil utilisent `LocalPlayerAvatar`.
 La fiche utilise `ProfileAvatar` en vue `portrait`, exactement comme l’atelier :
@@ -68,13 +106,10 @@ même de même couleur. Au-delà, chaque couleur forme une pile avec un compteur
 Les compteurs inscrits sur les minuscules insignes plafonnent à `99+` ; les
 quantités exactes restent lisibles dans la légende de la fiche.
 
-La sauvegarde est une configuration JSON (identifiants de pièces, couleurs,
-réglages), pas un PNG. Le canvas est composé à l’affichage ou au changement de
-configuration ; aucun fichier de portrait final n’est exporté ni envoyé. Pour
-les célébrations, `avatarRenderState.js` applique une expression temporaire,
-puis la scène prépare et réutilise ses poses en mémoire. La sauvegarde du joueur
-reste neutre. Les portraits prédessinés des présentateurs suivent un chemin
-distinct dans `features/celebration/presenterPodiumAvatars.js`.
+La configuration JSON (identifiants de pièces, couleurs, réglages) reste la source
+éditable ; les images générées en sont des dérivés remplaçables. Les expressions
+temporaires ne modifient pas la bouche sauvegardée. Les portraits prédessinés des
+présentateurs suivent un chemin distinct dans `features/celebration/presenterPodiumAvatars.js`.
 
 `AvatarPortrait` ne possède aucune animation ni boucle permanente. Son moteur
 ne charge que les pièces sélectionnées ; il abandonne les rendus obsolètes et

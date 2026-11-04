@@ -1,0 +1,145 @@
+{
+  "schemaVersion": 1,
+  "kind": "riddle",
+  "references": {
+    "mobylette": { "title": "Musée de l’automobile Henri Malartre — Cyclomoteur Motobécane AV3", "url": "https://www.musee-malartre.com/en/article/cyclomoteur-motobecane-av3" }
+  },
+  "groups": [
+    { "category": "Sports", "puzzles": [
+      { "id": "if-r401", "difficulty": 2, "clue": "Mon long manche se termine par une palette ; au hockey, je dirige le palet sans que la main le touche.", "answer": "crosse", "acceptedAnswers": ["canne", "bâton"] },
+      { "id": "if-r402", "difficulty": 2, "clue": "Au baseball, mon long corps de bois ou de métal frappe la balle avant que le joueur parte courir.", "answer": "batte" }
+    ] },
+    { "category": "Jeux et jouets", "puzzles": [
+      { "id": "if-r403", "difficulty": 1, "clue": "Noué devant vos yeux pour certains jeux, mon ruban de tissu vous empêche de voir sans éteindre la lumière.", "answer": "bandeau" },
+      { "id": "if-r404", "difficulty": 2, "clue": "Nous allongeons vos jambes avec deux perches munies d’appuis pour les pieds ; l’équilibre permet ensuite d’avancer.", "answer": "échasses", "acceptedAnswers": ["échasse"] },
+      { "id": "if-r405", "difficulty": 1, "clue": "Ma planche roule sur quatre petites roues ; debout dessus, vous poussez d’un pied puis tentez des figures.", "answer": "skateboard", "acceptedAnswers": ["skate"] }
+    ] },
+    { "category": "Sports", "puzzles": [
+      { "id": "if-r406", "difficulty": 1, "clue": "Ma corde se tend quand vous tirez dessus ; quand vous la lâchez, je propulse la flèche vers la cible.", "answer": "arc" },
+      { "id": "if-r407", "difficulty": 1, "clue": "Ma pointe cherche la cible, mon empennage guide ma course et la corde d’un arc me donne le départ.", "answer": "flèche" },
+      { "id": "if-r408", "difficulty": 2, "clue": "À la ceinture ou dans le dos de l’archer, mon étui garde ses flèches à portée de main.", "answer": "carquois" },
+      { "id": "if-r409", "difficulty": 1, "clue": "Mes cercles indiquent des points ; au tir à l’arc, les flèches cherchent à atteindre mon centre.", "answer": "cible" },
+      { "id": "if-r410", "difficulty": 1, "clue": "Objet remis au vainqueur, je rappelle sa victoire bien après la compétition, parfois sous la forme d’une coupe.", "answer": "trophée" },
+      { "id": "if-r411", "difficulty": 1, "clue": "Suspendue à un ruban au cou du champion, je peux être d’or, d’argent ou de bronze.", "answer": "médaille" },
+      { "id": "if-r412", "difficulty": 1, "clue": "Mes trois marches n’ont pas la même hauteur ; le gagnant monte sur la plus haute pour recevoir sa récompense.", "answer": "podium" }
+    ] },
+    { "category": "Équitation", "puzzles": [
+      { "id": "if-r413", "difficulty": 1, "clue": "Attachée sur le dos du cheval, j’accueille le cavalier et porte de chaque côté les sangles des étriers.", "answer": "selle" },
+      { "id": "if-r414", "difficulty": 2, "clue": "Suspendu à la selle par une lanière, mon anneau soutient le pied du cavalier.", "answer": "étrier" },
+      { "id": "if-r415", "difficulty": 2, "clue": "Nous relions les mains du cavalier au mors et l’aidons à transmettre ses indications au cheval.", "answer": "rênes", "acceptedAnswers": ["rêne"] },
+      { "id": "if-r416", "difficulty": 1, "clue": "Recourbé sous le sabot du cheval, je le protège de l’usure et peux devenir un porte-bonheur accroché au mur.", "answer": "fer", "editorial": { "note": "Objet d’équitation distinct de la question sur le symbole chimique Fe." } }
+    ] },
+    { "category": "Cyclisme", "puzzles": [
+      { "id": "if-r417", "difficulty": 1, "clue": "Votre pied appuie sur moi pour faire tourner le pédalier ; ma jumelle remonte pendant que je descends.", "answer": "pédale" },
+      { "id": "if-r418", "difficulty": 1, "clue": "Vos deux mains me tiennent pour orienter la roue avant du vélo et choisir la direction du chemin.", "answer": "guidon" },
+      { "id": "if-r419", "difficulty": 2, "clue": "Mes maillons passent du plateau aux pignons du vélo pour transmettre à la roue arrière la force des jambes.", "answer": "chaîne", "editorial": { "note": "Transmission mécanique, distincte de la chaîne portée comme bijou." } },
+      { "id": "if-r420", "difficulty": 1, "clue": "Dépliée sous le vélo arrêté, je lui prête un pied pour qu’il tienne debout ; avant de partir, on me relève.", "answer": "béquille" }
+    ] },
+    { "category": "Communication", "puzzles": [
+      { "id": "if-r421", "difficulty": 1, "clue": "Je fais entendre une voix lointaine près de votre oreille ; on compose un numéro pour commencer la conversation.", "answer": "téléphone", "acceptedAnswers": ["portable", "smartphone"] }
+    ] },
+    { "category": "Musique", "puzzles": [
+      { "id": "if-r422", "difficulty": 1, "clue": "Changez ma fréquence pour entendre une autre station ; avec mon antenne, je reçois des émissions sans montrer d’image.", "answer": "radio" }
+    ] },
+    { "category": "Maison", "puzzles": [
+      { "id": "if-r423", "difficulty": 1, "clue": "Dans le salon, mon écran diffuse les chaînes que vous choisissez ; mon nom se raccourcit souvent en deux syllabes.", "answer": "télévision", "acceptedAnswers": ["télé", "téléviseur"] }
+    ] },
+    { "category": "Musique", "puzzles": [
+      { "id": "if-r424", "difficulty": 2, "clue": "Entre la source sonore et les enceintes, j’augmente la puissance du signal pour que la musique s’entende davantage.", "answer": "amplificateur", "acceptedAnswers": ["ampli"] },
+      { "id": "if-r425", "difficulty": 1, "clue": "Petit embout posé dans l’oreille, je vous apporte la musique sans la faire entendre à toute la pièce.", "answer": "écouteur", "acceptedAnswers": ["oreillette"] }
+    ] },
+    { "category": "Électricité", "puzzles": [
+      { "id": "if-r426", "difficulty": 1, "clue": "Relié à la prise et au téléphone, je lui rends de l’énergie pour qu’il puisse repartir sans câble.", "answer": "chargeur" },
+      { "id": "if-r427", "difficulty": 1, "clue": "Je stocke de l’énergie dans le téléphone et me recharge ; mon nom désigne aussi un ensemble de percussions.", "answer": "batterie" },
+      { "id": "if-r428", "difficulty": 1, "clue": "Dans la télécommande, mon petit cylindre fournit du courant ; j’ai un côté positif et un côté négatif.", "answer": "pile" },
+      { "id": "if-r429", "difficulty": 1, "clue": "On me visse dans la lampe pour éclairer la pièce ; mon nom désigne aussi une cloque au pied.", "answer": "ampoule" },
+      { "id": "if-r430", "difficulty": 1, "clue": "Fixée au mur, je reçois la fiche d’un appareil pour lui donner accès au courant électrique.", "answer": "prise" },
+      { "id": "if-r431", "difficulty": 1, "clue": "Une pression sur mon bouton au mur ferme ou ouvre le circuit pour allumer ou éteindre la lumière.", "answer": "interrupteur" },
+      { "id": "if-r432", "difficulty": 2, "clue": "Mon filament fond si le courant devient trop intense ; je coupe alors le circuit en me sacrifiant.", "answer": "fusible" },
+      { "id": "if-r433", "difficulty": 1, "clue": "Sous ma gaine, des conducteurs relient les appareils ; on peut me brancher, me dérouler puis m’emmêler.", "answer": "câble", "acceptedAnswers": ["fil", "cordon"] },
+      { "id": "if-r434", "difficulty": 1, "clue": "Mes tiges sur le toit captent les ondes de télévision ; certains insectes portent aussi mon nom sur leur tête.", "answer": "antenne" }
+    ] },
+    { "category": "Astronomie", "puzzles": [
+      { "id": "if-r435", "difficulty": 2, "clue": "Artificiel, je reste en orbite autour de la Terre pour observer les nuages ou transmettre des communications.", "answer": "satellite" }
+    ] },
+    { "category": "Sciences", "puzzles": [
+      { "id": "if-r436", "difficulty": 2, "clue": "J’émets des ondes radio puis écoute leur retour pour repérer un avion ou mesurer la vitesse d’une voiture.", "answer": "radar" }
+    ] },
+    { "category": "Orientation", "puzzles": [
+      { "id": "if-r437", "difficulty": 1, "clue": "Mes trois lettres désignent un système de positionnement par satellites, très utilisé pour suivre un trajet en voiture.", "answer": "GPS" }
+    ] },
+    { "category": "Informatique", "puzzles": [
+      { "id": "if-r438", "difficulty": 1, "clue": "Portable ou de bureau, j’exécute vos logiciels ; mon processeur traite ce que vous demandez avec le clavier et la souris.", "answer": "ordinateur", "acceptedAnswers": ["PC"] },
+      { "id": "if-r439", "difficulty": 1, "clue": "Mon grand écran tactile se tient comme une ardoise ; je suis plus large qu’un téléphone, sans clavier fixé devant moi.", "answer": "tablette" },
+      { "id": "if-r440", "difficulty": 2, "clue": "Ancien support informatique carré, je cache un disque magnétique dans une coque avec un petit volet métallique.", "answer": "disquette" },
+      { "id": "if-r441", "difficulty": 1, "clue": "Mes trois lettres désignent le disque vidéo lu par laser qui a largement remplacé les cassettes VHS.", "answer": "DVD" },
+      { "id": "if-r442", "difficulty": 1, "clue": "Mes deux lettres sont celles du disque compact ; avant le streaming, on achetait souvent des albums sur mon support.", "answer": "CD" },
+      { "id": "if-r443", "difficulty": 2, "clue": "Dans un réseau informatique, je choisis vers quel réseau envoyer les paquets pour les rapprocher de leur destination.", "answer": "routeur" }
+    ] },
+    { "category": "Bricolage", "puzzles": [
+      { "id": "if-r444", "difficulty": 1, "clue": "Pressez mon disque souple sur une surface lisse pour chasser l’air : je m’y accroche sans colle ni vis.", "answer": "ventouse" }
+    ] },
+    { "category": "Matériel médical", "puzzles": [
+      { "id": "if-r445", "difficulty": 1, "clue": "Mon piston coulisse dans un tube gradué pour aspirer ou pousser un liquide ; on peut me munir d’une aiguille.", "answer": "seringue" },
+      { "id": "if-r446", "difficulty": 1, "clue": "Mon petit coussinet protège une égratignure, tandis que mes deux côtés adhésifs me retiennent sur la peau.", "answer": "pansement" },
+      { "id": "if-r447", "difficulty": 1, "clue": "On me forme en enroulant un long ruban textile autour d’un membre pour le protéger ou le soutenir.", "answer": "bandage", "acceptedAnswers": ["bande"] },
+      { "id": "if-r448", "difficulty": 2, "clue": "Support rigide souvent amovible, je maintiens un membre ou une articulation pour limiter ses mouvements.", "answer": "attelle", "acceptedAnswers": ["orthèse"] },
+      { "id": "if-r449", "difficulty": 1, "clue": "Poudre minérale mêlée d’eau, je durcis ; appliqué sur des bandes, je peux former une coque autour d’un membre.", "answer": "plâtre" },
+      { "id": "if-r450", "difficulty": 2, "clue": "Mes embouts vont dans les oreilles du médecin pendant que mon pavillon lui fait entendre les bruits du corps.", "answer": "stéthoscope" }
+    ] },
+    { "category": "Voyages et transports", "puzzles": [
+      { "id": "if-r451", "difficulty": 1, "clue": "Ma cabine monte et descend d’un étage à l’autre ; vous choisissez le niveau en appuyant sur un bouton.", "answer": "ascenseur" },
+      { "id": "if-r452", "difficulty": 1, "clue": "Mes marches avancent toutes seules et disparaissent au palier ; ma rampe accompagne votre main pendant la montée.", "answer": "escalator", "acceptedAnswers": ["escalateur"] },
+      { "id": "if-r453", "difficulty": 2, "clue": "Mes voitures montent une forte pente sur des rails grâce à un câble ; souvent l’une descend pendant que l’autre monte.", "answer": "funiculaire" },
+      { "id": "if-r454", "difficulty": 2, "clue": "Mes cabines suspendues à des câbles traversent le vide pour porter les voyageurs vers la montagne.", "answer": "téléphérique", "acceptedAnswers": ["télécabine"] },
+      { "id": "if-r455", "difficulty": 1, "clue": "Je transporte les voyageurs sur des rails au milieu des rues, souvent alimenté par des fils au-dessus de moi.", "answer": "tramway", "acceptedAnswers": ["tram"] },
+      { "id": "if-r456", "difficulty": 1, "clue": "Mes rames desservent les stations d’une ville, souvent sous terre, mais parfois aussi sur des viaducs.", "answer": "métro" },
+      { "id": "if-r457", "difficulty": 1, "clue": "Mes voitures suivent la même voie ferrée ; les voyageurs me rejoignent sur un quai pour changer de ville.", "answer": "train" },
+      { "id": "if-r458", "difficulty": 1, "clue": "En tête du convoi ferroviaire, ma puissance tire les wagons ; autrefois, je pouvais cracher de la vapeur.", "answer": "locomotive", "acceptedAnswers": ["motrice"] },
+      { "id": "if-r459", "difficulty": 1, "clue": "Je porte des marchandises sur les rails, attaché au reste du convoi qui me tire jusqu’à destination.", "answer": "wagon" },
+      { "id": "if-r460", "difficulty": 1, "clue": "Je traverse la ville sur la route, m’arrête souvent et laisse monter les voyageurs par mes grandes portes.", "answer": "autobus", "acceptedAnswers": ["bus"] },
+      { "id": "if-r461", "difficulty": 1, "clue": "Pour les longs voyages routiers en groupe, mes sièges accueillent les passagers et mes soutes gardent leurs valises.", "answer": "autocar", "acceptedAnswers": ["car"] },
+      { "id": "if-r462", "difficulty": 1, "clue": "Mon lumineux sur le toit aide à me repérer ; mon chauffeur vous conduit à l’adresse demandée contre paiement.", "answer": "taxi" },
+      { "id": "if-r463", "difficulty": 1, "clue": "Mon espace arrière peut recevoir un brancard ; j’assure le transport des malades ou des blessés.", "answer": "ambulance" },
+      { "id": "if-r464", "difficulty": 2, "clue": "Lors des funérailles, mon véhicule transporte le cercueil jusqu’au lieu de la cérémonie ou de l’inhumation.", "answer": "corbillard" },
+      { "id": "if-r465", "difficulty": 1, "clue": "Mes grosses roues parcourent les champs ; je tire la charrue ou les machines de l’agriculteur.", "answer": "tracteur" },
+      { "id": "if-r466", "difficulty": 1, "clue": "Poids lourd de la route, je porte des marchandises derrière ma cabine, dans une caisse ou sur un plateau.", "answer": "camion" },
+      { "id": "if-r467", "difficulty": 1, "clue": "J’ajoute des roues et du chargement derrière la voiture ; sans son attelage, je n’avance pas toute seule.", "answer": "remorque" },
+      { "id": "if-r468", "difficulty": 1, "clue": "Petit véhicule utilitaire fermé, je réserve derrière les sièges une place pour les outils ou les colis.", "answer": "fourgonnette", "acceptedAnswers": ["camionnette", "fourgon"] },
+      { "id": "if-r469", "difficulty": 2, "clue": "Petit cyclomoteur de Motobécane, mon nom commercial est devenu un mot courant pour ce genre de deux-roues.", "answer": "Mobylette", "reference": "mobylette" },
+      { "id": "if-r470", "difficulty": 1, "clue": "Sur mes deux petites roues motorisées, le conducteur pose habituellement ses pieds sur un plancher derrière un tablier.", "answer": "scooter" },
+      { "id": "if-r471", "difficulty": 1, "clue": "Deux roues en ligne, un guidon et des pédales : vos jambes me font avancer et votre équilibre me garde debout.", "answer": "vélo", "acceptedAnswers": ["bicyclette"] },
+      { "id": "if-r472", "difficulty": 1, "clue": "Mon grand rotor me permet de décoller verticalement et de rester presque immobile dans les airs.", "answer": "hélicoptère" },
+      { "id": "if-r473", "difficulty": 1, "clue": "Mes ailes restent fixes pendant le vol ; mon fuselage emporte des passagers d’un aéroport à l’autre.", "answer": "avion", "acceptedAnswers": ["aéroplane"] },
+      { "id": "if-r474", "difficulty": 1, "clue": "Je quitte mon pas de tir en éjectant des gaz à grande vitesse pour emporter une charge vers l’espace.", "answer": "fusée", "acceptedAnswers": ["lanceur"] },
+      { "id": "if-r475", "difficulty": 2, "clue": "Mon nom désigne un service d’allers-retours réguliers et un ancien véhicule spatial américain réutilisable.", "answer": "navette" }
+    ] },
+    { "category": "Nature", "puzzles": [
+      { "id": "if-r476", "difficulty": 1, "clue": "Avant mes ailes colorées, j’ai vécu en chenille ; désormais, ma trompe peut puiser le nectar dans les fleurs.", "answer": "papillon" },
+      { "id": "if-r477", "difficulty": 1, "clue": "Je dévore des feuilles en rampant ; après ma chrysalide, je pourrai les survoler grâce à mes ailes.", "answer": "chenille" },
+      { "id": "if-r478", "difficulty": 1, "clue": "Dans ma tenue la plus connue, je porte des points noirs sur le rouge ; les pucerons redoutent mon appétit.", "answer": "coccinelle" },
+      { "id": "if-r479", "difficulty": 2, "clue": "Mes quatre ailes transparentes et mes grands yeux survolent les mares ; ma jeunesse s’est déroulée sous l’eau.", "answer": "libellule" },
+      { "id": "if-r480", "difficulty": 1, "clue": "Insecte social, je travaille avec mes sœurs autour d’une reine ; chez La Fontaine, la cigale vient me demander à manger.", "answer": "fourmi" },
+      { "id": "if-r481", "difficulty": 1, "clue": "Mon bourdonnement près de l’oreille annonce parfois une piqûre ; ce sont mes femelles qui prélèvent du sang.", "answer": "moustique" },
+      { "id": "if-r482", "difficulty": 1, "clue": "Petit insecte à deux ailes, je bourdonne autour des aliments et donne mon nom à l’objet que l’on prend pour m’abattre.", "answer": "mouche" },
+      { "id": "if-r483", "difficulty": 1, "clue": "Insecte jaune et noir, ma taille très fine a donné une expression pour décrire une silhouette bien serrée à la ceinture.", "answer": "guêpe" },
+      { "id": "if-r484", "difficulty": 2, "clue": "Je suis une grande guêpe ; une espèce venue d’Asie porte un nom qui inquiète particulièrement les apiculteurs.", "answer": "frelon" },
+      { "id": "if-r485", "difficulty": 2, "clue": "Scarabée nourri d’excréments, je peux rouler une boule de mon repas pour l’emporter à l’abri.", "answer": "bousier" },
+      { "id": "if-r486", "difficulty": 1, "clue": "Je rampe sur mon pied en laissant une trace brillante ; ma coquille en spirale m’accompagne partout.", "answer": "escargot" },
+      { "id": "if-r487", "difficulty": 1, "clue": "Je ressemble à un escargot sans coquille visible ; après la pluie, les feuilles tendres du potager m’attirent.", "answer": "limace" },
+      { "id": "if-r488", "difficulty": 1, "clue": "Long et sans pattes, je creuse la terre humide avec mon corps annelé et contribue à aérer le sol.", "answer": "ver", "acceptedAnswers": ["lombric"] },
+      { "id": "if-r489", "difficulty": 1, "clue": "Mes deux valves rugueuses se serrent fortement ; certaines de mes cousines peuvent produire une perle.", "answer": "huître" },
+      { "id": "if-r490", "difficulty": 1, "clue": "Mon coquillage allongé, souvent noir, s’accroche en grappes ; en marmite, je suis fréquemment servie avec des frites.", "answer": "moule" },
+      { "id": "if-r491", "difficulty": 1, "clue": "Ma carapace large porte deux pinces ; sur la plage, on me voit souvent avancer de côté.", "answer": "crabe" },
+      { "id": "if-r492", "difficulty": 2, "clue": "Grand crustacé marin, je porte deux énormes pinces, contrairement à la langouste qui garde surtout de longues antennes.", "answer": "homard" },
+      { "id": "if-r493", "difficulty": 1, "clue": "Petit crustacé au corps courbé et aux longues antennes, on me décortique souvent pour me servir en salade.", "answer": "crevette" },
+      { "id": "if-r494", "difficulty": 1, "clue": "Boule marine hérissée de piquants mobiles, je cache mes parties comestibles dans une coque rigide.", "answer": "oursin" },
+      { "id": "if-r495", "difficulty": 1, "clue": "Mon ombrelle gélatineuse flotte dans la mer ; mes tentacules peuvent laisser une sensation de brûlure sur la peau.", "answer": "méduse" },
+      { "id": "if-r496", "difficulty": 2, "clue": "Mes colonies de petits animaux peuvent bâtir de grands récifs calcaires, que l’on prendrait de loin pour des rochers.", "answer": "corail" },
+      { "id": "if-r497", "difficulty": 2, "clue": "Je projette de l’encre pour me défendre ; ma coquille interne blanche est souvent donnée aux oiseaux en cage.", "answer": "seiche" },
+      { "id": "if-r498", "difficulty": 1, "clue": "Oiseau noir et blanc à longue queue, je suis assez bavarde pour servir de comparaison aux grands parleurs.", "answer": "pie" },
+      { "id": "if-r499", "difficulty": 2, "clue": "Rapace souvent nocturne, je porte sur la tête des aigrettes de plumes que l’on prend parfois pour mes oreilles.", "answer": "hibou" },
+      { "id": "if-r500", "difficulty": 1, "clue": "Pour séduire, le mâle de mon espèce fait la roue en déployant une traîne de plumes ornées de formes d’yeux.", "answer": "paon" }
+    ] }
+  ]
+}

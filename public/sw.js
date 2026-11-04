@@ -203,7 +203,10 @@ async function navigationNetworkFirst(request) {
       throw new Error("server_unavailable");
     }
     // Storage failures must never replace a successful online navigation.
-    if (network.ok && /text\/html/i.test(network.headers.get("content-type") || "")) {
+    // Training pages are separate documents: never cache their HTML as the
+    // home shell when a player navigates from the lobby to the wheel test.
+    const pathname = new URL(request.url).pathname;
+    if ((pathname === "/" || pathname === "/index.html") && network.ok && /text\/html/i.test(network.headers.get("content-type") || "")) {
       try { await putInCache(SHELL_CACHE, "/index.html", network); } catch (_) {}
     }
     return network;
@@ -281,6 +284,9 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
   if (!isSameOrigin(url)) return;
   if (isApiRequest(url.pathname)) return;
+  // Vite imports .json as JavaScript modules in development. They must follow
+  // normal module loading, not the media cache that strips revision queries.
+  if (request.destination === "script") return;
 
   if (OFFLINE_URLS.includes(url.pathname)) {
     event.respondWith((async () => {

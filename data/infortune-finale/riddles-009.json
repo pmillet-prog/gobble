@@ -1,0 +1,178 @@
+{
+  "schemaVersion": 1,
+  "kind": "riddle",
+  "references": {
+    "lino": {"title":"Forbo — Qu’est-ce que le linoléum ?","url":"https://www.forbo.com/flooring/fr-fr/faq/faq-sol-linoleum/qu-est-ce-que-le-linoleum/pyts8t"},
+    "neon": {"title":"Royal Society of Chemistry — Neon","url":"https://periodic-table.rsc.org/element/10/Neon"},
+    "pecher": {"title":"INRAE — Le pêcher, pêches, brugnons et nectarines","url":"https://ephytia.inrae.fr/fr/C/11244/Hypp-encyclopedie-en-protection-des-plantes-le-pecher-Prunus-persica"},
+    "agrumes": {"title":"INRAE — Les agrumes du nord de la Méditerranée","url":"https://www.inrae.fr/sites/default/files/agrumesnordmediterranee.pdf"}
+  },
+  "groups": [
+    { "category": "Photographie", "puzzles": [
+      {"id":"if-r701","difficulty":1,"answer":"objectif","clue":"À l’avant de l’appareil photo, mes lentilles rassemblent la lumière pour former l’image que vous allez enregistrer."},
+      {"id":"if-r702","difficulty":1,"answer":"flash","clue":"Mon éclair très bref illumine le sujet juste au moment où la photo est prise."},
+      {"id":"if-r703","difficulty":1,"answer":"trépied","clue":"Mes trois jambes gardent l’appareil photo immobile, même quand le photographe retire ses mains."},
+      {"id":"if-r704","difficulty":2,"answer":"diaphragme","clue":"Dans l’objectif, mon ouverture réglable dose la quantité de lumière, comme une pupille mécanique."},
+      {"id":"if-r705","difficulty":1,"answer":"retardateur","clue":"Je vous laisse quelques secondes pour rejoindre vos amis avant que l’appareil prenne la photo tout seul."},
+      {"id":"if-r706","difficulty":1,"answer":"zoom","clue":"Sans vous faire avancer, je change la focale de l’objectif pour cadrer le sujet de plus près ou de plus loin."},
+      {"id":"if-r707","difficulty":1,"answer":"pellicule","clue":"Avant la photo numérique, ma bande sensible à la lumière recevait les images, puis partait au développement.","acceptedAnswers":["film"]},
+      {"id":"if-r708","difficulty":2,"answer":"négatif","clue":"Sur un film photographique classique, mes zones claires correspondent aux parties sombres du sujet, et inversement."}
+    ] },
+    { "category": "Informatique", "puzzles": [
+      {"id":"if-r709","difficulty":1,"answer":"pixel","clue":"Tout petit élément d’une image numérique, je deviens un carré visible quand vous agrandissez beaucoup l’écran."}
+    ] },
+    { "category": "Photographie", "puzzles": [
+      {"id":"if-r710","difficulty":2,"answer":"filtre","clue":"Vissé devant l’objectif, je peux atténuer la lumière ou modifier ses couleurs avant qu’elle forme la photo."}
+    ] },
+    { "category": "Maison", "puzzles": [
+      {"id":"if-r711","difficulty":1,"answer":"extincteur","clue":"Dans mon réservoir rouge, je garde un produit destiné à combattre un début d’incendie quand on actionne ma poignée."}
+    ] },
+    { "category": "Armes et armures", "puzzles": [
+      {"id":"if-r712","difficulty":1,"answer":"bouclier","clue":"Porté devant le corps, je reçois les coups à la place du guerrier qui me tient."},
+      {"id":"if-r713","difficulty":1,"answer":"épée","clue":"Longue lame droite à poignée, je sors du fourreau pour les duels des mousquetaires."},
+      {"id":"if-r714","difficulty":1,"answer":"lance","clue":"Ma pointe termine une longue hampe ; le chevalier me tient devant lui lorsqu’il charge."},
+      {"id":"if-r715","difficulty":2,"answer":"arbalète","clue":"Mon arc est fixé sur un support à détente ; je reste tendue avant de projeter un carreau."},
+      {"id":"if-r716","difficulty":1,"answer":"catapulte","clue":"Ancienne machine de siège, je projette de lourds objets par-dessus les murs sans utiliser de poudre."},
+      {"id":"if-r717","difficulty":2,"answer":"bélier","clue":"Grosse poutre de siège, ma tête frappe plusieurs fois une porte fortifiée pour tenter de l’enfoncer."},
+      {"id":"if-r718","difficulty":1,"answer":"armure","clue":"Mes pièces protègent le corps du combattant ; chez le chevalier, je peux ressembler à un habit de métal."},
+      {"id":"if-r719","difficulty":2,"answer":"heaume","clue":"Casque du chevalier médiéval, je peux envelopper toute la tête en ne laissant que des fentes pour voir."}
+    ] },
+    { "category": "Navigation", "puzzles": [
+      {"id":"if-r720","difficulty":1,"answer":"gondole","clue":"Longue et étroite, je glisse sur les canaux de Venise, dirigée à la rame par un homme debout."}
+    ] },
+    { "category": "Bricolage", "puzzles": [
+      {"id":"if-r721","difficulty":1,"answer":"pioche","clue":"Mon fer pointu se balance au bout d’un manche pour attaquer un sol dur."},
+      {"id":"if-r722","difficulty":1,"answer":"pelle","clue":"Ma large partie plate, fixée à un manche, soulève la terre ou la neige pour la déplacer."},
+      {"id":"if-r723","difficulty":2,"answer":"truelle","clue":"Petite lame plate à manche, j’aide le maçon à prendre et à étaler le mortier."},
+      {"id":"if-r724","difficulty":1,"answer":"pince","clue":"Mes deux branches rapprochent mes mors ; selon mon modèle, je saisis, serre ou coupe."},
+      {"id":"if-r725","difficulty":2,"answer":"tenaille","clue":"Avec mes deux mâchoires courbes, j’attrape la tête d’un clou pour l’arracher du bois."},
+      {"id":"if-r726","difficulty":2,"answer":"burin","clue":"Barre d’acier à extrémité tranchante, je taille une matière dure quand un marteau frappe mon autre bout."},
+      {"id":"if-r727","difficulty":2,"answer":"rivet","clue":"Petite tige métallique, je réunis deux pièces ; on écrase mon extrémité pour que je ne ressorte plus."},
+      {"id":"if-r728","difficulty":2,"answer":"chalumeau","clue":"Mon bec produit une flamme concentrée ; je peux servir à travailler le métal ou à caraméliser un dessert."},
+      {"id":"if-r729","difficulty":1,"answer":"tréteau","clue":"Avec un compagnon identique et une planche sur nos dos, nous devenons une table provisoire."}
+    ] },
+    { "category": "Maison", "puzzles": [
+      {"id":"if-r730","difficulty":2,"answer":"plinthe","clue":"Bande au pied du mur, je cache la jonction avec le sol et reçois parfois les coups d’aspirateur."},
+      {"id":"if-r731","difficulty":1,"answer":"parquet","clue":"Mes lames de bois assemblées habillent le sol ; certaines grincent quand vous marchez dessus."},
+      {"id":"if-r732","difficulty":1,"answer":"moquette","clue":"Revêtement textile fixé au sol, je donne à toute la pièce la douceur d’un tapis."},
+      {"id":"if-r733","difficulty":1,"answer":"carrelage","clue":"Mes carreaux assemblés résistent à l’eau et couvrent souvent le sol ou les murs de la salle de bains."}
+    ] },
+    { "category": "Matériaux", "puzzles": [
+      {"id":"if-r734","difficulty":2,"answer":"linoléum","clue":"Revêtement de sol souple, je suis traditionnellement fabriqué avec de l’huile de lin sur une toile de jute.","acceptedAnswers":["lino"],"reference":"lino"}
+    ] },
+    { "category": "Bricolage", "puzzles": [
+      {"id":"if-r735","difficulty":2,"answer":"enduit","clue":"Pâte étalée sur le mur, je comble ses petits défauts ou prépare une surface lisse avant la peinture."}
+    ] },
+    { "category": "Maison", "puzzles": [
+      {"id":"if-r736","difficulty":2,"answer":"crépi","clue":"Revêtement de façade à relief, je donne au mur une peau granuleuse au lieu d’une surface toute lisse."},
+      {"id":"if-r737","difficulty":2,"answer":"moulure","clue":"Bande décorative en relief, je souligne un plafond, un encadrement ou une partie du mur."}
+    ] },
+    { "category": "Bricolage", "puzzles": [
+      {"id":"if-r738","difficulty":1,"answer":"joint","clue":"Entre la baignoire et le carrelage, mon cordon souple empêche l’eau de passer dans la fente."}
+    ] },
+    { "category": "Maison", "puzzles": [
+      {"id":"if-r739","difficulty":1,"answer":"serrure","clue":"Installée dans une porte, je reçois la clé qui déplace mon mécanisme pour verrouiller l’entrée."}
+    ] },
+    { "category": "Bricolage", "puzzles": [
+      {"id":"if-r740","difficulty":1,"answer":"hache","clue":"Ma lourde lame au bout d’un manche fend le bois quand le bûcheron me lance sur la bûche."}
+    ] },
+    { "category": "Cuisine", "puzzles": [
+      {"id":"if-r741","difficulty":1,"answer":"mixeur","clue":"Mon moteur fait tourner des lames pour transformer les légumes cuits en soupe lisse.","acceptedAnswers":["blender"]},
+      {"id":"if-r742","difficulty":1,"answer":"batteur","clue":"Mes fouets tournent grâce à un moteur ; je monte les blancs en neige sans fatiguer votre poignet."},
+      {"id":"if-r743","difficulty":1,"answer":"friteuse","clue":"Mon panier descend les morceaux de pomme de terre dans l’huile chaude, puis les remonte pour les égoutter."},
+      {"id":"if-r744","difficulty":1,"answer":"cafetière","clue":"Je prépare une boisson chaude à partir de grains moulus ; selon mon modèle, j’utilise un filtre, une capsule ou la pression."},
+      {"id":"if-r745","difficulty":2,"answer":"centrifugeuse","clue":"Je tourne très vite pour séparer le jus des fruits de leur pulpe et préparer une boisson."},
+      {"id":"if-r746","difficulty":2,"answer":"yaourtière","clue":"Je garde mes petits pots au chaud pendant des heures pour que les ferments transforment leur lait."},
+      {"id":"if-r747","difficulty":2,"answer":"sorbetière","clue":"Je refroidis une préparation sucrée en la remuant pour obtenir un dessert glacé sans gros cristaux."},
+      {"id":"if-r748","difficulty":1,"answer":"plancha","clue":"Ma grande plaque chaude reçoit directement les aliments à griller, sans les poser sur des barreaux."},
+      {"id":"if-r749","difficulty":1,"answer":"barbecue","clue":"Dans le jardin, ma grille accueille les brochettes au-dessus des braises pour un repas en plein air."},
+      {"id":"if-r750","difficulty":1,"answer":"gril","clue":"Mes barreaux chauds marquent la viande de lignes ; la graisse peut couler entre eux."},
+      {"id":"if-r751","difficulty":2,"answer":"broche","clue":"Longue tige passée à travers la viande, je la fais tourner devant la chaleur pour la rôtir de tous les côtés.","editorial":{"note":"Ustensile de rôtissage ; if-r181 décrit le bijou."}},
+      {"id":"if-r752","difficulty":1,"answer":"spatule","clue":"Ma partie large et plate glisse sous l’œuf au plat pour le soulever sans le saisir avec les doigts."},
+      {"id":"if-r753","difficulty":2,"answer":"pilon","clue":"Dans le mortier, ma tête arrondie écrase les grains ou les herbes au lieu de les couper."},
+      {"id":"if-r754","difficulty":2,"answer":"écuelle","clue":"Récipient creux où l’on sert la nourriture d’un animal, je peux attendre le chien près de sa réserve d’eau.","acceptedAnswers":["gamelle"]},
+      {"id":"if-r755","difficulty":2,"answer":"ramequin","clue":"Petit récipient individuel résistant au four, je reçois une crème ou une portion de gratin."},
+      {"id":"if-r756","difficulty":1,"answer":"moule","clue":"Je donne au gâteau sa silhouette pendant la cuisson ; on me retire avant de servir.","editorial":{"note":"Ustensile de cuisson ; if-r490 décrit le coquillage."}},
+      {"id":"if-r757","difficulty":2,"answer":"terrine","clue":"Récipient de cuisine souvent muni d’un couvercle, je donne aussi mon nom au pâté que l’on prépare à l’intérieur."},
+      {"id":"if-r758","difficulty":2,"answer":"verrine","clue":"Petit verre de présentation, je laisse admirer les couches d’une entrée ou d’un dessert avant la première cuillerée."},
+      {"id":"if-r759","difficulty":1,"answer":"œuf","clue":"Ma coquille cache un blanc et un jaune ; on me casse pour préparer une omelette."},
+      {"id":"if-r760","difficulty":1,"answer":"jaune","clue":"Au milieu de l’œuf cru, ma couleur me donne mon nom ; je sers notamment à préparer la mayonnaise."},
+      {"id":"if-r761","difficulty":1,"answer":"blanc","clue":"Autour du centre coloré de l’œuf, je suis translucide à l’état cru ; fouetté, je peux monter en neige."},
+      {"id":"if-r762","difficulty":2,"answer":"zeste","clue":"Fine partie extérieure de la peau d’un agrume, je parfume un gâteau lorsqu’on me râpe."}
+    ] },
+    { "category": "Fruits et légumes", "puzzles": [
+      {"id":"if-r763","difficulty":2,"answer":"pulpe","clue":"Partie tendre et charnue d’un fruit, je peux rester dans le jus d’orange ou en être retirée."},
+      {"id":"if-r764","difficulty":1,"answer":"pépin","clue":"Petite graine cachée dans la pomme ou le raisin, je désigne aussi un ennui inattendu."},
+      {"id":"if-r765","difficulty":1,"answer":"noyau","clue":"Au cœur de la pêche, mon enveloppe dure protège une graine ; vous me laissez après avoir mangé la chair."}
+    ] },
+    { "category": "Boulangerie et pâtisserie", "puzzles": [
+      {"id":"if-r766","difficulty":1,"answer":"croûte","clue":"Couche extérieure du pain, je dore au four et craque sous les dents quand la miche est fraîche."},
+      {"id":"if-r767","difficulty":1,"answer":"mie","clue":"Partie tendre à l’intérieur du pain, je reste à l’abri sous son enveloppe dorée."},
+      {"id":"if-r768","difficulty":1,"answer":"miette","clue":"Petit morceau détaché du pain, je reste sur la nappe bien après le repas."}
+    ] },
+    { "category": "Cuisine", "puzzles": [
+      {"id":"if-r769","difficulty":1,"answer":"grumeau","clue":"Petit amas de farine mal mélangée, je trouble la pâte lisse que vous espériez obtenir."}
+    ] },
+    { "category": "Boulangerie et pâtisserie", "puzzles": [
+      {"id":"if-r770","difficulty":1,"answer":"pâte","clue":"Le boulanger me pétrit avant que je lève ; je n’ai pas encore la croûte du pain qui sortira du four."}
+    ] },
+    { "category": "Objets du quotidien", "puzzles": [
+      {"id":"if-r771","difficulty":1,"answer":"coffre","clue":"Grande caisse à couvercle, je peux cacher un trésor sous terre dans les histoires de pirates."}
+    ] },
+    { "category": "Papeterie", "puzzles": [
+      {"id":"if-r772","difficulty":1,"answer":"trousse","clue":"Petite poche à fermeture, je rassemble les crayons et la gomme au fond du cartable."},
+      {"id":"if-r773","difficulty":1,"answer":"cartable","clue":"Sac d’écolier, je transporte les cahiers et les livres entre la maison et la classe."}
+    ] },
+    { "category": "Cyclisme", "puzzles": [
+      {"id":"if-r774","difficulty":1,"answer":"sacoche","clue":"Fixée sur le côté du vélo, je porte vos affaires sans charger vos épaules."}
+    ] },
+    { "category": "Maison", "puzzles": [
+      {"id":"if-r775","difficulty":1,"answer":"casier","clue":"Petit compartiment de rangement, je peux me fermer à clé pour garder vos affaires à la piscine."}
+    ] },
+    { "category": "Objets du quotidien", "puzzles": [
+      {"id":"if-r776","difficulty":1,"answer":"panier","clue":"Récipient souvent tressé et muni d’une anse, je rapporte les légumes du marché sans être un sac."}
+    ] },
+    { "category": "Nature", "puzzles": [
+      {"id":"if-r777","difficulty":2,"answer":"volière","clue":"Grande cage où les oiseaux disposent d’assez d’espace pour voler entre des perchoirs."},
+      {"id":"if-r778","difficulty":1,"answer":"aquarium","clue":"Mon bac transparent rempli d’eau laisse observer les poissons depuis le salon."},
+      {"id":"if-r779","difficulty":2,"answer":"vivarium","clue":"Installation vitrée aménagée pour garder de petits animaux terrestres, je peux héberger un lézard."}
+    ] },
+    { "category": "Maison", "puzzles": [
+      {"id":"if-r780","difficulty":1,"answer":"housse","clue":"Enveloppe de tissu amovible, je protège la couette ou le canapé et pars au lavage à leur place."}
+    ] },
+    { "category": "Soins et toilette", "puzzles": [
+      {"id":"if-r781","difficulty":1,"answer":"bouillotte","clue":"Remplie d’eau chaude, je réchauffe le lit ou les pieds sans rester branchée à une prise."}
+    ] },
+    { "category": "Maison", "puzzles": [
+      {"id":"if-r782","difficulty":1,"answer":"climatiseur","clue":"Appareil qui refroidit l’air de la pièce en été, je peux aussi la chauffer si je suis réversible."}
+    ] },
+    { "category": "Cuisine", "puzzles": [
+      {"id":"if-r783","difficulty":1,"answer":"hotte","clue":"Au-dessus de la plaque de cuisson, j’aspire les fumées et les vapeurs du repas.","editorial":{"note":"Aspiration en cuisine ; if-r611 décrit le panier porté sur le dos."}}
+    ] },
+    { "category": "Maison", "puzzles": [
+      {"id":"if-r784","difficulty":1,"answer":"veilleuse","clue":"Petite lumière laissée allumée la nuit, je rassure l’enfant sans éclairer sa chambre comme en plein jour."},
+      {"id":"if-r785","difficulty":1,"answer":"lampadaire","clue":"Lampe portée par un long pied posé au sol, je peux éclairer le coin lecture du salon."},
+      {"id":"if-r786","difficulty":2,"answer":"applique","clue":"Luminaire fixé directement au mur, je laisse la table et le sol libres."},
+      {"id":"if-r787","difficulty":1,"answer":"lustre","clue":"Suspendu au plafond, je porte plusieurs lumières et parfois des pampilles de cristal."}
+    ] },
+    { "category": "Électricité", "puzzles": [
+      {"id":"if-r788","difficulty":2,"answer":"néon","clue":"Gaz qui donne une lumière rouge orangée dans un tube lumineux, mon nom désigne aussi couramment ce genre d’éclairage.","reference":"neon"}
+    ] },
+    { "category": "Maison", "puzzles": [
+      {"id":"if-r789","difficulty":1,"answer":"bougeoir","clue":"Petit support pour une bougie, je la garde droite et peux recueillir ses coulures de cire."},
+      {"id":"if-r790","difficulty":1,"answer":"cendrier","clue":"Petit récipient posé près du fumeur, je reçois les cendres et les mégots."}
+    ] },
+    { "category": "Fruits et légumes", "puzzles": [
+      {"id":"if-r791","difficulty":2,"answer":"litchi","clue":"Sous ma coque rose et rugueuse, ma chair blanche et juteuse entoure un noyau brun.","acceptedAnswers":["letchi","lychee"]},
+      {"id":"if-r792","difficulty":2,"answer":"papaye","clue":"Gros fruit tropical, je cache au centre de ma chair orangée de nombreuses petites graines noires."},
+      {"id":"if-r793","difficulty":2,"answer":"kaki","clue":"Fruit du plaqueminier, je ressemble à une tomate orange ; certaines variétés se mangent très mûres."},
+      {"id":"if-r794","difficulty":1,"answer":"nectarine","clue":"Je ressemble à une pêche sans duvet ; ma peau est lisse et mon noyau se détache de la chair.","reference":"pecher"},
+      {"id":"if-r795","difficulty":1,"answer":"cassis","clue":"Petite baie noire en grappes, je donne mon goût à un sirop et à la crème utilisée pour préparer le kir."},
+      {"id":"if-r796","difficulty":1,"answer":"groseille","clue":"Petite baie souvent rouge et translucide, je pousse en grappes et apporte de l’acidité aux gelées."},
+      {"id":"if-r797","difficulty":2,"answer":"rhubarbe","clue":"Au jardin, on cuisine mes pétioles en compote ou en tarte ; mes grandes feuilles, elles, ne se mangent pas."},
+      {"id":"if-r798","difficulty":2,"answer":"coing","clue":"Fruit jaune et dur ressemblant à une grosse poire, je me cuis en gelée ou en pâte."},
+      {"id":"if-r799","difficulty":1,"answer":"pruneau","clue":"Je suis une prune séchée ; la ville d’Agen est particulièrement associée à mon nom."},
+      {"id":"if-r800","difficulty":2,"answer":"clémentine","clue":"Mon nom rend hommage au frère Clément ; petit agrume, je me pèle facilement pour séparer mes quartiers.","reference":"agrumes"}
+    ] }
+  ]
+}

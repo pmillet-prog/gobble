@@ -1,0 +1,168 @@
+{
+  "schemaVersion": 1,
+  "kind": "riddle",
+  "groups": [
+    { "category": "Paysages et reliefs", "puzzles": [
+      {"id":"if-r1001","difficulty":1,"answer":"avalanche","clue":"Sur la montagne, ma masse de neige se détache et dévale la pente en emportant ce qu’elle rencontre."}
+    ] },
+    { "category": "Sciences", "puzzles": [
+      {"id":"if-r1002","difficulty":1,"answer":"séisme","clue":"Je fais trembler le sol lorsque de l’énergie se libère brutalement dans la Terre ; on m’appelle aussi tremblement de terre."}
+    ] },
+    { "category": "Paysages et reliefs", "puzzles": [
+      {"id":"if-r1003","difficulty":1,"answer":"tsunami","clue":"Après certains déplacements brutaux du fond marin, mes vagues peuvent traverser un océan avant de submerger une côte."},
+      {"id":"if-r1004","difficulty":2,"answer":"érosion","clue":"L’eau, le vent ou la glace m’aident à user les reliefs et à emporter peu à peu leur matière."}
+    ] },
+    { "category": "Météo", "puzzles": [
+      {"id":"if-r1005","difficulty":1,"answer":"verglas","clue":"Fine couche de glace sur la route, je peux rendre le sol très glissant sans le couvrir de neige."},
+      {"id":"if-r1006","difficulty":1,"answer":"averse","clue":"Pluie qui arrive assez brusquement et ne dure pas toujours longtemps, je peux vous surprendre entre deux éclaircies."},
+      {"id":"if-r1007","difficulty":2,"answer":"bruine","clue":"Mes gouttelettes de pluie sont très fines et serrées ; je mouille parfois sans donner l’impression d’une grosse pluie.","acceptedAnswers":["crachin"]},
+      {"id":"if-r1008","difficulty":2,"answer":"giboulée","clue":"Brève précipitation souvent mêlée de pluie et de grêle ou de neige, je suis traditionnellement associée au mois de mars."},
+      {"id":"if-r1009","difficulty":1,"answer":"canicule","clue":"Je m’installe lorsque la chaleur reste très élevée plusieurs jours et plusieurs nuits de suite."},
+      {"id":"if-r1010","difficulty":1,"answer":"sécheresse","clue":"Quand les précipitations manquent durablement, je vide les réserves d’eau et fais souffrir les cultures."},
+      {"id":"if-r1011","difficulty":1,"answer":"tempête","clue":"Avec mes vents violents, je peux casser des branches et soulever une mer agitée."},
+      {"id":"if-r1012","difficulty":1,"answer":"rafale","clue":"Renforcement bref et soudain du vent, je vous pousse plus fort qu’il y a une seconde."},
+      {"id":"if-r1013","difficulty":1,"answer":"brise","clue":"Vent léger, je peux rafraîchir le bord de mer sans secouer les arbres comme une tempête."},
+      {"id":"if-r1014","difficulty":2,"answer":"mousson","clue":"Régime saisonnier de vents, je suis associée à une grande saison de pluies dans une partie de l’Asie."},
+      {"id":"if-r1015","difficulty":2,"answer":"anticyclone","clue":"Sur les cartes météo, ma zone de hautes pressions s’oppose aux zones dépressionnaires."},
+      {"id":"if-r1016","difficulty":2,"answer":"dépression","clue":"En météorologie, je suis une zone de pression plus basse que celle des régions qui m’entourent."}
+    ] },
+    { "category": "Astronomie", "puzzles": [
+      {"id":"if-r1017","difficulty":1,"answer":"aurore","clue":"Boréale ou australe, je déploie parfois des voiles lumineux colorés dans le ciel des hautes latitudes."}
+    ] },
+    { "category": "Sciences", "puzzles": [
+      {"id":"if-r1018","difficulty":1,"answer":"mirage","clue":"La lumière déviée par des couches d’air de températures différentes fait apparaître mon eau imaginaire sur une route chaude."}
+    ] },
+    { "category": "Météo", "puzzles": [
+      {"id":"if-r1019","difficulty":2,"answer":"trombe","clue":"Colonne d’air tourbillonnante au-dessus d’une étendue d’eau, je semble relier un nuage à la surface."},
+      {"id":"if-r1020","difficulty":1,"answer":"tornade","clue":"Tourbillon violent sous un nuage d’orage, ma colonne descend jusqu’au sol et peut tout ravager sur un trajet étroit."}
+    ] },
+    { "category": "Voyages et transports", "puzzles": [
+      {"id":"if-r1021","difficulty":1,"answer":"volant","clue":"Devant le conducteur, je tourne entre ses mains pour orienter les roues du véhicule."},
+      {"id":"if-r1022","difficulty":2,"answer":"embrayage","clue":"En voiture manuelle, mon mécanisme permet de séparer momentanément le moteur de la transmission pour changer de rapport."},
+      {"id":"if-r1023","difficulty":1,"answer":"accélérateur","clue":"Sous le pied du conducteur, ma pédale commande la demande de puissance du moteur."},
+      {"id":"if-r1024","difficulty":1,"answer":"rétroviseur","clue":"Miroir du véhicule, je montre au conducteur une partie de ce qui se passe derrière lui."},
+      {"id":"if-r1025","difficulty":2,"answer":"essieu","clue":"Ensemble transversal sous le véhicule, je porte les roues de gauche et de droite situées au même niveau."},
+      {"id":"if-r1026","difficulty":2,"answer":"jante","clue":"Partie rigide et circulaire de la roue, je reçois le pneu sur mon pourtour."},
+      {"id":"if-r1027","difficulty":1,"answer":"portière","clue":"Porte d’une voiture, je laisse entrer les passagers puis me ferme pour le trajet."},
+      {"id":"if-r1028","difficulty":1,"answer":"roue","clue":"Je tourne autour d’un axe pour faire avancer un véhicule ; sans moi, une bicyclette ordinaire ne roule plus."},
+      {"id":"if-r1029","difficulty":2,"answer":"carrosserie","clue":"Enveloppe extérieure du véhicule, je lui donne sa silhouette et protège l’habitacle."},
+      {"id":"if-r1030","difficulty":2,"answer":"châssis","clue":"Structure porteuse du véhicule, je soutiens ou relie ses principaux éléments mécaniques."},
+      {"id":"if-r1031","difficulty":2,"answer":"calandre","clue":"Grille à l’avant de nombreuses voitures, je laisse entrer l’air vers le système de refroidissement."},
+      {"id":"if-r1032","difficulty":1,"answer":"clignotant","clue":"Feu qui s’allume par intermittence sur le véhicule, je signale une intention de changer de direction."},
+      {"id":"if-r1033","difficulty":1,"answer":"phare","clue":"À l’avant de la voiture, mon faisceau permet de voir la route la nuit."},
+      {"id":"if-r1034","difficulty":1,"answer":"autoradio","clue":"Appareil du tableau de bord, je diffuse des stations et parfois la musique choisie sur un téléphone."},
+      {"id":"if-r1035","difficulty":1,"answer":"compteur","clue":"Sur le tableau de bord, mon cadran ou mon affichage indique au conducteur la vitesse du véhicule."},
+      {"id":"if-r1036","difficulty":1,"answer":"klaxon","clue":"Avertisseur sonore du véhicule, je fais entendre mon signal quand le conducteur m’actionne."},
+      {"id":"if-r1037","difficulty":1,"answer":"ceinture","clue":"Attachée devant le passager, ma sangle le retient sur son siège lors d’un choc."},
+      {"id":"if-r1038","difficulty":1,"answer":"airbag","clue":"Coussin de sécurité, je me gonfle très vite lors de certains accidents pour amortir le choc du corps."},
+      {"id":"if-r1039","difficulty":1,"answer":"capot","clue":"Panneau articulé à l’avant de beaucoup de voitures, je me soulève pour accéder au compartiment moteur."},
+      {"id":"if-r1040","difficulty":2,"answer":"hayon","clue":"Grande porte arrière qui emporte souvent la vitre avec elle, je donne accès au coffre quand on me relève."}
+    ] },
+    { "category": "Petite enfance", "puzzles": [
+      {"id":"if-r1041","difficulty":1,"answer":"berceau","clue":"Petit lit du nourrisson, je peux me balancer doucement pour accompagner son endormissement."},
+      {"id":"if-r1042","difficulty":1,"answer":"landau","clue":"Voiture de bébé conçue pour le transporter allongé, je roule grâce à la personne qui me pousse."},
+      {"id":"if-r1043","difficulty":1,"answer":"poussette","clue":"Petit véhicule pliable où l’enfant peut être assis, je laisse les adultes le promener sans le porter."},
+      {"id":"if-r1044","difficulty":1,"answer":"tétine","clue":"Petit objet à embout souple, je calme certains bébés qui me sucent sans recevoir de lait.","acceptedAnswers":["sucette"]},
+      {"id":"if-r1045","difficulty":1,"answer":"biberon","clue":"Récipient gradué muni d’un embout souple, je donne du lait au bébé lorsqu’il tète."},
+      {"id":"if-r1046","difficulty":2,"answer":"lange","clue":"Carré de tissu absorbant utilisé pour le bébé, je peux protéger une épaule ou remplacer une protection jetable."},
+      {"id":"if-r1047","difficulty":1,"answer":"couche","clue":"Protection absorbante portée par le bébé, on me change quand je suis mouillée ou souillée."},
+      {"id":"if-r1048","difficulty":2,"answer":"gigoteuse","clue":"Vêtement de nuit en forme de petit sac, j’enveloppe le bébé en laissant passer ses bras.","acceptedAnswers":["turbulette"]},
+      {"id":"if-r1049","difficulty":1,"answer":"bavoir","clue":"Attaché autour du cou du bébé pendant le repas, je reçois la purée qui manque sa bouche."},
+      {"id":"if-r1050","difficulty":2,"answer":"trotteur","clue":"Siège monté dans un cadre à roulettes, je laisse un petit enfant se déplacer en poussant avec ses pieds.","acceptedAnswers":["youpala"]}
+    ] },
+    { "category": "Papeterie", "puzzles": [
+      {"id":"if-r1051","difficulty":1,"answer":"tampon","clue":"Ma surface en relief prend l’encre puis laisse une empreinte répétée sur le papier quand vous m’appuyez."}
+    ] },
+    { "category": "Histoire", "puzzles": [
+      {"id":"if-r1052","difficulty":2,"answer":"sceau","clue":"Empreinte servant à authentifier un document, je peux être imprimé dans une pastille de cire.","acceptedAnswers":["cachet"]}
+    ] },
+    { "category": "Papeterie", "puzzles": [
+      {"id":"if-r1053","difficulty":1,"answer":"marqueur","clue":"Gros stylo à pointe de feutre, je laisse des inscriptions visibles sur un carton ou un tableau."},
+      {"id":"if-r1054","difficulty":1,"answer":"surligneur","clue":"Mon encre translucide colore les passages importants du texte en laissant les lettres lisibles."},
+      {"id":"if-r1055","difficulty":1,"answer":"perforatrice","clue":"Sur le bureau, mes petits poinçons font des trous réguliers dans les feuilles pour les ranger dans un classeur."},
+      {"id":"if-r1056","difficulty":2,"answer":"buvard","clue":"Papier très absorbant, je bois l’excès d’encre avant qu’il fasse une tache ou traverse la page."},
+      {"id":"if-r1057","difficulty":2,"answer":"intercalaire","clue":"Feuille de séparation souvent munie d’un onglet, je partage le classeur en rubriques."},
+      {"id":"if-r1058","difficulty":1,"answer":"classeur","clue":"Mon dos et mes anneaux gardent ensemble les feuilles perforées, tout en vous laissant les déplacer."},
+      {"id":"if-r1059","difficulty":1,"answer":"punaise","clue":"Petite pointe coiffée d’une tête large, je fixe une feuille sur un panneau quand vous me poussez avec le doigt."},
+      {"id":"if-r1060","difficulty":1,"answer":"calque","clue":"Papier translucide, je laisse voir le dessin du dessous pour que vous en suiviez les contours."}
+    ] },
+    { "category": "Cuisine", "puzzles": [
+      {"id":"if-r1061","difficulty":1,"answer":"croquette","clue":"Petite portion façonnée puis panée et frite, je peux cacher de la pomme de terre, du fromage ou de la viande."},
+      {"id":"if-r1062","difficulty":1,"answer":"nugget","clue":"Petit morceau de poulet pané, on me trempe souvent dans une sauce avant de me manger.","acceptedAnswers":["nuggets"]},
+      {"id":"if-r1063","difficulty":1,"answer":"compote","clue":"Fruit cuit et réduit en préparation souple, je remplis les pots et les gourdes du goûter."},
+      {"id":"if-r1064","difficulty":2,"answer":"marmelade","clue":"Confiture d’agrumes, je peux garder de fins morceaux d’écorce qui apportent de l’amertume."},
+      {"id":"if-r1065","difficulty":1,"answer":"gelée","clue":"Conserve sucrée préparée avec le jus filtré des fruits, je suis translucide et ne garde pas leurs morceaux."},
+      {"id":"if-r1066","difficulty":1,"answer":"sauce","clue":"Préparation liquide ou liée, j’accompagne un plat pour lui apporter du goût et l’empêcher d’être trop sec."},
+      {"id":"if-r1067","difficulty":1,"answer":"jus","clue":"Liquide extrait d’un fruit pressé, je garde son goût sans garder sa forme."},
+      {"id":"if-r1068","difficulty":1,"answer":"sirop","clue":"Liquide très sucré et aromatisé, je me dilue souvent dans l’eau avant d’être bu."},
+      {"id":"if-r1069","difficulty":1,"answer":"limonade","clue":"Boisson gazeuse sucrée au citron, mes bulles pétillent sans avoir besoin d’alcool."},
+      {"id":"if-r1070","difficulty":1,"answer":"tisane","clue":"Boisson obtenue en laissant des plantes comme le tilleul ou la verveine dans l’eau chaude, je ne suis pas forcément du thé.","acceptedAnswers":["infusion"]},
+      {"id":"if-r1071","difficulty":1,"answer":"thé","clue":"Infusion des feuilles d’un arbuste, je peux être vert, noir ou blanc selon la façon dont elles sont préparées."},
+      {"id":"if-r1072","difficulty":1,"answer":"café","clue":"Mes graines torréfiées et moulues donnent une boisson sombre que l’on sert souvent à la fin du repas."},
+      {"id":"if-r1073","difficulty":2,"answer":"chicorée","clue":"Ma racine torréfiée sert à préparer une boisson ou à compléter le café, sans lui apporter de caféine."},
+      {"id":"if-r1074","difficulty":1,"answer":"cappuccino","clue":"Boisson italienne à base de café et de lait, je porte une épaisse mousse blanche sur le dessus."},
+      {"id":"if-r1075","difficulty":1,"answer":"espresso","clue":"Petit café obtenu en faisant passer de l’eau sous pression dans une mouture fine, je me bois en quelques gorgées.","acceptedAnswers":["expresso"]},
+      {"id":"if-r1076","difficulty":1,"answer":"chantilly","clue":"Crème fouettée et sucrée, je forme un nuage blanc sur les fraises ou le chocolat chaud."},
+      {"id":"if-r1077","difficulty":2,"answer":"ganache","clue":"Mélange de chocolat et de crème, je garnis notamment les truffes et certains gâteaux."}
+    ] },
+    { "category": "Boulangerie et pâtisserie", "puzzles": [
+      {"id":"if-r1078","difficulty":1,"answer":"glaçage","clue":"Couche sucrée étalée sur un gâteau, je peux lisser sa surface et lui donner de la brillance."}
+    ] },
+    { "category": "Cuisine", "puzzles": [
+      {"id":"if-r1079","difficulty":2,"answer":"coulis","clue":"Préparation fluide et lisse de fruits ou de légumes mixés puis souvent filtrés, je nappe l’assiette."}
+    ] },
+    { "category": "Boulangerie et pâtisserie", "puzzles": [
+      {"id":"if-r1080","difficulty":1,"answer":"crumble","clue":"Dessert où les fruits cuisent sous une pâte émiettée, je garde un dessus friable et croustillant."}
+    ] },
+    { "category": "Sciences", "puzzles": [
+      {"id":"if-r1081","difficulty":1,"answer":"bulle","clue":"Fine enveloppe liquide autour d’un peu de gaz, je peux flotter dans l’air avant d’éclater."}
+    ] },
+    { "category": "Maison", "puzzles": [
+      {"id":"if-r1082","difficulty":1,"answer":"buée","clue":"Petites gouttes déposées sur une vitre froide, je brouille votre reflet après une douche chaude."}
+    ] },
+    { "category": "Sciences", "puzzles": [
+      {"id":"if-r1083","difficulty":1,"answer":"vapeur","clue":"À l’état gazeux, l’eau devient ma forme invisible ; les petits nuages blancs visibles sont déjà de fines gouttes."},
+      {"id":"if-r1084","difficulty":1,"answer":"fumée","clue":"Mélange de gaz et de petites particules issu d’une combustion, je peux former un panache sombre au-dessus du feu."}
+    ] },
+    { "category": "Maison", "puzzles": [
+      {"id":"if-r1085","difficulty":2,"answer":"suie","clue":"Dépôt noir laissé par une combustion incomplète, je salis les parois de la cheminée."},
+      {"id":"if-r1086","difficulty":1,"answer":"cendre","clue":"Résidu souvent gris et poudreux, je reste dans le foyer quand le bois a fini de brûler."}
+    ] },
+    { "category": "Sciences", "puzzles": [
+      {"id":"if-r1087","difficulty":1,"answer":"étincelle","clue":"Petite particule incandescente projetée très brièvement, je jaillis parfois quand on frappe ou meule du métal."},
+      {"id":"if-r1088","difficulty":1,"answer":"flamme","clue":"Partie lumineuse d’un feu où des gaz brûlent, je danse au-dessus de la mèche de la bougie."}
+    ] },
+    { "category": "Cuisine", "puzzles": [
+      {"id":"if-r1089","difficulty":1,"answer":"braise","clue":"Morceau incandescent qui reste après la disparition des flammes, je peux encore cuire les aliments sur le barbecue."}
+    ] },
+    { "category": "Matériaux", "puzzles": [
+      {"id":"if-r1090","difficulty":1,"answer":"charbon","clue":"Combustible noir, je peux venir d’une roche fossile ou être obtenu en chauffant du bois avec très peu d’air."}
+    ] },
+    { "category": "Sciences", "puzzles": [
+      {"id":"if-r1091","difficulty":1,"answer":"reflet","clue":"Image renvoyée par une surface lisse, je reproduis parfois votre visage dans l’eau calme."}
+    ] },
+    { "category": "Jeux et jouets", "puzzles": [
+      {"id":"if-r1092","difficulty":1,"answer":"ricochet","clue":"Quand une pierre plate lancée en biais touche l’eau puis repart en bondissant, je suis chacun de ses sauts."}
+    ] },
+    { "category": "Sports", "puzzles": [
+      {"id":"if-r1093","difficulty":1,"answer":"rebond","clue":"Après avoir heurté le sol, la balle remonte : ce retour dans l’air porte mon nom."}
+    ] },
+    { "category": "Sciences", "puzzles": [
+      {"id":"if-r1094","difficulty":2,"answer":"vibration","clue":"Mouvement rapide de va-et-vient, je fais frémir une corde de guitare et contribue à produire son son."}
+    ] },
+    { "category": "Sports", "puzzles": [
+      {"id":"if-r1095","difficulty":1,"answer":"ola","clue":"Dans les tribunes, des groupes se lèvent puis se rassoient l’un après l’autre pour me faire tourner comme une vague."}
+    ] },
+    { "category": "Géométrie", "puzzles": [
+      {"id":"if-r1096","difficulty":1,"answer":"spirale","clue":"Courbe qui s’enroule autour d’un point tout en s’en éloignant ou en s’en rapprochant, je rappelle une coquille d’escargot."}
+    ] },
+    { "category": "Jeux et jouets", "puzzles": [
+      {"id":"if-r1097","difficulty":1,"answer":"labyrinthe","clue":"Mon réseau de chemins égare ceux qui entrent ; retrouver la sortie demande de choisir les bons passages."}
+    ] },
+    { "category": "Voyages et transports", "puzzles": [
+      {"id":"if-r1098","difficulty":1,"answer":"impasse","clue":"Rue sans issue, je vous oblige à revenir sur vos pas si aucun passage piéton ne me prolonge."},
+      {"id":"if-r1099","difficulty":1,"answer":"détour","clue":"Chemin plus long pris pour éviter un obstacle ou passer ailleurs, je vous éloigne un moment du trajet direct."},
+      {"id":"if-r1100","difficulty":1,"answer":"raccourci","clue":"Chemin qui permet d’arriver plus vite ou de parcourir moins de distance, je peux traverser une petite rue oubliée."}
+    ] }
+  ]
+}

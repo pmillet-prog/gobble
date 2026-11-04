@@ -1,0 +1,149 @@
+{
+  "schemaVersion": 1,
+  "kind": "riddle",
+  "references": {
+    "lichen": {"title":"Muséum national d’Histoire naturelle — Lichens","url":"https://taxref.mnhn.fr/taxref-web/taxogroups/916"}
+  },
+  "groups": [
+    { "category": "Nature", "puzzles": [
+      {"id":"if-r501","difficulty":1,"answer":"rose","clue":"Je peux piquer la main qui me cueille, mais mes pétales parfumés composent souvent les bouquets des amoureux."},
+      {"id":"if-r502","difficulty":1,"answer":"tulipe","clue":"Au printemps, ma fleur en coupe colore les champs néerlandais ; je pousse à partir d’un bulbe."},
+      {"id":"if-r503","difficulty":1,"answer":"tournesol","clue":"Mon grand disque brun entouré de pétales jaunes évoque le soleil ; mes graines donnent une huile de cuisine."},
+      {"id":"if-r504","difficulty":1,"answer":"coquelicot","clue":"Je mets une tache rouge dans les champs de céréales ; mes pétales très fins se froissent facilement."},
+      {"id":"if-r505","difficulty":1,"answer":"marguerite","clue":"On retire mes pétales blancs un à un pour savoir si l’on est aimé un peu, beaucoup ou passionnément."},
+      {"id":"if-r506","difficulty":1,"answer":"pissenlit","clue":"Après ma fleur jaune vient une boule de petits parachutes blancs qu’un souffle suffit à disperser."},
+      {"id":"if-r507","difficulty":1,"answer":"muguet","clue":"Mes petites clochettes blanches s’offrent au premier mai pour porter bonheur."},
+      {"id":"if-r508","difficulty":1,"answer":"trèfle","clue":"Dans la pelouse, mes feuilles vont souvent par trois ; en trouver quatre fait espérer de la chance."},
+      {"id":"if-r509","difficulty":1,"answer":"ortie","clue":"Je ne mords pas, pourtant ma feuille peut vous piquer ; mes jeunes pousses se mangent une fois cuites."},
+      {"id":"if-r510","difficulty":2,"answer":"ronce","clue":"Mes tiges pleines d’épines griffent les promeneurs qui viennent cueillir mes mûres."},
+      {"id":"if-r511","difficulty":1,"answer":"cactus","clue":"Beaucoup de mes cousins portent des épines et stockent de l’eau dans leur tige pour vivre dans les régions sèches."},
+      {"id":"if-r512","difficulty":1,"answer":"sapin","clue":"À Noël, on me couvre de boules et de guirlandes ; mes feuilles ressemblent à des aiguilles."},
+      {"id":"if-r513","difficulty":1,"answer":"chêne","clue":"Je porte des glands coiffés d’une petite coupe ; mon bois sert notamment à fabriquer des tonneaux."},
+      {"id":"if-r514","difficulty":2,"answer":"bouleau","clue":"Mon tronc à l’écorce blanche, marquée de traits sombres, se reconnaît au milieu des autres arbres."},
+      {"id":"if-r515","difficulty":1,"answer":"saule","clue":"On dit que je pleure quand mes longues branches retombent vers le sol, souvent près de l’eau."},
+      {"id":"if-r516","difficulty":1,"answer":"palmier","clue":"Mon tronc porte en haut une couronne de grandes palmes ; certains de mes cousins donnent des dattes."},
+      {"id":"if-r517","difficulty":1,"answer":"olivier","clue":"Mes fruits verts ou noirs se pressent pour obtenir de l’huile ; mes feuilles ont un revers argenté."},
+      {"id":"if-r518","difficulty":1,"answer":"vigne","clue":"On me fait grimper ou pousser en rangs ; mes grappes deviennent raisins secs, jus ou vin."},
+      {"id":"if-r519","difficulty":2,"answer":"lichen","clue":"Je tapisse parfois les rochers ; je suis une association durable entre un champignon et une algue ou une cyanobactérie.","reference":"lichen"},
+      {"id":"if-r520","difficulty":1,"answer":"mousse","clue":"Petit tapis vert des sous-bois humides, je couvre les pierres et les troncs sans produire de fleurs."}
+    ] },
+    { "category": "Navigation", "puzzles": [
+      {"id":"if-r521","difficulty":1,"answer":"hublot","clue":"Je suis une petite fenêtre souvent ronde ; sur un bateau, je laisse voir la mer tout en restant étanche."},
+      {"id":"if-r522","difficulty":2,"answer":"amarre","clue":"Corde entre le bateau et le quai, j’empêche votre embarcation de partir sans vous.","acceptedAnswers":["aussière"]},
+      {"id":"if-r523","difficulty":1,"answer":"voilier","clue":"Mes grandes toiles captent le vent pour me faire avancer sur l’eau."},
+      {"id":"if-r524","difficulty":1,"answer":"paquebot","clue":"Grand navire de passagers, je peux abriter des centaines de cabines et emmener les vacanciers en croisière."},
+      {"id":"if-r525","difficulty":1,"answer":"péniche","clue":"Long bateau des canaux, je transporte des marchandises, même si certains font de moi leur maison."},
+      {"id":"if-r526","difficulty":1,"answer":"radeau","clue":"Quelques troncs attachés ensemble peuvent me former ; je flotte sans avoir la coque d’un bateau."},
+      {"id":"if-r527","difficulty":2,"answer":"kayak","clue":"Assis dans ma coque étroite, vous avancez avec une pagaie munie d’une pale à chaque extrémité."},
+      {"id":"if-r528","difficulty":2,"answer":"canoë","clue":"À genoux ou assis dans ma coque, vous me propulsez traditionnellement avec une pagaie à une seule pale.","acceptedAnswers":["canoé"]},
+      {"id":"if-r529","difficulty":1,"answer":"barque","clue":"Petite embarcation ouverte, je promène les pêcheurs sur un étang quand ils actionnent mes rames."},
+      {"id":"if-r530","difficulty":2,"answer":"chalutier","clue":"Bateau de pêche, je tire derrière moi un grand filet en forme de poche."},
+      {"id":"if-r531","difficulty":1,"answer":"cabine","clue":"Petite chambre à bord d’un bateau, j’offre une couchette aux passagers pendant la traversée."},
+      {"id":"if-r532","difficulty":2,"answer":"ponton","clue":"Plateforme flottante ou sur pilotis, je prolonge le quai pour vous laisser embarquer."},
+      {"id":"if-r533","difficulty":2,"answer":"écluse","clue":"Entre mes portes, le niveau de l’eau monte ou descend pour faire franchir une différence de hauteur aux bateaux."},
+      {"id":"if-r534","difficulty":1,"answer":"gouvernail","clue":"À l’arrière du bateau, ma partie plongée dans l’eau change d’orientation pour diriger la navigation."},
+      {"id":"if-r535","difficulty":2,"answer":"mât","clue":"Longue pièce dressée sur le bateau, je porte les voiles bien au-dessus du pont."}
+    ] },
+    { "category": "Cuisine", "puzzles": [
+      {"id":"if-r536","difficulty":1,"answer":"bocal","clue":"Mon corps de verre et mon large goulot accueillent les cornichons ; un couvercle me ferme."}
+    ] },
+    { "category": "Objets du quotidien", "puzzles": [
+      {"id":"if-r537","difficulty":2,"answer":"flacon","clue":"Petit récipient souvent muni d’un bouchon, je conserve quelques gouttes de parfum à l’abri."}
+    ] },
+    { "category": "Cuisine", "puzzles": [
+      {"id":"if-r538","difficulty":1,"answer":"bouteille","clue":"Mon goulot est plus étroit que mon corps ; on me bouche pour conserver le vin, puis on me débouche pour le servir."},
+      {"id":"if-r539","difficulty":1,"answer":"carafe","clue":"Sur la table, mon col et mon bec permettent de verser l’eau ; je peux aussi laisser le vin s’aérer."},
+      {"id":"if-r540","difficulty":2,"answer":"cruche","clue":"Récipient ventru à anse et à bec, je transporte l’eau ; dans l’expression, à force d’aller à l’eau, je me casse."}
+    ] },
+    { "category": "Objets du quotidien", "puzzles": [
+      {"id":"if-r541","difficulty":1,"answer":"bidon","clue":"Récipient à bouchon et souvent à poignée, je peux transporter plusieurs litres d’essence."}
+    ] },
+    { "category": "Cuisine", "puzzles": [
+      {"id":"if-r542","difficulty":1,"answer":"thermos","clue":"Mes parois isolantes gardent votre café chaud pendant le trajet, sans me brancher."}
+    ] },
+    { "category": "Sports", "puzzles": [
+      {"id":"if-r543","difficulty":1,"answer":"gourde","clue":"Dans le sac du randonneur, je garde sa réserve d’eau ; il me remplit de nouveau avant de repartir."}
+    ] },
+    { "category": "Maison", "puzzles": [
+      {"id":"if-r544","difficulty":1,"answer":"seau","clue":"On me porte par une anse qui passe au-dessus de mon ouverture ; je transporte l’eau du ménage."},
+      {"id":"if-r545","difficulty":2,"answer":"bassine","clue":"Large récipient sans couvercle, je reçois l’eau de la lessive à la main ou un bain de pieds.","acceptedAnswers":["cuvette"]}
+    ] },
+    { "category": "Cuisine", "puzzles": [
+      {"id":"if-r546","difficulty":1,"answer":"marmite","clue":"Grande et profonde, souvent munie de deux anses, je mijote la soupe sous mon couvercle.","acceptedAnswers":["faitout"]},
+      {"id":"if-r547","difficulty":1,"answer":"casserole","clue":"Mon long manche permet de me saisir ; sur le feu, mon petit récipient chauffe une sauce."},
+      {"id":"if-r548","difficulty":1,"answer":"saladier","clue":"Grand récipient posé sur la table, je laisse assez de place pour mélanger laitue et vinaigrette."},
+      {"id":"if-r549","difficulty":1,"answer":"bol","clue":"Sans pied et généralement sans anse, je sers le chocolat du petit déjeuner ou la soupe."},
+      {"id":"if-r550","difficulty":1,"answer":"assiette","clue":"Plate ou creuse, j’accueille votre portion de repas entre le couteau et la fourchette."},
+      {"id":"if-r551","difficulty":1,"answer":"tasse","clue":"Petite anse sur le côté, je porte le café chaud de la table jusqu’à vos lèvres."},
+      {"id":"if-r552","difficulty":1,"answer":"verre","clue":"Transparent quand je suis classique, sans anse, je touche vos lèvres pour vous laisser boire de l’eau."},
+      {"id":"if-r553","difficulty":1,"answer":"gobelet","clue":"Sur la table du magicien, on me retourne avec deux semblables pour cacher et faire voyager une petite balle."},
+      {"id":"if-r554","difficulty":1,"answer":"soucoupe","clue":"Petite assiette sous la tasse, je recueille les gouttes et porte parfois une cuillère."},
+      {"id":"if-r555","difficulty":1,"answer":"couvercle","clue":"Posé sur la casserole, je retiens une partie de la chaleur ; on me soulève pour voir ce qui mijote."}
+    ] },
+    { "category": "Soins et toilette", "puzzles": [
+      {"id":"if-r556","difficulty":1,"answer":"rasoir","clue":"Mes lames coupent la barbe au plus près de la peau, sans que je sois une paire de ciseaux."},
+      {"id":"if-r557","difficulty":2,"answer":"bigoudi","clue":"Petit rouleau dans les cheveux, je prépare les boucles avant d’être retiré."}
+    ] },
+    { "category": "Vêtements et accessoires", "puzzles": [
+      {"id":"if-r558","difficulty":1,"answer":"perruque","clue":"Je change toute votre chevelure en me posant sur votre tête, même si vous n’avez plus de cheveux."},
+      {"id":"if-r559","difficulty":1,"answer":"barrette","clue":"Petit accessoire à pince ou à fermoir, je maintiens une mèche de cheveux en place."},
+      {"id":"if-r560","difficulty":1,"answer":"chouchou","clue":"Élastique habillé de tissu froncé, je rassemble les cheveux sans être leur favori."}
+    ] },
+    { "category": "Soins et toilette", "puzzles": [
+      {"id":"if-r561","difficulty":2,"answer":"mascara","clue":"Ma petite brosse dépose du maquillage sur les cils pour les foncer ou les épaissir."},
+      {"id":"if-r562","difficulty":1,"answer":"vernis","clue":"Coloré ou transparent, je sèche en une fine couche brillante sur les ongles."},
+      {"id":"if-r563","difficulty":1,"answer":"shampoing","clue":"Je mousse dans les cheveux mouillés, puis l’eau m’emporte avec ce qui les salissait.","acceptedAnswers":["shampooing"]}
+    ] },
+    { "category": "Vêtements et accessoires", "puzzles": [
+      {"id":"if-r564","difficulty":1,"answer":"peignoir","clue":"Après le bain, mes pans se croisent et ma ceinture se noue pour vous envelopper."},
+      {"id":"if-r565","difficulty":1,"answer":"pyjama","clue":"Mon pantalon et mon haut vont ensemble ; on m’enfile pour dormir plutôt que pour sortir."},
+      {"id":"if-r566","difficulty":1,"answer":"pantoufle","clue":"Chaussure d’intérieur, je réchauffe le pied quand les chaussures de ville attendent à la porte.","acceptedAnswers":["chausson"]},
+      {"id":"if-r567","difficulty":1,"answer":"sandale","clue":"Ma semelle tient au pied grâce à des brides ; en été, je laisse les orteils prendre l’air."},
+      {"id":"if-r568","difficulty":1,"answer":"botte","clue":"Je chausse le pied et remonte sur la jambe ; en caoutchouc, j’affronte volontiers les flaques."},
+      {"id":"if-r569","difficulty":2,"answer":"espadrille","clue":"Chaussure légère de toile, je possède traditionnellement une semelle de corde tressée."},
+      {"id":"if-r570","difficulty":2,"answer":"mocassin","clue":"Chaussure souple, je m’enfile généralement sans lacets et possède souvent une couture visible autour du dessus."},
+      {"id":"if-r571","difficulty":1,"answer":"sabot","clue":"Traditionnellement taillé dans le bois, je chausse le paysan et claque sur les pavés."},
+      {"id":"if-r572","difficulty":1,"answer":"salopette","clue":"Mon pantalon se prolonge par une partie sur la poitrine, tenue par des bretelles."},
+      {"id":"if-r573","difficulty":1,"answer":"combinaison","clue":"Vêtement d’un seul tenant, je réunis haut et pantalon ; le mécanicien m’enfile pour protéger ses habits."},
+      {"id":"if-r574","difficulty":1,"answer":"tablier","clue":"Attaché devant vos vêtements, je reçois les éclaboussures de cuisine à leur place."},
+      {"id":"if-r575","difficulty":1,"answer":"uniforme","clue":"Dans une même profession ou une même troupe, ma tenue identique permet de reconnaître ceux qui en font partie."}
+    ] },
+    { "category": "Jeux et jouets", "puzzles": [
+      {"id":"if-r576","difficulty":1,"answer":"peluche","clue":"Animal en tissu doux et rembourré, je me laisse serrer dans les bras sans jamais mordre."}
+    ] },
+    { "category": "Objets du quotidien", "puzzles": [
+      {"id":"if-r577","difficulty":1,"answer":"doudou","clue":"Peluche ou petit morceau de tissu, je rassure l’enfant qui me réclame pour s’endormir."}
+    ] },
+    { "category": "Jeux et jouets", "puzzles": [
+      {"id":"if-r578","difficulty":1,"answer":"poupée","clue":"Petit personnage que l’on habille et que l’on couche, je laisse l’enfant jouer au parent."},
+      {"id":"if-r579","difficulty":2,"answer":"figurine","clue":"Petite représentation d’un personnage, je peux être collectionnée et exposée sans avoir la taille d’une poupée."},
+      {"id":"if-r580","difficulty":2,"answer":"automate","clue":"Personnage mécanique, je répète des gestes quand mon mécanisme est remonté ou alimenté."},
+      {"id":"if-r581","difficulty":1,"answer":"hochet","clue":"Premier jouet de bien des bébés, je fais du bruit lorsqu’une petite main me secoue."},
+      {"id":"if-r582","difficulty":1,"answer":"joker","clue":"Dans un paquet de cartes, je peux souvent remplacer celle qui manque, même sans couleur ni valeur habituelle."},
+      {"id":"if-r583","difficulty":1,"answer":"pion","clue":"Petite pièce que l’on déplace sur un plateau, je marque souvent la position d’un joueur."},
+      {"id":"if-r584","difficulty":1,"answer":"damier","clue":"Mon plateau alterne les cases claires et sombres ; dans sa version internationale, cent cases accueillent les dames."},
+      {"id":"if-r585","difficulty":1,"answer":"échiquier","clue":"Mes soixante-quatre cases alternées accueillent au départ deux rois et leurs armées."},
+      {"id":"if-r586","difficulty":1,"answer":"loto","clue":"On annonce les numéros tirés, vous couvrez ceux de votre carton et espérez compléter une ligne ou toute la grille.","acceptedAnswers":["bingo"]},
+      {"id":"if-r587","difficulty":1,"answer":"mikado","clue":"Mes fines baguettes tombent en tas ; vous devez en retirer une sans faire bouger les autres."},
+      {"id":"if-r588","difficulty":1,"answer":"flipper","clue":"Sur mon plateau incliné sous verre, deux petites palettes renvoient une bille métallique vers les obstacles."}
+    ] },
+    { "category": "Couture", "puzzles": [
+      {"id":"if-r589","difficulty":1,"answer":"bobine","clue":"Autour de mon petit cylindre, le fil reste rangé ; il se déroule à mesure que vous cousez."},
+      {"id":"if-r590","difficulty":1,"answer":"pelote","clue":"Boule de fil à tricoter, je rétrécis pendant que le pull grandit."},
+      {"id":"if-r591","difficulty":1,"answer":"tricot","clue":"Deux aiguilles font naître mes mailles les unes après les autres pour fabriquer une écharpe ou un pull."},
+      {"id":"if-r592","difficulty":1,"answer":"crochet","clue":"Mon extrémité recourbée attrape le fil ; une seule aiguille de mon genre suffit pour faire des mailles."},
+      {"id":"if-r593","difficulty":2,"answer":"broderie","clue":"Avec du fil et une aiguille, je dessine des motifs sur un tissu déjà existant."},
+      {"id":"if-r594","difficulty":1,"answer":"ourlet","clue":"Repli cousu au bas du pantalon, je finis le bord et peux raccourcir la jambe du vêtement."},
+      {"id":"if-r595","difficulty":2,"answer":"doublure","clue":"Deuxième tissu caché dans la veste, je rends son intérieur plus agréable à porter."}
+    ] },
+    { "category": "Vêtements et accessoires", "puzzles": [
+      {"id":"if-r596","difficulty":1,"answer":"manche","clue":"Partie du vêtement autour du bras, je peux être courte, longue ou retroussée."},
+      {"id":"if-r597","difficulty":1,"answer":"poche","clue":"Cousue dans un vêtement, je garde vos clés sans qu’il soit nécessaire de porter un sac."},
+      {"id":"if-r598","difficulty":1,"answer":"col","clue":"Au sommet de la chemise, j’entoure le cou et peux accueillir une cravate."}
+    ] },
+    { "category": "Couture", "puzzles": [
+      {"id":"if-r599","difficulty":2,"answer":"boutonnière","clue":"Petite ouverture bordée de couture, je laisse passer le bouton pour fermer le vêtement."},
+      {"id":"if-r600","difficulty":2,"answer":"canette","clue":"Petite réserve de fil placée sous l’aiguille de la machine à coudre, je participe à former les points."}
+    ] }
+  ]
+}

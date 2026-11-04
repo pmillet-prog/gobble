@@ -1,0 +1,668 @@
+{
+  "schemaVersion": 1,
+  "kind": "riddle",
+  "groups": [
+    {
+      "category": "Matières et sensations",
+      "puzzles": [
+        {
+          "id": "if-r1701",
+          "difficulty": 1,
+          "answer": "lisse",
+          "clue": "Ma surface ne présente presque pas de relief : les doigts glissent dessus sans accrocher."
+        },
+        {
+          "id": "if-r1702",
+          "difficulty": 1,
+          "answer": "rugueux",
+          "clue": "Ma surface irrégulière se sent sous les doigts ; je suis l’opposé d’une finition bien lisse.",
+          "acceptedAnswers": [
+            "rugueuse"
+          ]
+        },
+        {
+          "id": "if-r1703",
+          "difficulty": 1,
+          "answer": "doux",
+          "clue": "Au toucher, je rappelle la caresse d’une peluche ; au goût, je peux qualifier une saveur peu agressive.",
+          "acceptedAnswers": [
+            "douce"
+          ]
+        },
+        {
+          "id": "if-r1704",
+          "difficulty": 1,
+          "answer": "piquant",
+          "clue": "Une épine au toucher ou du piment en bouche peuvent me donner pour qualificatif.",
+          "acceptedAnswers": [
+            "piquante"
+          ]
+        },
+        {
+          "id": "if-r1705",
+          "difficulty": 1,
+          "answer": "dur",
+          "clue": "Je résiste à la déformation ou à la pénétration ; dans le langage courant, mon contraire est mou.",
+          "acceptedAnswers": [
+            "dure"
+          ]
+        },
+        {
+          "id": "if-r1706",
+          "difficulty": 1,
+          "answer": "souple",
+          "clue": "Je me plie facilement sans me casser ; je conviens à un tissu qui accompagne les mouvements.",
+          "acceptedAnswers": [
+            "flexible"
+          ]
+        },
+        {
+          "id": "if-r1707",
+          "difficulty": 1,
+          "answer": "élastique",
+          "clue": "Après avoir été étiré, je tends à reprendre ma forme de départ."
+        },
+        {
+          "id": "if-r1708",
+          "difficulty": 1,
+          "answer": "fragile",
+          "clue": "Un choc assez faible peut me casser ; sur le colis, mon nom invite à me manipuler avec soin."
+        },
+        {
+          "id": "if-r1709",
+          "difficulty": 1,
+          "answer": "opaque",
+          "clue": "La lumière ne me traverse pas : impossible de voir un objet placé derrière moi."
+        },
+        {
+          "id": "if-r1710",
+          "difficulty": 1,
+          "answer": "transparent",
+          "clue": "Je laisse voir nettement ce qui se trouve derrière moi, comme une vitre bien propre."
+        },
+        {
+          "id": "if-r1711",
+          "difficulty": 2,
+          "answer": "translucide",
+          "clue": "Je laisse passer la lumière, mais les objets derrière moi deviennent indistincts."
+        },
+        {
+          "id": "if-r1712",
+          "difficulty": 1,
+          "answer": "brillant",
+          "clue": "Ma surface renvoie vivement la lumière et peut produire des reflets marqués.",
+          "acceptedAnswers": [
+            "brillante"
+          ]
+        },
+        {
+          "id": "if-r1713",
+          "difficulty": 1,
+          "answer": "mat",
+          "clue": "Ma finition diffuse la lumière sans offrir les reflets nets d’une surface polie.",
+          "acceptedAnswers": [
+            "mate"
+          ]
+        },
+        {
+          "id": "if-r1714",
+          "difficulty": 2,
+          "answer": "visqueux",
+          "clue": "Liquide épais qui s’écoule difficilement, je rappelle la consistance du miel froid.",
+          "acceptedAnswers": [
+            "visqueuse"
+          ]
+        },
+        {
+          "id": "if-r1715",
+          "difficulty": 1,
+          "answer": "fluide",
+          "clue": "Je m’écoule facilement ; au figuré, je qualifie aussi une circulation sans encombre."
+        },
+        {
+          "id": "if-r1716",
+          "difficulty": 2,
+          "answer": "poreux",
+          "clue": "De petits vides parcourent ma matière ; je peux absorber des liquides grâce à eux.",
+          "acceptedAnswers": [
+            "poreuse"
+          ]
+        },
+        {
+          "id": "if-r1717",
+          "difficulty": 2,
+          "answer": "perméable",
+          "clue": "Je laisse passer un fluide à travers moi ; un vêtement de pluie cherche plutôt à ne pas l’être."
+        },
+        {
+          "id": "if-r1718",
+          "difficulty": 1,
+          "answer": "absorbant",
+          "clue": "Je retiens le liquide qui pénètre dans ma matière, comme le papier utilisé pour éponger.",
+          "acceptedAnswers": [
+            "absorbante"
+          ]
+        },
+        {
+          "id": "if-r1719",
+          "difficulty": 1,
+          "answer": "glissant",
+          "clue": "Sur ma surface, les pieds ou les objets perdent facilement leur adhérence.",
+          "acceptedAnswers": [
+            "glissante"
+          ]
+        },
+        {
+          "id": "if-r1720",
+          "difficulty": 1,
+          "answer": "collant",
+          "clue": "Je reste attaché aux doigts ou aux objets ; la confiture répandue sur la table me rend familier.",
+          "acceptedAnswers": [
+            "collante"
+          ]
+        }
+      ]
+    },
+    {
+      "category": "Arts",
+      "puzzles": [
+        {
+          "id": "if-r1721",
+          "difficulty": 2,
+          "answer": "dégradé",
+          "clue": "Je fais passer progressivement d’une couleur à une autre, sans frontière brutale."
+        },
+        {
+          "id": "if-r1722",
+          "difficulty": 2,
+          "answer": "contraste",
+          "clue": "Je rends deux zones différentes plus faciles à distinguer, par leur clarté ou leur couleur."
+        },
+        {
+          "id": "if-r1723",
+          "difficulty": 2,
+          "answer": "perspective",
+          "clue": "Sur une surface plane, je donne l’illusion de la profondeur avec des tailles et des lignes adaptées."
+        },
+        {
+          "id": "if-r1724",
+          "difficulty": 2,
+          "answer": "estompe",
+          "clue": "Petit outil de dessin en papier roulé, j’adoucis les traits de crayon en les frottant."
+        },
+        {
+          "id": "if-r1725",
+          "difficulty": 2,
+          "answer": "lavis",
+          "clue": "Couche de couleur très diluée, je couvre le papier d’une teinte légère."
+        },
+        {
+          "id": "if-r1726",
+          "difficulty": 2,
+          "answer": "hachure",
+          "clue": "Petit trait répété auprès de ses voisins, je peux représenter une ombre dans un dessin."
+        },
+        {
+          "id": "if-r1727",
+          "difficulty": 2,
+          "answer": "aplat",
+          "clue": "Surface remplie d’une couleur uniforme, je ne montre ni modelé ni changement de teinte."
+        },
+        {
+          "id": "if-r1728",
+          "difficulty": 2,
+          "answer": "nuance",
+          "clue": "Variation légère d’une couleur, je distingue deux bleus pourtant proches."
+        },
+        {
+          "id": "if-r1729",
+          "difficulty": 2,
+          "answer": "pigment",
+          "clue": "Petite matière colorante dispersée dans un liant, je donne sa couleur à la peinture."
+        },
+        {
+          "id": "if-r1730",
+          "difficulty": 2,
+          "answer": "liant",
+          "clue": "Dans une peinture, je rassemble les pigments et leur permet d’adhérer au support."
+        },
+        {
+          "id": "if-r1731",
+          "difficulty": 2,
+          "answer": "solvant",
+          "clue": "Je dissous une substance pour faciliter son emploi ou son nettoyage, selon le produit utilisé."
+        },
+        {
+          "id": "if-r1732",
+          "difficulty": 2,
+          "answer": "vernis",
+          "clue": "Couche de finition sur une œuvre ou un objet, je protège la surface et peux en modifier l’aspect."
+        },
+        {
+          "id": "if-r1733",
+          "difficulty": 2,
+          "answer": "patine",
+          "clue": "Avec le temps ou le travail de l’artiste, je modifie l’aspect superficiel d’un objet sans en changer la forme."
+        },
+        {
+          "id": "if-r1734",
+          "difficulty": 2,
+          "answer": "modelage",
+          "clue": "Avec une matière malléable comme l’argile, je donne une forme en pressant et en ajoutant plutôt qu’en taillant."
+        },
+        {
+          "id": "if-r1735",
+          "difficulty": 2,
+          "answer": "moulage",
+          "clue": "Je reproduis une forme grâce à une empreinte dans laquelle une matière est coulée ou pressée."
+        },
+        {
+          "id": "if-r1736",
+          "difficulty": 2,
+          "answer": "ébauche",
+          "clue": "Première forme encore incomplète d’une œuvre, je montre le projet avant les détails définitifs."
+        },
+        {
+          "id": "if-r1737",
+          "difficulty": 2,
+          "answer": "retouche",
+          "clue": "Petite correction localisée, je modifie une image ou une peinture sans forcément la refaire entièrement."
+        },
+        {
+          "id": "if-r1738",
+          "difficulty": 2,
+          "answer": "restauration",
+          "clue": "Sur une œuvre abîmée, je cherche à préserver et retrouver sa lisibilité en respectant ce qui subsiste."
+        },
+        {
+          "id": "if-r1739",
+          "difficulty": 2,
+          "answer": "encadrement",
+          "clue": "Autour de l’image, je compose la bordure qui la protège et l’accompagne dans sa présentation."
+        },
+        {
+          "id": "if-r1740",
+          "difficulty": 2,
+          "answer": "accrochage",
+          "clue": "Dans une exposition, je désigne l’installation et la disposition des œuvres sur les murs."
+        }
+      ]
+    },
+    {
+      "category": "Organisation et travail",
+      "puzzles": [
+        {
+          "id": "if-r1741",
+          "difficulty": 1,
+          "answer": "priorité",
+          "clue": "Dans une liste de tâches, je passe avant les autres parce que je suis plus urgente ou plus importante."
+        },
+        {
+          "id": "if-r1742",
+          "difficulty": 1,
+          "answer": "délai",
+          "clue": "Je représente le temps accordé pour accomplir une tâche ou attendre une réponse."
+        },
+        {
+          "id": "if-r1743",
+          "difficulty": 1,
+          "answer": "planning",
+          "clue": "Je répartis les tâches et les personnes dans le temps pour organiser ce qui doit arriver."
+        },
+        {
+          "id": "if-r1744",
+          "difficulty": 1,
+          "answer": "réunion",
+          "clue": "Je rassemble plusieurs personnes pour discuter, décider ou coordonner leur travail."
+        },
+        {
+          "id": "if-r1745",
+          "difficulty": 1,
+          "answer": "bilan",
+          "clue": "À la fin d’une période, je fais le point sur ce qui a été réalisé, réussi ou manqué."
+        },
+        {
+          "id": "if-r1746",
+          "difficulty": 1,
+          "answer": "objectif",
+          "clue": "Résultat que l’on cherche à atteindre, je guide les efforts sans être une lentille d’appareil photo."
+        },
+        {
+          "id": "if-r1747",
+          "difficulty": 1,
+          "answer": "étape",
+          "clue": "Je découpe un parcours ou un projet en parties successives, sans être forcément la destination finale."
+        },
+        {
+          "id": "if-r1748",
+          "difficulty": 1,
+          "answer": "ordre",
+          "clue": "Instruction donnée par une autorité, je demande à être exécuté ; mon nom s’oppose aussi au désordre."
+        },
+        {
+          "id": "if-r1749",
+          "difficulty": 1,
+          "answer": "procédure",
+          "clue": "Je décris une suite d’actions organisées pour accomplir une tâche de manière prévue."
+        },
+        {
+          "id": "if-r1750",
+          "difficulty": 1,
+          "answer": "méthode",
+          "clue": "Je propose une manière ordonnée de travailler pour atteindre un résultat."
+        },
+        {
+          "id": "if-r1751",
+          "difficulty": 1,
+          "answer": "stratégie",
+          "clue": "Je coordonne les choix d’ensemble pour atteindre un but, au-delà du prochain geste à faire."
+        },
+        {
+          "id": "if-r1752",
+          "difficulty": 1,
+          "answer": "tactique",
+          "clue": "Je choisis les moyens concrets adaptés à une situation, dans un match ou une négociation."
+        },
+        {
+          "id": "if-r1753",
+          "difficulty": 1,
+          "answer": "initiative",
+          "clue": "Je prends les devants en proposant ou en commençant une action sans attendre qu’on me le demande."
+        },
+        {
+          "id": "if-r1754",
+          "difficulty": 1,
+          "answer": "autonomie",
+          "clue": "Je permets d’agir et de s’organiser sans dépendre constamment des instructions d’une autre personne."
+        },
+        {
+          "id": "if-r1755",
+          "difficulty": 1,
+          "answer": "coopération",
+          "clue": "Je fais travailler plusieurs personnes ensemble pour atteindre un résultat commun."
+        },
+        {
+          "id": "if-r1756",
+          "difficulty": 1,
+          "answer": "coordination",
+          "clue": "Je règle l’enchaînement des actions pour qu’elles se complètent au lieu de se gêner."
+        },
+        {
+          "id": "if-r1757",
+          "difficulty": 1,
+          "answer": "répartition",
+          "clue": "Je partage les tâches ou les ressources entre plusieurs personnes selon une organisation choisie."
+        },
+        {
+          "id": "if-r1758",
+          "difficulty": 1,
+          "answer": "délégation",
+          "clue": "Je confie à une autre personne l’exécution d’une mission ou l’exercice d’une responsabilité."
+        },
+        {
+          "id": "if-r1759",
+          "difficulty": 1,
+          "answer": "formation",
+          "clue": "Je développe des connaissances et des compétences par l’apprentissage et la pratique."
+        },
+        {
+          "id": "if-r1760",
+          "difficulty": 1,
+          "answer": "expérience",
+          "clue": "Accumulation de pratique et de situations vécues, j’aide à reconnaître ce qui fonctionne."
+        }
+      ]
+    },
+    {
+      "category": "Temps et calendrier",
+      "puzzles": [
+        {
+          "id": "if-r1761",
+          "difficulty": 1,
+          "answer": "instant",
+          "clue": "Très court moment, je peux passer avant que l’on ait eu le temps de le remarquer."
+        },
+        {
+          "id": "if-r1762",
+          "difficulty": 1,
+          "answer": "durée",
+          "clue": "Je mesure le temps écoulé entre le début et la fin d’un événement."
+        },
+        {
+          "id": "if-r1763",
+          "difficulty": 1,
+          "answer": "intervalle",
+          "clue": "Je sépare deux événements dans le temps ou deux éléments dans l’espace."
+        },
+        {
+          "id": "if-r1764",
+          "difficulty": 1,
+          "answer": "fréquence",
+          "clue": "Je précise combien de fois un événement se répète pendant une durée donnée."
+        },
+        {
+          "id": "if-r1765",
+          "difficulty": 1,
+          "answer": "rythme",
+          "clue": "Je donne une organisation aux répétitions et aux pauses, dans la musique comme dans la vie."
+        },
+        {
+          "id": "if-r1766",
+          "difficulty": 1,
+          "answer": "période",
+          "clue": "Je délimite un espace de temps qui possède un début et une fin ou un caractère commun."
+        },
+        {
+          "id": "if-r1767",
+          "difficulty": 1,
+          "answer": "cycle",
+          "clue": "Suite d’étapes qui revient à son point de départ, je recommence après ma dernière phase."
+        },
+        {
+          "id": "if-r1768",
+          "difficulty": 1,
+          "answer": "anniversaire",
+          "clue": "Je rappelle chaque année la date d’un événement, même lorsqu’il ne s’agit pas d’une naissance."
+        },
+        {
+          "id": "if-r1769",
+          "difficulty": 1,
+          "answer": "centenaire",
+          "clue": "Je marque les cent ans d’un événement ou désigne une personne qui a atteint cet âge."
+        },
+        {
+          "id": "if-r1770",
+          "difficulty": 1,
+          "answer": "bicentenaire",
+          "clue": "Je commémore un événement survenu deux cents ans auparavant."
+        },
+        {
+          "id": "if-r1771",
+          "difficulty": 2,
+          "answer": "millésime",
+          "clue": "Sur une bouteille de vin, j’indique l’année de récolte des raisins."
+        },
+        {
+          "id": "if-r1772",
+          "difficulty": 2,
+          "answer": "chronologie",
+          "clue": "Je range les événements selon l’ordre dans lequel ils se sont produits."
+        },
+        {
+          "id": "if-r1773",
+          "difficulty": 2,
+          "answer": "anachronisme",
+          "clue": "Je place un objet, un mot ou un fait à une époque qui ne lui correspond pas."
+        },
+        {
+          "id": "if-r1774",
+          "difficulty": 2,
+          "answer": "simultanéité",
+          "clue": "Je désigne le fait que plusieurs événements ont lieu au même moment."
+        },
+        {
+          "id": "if-r1775",
+          "difficulty": 1,
+          "answer": "ponctualité",
+          "clue": "Je fais arriver à l’heure convenue, sans obliger les autres à attendre."
+        },
+        {
+          "id": "if-r1776",
+          "difficulty": 1,
+          "answer": "retardement",
+          "clue": "Dans l’expression « à … », je diffère le déclenchement d’un mécanisme après sa mise en action."
+        },
+        {
+          "id": "if-r1777",
+          "difficulty": 2,
+          "answer": "échéancier",
+          "clue": "Je répartis les dates auxquelles des paiements doivent être effectués, plutôt que les fêtes de l’année."
+        },
+        {
+          "id": "if-r1778",
+          "difficulty": 1,
+          "answer": "sursis",
+          "clue": "Je retarde l’exécution d’une décision ou offre un temps supplémentaire avant une issue redoutée."
+        },
+        {
+          "id": "if-r1779",
+          "difficulty": 1,
+          "answer": "répit",
+          "clue": "Courte pause dans une difficulté ou un effort, je permets de souffler avant de reprendre."
+        },
+        {
+          "id": "if-r1780",
+          "difficulty": 1,
+          "answer": "attente",
+          "clue": "J’occupe le temps entre le moment où l’on espère quelque chose et celui où cela arrive."
+        }
+      ]
+    },
+    {
+      "category": "Mémoire et pensée",
+      "puzzles": [
+        {
+          "id": "if-r1781",
+          "difficulty": 1,
+          "answer": "attention",
+          "clue": "Je dirige l’esprit vers ce qui se passe ; un bruit inattendu peut me détourner du texte."
+        },
+        {
+          "id": "if-r1782",
+          "difficulty": 1,
+          "answer": "concentration",
+          "clue": "Je maintiens l’esprit sur une tâche malgré ce qui pourrait le distraire."
+        },
+        {
+          "id": "if-r1783",
+          "difficulty": 1,
+          "answer": "mémoire",
+          "clue": "Je conserve et retrouve des informations ou des événements déjà rencontrés.",
+          "category": "Corps humain"
+        },
+        {
+          "id": "if-r1784",
+          "difficulty": 1,
+          "answer": "oubli",
+          "clue": "Je laisse une information hors d’atteinte au moment où vous cherchez à vous en souvenir."
+        },
+        {
+          "id": "if-r1785",
+          "difficulty": 1,
+          "answer": "imagination",
+          "clue": "Je crée dans l’esprit des scènes, des objets ou des histoires qui ne sont pas devant les yeux."
+        },
+        {
+          "id": "if-r1786",
+          "difficulty": 1,
+          "answer": "intuition",
+          "clue": "Je fais pressentir une réponse sans que le raisonnement qui y conduit soit encore explicite."
+        },
+        {
+          "id": "if-r1787",
+          "difficulty": 1,
+          "answer": "raisonnement",
+          "clue": "Je relie des idées et des arguments pour arriver à une conclusion."
+        },
+        {
+          "id": "if-r1788",
+          "difficulty": 1,
+          "answer": "déduction",
+          "clue": "À partir d’éléments admis, je tire une conséquence qui doit en découler logiquement."
+        },
+        {
+          "id": "if-r1789",
+          "difficulty": 1,
+          "answer": "hypothèse",
+          "clue": "Je propose une explication possible, qu’il reste à examiner ou à vérifier."
+        },
+        {
+          "id": "if-r1790",
+          "difficulty": 1,
+          "answer": "preuve",
+          "clue": "J’apporte des éléments qui permettent d’établir qu’une affirmation est fondée."
+        },
+        {
+          "id": "if-r1791",
+          "difficulty": 1,
+          "answer": "indice",
+          "clue": "Je mets sur une piste sans suffire toujours à démontrer ce qui s’est passé."
+        },
+        {
+          "id": "if-r1792",
+          "difficulty": 2,
+          "answer": "analogie",
+          "clue": "Je rapproche deux situations qui se ressemblent pour éclairer l’une par l’autre."
+        },
+        {
+          "id": "if-r1793",
+          "difficulty": 1,
+          "answer": "logique",
+          "clue": "Je cherche la cohérence des raisonnements plutôt que la seule force d’une impression."
+        },
+        {
+          "id": "if-r1794",
+          "difficulty": 2,
+          "answer": "paradoxe",
+          "clue": "Je présente une idée qui semble contredire le bon sens ou conduire à une contradiction."
+        },
+        {
+          "id": "if-r1795",
+          "difficulty": 1,
+          "answer": "contradiction",
+          "clue": "j’apparais lorsque deux affirmations ne peuvent pas être vraies ensemble dans les mêmes conditions."
+        },
+        {
+          "id": "if-r1796",
+          "difficulty": 1,
+          "answer": "certitude",
+          "clue": "Je ne laisse plus de doute à celui qui croit savoir, même s’il peut encore se tromper."
+        },
+        {
+          "id": "if-r1797",
+          "difficulty": 1,
+          "answer": "opinion",
+          "clue": "J’exprime un avis ou un jugement personnel qui n’est pas forcément un fait établi."
+        },
+        {
+          "id": "if-r1798",
+          "difficulty": 1,
+          "answer": "jugement",
+          "clue": "J’évalue une situation ou une personne ; au tribunal, mon nom désigne aussi une décision."
+        },
+        {
+          "id": "if-r1799",
+          "difficulty": 1,
+          "answer": "réflexion",
+          "clue": "Je prends le temps d’examiner une idée avant d’agir ; mon nom décrit aussi le retour de la lumière."
+        },
+        {
+          "id": "if-r1800",
+          "difficulty": 1,
+          "answer": "distraction",
+          "clue": "Je détourne l’esprit de sa tâche ; agréable, je peux aussi offrir un moment de divertissement."
+        }
+      ]
+    }
+  ]
+}

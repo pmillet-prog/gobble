@@ -1,0 +1,9 @@
+.wheel-performance { border: 1px solid #c4b18c40; border-radius: 14px; padding: 18px; background: #142234; color: #d1d8e1; font: 12px/1.5 system-ui, sans-serif; }
+.wheel-performance h2 { margin: 0 0 12px; font-size: 13px; color: #f4dfb7; }
+.wheel-performance label { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.wheel-performance select { max-width: 70%; border: 1px solid #bca07788; border-radius: 6px; background: #0c1826; color: #f4dfb7; padding: 8px; font: inherit; }
+.wheel-performance p { margin: 9px 0; }
+.wheel-performance small { display: block; color: #a7b6c8; }
+.wheel-performance summary { cursor: pointer; }
+.wheel-performance button { margin-top: 12px; border: 1px solid #bca07788; border-radius: 6px; background: #0c1826; color: #f4dfb7; padding: 8px 12px; font: inherit; cursor: pointer; }
+.wheel-performance select:focus-visible { outline: 2px solid #f4dfb7; outline-offset: 3px; }

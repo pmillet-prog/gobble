@@ -1,0 +1,71 @@
+.infortune {
+  --iw-cream: #f9ebcf;
+  --iw-muted: #abb3bf;
+  --iw-gold: #e9bb73;
+  color: var(--iw-cream);
+  display: grid;
+  grid-template-columns: minmax(0, 1.65fr) minmax(280px, 0.85fr);
+  gap: clamp(24px, 4vw, 64px);
+  align-items: center;
+  font-family: "Segoe UI", system-ui, sans-serif;
+}
+.infortune button { font: inherit; }
+.infortune button:focus-visible { outline: 3px solid #f7da9d; outline-offset: 5px; }
+.infortune button:disabled { cursor: default; }
+.infortune__stage { min-width: 0; position: relative; }
+.infortune__stage::before {
+  content: ""; position: absolute; inset: 10% 1% 0; border-radius: 50%;
+  background: radial-gradient(ellipse, #c791351c 0%, #8256980e 50%, transparent 70%);
+  pointer-events: none;
+}
+.infortune__stage-caption, .infortune__stage-footer { display: flex; align-items: center; justify-content: center; gap: 16px; }
+.infortune__stage-caption { color: #d3c1a6; font-size: 10px; font-weight: 600; letter-spacing: 0.2em; margin-bottom: 12px; }
+.infortune__stage-caption > span { width: 35px; height: 1px; background: #b6905550; }
+.infortune__stage-footer { color: var(--iw-muted); font-size: 11px; letter-spacing: 0.08em; margin-top: 16px; }
+.infortune__stage-footer i { width: 3px; height: 3px; background: var(--iw-gold); border-radius: 50%; }
+.infortune__wheel { display: block; width: 100%; height: auto; position: relative; touch-action: none; user-select: none; -webkit-user-select: none; cursor: grab; overflow: visible; }
+.infortune__wheel[data-motion="dragging"] { cursor: grabbing; }
+.infortune__wheel[data-motion="spinning"], .infortune__wheel[data-motion="finished"] { cursor: default; }
+.infortune__digit { font: 700 38px Georgia, "Times New Roman", serif; }
+.infortune__euro { font: 600 18px Georgia, "Times New Roman", serif; }
+.infortune__bonus-letter { font: 800 25px Georgia, "Times New Roman", serif; }
+.infortune__bankrupt-label { font: 700 15px "Arial Narrow", "Segoe UI", sans-serif; letter-spacing: 0.7px; }
+.infortune__hub-small { font: 600 9px "Segoe UI", sans-serif; letter-spacing: 2px; fill: #725235; }
+.infortune__hub-title { font: 700 25px Georgia, "Times New Roman", serif; fill: #2c3041; }
+.infortune__console { padding: 26px; border: 1px solid #cfac6f35; border-radius: 22px; background: linear-gradient(150deg, #1b2939e6, #111c2bd9); box-shadow: 0 18px 70px #0002; min-width: 0; }
+.infortune__console-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.infortune__eyebrow { color: var(--iw-gold); font-size: 10px; letter-spacing: 0.18em; font-weight: 700; }
+.infortune__sound { display: flex; align-items: center; gap: 6px; color: #c8c9cc; padding: 8px 0 8px 8px; border: 0; background: none; font-size: 11px !important; cursor: pointer; min-height: 36px; }
+.infortune__verdict { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 194px; margin-top: 14px; padding: 20px 4px; border-top: 1px solid #dfbf7c23; border-bottom: 1px solid #dfbf7c23; text-align: center; box-sizing: border-box; }
+.infortune__result-label { font-size: 9px; letter-spacing: 0.17em; color: #b8bbbd; }
+.infortune__result { font: 500 clamp(44px, 4.6vw, 68px)/1.25 Georgia, "Times New Roman", serif; color: #fce6b9; min-height: 82px; display: flex; align-items: center; gap: 10px; }
+.infortune__result small { font-size: 27px; color: #c8a673; }
+.infortune__result--word { font-size: clamp(26px, 2.5vw, 36px); }
+.infortune__verdict[data-kind="bankrupt"] .infortune__result { color: #e9e8ee; }
+.infortune__verdict[data-kind="bonus"] .infortune__result { color: #ffda79; }
+.infortune__waiting-mark { font-size: 53px; color: #b78c4c; }
+.infortune__result-note { font-size: 11px; color: var(--iw-muted); line-height: 1.5; }
+.infortune__instruction { font-size: 13px; line-height: 1.7; min-height: 45px; margin: 22px 0 12px; color: #e6dece; }
+.infortune__force-track { height: 6px; background: #060f1b; border-radius: 5px; position: relative; }
+.infortune__force-track > span { display: block; width: 100%; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #8fa88a, #edc580); transform: scaleX(0); transform-origin: left; }
+.infortune__force-track > i { position: absolute; top: -4px; width: 2px; height: 14px; background: #f0d7a4; }
+.infortune__force-labels { display: flex; justify-content: space-between; margin-top: 9px; color: #b1b9c2; font-size: 10px; }
+.infortune__launch { width: 100%; min-height: 50px; margin-top: 22px; border: 1px solid #ffe6ac; border-radius: 10px; background: linear-gradient(120deg, #f3d391, #deb171); box-shadow: 0 4px 0 #8d6337, 0 8px 18px #0002; color: #27232b; font-weight: 700 !important; font-size: 13px !important; cursor: pointer; touch-action: none; user-select: none; -webkit-user-select: none; }
+.infortune__launch:active, .infortune[data-phase="charging"] .infortune__launch { transform: translateY(2px); box-shadow: 0 2px 0 #8d6337; }
+.infortune__launch:disabled { background: #283644; border-color: #7f725d; color: #aaa89f; box-shadow: none; }
+.infortune__keyboard { text-align: center; color: #a4adb8; font-size: 10px; margin: 14px 0 18px; }
+.infortune__keyboard kbd { font: inherit; border: 1px solid #7c879350; border-radius: 3px; padding: 1px 4px; }
+.infortune__again { background: none; border: 1px solid #e0c09033; color: #ead9bd; width: 100%; padding: 12px 16px; min-height: 44px; border-radius: 9px; display: flex; justify-content: space-between; cursor: pointer; font-size: 12px !important; }
+.infortune__again:disabled { opacity: 0.4; }
+@media (max-width: 720px) {
+  .infortune { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+  .infortune__stage { max-width: 550px; width: 100%; margin-inline: auto; }
+  .infortune__stage-caption { font-size: 8px; gap: 8px; margin-bottom: 6px; }
+  .infortune__stage-footer { margin-top: 8px; font-size: 10px; }
+  .infortune__console { padding: 20px; }
+  .infortune__verdict { min-height: 148px; padding: 12px 4px; }
+  .infortune__result { min-height: 64px; font-size: 52px; }
+  .infortune__result--word { font-size: 34px; }
+  .infortune__instruction { margin-top: 18px; min-height: 0; }
+  .infortune__launch { margin-top: 18px; }
+}

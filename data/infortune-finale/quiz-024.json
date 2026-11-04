@@ -1,0 +1,646 @@
+{
+  "schemaVersion": 1,
+  "kind": "quiz",
+  "groups": [
+    {
+      "category": "Orthographe et ponctuation",
+      "puzzles": [
+        {
+          "id": "if-q2202",
+          "difficulty": 1,
+          "answer": "chevaux",
+          "clue": "Quel est le pluriel du nom cheval ?"
+        },
+        {
+          "id": "if-q2203",
+          "difficulty": 1,
+          "answer": "journaux",
+          "clue": "Quel est le pluriel du nom journal ?"
+        },
+        {
+          "id": "if-q2204",
+          "difficulty": 1,
+          "answer": "travaux",
+          "clue": "Quel pluriel usuel du nom travail désigne des ouvrages ou des tâches à exécuter ?"
+        },
+        {
+          "id": "if-q2205",
+          "difficulty": 1,
+          "answer": "vitraux",
+          "clue": "Quel est le pluriel du nom vitrail ?"
+        },
+        {
+          "id": "if-q2206",
+          "difficulty": 1,
+          "answer": "coraux",
+          "clue": "Quel pluriel du nom corail désigne les animaux et colonies qui forment certains récifs ?"
+        },
+        {
+          "id": "if-q2207",
+          "difficulty": 2,
+          "answer": "émaux",
+          "clue": "Quel pluriel du nom émail désigne notamment les matières vitrifiées des objets décoratifs ?"
+        },
+        {
+          "id": "if-q2208",
+          "difficulty": 2,
+          "answer": "baux",
+          "clue": "Quel est le pluriel du nom bail, pour les contrats de location ?"
+        },
+        {
+          "id": "if-q2209",
+          "difficulty": 2,
+          "answer": "soupiraux",
+          "clue": "Quel est le pluriel du nom soupirail ?"
+        },
+        {
+          "id": "if-q2210",
+          "difficulty": 2,
+          "answer": "vantaux",
+          "clue": "Quel est le pluriel du nom vantail, pour les parties mobiles d’une porte ?"
+        },
+        {
+          "id": "if-q2211",
+          "difficulty": 1,
+          "answer": "canaux",
+          "clue": "Quel est le pluriel du nom canal ?"
+        },
+        {
+          "id": "if-q2212",
+          "difficulty": 1,
+          "answer": "signaux",
+          "clue": "Quel est le pluriel du nom signal ?"
+        },
+        {
+          "id": "if-q2213",
+          "difficulty": 1,
+          "answer": "animaux",
+          "clue": "Quel est le pluriel du nom animal ?"
+        },
+        {
+          "id": "if-q2214",
+          "difficulty": 1,
+          "answer": "végétaux",
+          "clue": "Quel est le pluriel du nom végétal ?"
+        },
+        {
+          "id": "if-q2215",
+          "difficulty": 1,
+          "answer": "généraux",
+          "clue": "Quel est le pluriel du nom général, pour les officiers ?"
+        },
+        {
+          "id": "if-q2216",
+          "difficulty": 1,
+          "answer": "capitaux",
+          "clue": "Quel pluriel du nom capital désigne des sommes investies ?"
+        },
+        {
+          "id": "if-q2217",
+          "difficulty": 1,
+          "answer": "locaux",
+          "clue": "Quel pluriel du nom local désigne des pièces occupées par une activité ?"
+        },
+        {
+          "id": "if-q2218",
+          "difficulty": 1,
+          "answer": "bocaux",
+          "clue": "Quel est le pluriel du nom bocal ?"
+        },
+        {
+          "id": "if-q2219",
+          "difficulty": 2,
+          "answer": "chacals",
+          "clue": "Quel est le pluriel du nom chacal ?"
+        },
+        {
+          "id": "if-q2220",
+          "difficulty": 1,
+          "answer": "festivals",
+          "clue": "Quel est le pluriel du nom festival ?"
+        },
+        {
+          "id": "if-q2221",
+          "difficulty": 1,
+          "answer": "carnavals",
+          "clue": "Quel est le pluriel du nom carnaval ?"
+        }
+      ]
+    },
+    {
+      "category": "Orthographe et ponctuation",
+      "puzzles": [
+        {
+          "id": "if-q2222",
+          "difficulty": 1,
+          "answer": "choux",
+          "clue": "Quel est le pluriel du nom chou ?"
+        },
+        {
+          "id": "if-q2223",
+          "difficulty": 1,
+          "answer": "bijoux",
+          "clue": "Quel est le pluriel du nom bijou ?"
+        },
+        {
+          "id": "if-q2224",
+          "difficulty": 1,
+          "answer": "cailloux",
+          "clue": "Quel est le pluriel du nom caillou ?"
+        },
+        {
+          "id": "if-q2225",
+          "difficulty": 1,
+          "answer": "genoux",
+          "clue": "Quel est le pluriel du nom genou ?"
+        },
+        {
+          "id": "if-q2226",
+          "difficulty": 1,
+          "answer": "hiboux",
+          "clue": "Quel est le pluriel du nom hibou ?"
+        },
+        {
+          "id": "if-q2227",
+          "difficulty": 1,
+          "answer": "joujoux",
+          "clue": "Quel est le pluriel du nom joujou ?"
+        },
+        {
+          "id": "if-q2228",
+          "difficulty": 1,
+          "answer": "poux",
+          "clue": "Quel est le pluriel du nom pou, pour les insectes parasites ?"
+        },
+        {
+          "id": "if-q2229",
+          "difficulty": 1,
+          "answer": "clous",
+          "clue": "Quel est le pluriel du nom clou ?"
+        },
+        {
+          "id": "if-q2230",
+          "difficulty": 1,
+          "answer": "trous",
+          "clue": "Quel est le pluriel du nom trou ?"
+        },
+        {
+          "id": "if-q2231",
+          "difficulty": 1,
+          "answer": "verrous",
+          "clue": "Quel est le pluriel du nom verrou ?"
+        },
+        {
+          "id": "if-q2232",
+          "difficulty": 2,
+          "answer": "landaus",
+          "clue": "Quel est le pluriel du nom landau ?"
+        },
+        {
+          "id": "if-q2233",
+          "difficulty": 1,
+          "answer": "pneus",
+          "clue": "Quel est le pluriel du nom pneu ?"
+        },
+        {
+          "id": "if-q2234",
+          "difficulty": 1,
+          "answer": "bleus",
+          "clue": "Quel pluriel du nom bleu désigne les marques laissées par des chocs sur la peau ?"
+        },
+        {
+          "id": "if-q2235",
+          "difficulty": 1,
+          "answer": "jeux",
+          "clue": "Quel est le pluriel du nom jeu ?"
+        },
+        {
+          "id": "if-q2236",
+          "difficulty": 1,
+          "answer": "lieux",
+          "clue": "Quel pluriel du nom lieu désigne des endroits ?"
+        },
+        {
+          "id": "if-q2237",
+          "difficulty": 2,
+          "answer": "lieus",
+          "clue": "Quel pluriel du nom lieu désigne les poissons ?"
+        },
+        {
+          "id": "if-q2238",
+          "difficulty": 2,
+          "answer": "cieux",
+          "clue": "Quel pluriel du nom ciel peut évoquer les régions célestes dans un registre littéraire ?"
+        },
+        {
+          "id": "if-q2239",
+          "difficulty": 1,
+          "answer": "yeux",
+          "clue": "Quel pluriel irrégulier du nom œil désigne les organes de la vue ?"
+        },
+        {
+          "id": "if-q2240",
+          "difficulty": 2,
+          "answer": "aïeux",
+          "clue": "Quel pluriel du nom aïeul désigne les ancêtres ?"
+        },
+        {
+          "id": "if-q2241",
+          "difficulty": 1,
+          "answer": "messieurs",
+          "clue": "Quel est le pluriel du mot monsieur ?"
+        }
+      ]
+    },
+    {
+      "category": "Langue française",
+      "puzzles": [
+        {
+          "id": "if-q2242",
+          "difficulty": 1,
+          "answer": "blanche",
+          "clue": "Quel est le féminin de l’adjectif blanc ?"
+        },
+        {
+          "id": "if-q2243",
+          "difficulty": 1,
+          "answer": "fraîche",
+          "clue": "Quel est le féminin de l’adjectif frais ?",
+          "acceptedAnswers": [
+            "fraiche"
+          ]
+        },
+        {
+          "id": "if-q2244",
+          "difficulty": 1,
+          "answer": "sèche",
+          "clue": "Quel est le féminin de l’adjectif sec ?"
+        },
+        {
+          "id": "if-q2245",
+          "difficulty": 1,
+          "answer": "longue",
+          "clue": "Quel est le féminin de l’adjectif long ?"
+        },
+        {
+          "id": "if-q2246",
+          "difficulty": 1,
+          "answer": "douce",
+          "clue": "Quel est le féminin de l’adjectif doux ?"
+        },
+        {
+          "id": "if-q2247",
+          "difficulty": 1,
+          "answer": "fausse",
+          "clue": "Quel est le féminin de l’adjectif faux ?"
+        },
+        {
+          "id": "if-q2248",
+          "difficulty": 1,
+          "answer": "rousse",
+          "clue": "Quel est le féminin de l’adjectif roux ?"
+        },
+        {
+          "id": "if-q2249",
+          "difficulty": 1,
+          "answer": "grecque",
+          "clue": "Quel est le féminin de l’adjectif grec ?"
+        },
+        {
+          "id": "if-q2250",
+          "difficulty": 1,
+          "answer": "turque",
+          "clue": "Quel est le féminin de l’adjectif turc ?"
+        },
+        {
+          "id": "if-q2251",
+          "difficulty": 1,
+          "answer": "publique",
+          "clue": "Quel est le féminin de l’adjectif public ?"
+        },
+        {
+          "id": "if-q2252",
+          "difficulty": 1,
+          "answer": "favorite",
+          "clue": "Quel est le féminin de l’adjectif favori ?"
+        },
+        {
+          "id": "if-q2253",
+          "difficulty": 1,
+          "answer": "naïve",
+          "clue": "Quel est le féminin de l’adjectif naïf ?"
+        },
+        {
+          "id": "if-q2254",
+          "difficulty": 1,
+          "answer": "vive",
+          "clue": "Quel est le féminin de l’adjectif vif ?"
+        },
+        {
+          "id": "if-q2255",
+          "difficulty": 1,
+          "answer": "neuve",
+          "clue": "Quel est le féminin de l’adjectif neuf ?"
+        },
+        {
+          "id": "if-q2256",
+          "difficulty": 1,
+          "answer": "veuve",
+          "clue": "Quel nom féminin correspond au nom veuf ?"
+        },
+        {
+          "id": "if-q2257",
+          "difficulty": 1,
+          "answer": "vieille",
+          "clue": "Quel est le féminin de l’adjectif vieux ?"
+        },
+        {
+          "id": "if-q2258",
+          "difficulty": 1,
+          "answer": "molle",
+          "clue": "Quel est le féminin de l’adjectif mou ?"
+        },
+        {
+          "id": "if-q2259",
+          "difficulty": 1,
+          "answer": "folle",
+          "clue": "Quel est le féminin de l’adjectif fou ?"
+        },
+        {
+          "id": "if-q2260",
+          "difficulty": 1,
+          "answer": "belle",
+          "clue": "Quel est le féminin de l’adjectif beau ?"
+        },
+        {
+          "id": "if-q2261",
+          "difficulty": 1,
+          "answer": "nouvelle",
+          "clue": "Quel est le féminin de l’adjectif nouveau ?"
+        }
+      ]
+    },
+    {
+      "category": "Langue française",
+      "puzzles": [
+        {
+          "id": "if-q2262",
+          "difficulty": 1,
+          "answer": "protectrice",
+          "clue": "Quel nom féminin correspond au nom protecteur ?"
+        },
+        {
+          "id": "if-q2263",
+          "difficulty": 1,
+          "answer": "directrice",
+          "clue": "Quel nom féminin correspond au nom directeur ?"
+        },
+        {
+          "id": "if-q2264",
+          "difficulty": 1,
+          "answer": "lectrice",
+          "clue": "Quel nom féminin correspond au nom lecteur ?"
+        },
+        {
+          "id": "if-q2265",
+          "difficulty": 1,
+          "answer": "actrice",
+          "clue": "Quel nom féminin correspond au nom acteur ?"
+        },
+        {
+          "id": "if-q2266",
+          "difficulty": 1,
+          "answer": "traductrice",
+          "clue": "Quel nom féminin correspond au nom traducteur ?"
+        },
+        {
+          "id": "if-q2267",
+          "difficulty": 1,
+          "answer": "conductrice",
+          "clue": "Quel nom féminin correspond au nom conducteur ?"
+        },
+        {
+          "id": "if-q2268",
+          "difficulty": 1,
+          "answer": "créatrice",
+          "clue": "Quel nom féminin correspond au nom créateur ?"
+        },
+        {
+          "id": "if-q2269",
+          "difficulty": 1,
+          "answer": "inspectrice",
+          "clue": "Quel nom féminin correspond au nom inspecteur ?"
+        },
+        {
+          "id": "if-q2270",
+          "difficulty": 1,
+          "answer": "institutrice",
+          "clue": "Quel nom féminin correspond au nom instituteur ?"
+        },
+        {
+          "id": "if-q2271",
+          "difficulty": 1,
+          "answer": "agricultrice",
+          "clue": "Quel nom féminin correspond au nom agriculteur ?"
+        },
+        {
+          "id": "if-q2272",
+          "difficulty": 1,
+          "answer": "éditrice",
+          "clue": "Quel nom féminin correspond au nom éditeur ?"
+        },
+        {
+          "id": "if-q2273",
+          "difficulty": 1,
+          "answer": "productrice",
+          "clue": "Quel nom féminin correspond au nom producteur ?"
+        },
+        {
+          "id": "if-q2274",
+          "difficulty": 1,
+          "answer": "auditrice",
+          "clue": "Quel nom féminin correspond au nom auditeur ?"
+        },
+        {
+          "id": "if-q2275",
+          "difficulty": 1,
+          "answer": "spectatrice",
+          "clue": "Quel nom féminin correspond au nom spectateur ?"
+        },
+        {
+          "id": "if-q2276",
+          "difficulty": 1,
+          "answer": "animatrice",
+          "clue": "Quel nom féminin correspond au nom animateur ?"
+        },
+        {
+          "id": "if-q2277",
+          "difficulty": 1,
+          "answer": "formatrice",
+          "clue": "Quel nom féminin correspond au nom formateur ?"
+        },
+        {
+          "id": "if-q2278",
+          "difficulty": 2,
+          "answer": "médiatrice",
+          "clue": "Quel nom féminin correspond au nom médiateur ?"
+        },
+        {
+          "id": "if-q2279",
+          "difficulty": 1,
+          "answer": "fondatrice",
+          "clue": "Quel nom féminin correspond au nom fondateur ?"
+        },
+        {
+          "id": "if-q2280",
+          "difficulty": 1,
+          "answer": "admiratrice",
+          "clue": "Quel nom féminin correspond au nom admirateur ?"
+        },
+        {
+          "id": "if-q2281",
+          "difficulty": 1,
+          "answer": "exploratrice",
+          "clue": "Quel nom féminin correspond au nom explorateur ?"
+        }
+      ]
+    },
+    {
+      "category": "Langue française",
+      "puzzles": [
+        {
+          "id": "if-q2282",
+          "difficulty": 2,
+          "answer": "antérieur",
+          "clue": "Quel adjectif signifie qui se situe avant une date ou un événement de référence ?"
+        },
+        {
+          "id": "if-q2283",
+          "difficulty": 2,
+          "answer": "postérieur",
+          "clue": "Quel adjectif signifie qui se situe après une date ou un événement de référence ?"
+        },
+        {
+          "id": "if-q2284",
+          "difficulty": 2,
+          "answer": "simultané",
+          "clue": "Quel adjectif qualifie deux événements qui se produisent au même moment ?"
+        },
+        {
+          "id": "if-q2285",
+          "difficulty": 2,
+          "answer": "consécutif",
+          "clue": "Quel adjectif qualifie des événements qui se suivent immédiatement dans le temps ?"
+        },
+        {
+          "id": "if-q2286",
+          "difficulty": 2,
+          "answer": "préalable",
+          "clue": "Quel adjectif qualifie une condition qui doit être remplie avant de commencer ?"
+        },
+        {
+          "id": "if-q2287",
+          "difficulty": 1,
+          "answer": "provisoire",
+          "clue": "Quel adjectif qualifie une mesure destinée à durer seulement en attendant mieux ?"
+        },
+        {
+          "id": "if-q2288",
+          "difficulty": 1,
+          "answer": "définitif",
+          "clue": "Quel adjectif qualifie une décision considérée comme fixée une fois pour toutes ?"
+        },
+        {
+          "id": "if-q2289",
+          "difficulty": 1,
+          "answer": "temporaire",
+          "clue": "Quel adjectif qualifie un emploi prévu pour une durée limitée ?"
+        },
+        {
+          "id": "if-q2290",
+          "difficulty": 1,
+          "answer": "permanent",
+          "clue": "Quel adjectif qualifie une présence qui se maintient sans interruption habituelle ?"
+        },
+        {
+          "id": "if-q2291",
+          "difficulty": 2,
+          "answer": "ponctuel",
+          "clue": "Quel adjectif qualifie une intervention limitée à un cas ou à un moment précis ?"
+        },
+        {
+          "id": "if-q2292",
+          "difficulty": 1,
+          "answer": "régulier",
+          "clue": "Quel adjectif qualifie un phénomène qui revient selon un rythme stable ?"
+        },
+        {
+          "id": "if-q2293",
+          "difficulty": 1,
+          "answer": "occasionnel",
+          "clue": "Quel adjectif qualifie une activité pratiquée seulement de temps à autre ?"
+        },
+        {
+          "id": "if-q2294",
+          "difficulty": 1,
+          "answer": "printanier",
+          "clue": "Quel adjectif signifie qui appartient au printemps ?",
+          "acceptedAnswers": [
+            "printanière"
+          ]
+        },
+        {
+          "id": "if-q2295",
+          "difficulty": 1,
+          "answer": "estival",
+          "clue": "Quel adjectif signifie qui se rapporte à l’été ?",
+          "acceptedAnswers": [
+            "estivale"
+          ]
+        },
+        {
+          "id": "if-q2296",
+          "difficulty": 1,
+          "answer": "automnal",
+          "clue": "Quel adjectif signifie qui se rapporte à l’automne ?",
+          "acceptedAnswers": [
+            "automnale"
+          ]
+        },
+        {
+          "id": "if-q2297",
+          "difficulty": 2,
+          "answer": "bimestriel",
+          "clue": "Quel adjectif qualifie une publication qui paraît tous les deux mois ?"
+        },
+        {
+          "id": "if-q2298",
+          "difficulty": 1,
+          "answer": "hivernal",
+          "clue": "Quel adjectif signifie qui se rapporte à l’hiver ?",
+          "acceptedAnswers": [
+            "hivernale"
+          ]
+        },
+        {
+          "id": "if-q2299",
+          "difficulty": 2,
+          "answer": "semestriel",
+          "clue": "Quel adjectif qualifie ce qui revient tous les six mois ?"
+        },
+        {
+          "id": "if-q2300",
+          "difficulty": 1,
+          "answer": "annuel",
+          "clue": "Quel adjectif qualifie ce qui revient chaque année ?"
+        },
+        {
+          "id": "if-q2301",
+          "difficulty": 2,
+          "answer": "biennal",
+          "clue": "Quel adjectif qualifie un événement qui revient tous les deux ans ?"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,46 @@
+:root { font-family: Inter, "Segoe UI", sans-serif; color: #edf2f9; background: #070d18; color-scheme: dark; }
+body { margin: 0; min-width: 320px; background: radial-gradient(ellipse at 24% 28%, #0f345331, transparent 54%), radial-gradient(ellipse at 86% 10%, #5c422b1f, transparent 36%), #070d18; }
+.finale-workshop { max-width: 1440px; padding: 0 40px 30px; margin: auto; }
+.finale-workshop a { color: inherit; }
+.finale-workshop__nav { min-height: 88px; display: flex; flex-wrap: wrap; align-items: center; gap: 24px; border-bottom: 1px solid #263347; }
+.finale-workshop__brand { font-size: 29px; font-weight: 900; letter-spacing: -.065em; text-decoration: none; }
+.finale-workshop__brand span { color: #d7b477; margin-left: 2px; }
+.finale-workshop__nav > span { font-size: 10px; letter-spacing: .18em; color: #91a1b6; }
+.finale-workshop__nav > div { margin-left: auto; display: flex; gap: 22px; }
+.finale-workshop__nav > div a { font-size: 12px; color: #b4c1d4; text-decoration: none; }
+.finale-workshop__notice { color: #a9987c; font-size: 11px; margin: 20px 0 30px; }
+.finale-workshop__layout { display: grid; grid-template-columns: minmax(0, 1fr) 270px; gap: 40px; align-items: start; }
+.finale-workshop-controls { font-size: 12px; padding: 22px; border: 1px solid #273446; border-radius: 14px; background: #0e1725; }
+.finale-workshop-controls * { box-sizing: border-box; }
+.finale-workshop-controls h2 { font-size: 15px; margin: 0 0 24px; }
+.finale-workshop-controls label { display: block; margin-bottom: 8px; color: #b8c3d4; font-size: 11px; line-height: 1.6; }
+.finale-workshop-controls select, .finale-workshop-controls input[type="number"] { width: 100%; min-height: 38px; font: inherit; color: #e2e9f3; border: 1px solid #35465e; border-radius: 5px; padding: 8px; background: #070e18; }
+.finale-workshop-controls select { font-size: 11px; }
+.finale-workshop-controls input[type="number"] { display: block; margin-top: 7px; }
+.finale-workshop-controls input[type="range"] { width: 100%; accent-color: #d3b375; margin: 4px 0 22px; }
+.finale-workshop-controls output { float: right; color: #f1d7a0; font-weight: 700; }
+.finale-workshop-controls button { width: 100%; min-height: 42px; padding: 10px; margin: 10px 0; border: 1px solid #66738a; border-radius: 5px; font: inherit; background: #1b2a40; color: #f1e5ce; cursor: pointer; }
+.finale-workshop-controls button:hover { background: #263b55; }
+.finale-workshop-controls form { margin-top: 24px; padding-top: 22px; border-top: 1px solid #2b3749; }
+.finale-workshop-controls__prices { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.finale-workshop-controls p { color: #8d9eb4; font-size: 11px; line-height: 1.7; }
+.finale-workshop-controls__review { margin-top: 22px; padding-top: 22px; border-top: 1px solid #2b3749; }
+.finale-workshop-controls__review summary { cursor: pointer; color: #d7c8a9; line-height: 1.6; }
+.finale-workshop-controls__review blockquote { margin: 14px 0; line-height: 1.8; color: #dee8f6; }
+.finale-workshop-controls__review .finale-workshop-controls__draft { color: #e7bc73; }
+.finale-workshop-controls__review a { font-size: 11px; }
+.finale-workshop__error { color: #ffa697; font-size: 12px; line-height: 1.7; }
+.finale-workshop__footer { margin-top: 50px; padding-top: 20px; border-top: 1px solid #263347; color: #8594aa; font-size: 11px; text-align: center; }
+@media (max-width: 1050px) {
+  .finale-workshop { padding: 0 24px 24px; }
+  .finale-workshop__layout { grid-template-columns: 1fr; gap: 32px; }
+  .finale-workshop-controls { max-width: 600px; margin: auto; }
+}
+@media (max-width: 650px) {
+  .finale-workshop { padding: 0 max(12px, env(safe-area-inset-left)) max(24px, env(safe-area-inset-bottom)); }
+  .finale-workshop__nav { min-height: 72px; gap: 12px; padding: 10px 0; }
+  .finale-workshop__nav > span { font-size: 8px; letter-spacing: .08em; }
+  .finale-workshop__nav > div { flex-direction: column; gap: 8px; text-align: right; }
+  .finale-workshop__nav > div a { font-size: 10px; }
+  .finale-workshop__notice { font-size: 10px; }
+}

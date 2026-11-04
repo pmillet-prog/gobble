@@ -41,3 +41,12 @@ test("OCID results retain their direct route without an outro", () => {
   handler(payload);
   assert.deepEqual(calls, [payload]);
 });
+
+test("this release ignores an unfinished wheel even if an older server advertises it", () => {
+  let received;
+  const handler = createRoundEndedHandler({ shouldHandleLiveRoundSocketEvents: () => true,
+    phaseRef: { current: "playing" }, processRoundEndedRef: { current: value => { received = value; } },
+    playOutroThenResultsRef: { current: () => assert.fail("This release must not enter the wheel intermission") } });
+  const value = { roomId: "room", roundId: "round", targetSummary: { ocid: true }, infortune: { enabled: true } };
+  handler(value); assert.equal(received, value);
+});

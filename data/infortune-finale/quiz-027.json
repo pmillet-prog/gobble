@@ -1,0 +1,641 @@
+{
+  "schemaVersion": 1,
+  "kind": "quiz",
+  "groups": [
+    {
+      "category": "Pays du monde",
+      "puzzles": [
+        {
+          "id": "if-q2502",
+          "difficulty": 1,
+          "answer": "Japon",
+          "clue": "Quel pays asiatique est représenté par un disque rouge au centre d’un drapeau blanc ?"
+        },
+        {
+          "id": "if-q2503",
+          "difficulty": 1,
+          "answer": "Brésil",
+          "clue": "Quel pays sud-américain possède un drapeau vert portant un losange jaune et un globe bleu ?"
+        },
+        {
+          "id": "if-q2504",
+          "difficulty": 1,
+          "answer": "Allemagne",
+          "clue": "Quel pays européen a pour drapeau trois bandes horizontales noire, rouge et or ?"
+        },
+        {
+          "id": "if-q2505",
+          "difficulty": 1,
+          "answer": "Italie",
+          "clue": "Quel pays européen a pour drapeau trois bandes verticales verte, blanche et rouge ?"
+        },
+        {
+          "id": "if-q2506",
+          "difficulty": 1,
+          "answer": "Belgique",
+          "clue": "Quel pays voisin de la France possède un drapeau à bandes verticales noire, jaune et rouge ?"
+        },
+        {
+          "id": "if-q2507",
+          "difficulty": 1,
+          "answer": "Irlande",
+          "clue": "Quel pays a un drapeau à bandes verticales verte, blanche et orange, avec le vert du côté de la hampe ?"
+        },
+        {
+          "id": "if-q2508",
+          "difficulty": 1,
+          "answer": "Grèce",
+          "clue": "Quel pays méditerranéen possède un drapeau rayé de bleu et de blanc, avec une croix blanche dans un canton bleu ?"
+        },
+        {
+          "id": "if-q2509",
+          "difficulty": 1,
+          "answer": "Danemark",
+          "clue": "Quel pays scandinave possède un drapeau rouge traversé d’une croix blanche décalée vers la hampe ?"
+        },
+        {
+          "id": "if-q2510",
+          "difficulty": 1,
+          "answer": "Norvège",
+          "clue": "Quel pays scandinave possède un drapeau rouge avec une croix bleue bordée de blanc ?"
+        },
+        {
+          "id": "if-q2511",
+          "difficulty": 1,
+          "answer": "Finlande",
+          "clue": "Quel pays nordique a un drapeau blanc traversé d’une croix bleue ?"
+        },
+        {
+          "id": "if-q2512",
+          "difficulty": 1,
+          "answer": "Pologne",
+          "clue": "Quel pays européen a un drapeau formé de deux bandes horizontales, blanche au-dessus de rouge ?"
+        },
+        {
+          "id": "if-q2513",
+          "difficulty": 1,
+          "answer": "Autriche",
+          "clue": "Quel pays alpin possède un drapeau à trois bandes horizontales rouge, blanche et rouge ?"
+        },
+        {
+          "id": "if-q2514",
+          "difficulty": 1,
+          "answer": "Portugal",
+          "clue": "Quel pays de la péninsule Ibérique possède un drapeau vert et rouge portant ses armoiries ?"
+        },
+        {
+          "id": "if-q2515",
+          "difficulty": 1,
+          "answer": "Turquie",
+          "clue": "Quel pays possède un drapeau rouge orné d’un croissant et d’une étoile blancs ?"
+        },
+        {
+          "id": "if-q2516",
+          "difficulty": 1,
+          "answer": "Tunisie",
+          "clue": "Quel pays du Maghreb a un drapeau rouge portant un disque blanc avec un croissant et une étoile rouges ?"
+        },
+        {
+          "id": "if-q2517",
+          "difficulty": 1,
+          "answer": "Algérie",
+          "clue": "Quel pays du Maghreb a un drapeau partagé entre vert et blanc, avec un croissant et une étoile rouges ?"
+        },
+        {
+          "id": "if-q2518",
+          "difficulty": 1,
+          "answer": "Sénégal",
+          "clue": "Quel pays d’Afrique de l’Ouest possède un drapeau vert, jaune et rouge avec une étoile verte au centre ?"
+        },
+        {
+          "id": "if-q2519",
+          "difficulty": 2,
+          "answer": "Ghana",
+          "clue": "Quel pays d’Afrique de l’Ouest a un drapeau rouge, jaune et vert à bandes horizontales et une étoile noire ?"
+        },
+        {
+          "id": "if-q2520",
+          "difficulty": 1,
+          "answer": "Népal",
+          "clue": "Quel pays himalayen possède un drapeau national constitué de deux triangles superposés ?"
+        },
+        {
+          "id": "if-q2521",
+          "difficulty": 2,
+          "answer": "Bhoutan",
+          "clue": "Quel pays de l’Himalaya porte un dragon blanc sur un drapeau jaune et orange ?"
+        }
+      ]
+    },
+    {
+      "category": "Pays du monde",
+      "puzzles": [
+        {
+          "id": "if-q2522",
+          "difficulty": 1,
+          "answer": "Cambodge",
+          "clue": "Quel pays d’Asie du Sud-Est représente le temple d’Angkor Vat sur son drapeau ?"
+        },
+        {
+          "id": "if-q2523",
+          "difficulty": 1,
+          "answer": "Mexique",
+          "clue": "Quel pays représente sur son drapeau un aigle tenant un serpent, posé sur un cactus ?"
+        },
+        {
+          "id": "if-q2524",
+          "difficulty": 1,
+          "answer": "Argentine",
+          "clue": "Quel pays sud-américain a un drapeau bleu clair et blanc portant un soleil au centre ?"
+        },
+        {
+          "id": "if-q2525",
+          "difficulty": 2,
+          "answer": "Uruguay",
+          "clue": "Quel pays situé entre le Brésil et l’Argentine a un drapeau à bandes blanches et bleues avec un soleil dans le coin ?"
+        },
+        {
+          "id": "if-q2526",
+          "difficulty": 1,
+          "answer": "Jamaïque",
+          "clue": "Quel pays des Caraïbes possède un drapeau partagé en triangles verts et noirs par une croix jaune en diagonale ?"
+        },
+        {
+          "id": "if-q2527",
+          "difficulty": 1,
+          "answer": "Cuba",
+          "clue": "Quel pays des Caraïbes porte une étoile blanche dans un triangle rouge, à côté de bandes bleues et blanches ?"
+        },
+        {
+          "id": "if-q2528",
+          "difficulty": 1,
+          "answer": "Chili",
+          "clue": "Quel pays d’Amérique du Sud porte une étoile blanche dans un canton bleu, au-dessus d’une large bande rouge ?"
+        },
+        {
+          "id": "if-q2529",
+          "difficulty": 1,
+          "answer": "Pérou",
+          "clue": "Quel pays andin a un drapeau civil à trois bandes verticales rouge, blanche et rouge ?"
+        },
+        {
+          "id": "if-q2530",
+          "difficulty": 1,
+          "answer": "Chine",
+          "clue": "Quel pays asiatique possède un drapeau rouge orné d’une grande étoile jaune accompagnée de quatre petites ?"
+        },
+        {
+          "id": "if-q2531",
+          "difficulty": 1,
+          "answer": "Vietnam",
+          "clue": "Quel pays d’Asie du Sud-Est a un drapeau rouge portant une grande étoile jaune à cinq branches ?"
+        },
+        {
+          "id": "if-q2532",
+          "difficulty": 2,
+          "answer": "Bangladesh",
+          "clue": "Quel pays voisin de l’Inde a un drapeau vert portant un disque rouge légèrement décentré ?"
+        },
+        {
+          "id": "if-q2533",
+          "difficulty": 1,
+          "answer": "Pakistan",
+          "clue": "Quel pays d’Asie a un drapeau vert portant un croissant et une étoile blancs, avec une bande blanche à la hampe ?"
+        },
+        {
+          "id": "if-q2534",
+          "difficulty": 1,
+          "answer": "Israël",
+          "clue": "Quel pays a un drapeau blanc avec deux bandes bleues et une étoile de David bleue au milieu ?"
+        },
+        {
+          "id": "if-q2535",
+          "difficulty": 1,
+          "answer": "Liban",
+          "clue": "Quel pays méditerranéen place un cèdre vert au centre de son drapeau rouge et blanc ?"
+        },
+        {
+          "id": "if-q2536",
+          "difficulty": 2,
+          "answer": "Botswana",
+          "clue": "Quel pays africain a un drapeau bleu clair traversé par une bande noire bordée de blanc ?"
+        },
+        {
+          "id": "if-q2537",
+          "difficulty": 1,
+          "answer": "Kenya",
+          "clue": "Quel pays d’Afrique de l’Est place un bouclier masaï et deux lances sur son drapeau ?"
+        },
+        {
+          "id": "if-q2538",
+          "difficulty": 2,
+          "answer": "Ouganda",
+          "clue": "Quel pays d’Afrique de l’Est représente une grue couronnée dans le disque blanc de son drapeau ?"
+        },
+        {
+          "id": "if-q2539",
+          "difficulty": 2,
+          "answer": "Albanie",
+          "clue": "Quel pays des Balkans possède un drapeau rouge orné d’un aigle noir à deux têtes ?"
+        },
+        {
+          "id": "if-q2540",
+          "difficulty": 1,
+          "answer": "Ukraine",
+          "clue": "Quel pays européen a un drapeau formé d’une bande bleue au-dessus d’une bande jaune ?"
+        },
+        {
+          "id": "if-q2541",
+          "difficulty": 2,
+          "answer": "Estonie",
+          "clue": "Quel pays balte possède un drapeau à bandes horizontales bleue, noire et blanche ?"
+        }
+      ]
+    },
+    {
+      "category": "Villes et capitales",
+      "puzzles": [
+        {
+          "id": "if-q2542",
+          "difficulty": 1,
+          "answer": "Paris",
+          "clue": "Dans quelle ville française se trouve le cimetière du Père-Lachaise ?"
+        },
+        {
+          "id": "if-q2543",
+          "difficulty": 1,
+          "answer": "Lyon",
+          "clue": "Dans quelle ville française se trouve la basilique de Fourvière ?"
+        },
+        {
+          "id": "if-q2544",
+          "difficulty": 2,
+          "answer": "Agen",
+          "clue": "Quelle ville est la préfecture du département de Lot-et-Garonne ?"
+        },
+        {
+          "id": "if-q2545",
+          "difficulty": 1,
+          "answer": "Toulouse",
+          "clue": "Dans quelle ville française peut-on visiter la Cité de l’espace ?"
+        },
+        {
+          "id": "if-q2546",
+          "difficulty": 2,
+          "answer": "Albi",
+          "clue": "Quelle ville est la préfecture du Tarn ?"
+        },
+        {
+          "id": "if-q2547",
+          "difficulty": 2,
+          "answer": "Auch",
+          "clue": "Quelle ville est la préfecture du Gers ?"
+        },
+        {
+          "id": "if-q2548",
+          "difficulty": 1,
+          "answer": "Lille",
+          "clue": "Quelle ville du nord de la France possède la Grand-Place et la Vieille Bourse ?"
+        },
+        {
+          "id": "if-q2549",
+          "difficulty": 2,
+          "answer": "Mende",
+          "clue": "Quelle ville est la préfecture de la Lozère ?"
+        },
+        {
+          "id": "if-q2550",
+          "difficulty": 2,
+          "answer": "Tarbes",
+          "clue": "Quelle ville est la préfecture des Hautes-Pyrénées ?"
+        },
+        {
+          "id": "if-q2551",
+          "difficulty": 1,
+          "answer": "Rouen",
+          "clue": "Dans quelle ville normande se trouve le monument appelé Gros-Horloge ?"
+        },
+        {
+          "id": "if-q2552",
+          "difficulty": 2,
+          "answer": "Gap",
+          "clue": "Quelle ville est la préfecture des Hautes-Alpes ?"
+        },
+        {
+          "id": "if-q2553",
+          "difficulty": 2,
+          "answer": "Reims",
+          "clue": "Dans quelle ville de Champagne se trouve le palais du Tau ?"
+        },
+        {
+          "id": "if-q2554",
+          "difficulty": 2,
+          "answer": "Privas",
+          "clue": "Quelle ville est la préfecture de l’Ardèche ?"
+        },
+        {
+          "id": "if-q2555",
+          "difficulty": 1,
+          "answer": "Orléans",
+          "clue": "Quelle ville a été libérée du siège anglais par Jeanne d’Arc au quinzième siècle ?"
+        },
+        {
+          "id": "if-q2556",
+          "difficulty": 2,
+          "answer": "Foix",
+          "clue": "Quelle ville est la préfecture de l’Ariège ?"
+        },
+        {
+          "id": "if-q2557",
+          "difficulty": 2,
+          "answer": "Guéret",
+          "clue": "Quelle ville est la préfecture de la Creuse ?"
+        },
+        {
+          "id": "if-q2558",
+          "difficulty": 1,
+          "answer": "Arles",
+          "clue": "Quelle ville provençale possède des arènes romaines et un théâtre antique, près du Rhône ?"
+        },
+        {
+          "id": "if-q2559",
+          "difficulty": 2,
+          "answer": "Nîmes",
+          "clue": "Dans quelle ville du Gard peut-on se promener dans les jardins de la Fontaine ?"
+        },
+        {
+          "id": "if-q2560",
+          "difficulty": 1,
+          "answer": "Besançon",
+          "clue": "Quelle ville du Doubs s’est développée dans une boucle de la rivière du même nom ?"
+        },
+        {
+          "id": "if-q2561",
+          "difficulty": 2,
+          "answer": "Aurillac",
+          "clue": "Quelle ville est la préfecture du Cantal ?"
+        }
+      ]
+    },
+    {
+      "category": "Géographie",
+      "puzzles": [
+        {
+          "id": "if-q2562",
+          "difficulty": 2,
+          "answer": "Tulle",
+          "clue": "Quelle ville est la préfecture de la Corrèze ?",
+          "category": "Villes et capitales"
+        },
+        {
+          "id": "if-q2563",
+          "difficulty": 2,
+          "answer": "Vesoul",
+          "clue": "Quelle ville est la préfecture de la Haute-Saône ?",
+          "category": "Villes et capitales"
+        },
+        {
+          "id": "if-q2564",
+          "difficulty": 2,
+          "answer": "Chaumont",
+          "clue": "Quelle ville est la préfecture de la Haute-Marne ?",
+          "category": "Villes et capitales"
+        },
+        {
+          "id": "if-q2565",
+          "difficulty": 1,
+          "answer": "Pyrénées",
+          "clue": "Quelle chaîne de montagnes est traversée par le col du Tourmalet ?"
+        },
+        {
+          "id": "if-q2566",
+          "difficulty": 1,
+          "answer": "Alpes",
+          "clue": "Dans quelle chaîne montagneuse se trouvent les massifs de la Vanoise et des Écrins ?"
+        },
+        {
+          "id": "if-q2567",
+          "difficulty": 2,
+          "answer": "Nevers",
+          "clue": "Quelle ville est la préfecture de la Nièvre ?",
+          "category": "Villes et capitales"
+        },
+        {
+          "id": "if-q2568",
+          "difficulty": 1,
+          "answer": "Corse",
+          "clue": "Sur quelle île française se trouve le sommet appelé Monte Cinto ?"
+        },
+        {
+          "id": "if-q2569",
+          "difficulty": 2,
+          "answer": "Moulins",
+          "clue": "Quelle ville est la préfecture de l’Allier ?",
+          "category": "Villes et capitales"
+        },
+        {
+          "id": "if-q2570",
+          "difficulty": 2,
+          "answer": "Melun",
+          "clue": "Quelle ville est la préfecture de Seine-et-Marne ?",
+          "category": "Villes et capitales"
+        },
+        {
+          "id": "if-q2571",
+          "difficulty": 2,
+          "answer": "Pau",
+          "clue": "Quelle ville est la préfecture des Pyrénées-Atlantiques ?",
+          "category": "Villes et capitales"
+        },
+        {
+          "id": "if-q2572",
+          "difficulty": 2,
+          "answer": "Brenne",
+          "clue": "Quelle région naturelle de l’Indre est surnommée le pays des mille étangs ?"
+        },
+        {
+          "id": "if-q2573",
+          "difficulty": 2,
+          "answer": "Laval",
+          "clue": "Quelle ville est la préfecture de la Mayenne ?",
+          "category": "Villes et capitales"
+        },
+        {
+          "id": "if-q2574",
+          "difficulty": 1,
+          "answer": "Bresse",
+          "clue": "Quelle région de l’est de la France est réputée pour ses volailles à pattes bleues ?"
+        },
+        {
+          "id": "if-q2575",
+          "difficulty": 2,
+          "answer": "Épinal",
+          "clue": "Quelle ville est la préfecture des Vosges ?",
+          "category": "Villes et capitales"
+        },
+        {
+          "id": "if-q2576",
+          "difficulty": 1,
+          "answer": "Vendée",
+          "clue": "Quel département de la côte atlantique comprend les îles d’Yeu et de Noirmoutier ?"
+        },
+        {
+          "id": "if-q2577",
+          "difficulty": 1,
+          "answer": "Finistère",
+          "clue": "Quel département breton comprend la pointe du Raz et la presqu’île de Crozon ?"
+        },
+        {
+          "id": "if-q2578",
+          "difficulty": 1,
+          "answer": "Morbihan",
+          "clue": "Quel département breton possède un golfe dont le nom signifie petite mer ?"
+        },
+        {
+          "id": "if-q2579",
+          "difficulty": 1,
+          "answer": "Gironde",
+          "clue": "Quel département abrite la dune du Pilat et le bassin d’Arcachon ?"
+        },
+        {
+          "id": "if-q2580",
+          "difficulty": 2,
+          "answer": "Niort",
+          "clue": "Quelle ville est la préfecture des Deux-Sèvres ?",
+          "category": "Villes et capitales"
+        },
+        {
+          "id": "if-q2581",
+          "difficulty": 1,
+          "answer": "Vaucluse",
+          "clue": "Dans quel département provençal se trouvent Avignon, le mont Ventoux et une partie du Luberon ?"
+        }
+      ]
+    },
+    {
+      "category": "Langue française",
+      "puzzles": [
+        {
+          "id": "if-q2582",
+          "difficulty": 1,
+          "answer": "espagnol",
+          "clue": "Dans quelle langue Cervantès a-t-il écrit Don Quichotte ?"
+        },
+        {
+          "id": "if-q2583",
+          "difficulty": 1,
+          "answer": "italien",
+          "clue": "Dans quelle langue Dante a-t-il composé La Divine Comédie ?"
+        },
+        {
+          "id": "if-q2584",
+          "difficulty": 1,
+          "answer": "allemand",
+          "clue": "Dans quelle langue Goethe a-t-il écrit son Faust ?"
+        },
+        {
+          "id": "if-q2585",
+          "difficulty": 1,
+          "answer": "russe",
+          "clue": "Dans quelle langue Tolstoï a-t-il écrit Guerre et Paix ?"
+        },
+        {
+          "id": "if-q2586",
+          "difficulty": 1,
+          "answer": "anglais",
+          "clue": "Dans quelle langue Jane Austen a-t-elle écrit Orgueil et Préjugés ?"
+        },
+        {
+          "id": "if-q2587",
+          "difficulty": 2,
+          "answer": "portugais",
+          "clue": "Dans quelle langue l’écrivain José Saramago a-t-il rédigé ses romans ?"
+        },
+        {
+          "id": "if-q2588",
+          "difficulty": 1,
+          "answer": "danois",
+          "clue": "Dans quelle langue Andersen a-t-il écrit à l’origine ses contes ?"
+        },
+        {
+          "id": "if-q2589",
+          "difficulty": 2,
+          "answer": "suédois",
+          "clue": "Dans quelle langue Selma Lagerlöf a-t-elle raconté le voyage de Nils Holgersson ?"
+        },
+        {
+          "id": "if-q2590",
+          "difficulty": 2,
+          "answer": "finnois",
+          "clue": "Dans quelle langue Elias Lönnrot a-t-il compilé l’épopée nationale appelée Kalevala ?"
+        },
+        {
+          "id": "if-q2591",
+          "difficulty": 2,
+          "answer": "polonais",
+          "clue": "Dans quelle langue le romancier Henryk Sienkiewicz a-t-il écrit Quo vadis ?"
+        },
+        {
+          "id": "if-q2592",
+          "difficulty": 2,
+          "answer": "tchèque",
+          "clue": "Dans quelle langue Milan Kundera a-t-il écrit à l’origine L’Insoutenable Légèreté de l’être ?"
+        },
+        {
+          "id": "if-q2593",
+          "difficulty": 1,
+          "answer": "japonais",
+          "clue": "Dans quelle langue Haruki Murakami écrit-il ses romans ?"
+        },
+        {
+          "id": "if-q2594",
+          "difficulty": 2,
+          "answer": "chinois",
+          "clue": "Dans quelle langue Mo Yan, prix Nobel de littérature, écrit-il ses romans ?"
+        },
+        {
+          "id": "if-q2595",
+          "difficulty": 2,
+          "answer": "turc",
+          "clue": "Dans quelle langue Orhan Pamuk a-t-il écrit Mon nom est Rouge ?"
+        },
+        {
+          "id": "if-q2596",
+          "difficulty": 1,
+          "answer": "grec",
+          "clue": "Dans quelle langue antique l’Iliade et l’Odyssée ont-elles été composées ?"
+        },
+        {
+          "id": "if-q2597",
+          "difficulty": 1,
+          "answer": "latin",
+          "clue": "Dans quelle langue Virgile a-t-il écrit l’Énéide ?"
+        },
+        {
+          "id": "if-q2598",
+          "difficulty": 1,
+          "answer": "arabe",
+          "clue": "Dans quelle langue le Coran a-t-il été composé ?"
+        },
+        {
+          "id": "if-q2599",
+          "difficulty": 1,
+          "answer": "hébreu",
+          "clue": "Dans quelle langue ancienne a été rédigée la majeure partie de la Bible hébraïque ?"
+        },
+        {
+          "id": "if-q2600",
+          "difficulty": 2,
+          "answer": "sanskrit",
+          "clue": "Dans quelle langue ancienne de l’Inde ont été composés le Mahabharata et le Ramayana ?"
+        },
+        {
+          "id": "if-q2601",
+          "difficulty": 2,
+          "answer": "français",
+          "clue": "Dans quelle langue Samuel Beckett a-t-il d’abord écrit En attendant Godot ?"
+        }
+      ]
+    }
+  ]
+}

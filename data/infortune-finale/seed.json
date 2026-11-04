@@ -1,0 +1,174 @@
+{
+  "schemaVersion": 1,
+  "name": "La roue de l’infortune — énigmes et culture générale",
+  "editorialNote": "Douze textes du premier atelier, conservés avec leurs identifiants. Source du catalogue assemblé par scripts/build-infortune-finale-bank.mjs.",
+  "puzzles": [
+    {
+      "id": "if-r001",
+      "kind": "riddle",
+      "category": "Orientation",
+      "difficulty": 1,
+      "status": "draft",
+      "clue": "Mon aiguille ne coud rien : elle indique le nord.",
+      "answer": "boussole",
+      "source": {
+        "kind": "original",
+        "note": "Énigme rédigée pour cet atelier ; relecture éditoriale à faire."
+      }
+    },
+    {
+      "id": "if-r002",
+      "kind": "riddle",
+      "category": "Objets du quotidien",
+      "difficulty": 1,
+      "status": "draft",
+      "clue": "Je déploie mon toit au-dessus de votre tête quand le ciel se met à pleurer.",
+      "answer": "parapluie",
+      "source": {
+        "kind": "original",
+        "note": "Énigme rédigée pour cet atelier ; relecture éditoriale à faire."
+      }
+    },
+    {
+      "id": "if-r003",
+      "kind": "riddle",
+      "category": "Sciences",
+      "difficulty": 1,
+      "status": "draft",
+      "clue": "Je vous accompagne au soleil, sans poids ni couleur, puis disparais dans le noir.",
+      "answer": "ombre",
+      "source": {
+        "kind": "original",
+        "note": "Énigme rédigée pour cet atelier ; relecture éditoriale à faire."
+      }
+    },
+    {
+      "id": "if-r004",
+      "kind": "riddle",
+      "category": "Sciences",
+      "difficulty": 1,
+      "status": "draft",
+      "clue": "Je répète votre cri dans la montagne, sans bouche et avec un temps de retard.",
+      "answer": "écho",
+      "source": {
+        "kind": "original",
+        "note": "Énigme rédigée pour cet atelier ; relecture éditoriale à faire."
+      }
+    },
+    {
+      "id": "if-r005",
+      "kind": "riddle",
+      "category": "Objets du quotidien",
+      "difficulty": 1,
+      "status": "draft",
+      "clue": "Mes dents ne mangent rien : elles remettent de l’ordre dans vos cheveux.",
+      "answer": "peigne",
+      "source": {
+        "kind": "original",
+        "note": "Énigme rédigée pour cet atelier ; relecture éditoriale à faire."
+      }
+    },
+    {
+      "id": "if-r006",
+      "kind": "riddle",
+      "category": "Architecture",
+      "difficulty": 2,
+      "status": "draft",
+      "clue": "Je compte mes marches sans avancer et relie pourtant tous les étages.",
+      "answer": "escalier",
+      "source": {
+        "kind": "original",
+        "note": "Énigme rédigée pour cet atelier ; relecture éditoriale à faire."
+      }
+    },
+    {
+      "id": "if-q001",
+      "kind": "quiz",
+      "category": "Astronomie",
+      "difficulty": 1,
+      "status": "draft",
+      "clue": "Quelle planète de notre système solaire est la plus grande ?",
+      "answer": "Jupiter",
+      "source": {
+        "kind": "original",
+        "note": "Question rédigée pour Gobble ; fait vérifié auprès de la NASA.",
+        "url": "https://www.nasa.gov/solar-system/what-is-jupiter-grades-5-8/"
+      }
+    },
+    {
+      "id": "if-q002",
+      "kind": "quiz",
+      "category": "Villes et capitales",
+      "difficulty": 1,
+      "status": "draft",
+      "clue": "Dans quelle capitale européenne peut-on visiter le Colisée ?",
+      "answer": "Rome",
+      "source": {
+        "kind": "original",
+        "note": "Question rédigée pour Gobble ; localisation vérifiée auprès du parc archéologique du Colisée.",
+        "url": "https://colosseo.it/en/how-to-get-here/"
+      }
+    },
+    {
+      "id": "if-q003",
+      "kind": "quiz",
+      "category": "Littérature",
+      "difficulty": 2,
+      "status": "draft",
+      "clue": "Quel est le nom de l’écrivain espagnol qui a créé Don Quichotte ?",
+      "answer": "Cervantès",
+      "acceptedAnswers": [
+        "Cervantes"
+      ],
+      "source": {
+        "kind": "original",
+        "note": "Question rédigée pour Gobble ; auteur vérifié dans le catalogue de la BnF.",
+        "url": "https://catalogue.bnf.fr/ark:/12148/cb365763839.public"
+      }
+    },
+    {
+      "id": "if-q004",
+      "kind": "quiz",
+      "category": "Nature",
+      "difficulty": 2,
+      "status": "draft",
+      "clue": "Quel pigment végétal présent dans les épinards participe à la photosynthèse ?",
+      "answer": "chlorophylle",
+      "source": {
+        "kind": "original",
+        "note": "Question rédigée pour Gobble ; rôle et présence du pigment vérifiés auprès de l’INRAE.",
+        "url": "https://sqpov.paca.hub.inrae.fr/media/m_animations-diffusion/grand-public/fsc-2011_quelle-molecule-pour-quelle-couleur"
+      }
+    },
+    {
+      "id": "if-q005",
+      "kind": "quiz",
+      "category": "Géométrie",
+      "difficulty": 2,
+      "status": "draft",
+      "clue": "Comment nomme-t-on un polygone qui possède exactement huit côtés ?",
+      "answer": "octogone",
+      "source": {
+        "kind": "original",
+        "note": "Question rédigée pour Gobble à partir de la nomenclature géométrique usuelle."
+      }
+    },
+    {
+      "id": "if-q006",
+      "kind": "quiz",
+      "category": "Nature",
+      "difficulty": 1,
+      "status": "draft",
+      "clue": "À quelle classe animale appartient le dauphin, qui allaite ses petits ?",
+      "answer": "mammifères",
+      "acceptedAnswers": [
+        "mammifère"
+      ],
+      "source": {
+        "kind": "original",
+        "note": "Question rédigée pour Gobble ; appartenance aux mammifères vérifiée auprès du Muséum national d’Histoire naturelle.",
+        "url": "https://www.mnhn.fr/fr/qu-est-ce-qu-un-cetace"
+      }
+    }
+  ]
+}

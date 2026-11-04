@@ -1,0 +1,660 @@
+{
+  "schemaVersion": 1,
+  "kind": "quiz",
+  "references": {
+    "comaneci": {
+      "title": "Guinness World Records — Premier dix parfait en gymnastique aux Jeux olympiques",
+      "url": "https://www.guinnessworldrecords.com/world-records/first-perfect-10-awared-in-olympic-gymnastics"
+    },
+    "silverstone": {
+      "title": "Silverstone — Histoire du Grand Prix",
+      "url": "https://www.silverstone.co.uk/about/history-grand-prix"
+    }
+  },
+  "groups": [
+    {
+      "category": "Sports",
+      "puzzles": [
+        {
+          "id": "if-q2002",
+          "difficulty": 1,
+          "answer": "Zidane",
+          "clue": "Quel footballeur français marque deux buts de la tête en finale du Mondial remporté par la France contre le Brésil ?"
+        },
+        {
+          "id": "if-q2003",
+          "difficulty": 1,
+          "answer": "Pelé",
+          "clue": "Quel footballeur brésilien, surnommé le Roi, remporte trois Coupes du monde avec son équipe nationale ?"
+        },
+        {
+          "id": "if-q2004",
+          "difficulty": 1,
+          "answer": "Maradona",
+          "clue": "Quel footballeur argentin est associé à un but baptisé la Main de Dieu contre l’Angleterre ?"
+        },
+        {
+          "id": "if-q2005",
+          "difficulty": 1,
+          "answer": "Messi",
+          "clue": "Quel footballeur argentin prénommé Lionel mène son pays au titre mondial au Qatar ?"
+        },
+        {
+          "id": "if-q2006",
+          "difficulty": 1,
+          "answer": "Ronaldo",
+          "clue": "Quel nom porte Cristiano, footballeur portugais connu notamment pour ses saisons au Real Madrid ?"
+        },
+        {
+          "id": "if-q2007",
+          "difficulty": 1,
+          "answer": "Mbappé",
+          "clue": "Quel attaquant français réalise un triplé en finale de la Coupe du monde au Qatar ?"
+        },
+        {
+          "id": "if-q2008",
+          "difficulty": 1,
+          "answer": "Platini",
+          "clue": "Quel footballeur français prénommé Michel est associé au numéro dix et à une grande carrière à la Juventus ?"
+        },
+        {
+          "id": "if-q2009",
+          "difficulty": 1,
+          "answer": "Nadal",
+          "clue": "Quel tennisman espagnol prénommé Rafael est particulièrement associé à ses succès à Roland-Garros ?"
+        },
+        {
+          "id": "if-q2010",
+          "difficulty": 1,
+          "answer": "Federer",
+          "clue": "Quel tennisman suisse prénommé Roger est célèbre pour son revers à une main ?"
+        },
+        {
+          "id": "if-q2011",
+          "difficulty": 1,
+          "answer": "Djokovic",
+          "clue": "Quel tennisman serbe prénommé Novak a remporté de nombreux titres du Grand Chelem ?"
+        },
+        {
+          "id": "if-q2012",
+          "difficulty": 1,
+          "answer": "Williams",
+          "clue": "Quel nom de famille partagent les championnes de tennis Venus et Serena ?"
+        },
+        {
+          "id": "if-q2013",
+          "difficulty": 2,
+          "answer": "Graf",
+          "clue": "Quel nom porte Steffi, la championne de tennis allemande ?"
+        },
+        {
+          "id": "if-q2014",
+          "difficulty": 1,
+          "answer": "Noah",
+          "clue": "Quel joueur français remporte Roland-Garros avant de devenir un chanteur à succès ?"
+        },
+        {
+          "id": "if-q2015",
+          "difficulty": 1,
+          "answer": "Jordan",
+          "clue": "Quel basketteur prénommé Michael est associé au numéro vingt-trois des Chicago Bulls ?"
+        },
+        {
+          "id": "if-q2016",
+          "difficulty": 1,
+          "answer": "Bolt",
+          "clue": "Quel sprinteur jamaïcain prénommé Usain est surnommé l’Éclair ?"
+        },
+        {
+          "id": "if-q2017",
+          "difficulty": 1,
+          "answer": "Phelps",
+          "clue": "Quel nageur américain prénommé Michael s’illustre par une immense collection de médailles olympiques ?"
+        },
+        {
+          "id": "if-q2018",
+          "difficulty": 1,
+          "answer": "Riner",
+          "clue": "Quel judoka français prénommé Teddy est célèbre pour ses titres chez les poids lourds ?"
+        },
+        {
+          "id": "if-q2019",
+          "difficulty": 2,
+          "answer": "Biles",
+          "clue": "Quel nom porte Simone, la gymnaste américaine connue pour ses figures d’une très grande difficulté ?"
+        },
+        {
+          "id": "if-q2020",
+          "difficulty": 2,
+          "answer": "Comaneci",
+          "clue": "Quel nom porte Nadia, la gymnaste roumaine célèbre pour son premier dix parfait olympique à Montréal ?",
+          "reference": "comaneci"
+        },
+        {
+          "id": "if-q2021",
+          "difficulty": 1,
+          "answer": "Ali",
+          "clue": "Quel nom porte Muhammad, boxeur américain autrefois connu sous le nom de Cassius Clay ?"
+        }
+      ]
+    },
+    {
+      "category": "Sports",
+      "puzzles": [
+        {
+          "id": "if-q2022",
+          "difficulty": 1,
+          "answer": "Wimbledon",
+          "clue": "Quel tournoi de tennis londonien se dispute traditionnellement sur gazon ?"
+        },
+        {
+          "id": "if-q2023",
+          "difficulty": 2,
+          "answer": "Twickenham",
+          "clue": "Quel stade londonien est particulièrement associé à l’équipe anglaise de rugby ?"
+        },
+        {
+          "id": "if-q2024",
+          "difficulty": 2,
+          "answer": "Wembley",
+          "clue": "Quel grand stade londonien est reconnaissable à son immense arche et accueille notamment du football ?"
+        },
+        {
+          "id": "if-q2025",
+          "difficulty": 2,
+          "answer": "Maracana",
+          "clue": "Quel célèbre stade de Rio de Janeiro est associé à de grandes rencontres de football ?"
+        },
+        {
+          "id": "if-q2026",
+          "difficulty": 2,
+          "answer": "Suzuka",
+          "clue": "Quel circuit japonais est connu pour son tracé en huit et accueille des Grands Prix automobiles ?"
+        },
+        {
+          "id": "if-q2027",
+          "difficulty": 1,
+          "answer": "Monaco",
+          "clue": "Quel petit État accueille un Grand Prix automobile disputé dans ses rues ?"
+        },
+        {
+          "id": "if-q2028",
+          "difficulty": 2,
+          "answer": "Monza",
+          "clue": "Quel circuit italien proche de Milan est associé à la vitesse et aux supporters de Ferrari ?"
+        },
+        {
+          "id": "if-q2029",
+          "difficulty": 2,
+          "answer": "Silverstone",
+          "clue": "Quel circuit britannique a accueilli la première course du championnat du monde de Formule un ?",
+          "reference": "silverstone"
+        },
+        {
+          "id": "if-q2030",
+          "difficulty": 2,
+          "answer": "Indianapolis",
+          "clue": "Quelle ville américaine donne son nom à une célèbre course automobile de cinq cents miles ?"
+        },
+        {
+          "id": "if-q2031",
+          "difficulty": 2,
+          "answer": "Daytona",
+          "clue": "Quelle ville de Floride donne son nom à un célèbre circuit de courses automobiles ?"
+        },
+        {
+          "id": "if-q2032",
+          "difficulty": 1,
+          "answer": "endurance",
+          "clue": "Quelle discipline automobile privilégie la résistance des pilotes et des machines lors de courses de plusieurs heures ?"
+        },
+        {
+          "id": "if-q2033",
+          "difficulty": 1,
+          "answer": "Dakar",
+          "clue": "Quelle ville a donné son nom à un rallye qui partait à l’origine de Paris pour rejoindre le Sénégal ?"
+        },
+        {
+          "id": "if-q2034",
+          "difficulty": 1,
+          "answer": "Vendée",
+          "clue": "Quel département donne son nom à une course à la voile autour du monde en solitaire et sans escale ?"
+        },
+        {
+          "id": "if-q2035",
+          "difficulty": 1,
+          "answer": "skipper",
+          "clue": "Quel nom d’origine anglaise donne-t-on à celui qui dirige un voilier de course ?",
+          "acceptedAnswers": [
+            "skiper"
+          ]
+        },
+        {
+          "id": "if-q2036",
+          "difficulty": 2,
+          "answer": "Davis",
+          "clue": "Quel nom porte la coupe de tennis qui oppose des équipes nationales masculines ?"
+        },
+        {
+          "id": "if-q2037",
+          "difficulty": 2,
+          "answer": "Ryder",
+          "clue": "Quel nom porte la coupe de golf opposant traditionnellement une sélection européenne à une sélection américaine ?"
+        },
+        {
+          "id": "if-q2038",
+          "difficulty": 1,
+          "answer": "caddie",
+          "clue": "Au golf, qui porte le sac du joueur et peut le conseiller sur le parcours ?",
+          "acceptedAnswers": [
+            "caddy",
+            "cadet"
+          ]
+        },
+        {
+          "id": "if-q2039",
+          "difficulty": 2,
+          "answer": "Stanley",
+          "clue": "Quel nom porte la coupe remise au vainqueur de la ligue nord-américaine de hockey sur glace ?"
+        },
+        {
+          "id": "if-q2040",
+          "difficulty": 1,
+          "answer": "derby",
+          "clue": "Quel mot désigne une rencontre sportive entre deux équipes d’une même ville ou d’une même région ?"
+        },
+        {
+          "id": "if-q2041",
+          "difficulty": 2,
+          "answer": "olympiade",
+          "clue": "Quel mot désigne la période de quatre ans associée au rythme traditionnel des Jeux olympiques ?"
+        }
+      ]
+    },
+    {
+      "category": "Cinéma et séries",
+      "puzzles": [
+        {
+          "id": "if-q2042",
+          "difficulty": 1,
+          "answer": "western",
+          "clue": "Quel genre de cinéma met souvent en scène cowboys, shérifs et affrontements dans l’Ouest américain ?"
+        },
+        {
+          "id": "if-q2043",
+          "difficulty": 1,
+          "answer": "comédie",
+          "clue": "Quel genre cherche principalement à faire rire par les situations ou les dialogues ?"
+        },
+        {
+          "id": "if-q2044",
+          "difficulty": 1,
+          "answer": "drame",
+          "clue": "Quel genre présente une histoire sérieuse centrée sur des conflits et des émotions fortes ?"
+        },
+        {
+          "id": "if-q2045",
+          "difficulty": 1,
+          "answer": "thriller",
+          "clue": "Quel genre de film cherche à maintenir une forte tension autour d’un danger ou d’une intrigue ?"
+        },
+        {
+          "id": "if-q2046",
+          "difficulty": 1,
+          "answer": "documentaire",
+          "clue": "Quel type de film présente un sujet réel à partir de documents, d’observations ou de témoignages ?"
+        },
+        {
+          "id": "if-q2047",
+          "difficulty": 1,
+          "answer": "animation",
+          "clue": "Quel procédé cinématographique donne l’impression de mouvement à des dessins ou à des images créées image par image ?"
+        },
+        {
+          "id": "if-q2048",
+          "difficulty": 2,
+          "answer": "péplum",
+          "clue": "Quel genre de film à grand spectacle situe généralement son action dans l’Antiquité ?"
+        },
+        {
+          "id": "if-q2049",
+          "difficulty": 2,
+          "answer": "biopic",
+          "clue": "Quel terme désigne un film de fiction consacré à la vie d’une personne réelle ?"
+        },
+        {
+          "id": "if-q2050",
+          "difficulty": 2,
+          "answer": "burlesque",
+          "clue": "Quel registre comique mise notamment sur les chutes, les poursuites et les accidents corporels ?"
+        },
+        {
+          "id": "if-q2051",
+          "difficulty": 1,
+          "answer": "parodie",
+          "clue": "Quel procédé comique imite une œuvre ou un genre pour en détourner les codes ?"
+        },
+        {
+          "id": "if-q2052",
+          "difficulty": 2,
+          "answer": "satire",
+          "clue": "Quelle forme de création critique en se moquant des défauts d’une société ou d’un comportement ?"
+        },
+        {
+          "id": "if-q2053",
+          "difficulty": 1,
+          "answer": "suspense",
+          "clue": "Quel effet maintient le spectateur dans l’attente inquiète de ce qui va arriver ?"
+        },
+        {
+          "id": "if-q2054",
+          "difficulty": 1,
+          "answer": "flashback",
+          "clue": "Quel procédé narratif revient à un événement antérieur au moment principal de l’histoire ?"
+        },
+        {
+          "id": "if-q2055",
+          "difficulty": 2,
+          "answer": "ellipse",
+          "clue": "Quel procédé narratif passe sous silence une partie du temps écoulé entre deux scènes ?"
+        },
+        {
+          "id": "if-q2056",
+          "difficulty": 1,
+          "answer": "montage",
+          "clue": "Quelle étape de fabrication d’un film assemble les plans et construit leur enchaînement ?"
+        },
+        {
+          "id": "if-q2057",
+          "difficulty": 1,
+          "answer": "plan",
+          "clue": "Quelle unité filmique correspond à une prise de vue continue entre deux coupes ?"
+        },
+        {
+          "id": "if-q2058",
+          "difficulty": 2,
+          "answer": "séquence",
+          "clue": "Quel ensemble de scènes forme une unité dans le déroulement d’un film ?"
+        },
+        {
+          "id": "if-q2059",
+          "difficulty": 2,
+          "answer": "travelling",
+          "clue": "Quel mouvement déplace physiquement la caméra pendant la prise de vues ?"
+        },
+        {
+          "id": "if-q2060",
+          "difficulty": 2,
+          "answer": "panoramique",
+          "clue": "Quel mouvement fait pivoter la caméra autour de son emplacement pour balayer le décor ?"
+        },
+        {
+          "id": "if-q2061",
+          "difficulty": 1,
+          "answer": "fondu",
+          "clue": "Quel effet de transition fait progressivement apparaître ou disparaître une image ?"
+        }
+      ]
+    },
+    {
+      "category": "Cuisine",
+      "puzzles": [
+        {
+          "id": "if-q2062",
+          "difficulty": 2,
+          "answer": "mélasse",
+          "clue": "Quel liquide très épais et sombre est un sous-produit de la fabrication du sucre ?"
+        },
+        {
+          "id": "if-q2063",
+          "difficulty": 1,
+          "answer": "cassonade",
+          "clue": "Quel sucre roux cristallisé est traditionnellement obtenu à partir de la canne à sucre ?"
+        },
+        {
+          "id": "if-q2064",
+          "difficulty": 2,
+          "answer": "vergeoise",
+          "clue": "Quel sucre brun, fin et moelleux, est notamment utilisé dans des spécialités du nord de la France ?"
+        },
+        {
+          "id": "if-q2065",
+          "difficulty": 2,
+          "answer": "pralin",
+          "clue": "Quelle poudre de fruits secs et de sucre caramélisé apporte du croquant aux desserts, avant un broyage prolongé en pâte ?"
+        },
+        {
+          "id": "if-q2066",
+          "difficulty": 2,
+          "answer": "praliné",
+          "clue": "Quelle pâte est obtenue en broyant finement des fruits secs avec du sucre caramélisé ?"
+        },
+        {
+          "id": "if-q2067",
+          "difficulty": 1,
+          "answer": "praline",
+          "clue": "Quelle confiserie peut être une amande enrobée de sucre, notamment rose dans certaines régions françaises ?"
+        },
+        {
+          "id": "if-q2068",
+          "difficulty": 2,
+          "answer": "pistou",
+          "clue": "Quelle préparation provençale au basilic, à l’ail et à l’huile donne son nom à une soupe de légumes ?"
+        },
+        {
+          "id": "if-q2069",
+          "difficulty": 1,
+          "answer": "aïoli",
+          "clue": "Quelle sauce provençale met à l’honneur l’ail et l’huile d’olive et accompagne aussi un plat de légumes et de poisson ?"
+        },
+        {
+          "id": "if-q2070",
+          "difficulty": 2,
+          "answer": "rouille",
+          "clue": "Quelle sauce provençale relevée accompagne traditionnellement la bouillabaisse ?"
+        },
+        {
+          "id": "if-q2071",
+          "difficulty": 2,
+          "answer": "rémoulade",
+          "clue": "Quel nom porte notamment la sauce qui accompagne le céleri râpé dans une entrée classique ?"
+        },
+        {
+          "id": "if-q2072",
+          "difficulty": 1,
+          "answer": "vinaigrette",
+          "clue": "Quelle sauce froide associe généralement huile, vinaigre et assaisonnement pour relever une salade ?"
+        },
+        {
+          "id": "if-q2073",
+          "difficulty": 2,
+          "answer": "hollandaise",
+          "clue": "Quelle sauce émulsionnée chaude associe notamment jaunes d’œufs, beurre et jus de citron ?"
+        },
+        {
+          "id": "if-q2074",
+          "difficulty": 2,
+          "answer": "béarnaise",
+          "clue": "Quelle sauce chaude au beurre et aux jaunes d’œufs est traditionnellement parfumée à l’estragon ?"
+        },
+        {
+          "id": "if-q2075",
+          "difficulty": 1,
+          "answer": "opéra",
+          "clue": "Quel gâteau rectangulaire alterne biscuit aux amandes, crème au café et chocolat, sous un nom de spectacle lyrique ?"
+        },
+        {
+          "id": "if-q2076",
+          "difficulty": 2,
+          "answer": "sabayon",
+          "clue": "Quelle préparation mousseuse se réalise en fouettant des jaunes d’œufs avec du sucre et un liquide, souvent du vin ?"
+        },
+        {
+          "id": "if-q2077",
+          "difficulty": 1,
+          "answer": "baba",
+          "clue": "Quel petit gâteau à pâte levée est traditionnellement imbibé d’un sirop au rhum ?"
+        },
+        {
+          "id": "if-q2078",
+          "difficulty": 1,
+          "answer": "far",
+          "clue": "Quel dessert breton, proche d’un flan épais, est souvent garni de pruneaux ?"
+        },
+        {
+          "id": "if-q2079",
+          "difficulty": 1,
+          "answer": "brownie",
+          "clue": "Quel gâteau américain au chocolat, dense et fondant, se sert souvent découpé en carrés ?"
+        },
+        {
+          "id": "if-q2080",
+          "difficulty": 1,
+          "answer": "cookie",
+          "clue": "Quel biscuit rond d’origine américaine contient souvent des pépites de chocolat ?"
+        },
+        {
+          "id": "if-q2081",
+          "difficulty": 1,
+          "answer": "cheesecake",
+          "clue": "Quel gâteau populaire aux États-Unis associe une préparation au fromage frais à une base de biscuits émiettés ?"
+        }
+      ]
+    },
+    {
+      "category": "Jeux et jouets",
+      "puzzles": [
+        {
+          "id": "if-q2082",
+          "difficulty": 1,
+          "answer": "poker",
+          "clue": "Quel jeu de cartes associe combinaisons de cartes, mises et possibilité de bluffer ?"
+        },
+        {
+          "id": "if-q2083",
+          "difficulty": 1,
+          "answer": "belote",
+          "clue": "Dans quel jeu de cartes annonce-t-on un couple royal de l’atout avec deux mots, dont le premier nomme le jeu ?"
+        },
+        {
+          "id": "if-q2084",
+          "difficulty": 1,
+          "answer": "tarot",
+          "clue": "Quel jeu de cartes français utilise notamment des atouts numérotés et une carte appelée l’Excuse ?"
+        },
+        {
+          "id": "if-q2085",
+          "difficulty": 1,
+          "answer": "bridge",
+          "clue": "Quel jeu de cartes se joue à quatre, avec des enchères puis un contrat à réaliser en équipe ?"
+        },
+        {
+          "id": "if-q2086",
+          "difficulty": 1,
+          "answer": "bataille",
+          "clue": "Quel jeu de cartes très simple compare la valeur des cartes retournées, sans enchères ni choix de stratégie courant ?"
+        },
+        {
+          "id": "if-q2087",
+          "difficulty": 1,
+          "answer": "réussite",
+          "clue": "Quel nom français désigne un jeu de cartes que l’on organise généralement seul selon un objectif de rangement ?",
+          "acceptedAnswers": [
+            "patience",
+            "solitaire"
+          ]
+        },
+        {
+          "id": "if-q2088",
+          "difficulty": 1,
+          "answer": "blackjack",
+          "clue": "Quel jeu de casino demande de s’approcher de vingt et un points sans les dépasser ?"
+        },
+        {
+          "id": "if-q2089",
+          "difficulty": 1,
+          "answer": "roulette",
+          "clue": "Quel jeu de casino fait tourner une petite bille autour d’un cylindre compartimenté ?"
+        },
+        {
+          "id": "if-q2090",
+          "difficulty": 1,
+          "answer": "baccarat",
+          "clue": "Quel jeu de casino porte un nom également associé à une cristallerie française ?"
+        },
+        {
+          "id": "if-q2091",
+          "difficulty": 2,
+          "answer": "mahjong",
+          "clue": "Quel jeu d’origine chinoise utilise des tuiles portant notamment des caractères, des bambous et des cercles ?"
+        },
+        {
+          "id": "if-q2092",
+          "difficulty": 1,
+          "answer": "go",
+          "clue": "Quel jeu de stratégie d’origine chinoise place des pierres noires et blanches sur les intersections d’un plateau ?"
+        },
+        {
+          "id": "if-q2093",
+          "difficulty": 2,
+          "answer": "backgammon",
+          "clue": "Quel jeu de plateau fait avancer des pions selon les dés sur un tablier de longues pointes triangulaires ?"
+        },
+        {
+          "id": "if-q2094",
+          "difficulty": 1,
+          "answer": "dames",
+          "clue": "Quel jeu fait avancer des pions en diagonale sur un damier, avec des prises par saut ?"
+        },
+        {
+          "id": "if-q2095",
+          "difficulty": 1,
+          "answer": "morpion",
+          "clue": "Quel petit jeu demande d’aligner trois signes identiques sur une grille de neuf cases ?"
+        },
+        {
+          "id": "if-q2096",
+          "difficulty": 1,
+          "answer": "sudoku",
+          "clue": "Quel jeu de logique remplit une grille de chiffres sans répétition dans les lignes, les colonnes et les régions ?"
+        },
+        {
+          "id": "if-q2097",
+          "difficulty": 1,
+          "answer": "bingo",
+          "clue": "Quel jeu de tirage consiste à compléter une grille de nombres annoncés ?",
+          "acceptedAnswers": [
+            "loto"
+          ]
+        },
+        {
+          "id": "if-q2098",
+          "difficulty": 1,
+          "answer": "pendu",
+          "clue": "Quel jeu de lettres dessine progressivement un personnage lorsque les propositions sont fausses ?"
+        },
+        {
+          "id": "if-q2099",
+          "difficulty": 1,
+          "answer": "diabolo",
+          "clue": "Quel jouet à deux coques opposées tourne sur une ficelle tendue entre deux baguettes ?"
+        },
+        {
+          "id": "if-q2100",
+          "difficulty": 2,
+          "answer": "tangram",
+          "clue": "Quel puzzle d’origine chinoise forme des silhouettes avec sept pièces géométriques ?"
+        },
+        {
+          "id": "if-q2101",
+          "difficulty": 1,
+          "answer": "osselets",
+          "clue": "Dans quel jeu traditionnel lance-t-on de petits os, ou leurs imitations, pour en ramasser d’autres avant de les rattraper ?",
+          "acceptedAnswers": [
+            "domino"
+          ]
+        }
+      ]
+    }
+  ]
+}

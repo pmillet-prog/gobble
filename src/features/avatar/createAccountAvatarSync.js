@@ -1,10 +1,11 @@
 import { normalizeAvatar } from "./avatarState.js";
 import { avatarApiError } from "./avatarApi.js";
+import { RELEASE_SCOPE } from "../../../shared/releaseScope.js";
 
 const IDLE = Object.freeze({ userId: null, avatar: null, revision: null, ready: false });
 
 // One authenticated account owns requests and listeners; no polling or rendering here.
-export function createAccountAvatarSync({ request, requestRefund, readLocal, cacheLocal, prepareLocal = normalizeAvatar, onAccepted = () => {}, onWeeklyAuras = () => {} }) {
+export function createAccountAvatarSync({ request, requestRefund, readLocal, cacheLocal, prepareLocal = normalizeAvatar, onAccepted = () => {}, onWeeklyAuras = () => {}, renderedAssetsEnabled = RELEASE_SCOPE.avatarRenderAssets }) {
   let session = null, snapshot = IDLE;
   const listeners = new Set();
   const rewardListeners = new Set();
@@ -20,6 +21,9 @@ export function createAccountAvatarSync({ request, requestRefund, readLocal, cac
     assertActive(active);
     if (data.userId !== active.userId) throw avatarApiError("avatar_account_changed");
     const value = data.avatar ? normalizeAvatar(data.avatar) : null;
+    // Transport-only metadata is intentionally absent from editable drafts.
+    if (renderedAssetsEnabled && value && data.avatar.renderedAssets) value.renderedAssets = data.avatar.renderedAssets;
+    if (renderedAssetsEnabled && value && data.avatar.weeklyAura) value.weeklyAura = data.avatar.weeklyAura;
     const avatar = JSON.stringify(snapshot.avatar) === JSON.stringify(value) ? snapshot.avatar : value;
     // The account is authoritative even if local storage is full or disabled.
     if (data.avatar || data.revision > 0) { try { cacheLocal(active.userId, avatar); } catch { /* Optional cache. */ } }

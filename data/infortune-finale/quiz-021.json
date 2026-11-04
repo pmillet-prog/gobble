@@ -1,0 +1,687 @@
+{
+  "schemaVersion": 1,
+  "kind": "quiz",
+  "references": {
+    "ovid6": {
+      "title": "Ovide — Métamorphoses, livre VI, traduction publiée par l’UCLouvain",
+      "url": "https://bcs.fltr.ucl.ac.be/meta/06.htm"
+    },
+    "sirenes": {
+      "title": "BnF — Ulysse et les sirènes",
+      "url": "https://classes.bnf.fr/pdf/Homere4.pdf"
+    },
+    "persee": {
+      "title": "Musée Camille Claudel — Persée et la Gorgone",
+      "url": "https://www.musee-camille-claudel.fr/fr/collections/persee-et-la-gorgone"
+    },
+    "egypte": {
+      "title": "Ministère de la Culture — Mythologie égyptienne",
+      "url": "https://www.culture.gouv.fr/thematiques/musees/Les-musees-en-France/les-collections-des-musees-de-france/decouvrir-les-collections/mythologie-egyptienne"
+    },
+    "arc": {
+      "title": "Homère, Odyssée — L’épreuve de l’arc, extrait publié par Nathan",
+      "url": "https://terredeslettres.nathan.fr/9782095051778/assets/texte-dys-lepreuve-de-larc-p-191/preview"
+    },
+    "louve": {
+      "title": "BnF / Biblissima — Romulus, Rémus et la louve",
+      "url": "https://portail.biblissima.fr/fr/ark%3A/43093/ifdata0ffed8017974ae00776ceb64bbc6126cbe09d856"
+    }
+  },
+  "groups": [
+    {
+      "category": "Expressions françaises",
+      "puzzles": [
+        {
+          "id": "if-q1902",
+          "difficulty": 1,
+          "answer": "charrue",
+          "clue": "Quel outil agricole met-on avant les bœufs lorsqu’on agit dans le mauvais ordre ?"
+        },
+        {
+          "id": "if-q1903",
+          "difficulty": 1,
+          "answer": "ours",
+          "clue": "De quel animal ne faut-il pas vendre la peau avant de l’avoir tué, selon l’expression ?"
+        },
+        {
+          "id": "if-q1904",
+          "difficulty": 1,
+          "answer": "verre",
+          "clue": "Dans quel petit récipient peut-on se noyer, au sens figuré, quand une difficulté mineure suffit à nous dépasser ?"
+        },
+        {
+          "id": "if-q1905",
+          "difficulty": 1,
+          "answer": "éléphant",
+          "clue": "Quel animal associe-t-on à une excellente mémoire dans une expression française ?"
+        },
+        {
+          "id": "if-q1906",
+          "difficulty": 1,
+          "answer": "loup",
+          "clue": "Quel animal avance à pas discrets dans une expression qui signifie marcher sans bruit ?"
+        },
+        {
+          "id": "if-q1907",
+          "difficulty": 1,
+          "answer": "canard",
+          "clue": "Quel oiseau complète l’expression décrivant un froid particulièrement vif ?"
+        },
+        {
+          "id": "if-q1908",
+          "difficulty": 2,
+          "answer": "loir",
+          "clue": "Quel petit rongeur associe-t-on à quelqu’un qui dort profondément ?"
+        },
+        {
+          "id": "if-q1909",
+          "difficulty": 1,
+          "answer": "tortue",
+          "clue": "Quel animal complète une comparaison familière pour dire que quelqu’un avance très lentement ?"
+        },
+        {
+          "id": "if-q1910",
+          "difficulty": 2,
+          "answer": "carpe",
+          "clue": "Quel poisson prend-on pour exemple d’une personne qui reste muette ?"
+        },
+        {
+          "id": "if-q1911",
+          "difficulty": 1,
+          "answer": "anguille",
+          "clue": "Quel poisson se cache sous roche, selon l’expression, lorsqu’on soupçonne quelque chose de dissimulé ?"
+        },
+        {
+          "id": "if-q1912",
+          "difficulty": 2,
+          "answer": "paon",
+          "clue": "Quel oiseau à la queue spectaculaire complète une comparaison sur la fierté ?"
+        },
+        {
+          "id": "if-q1913",
+          "difficulty": 1,
+          "answer": "renard",
+          "clue": "Quel animal est le modèle traditionnel de la ruse dans une comparaison française ?"
+        },
+        {
+          "id": "if-q1914",
+          "difficulty": 1,
+          "answer": "bouc",
+          "clue": "Quel animal devient « émissaire » quand on lui fait porter la responsabilité des fautes des autres ?"
+        },
+        {
+          "id": "if-q1915",
+          "difficulty": 1,
+          "answer": "pigeon",
+          "clue": "Quel oiseau désigne familièrement une personne facile à tromper ?"
+        },
+        {
+          "id": "if-q1916",
+          "difficulty": 1,
+          "answer": "dindon",
+          "clue": "Quel oiseau est celui de la farce lorsqu’une personne est la victime d’une tromperie ?"
+        },
+        {
+          "id": "if-q1917",
+          "difficulty": 1,
+          "answer": "requin",
+          "clue": "Quel poisson désigne au figuré une personne sans scrupules dans les affaires ?"
+        },
+        {
+          "id": "if-q1918",
+          "difficulty": 1,
+          "answer": "vipère",
+          "clue": "Quel serpent complète l’expression « langue de… » pour une personne qui médit ?"
+        },
+        {
+          "id": "if-q1919",
+          "difficulty": 1,
+          "answer": "chameau",
+          "clue": "Quel animal à deux bosses peut désigner familièrement une personne désagréable ?"
+        },
+        {
+          "id": "if-q1920",
+          "difficulty": 1,
+          "answer": "vache",
+          "clue": "Quel animal dit-on être avec quelqu’un lorsqu’on se montre méchant ou injuste envers lui ?"
+        },
+        {
+          "id": "if-q1921",
+          "difficulty": 1,
+          "answer": "cochon",
+          "clue": "Quel animal est associé à un caractère particulièrement mauvais dans une expression familière ?"
+        },
+        {
+          "id": "if-q1922",
+          "difficulty": 1,
+          "answer": "midi",
+          "clue": "Quelle heure cherche-t-on à quatorze heures lorsqu’on complique inutilement les choses ?"
+        },
+        {
+          "id": "if-q1923",
+          "difficulty": 1,
+          "answer": "aiguille",
+          "clue": "Quel petit objet cherche-t-on dans une botte de foin pour évoquer une recherche presque impossible ?"
+        },
+        {
+          "id": "if-q1924",
+          "difficulty": 1,
+          "answer": "cheveu",
+          "clue": "Par quoi peut tenir une situation lorsqu’elle est extrêmement précaire ?"
+        },
+        {
+          "id": "if-q1925",
+          "difficulty": 1,
+          "answer": "corde",
+          "clue": "Quel lien dit-on avoir plusieurs fois à son arc lorsqu’on dispose de plusieurs compétences ?"
+        },
+        {
+          "id": "if-q1926",
+          "difficulty": 2,
+          "answer": "flèche",
+          "clue": "Que peut-on faire de tout bois lorsqu’on utilise tous les moyens disponibles ?"
+        },
+        {
+          "id": "if-q1927",
+          "difficulty": 1,
+          "answer": "cloche",
+          "clue": "Sous quel objet place-t-on quelqu’un au sens figuré lorsqu’on le protège excessivement ?"
+        },
+        {
+          "id": "if-q1928",
+          "difficulty": 1,
+          "answer": "chaise",
+          "clue": "Sur quel meuble peut-on danser, au pluriel, lorsqu’on hésite entre deux positions incompatibles ?"
+        },
+        {
+          "id": "if-q1929",
+          "difficulty": 1,
+          "answer": "fauteuil",
+          "clue": "Dans quel siège peut-on arriver au sens figuré lorsqu’on gagne très facilement ?"
+        },
+        {
+          "id": "if-q1930",
+          "difficulty": 1,
+          "answer": "roue",
+          "clue": "Quel objet tourne, dans une expression, pour rappeler que la chance peut changer ?"
+        },
+        {
+          "id": "if-q1931",
+          "difficulty": 1,
+          "answer": "charbon",
+          "clue": "Sur quelle matière brûlante dit-on être lorsqu’on attend avec une grande impatience ?"
+        },
+        {
+          "id": "if-q1932",
+          "difficulty": 1,
+          "answer": "braise",
+          "clue": "Sur quelle matière encore ardente souffle-t-on au sens figuré lorsqu’on ravive une querelle ?"
+        },
+        {
+          "id": "if-q1933",
+          "difficulty": 1,
+          "answer": "feu",
+          "clue": "Avec quel phénomène joue-t-on lorsqu’on prend des risques sans mesurer les conséquences ?"
+        },
+        {
+          "id": "if-q1934",
+          "difficulty": 1,
+          "answer": "poudre",
+          "clue": "Quelle matière met-on en mouvement dans l’expression « prendre la… d’escampette » ?"
+        },
+        {
+          "id": "if-q1935",
+          "difficulty": 1,
+          "answer": "vent",
+          "clue": "Quel phénomène dit-on brasser lorsqu’on s’agite sans produire de résultat ?"
+        },
+        {
+          "id": "if-q1936",
+          "difficulty": 1,
+          "answer": "bouteille",
+          "clue": "Quel récipient lance-t-on à la mer au sens figuré pour envoyer un appel dont la réponse est incertaine ?"
+        },
+        {
+          "id": "if-q1937",
+          "difficulty": 1,
+          "answer": "bouée",
+          "clue": "Quel objet flottant devient au figuré un dernier moyen de s’en sortir ?"
+        },
+        {
+          "id": "if-q1938",
+          "difficulty": 1,
+          "answer": "tempête",
+          "clue": "Quel phénomène peut éclater dans un verre d’eau lorsque l’on dramatise une petite affaire ?"
+        },
+        {
+          "id": "if-q1939",
+          "difficulty": 1,
+          "answer": "sable",
+          "clue": "Dans quel matériau peut-on bâtir au sens figuré lorsqu’un projet repose sur des bases fragiles ?"
+        },
+        {
+          "id": "if-q1940",
+          "difficulty": 1,
+          "answer": "château",
+          "clue": "Quel bâtiment construit-on en Espagne lorsqu’on imagine des projets irréalistes ?"
+        },
+        {
+          "id": "if-q1941",
+          "difficulty": 1,
+          "answer": "montagne",
+          "clue": "Quel relief se fait-on d’une difficulté lorsqu’on l’imagine beaucoup plus grande qu’elle n’est ?"
+        }
+      ]
+    },
+    {
+      "category": "Proverbes",
+      "puzzles": [
+        {
+          "id": "if-q1942",
+          "difficulty": 1,
+          "answer": "place",
+          "clue": "Que perd celui qui va à la chasse, selon un proverbe bien connu ?"
+        },
+        {
+          "id": "if-q1943",
+          "difficulty": 1,
+          "answer": "force",
+          "clue": "Que fait l’union, selon une devise devenue proverbe ?"
+        },
+        {
+          "id": "if-q1944",
+          "difficulty": 1,
+          "answer": "temps",
+          "clue": "Quel mot revient deux fois dans le conseil qui invite à laisser les choses suivre leur cours ?"
+        },
+        {
+          "id": "if-q1945",
+          "difficulty": 1,
+          "answer": "patience",
+          "clue": "Quelle qualité est associée à la longueur du temps dans une morale de La Fontaine ?"
+        },
+        {
+          "id": "if-q1946",
+          "difficulty": 1,
+          "answer": "habit",
+          "clue": "Quel vêtement ne suffit pas à faire le moine, selon le proverbe ?"
+        },
+        {
+          "id": "if-q1947",
+          "difficulty": 1,
+          "answer": "hirondelle",
+          "clue": "Quel oiseau ne suffit pas à faire le printemps, selon le proverbe ?"
+        },
+        {
+          "id": "if-q1948",
+          "difficulty": 1,
+          "answer": "chat",
+          "clue": "Quel animal échaudé craint l’eau froide, selon le proverbe ?"
+        },
+        {
+          "id": "if-q1949",
+          "difficulty": 1,
+          "answer": "œufs",
+          "clue": "Que ne faut-il pas mettre tous dans le même panier pour éviter de concentrer les risques ?",
+          "acceptedAnswers": [
+            "œuf"
+          ]
+        },
+        {
+          "id": "if-q1950",
+          "difficulty": 1,
+          "answer": "caravane",
+          "clue": "Que laisse passer le proverbe pendant que les chiens aboient ?"
+        },
+        {
+          "id": "if-q1951",
+          "difficulty": 1,
+          "answer": "paroles",
+          "clue": "Dans le proverbe qui les oppose aux écrits, quelles choses s’envolent ?",
+          "acceptedAnswers": [
+            "parole"
+          ]
+        },
+        {
+          "id": "if-q1952",
+          "difficulty": 1,
+          "answer": "murs",
+          "clue": "Quels éléments d’un bâtiment ont des oreilles quand il faut se méfier des indiscrets ?",
+          "acceptedAnswers": [
+            "mur"
+          ]
+        },
+        {
+          "id": "if-q1953",
+          "difficulty": 1,
+          "answer": "tort",
+          "clue": "Quel mot termine « les absents ont toujours… » ?"
+        },
+        {
+          "id": "if-q1954",
+          "difficulty": 1,
+          "answer": "maître",
+          "clue": "Quel mot complète « tel …, tel chien » ?"
+        },
+        {
+          "id": "if-q1955",
+          "difficulty": 1,
+          "answer": "soucis",
+          "clue": "Quel mot complète l’expression « petits enfants, petits… » ?"
+        },
+        {
+          "id": "if-q1956",
+          "difficulty": 1,
+          "answer": "fortune",
+          "clue": "Quel nom porte ce qui sourit aux audacieux, selon le proverbe ?"
+        },
+        {
+          "id": "if-q1957",
+          "difficulty": 1,
+          "answer": "tonneau",
+          "clue": "Quel récipient fait le plus de bruit lorsqu’il est vide, selon le proverbe ?"
+        },
+        {
+          "id": "if-q1958",
+          "difficulty": 1,
+          "answer": "charité",
+          "clue": "Quelle vertu bien ordonnée commence par soi-même, selon le proverbe ?"
+        },
+        {
+          "id": "if-q1959",
+          "difficulty": 1,
+          "answer": "prudence",
+          "clue": "Quelle qualité est la mère de sûreté, selon le proverbe ?"
+        },
+        {
+          "id": "if-q1960",
+          "difficulty": 1,
+          "answer": "remèdes",
+          "clue": "Quel mot complète « aux grands maux, les grands… » ?",
+          "acceptedAnswers": [
+            "remèdes"
+          ]
+        },
+        {
+          "id": "if-q1961",
+          "difficulty": 1,
+          "answer": "besoin",
+          "clue": "Dans quelle situation reconnaît-on ses amis, selon le proverbe ?"
+        }
+      ]
+    },
+    {
+      "category": "Mythologie",
+      "puzzles": [
+        {
+          "id": "if-q1962",
+          "difficulty": 2,
+          "answer": "cygne",
+          "clue": "Sous la forme de quel grand oiseau blanc Zeus s’approche-t-il de Léda dans la mythologie grecque ?",
+          "reference": "ovid6"
+        },
+        {
+          "id": "if-q1963",
+          "difficulty": 1,
+          "answer": "taureau",
+          "clue": "De quel animal Zeus prend-il la forme pour emporter Europe sur son dos ?",
+          "reference": "ovid6"
+        },
+        {
+          "id": "if-q1964",
+          "difficulty": 2,
+          "answer": "araignée",
+          "clue": "En quel animal Arachné est-elle transformée après avoir rivalisé avec Athéna dans l’art du tissage ?",
+          "reference": "ovid6"
+        },
+        {
+          "id": "if-q1965",
+          "difficulty": 2,
+          "answer": "paon",
+          "clue": "Quel oiseau à la queue couverte d’ocelles est associé à Héra dans la tradition grecque ?"
+        },
+        {
+          "id": "if-q1966",
+          "difficulty": 2,
+          "answer": "lyre",
+          "clue": "Quel instrument à cordes accompagne traditionnellement Apollon et Orphée ?"
+        },
+        {
+          "id": "if-q1967",
+          "difficulty": 2,
+          "answer": "laurier",
+          "clue": "Quel arbre issu de la métamorphose de Daphné est associé à Apollon ?"
+        },
+        {
+          "id": "if-q1968",
+          "difficulty": 2,
+          "answer": "Osiris",
+          "clue": "Quel dieu égyptien, époux d’Isis et souvent représenté comme une momie, règne sur le monde des morts ?",
+          "reference": "egypte"
+        },
+        {
+          "id": "if-q1969",
+          "difficulty": 2,
+          "answer": "Isis",
+          "clue": "Quelle déesse égyptienne, épouse d’Osiris et mère d’Horus, est réputée pour ses pouvoirs magiques ?",
+          "reference": "egypte"
+        },
+        {
+          "id": "if-q1970",
+          "difficulty": 2,
+          "answer": "Anubis",
+          "clue": "Quel dieu égyptien à tête de canidé est associé à la momification et à la protection des morts ?",
+          "acceptedAnswers": [
+            "sandale"
+          ],
+          "reference": "egypte"
+        },
+        {
+          "id": "if-q1971",
+          "difficulty": 2,
+          "answer": "caducée",
+          "clue": "Quel bâton entouré de deux serpents est l’attribut d’Hermès dans la mythologie grecque ?"
+        },
+        {
+          "id": "if-q1972",
+          "difficulty": 2,
+          "answer": "grenade",
+          "clue": "De quel fruit Perséphone mange-t-elle des grains qui la lient au séjour des morts ?"
+        },
+        {
+          "id": "if-q1973",
+          "difficulty": 2,
+          "answer": "pomme",
+          "clue": "Quel fruit d’or, lancé par Éris avec une inscription destinée à la plus belle, provoque la rivalité de trois déesses ?"
+        },
+        {
+          "id": "if-q1974",
+          "difficulty": 2,
+          "answer": "arc",
+          "clue": "Quelle arme Ulysse tend-il pour réussir l’épreuve que les prétendants de Pénélope avaient ratée ?",
+          "reference": "arc"
+        },
+        {
+          "id": "if-q1975",
+          "difficulty": 2,
+          "answer": "cire",
+          "clue": "Avec quelle matière Ulysse bouche-t-il les oreilles de ses compagnons pour les protéger du chant des Sirènes ?",
+          "reference": "sirenes"
+        },
+        {
+          "id": "if-q1976",
+          "difficulty": 2,
+          "answer": "bouclier",
+          "clue": "Quel équipement défensif poli Persée utilise-t-il comme miroir pour approcher Méduse sans la regarder directement ?",
+          "reference": "persee"
+        },
+        {
+          "id": "if-q1977",
+          "difficulty": 1,
+          "answer": "cheval",
+          "clue": "Quel animal de bois permet aux Grecs de tromper les défenseurs de Troie ?"
+        },
+        {
+          "id": "if-q1978",
+          "difficulty": 1,
+          "answer": "louve",
+          "clue": "Quelle femelle animale allaite Romulus et Rémus dans la légende de la fondation de Rome ?",
+          "reference": "louve"
+        },
+        {
+          "id": "if-q1979",
+          "difficulty": 2,
+          "answer": "Horus",
+          "clue": "Quel dieu égyptien à tête de faucon, fils d’Isis et d’Osiris, est associé à la royauté ?",
+          "reference": "egypte"
+        },
+        {
+          "id": "if-q1980",
+          "difficulty": 2,
+          "answer": "olive",
+          "clue": "Quel fruit vient de l’arbre qu’Athéna offre aux habitants de la cité dont elle devient la protectrice ?"
+        },
+        {
+          "id": "if-q1981",
+          "difficulty": 2,
+          "answer": "aigle",
+          "clue": "Quel grand rapace dévore chaque jour le foie de Prométhée dans son supplice ?"
+        }
+      ]
+    },
+    {
+      "category": "Littérature",
+      "puzzles": [
+        {
+          "id": "if-q1982",
+          "difficulty": 1,
+          "answer": "madeleine",
+          "clue": "Quel petit gâteau trempé dans une boisson déclenche un célèbre souvenir chez le narrateur de Proust ?"
+        },
+        {
+          "id": "if-q1983",
+          "difficulty": 1,
+          "answer": "moulins",
+          "clue": "Quels bâtiments Don Quichotte prend-il pour des géants ?",
+          "acceptedAnswers": [
+            "moulin"
+          ]
+        },
+        {
+          "id": "if-q1984",
+          "difficulty": 2,
+          "answer": "rossinante",
+          "clue": "Quel nom porte le cheval de Don Quichotte ?",
+          "acceptedAnswers": [
+            "Rocinante"
+          ]
+        },
+        {
+          "id": "if-q1985",
+          "difficulty": 2,
+          "answer": "Sancho",
+          "clue": "Quel prénom porte Pança, le compagnon de Don Quichotte ?"
+        },
+        {
+          "id": "if-q1986",
+          "difficulty": 2,
+          "answer": "Passepartout",
+          "clue": "Quel domestique accompagne Phileas Fogg dans son tour du monde chez Jules Verne ?"
+        },
+        {
+          "id": "if-q1987",
+          "difficulty": 2,
+          "answer": "Céleste",
+          "clue": "Quel prénom porte l’épouse de Babar, devenue reine aux côtés du célèbre éléphant ?"
+        },
+        {
+          "id": "if-q1988",
+          "difficulty": 1,
+          "answer": "cachalot",
+          "clue": "À quelle espèce de grand cétacé appartient l’animal blanc poursuivi par le capitaine Achab dans Moby Dick ?"
+        },
+        {
+          "id": "if-q1989",
+          "difficulty": 2,
+          "answer": "Achab",
+          "clue": "Quel capitaine poursuit obstinément la baleine blanche dans Moby Dick ?",
+          "acceptedAnswers": [
+            "Ahab"
+          ]
+        },
+        {
+          "id": "if-q1990",
+          "difficulty": 1,
+          "answer": "Bovary",
+          "clue": "Quel nom de famille porte Emma, l’héroïne du roman de Flaubert ?"
+        },
+        {
+          "id": "if-q1991",
+          "difficulty": 1,
+          "answer": "Germinal",
+          "clue": "Quel roman de Zola suit Étienne Lantier parmi les mineurs du nord de la France ?"
+        },
+        {
+          "id": "if-q1992",
+          "difficulty": 2,
+          "answer": "Gervaise",
+          "clue": "Quelle blanchisseuse est au centre de L’Assommoir de Zola ?"
+        },
+        {
+          "id": "if-q1993",
+          "difficulty": 2,
+          "answer": "Nana",
+          "clue": "Quel prénom donne son titre au roman de Zola consacré à une courtisane, fille de Gervaise ?"
+        },
+        {
+          "id": "if-q1994",
+          "difficulty": 2,
+          "answer": "Rastignac",
+          "clue": "Quel jeune ambitieux de Balzac lance un défi à Paris à la fin du Père Goriot ?"
+        },
+        {
+          "id": "if-q1995",
+          "difficulty": 2,
+          "answer": "Meursault",
+          "clue": "Quel narrateur est jugé pour un meurtre dans L’Étranger de Camus ?"
+        },
+        {
+          "id": "if-q1996",
+          "difficulty": 2,
+          "answer": "Oran",
+          "clue": "Dans quelle ville algérienne Camus situe-t-il La Peste ?"
+        },
+        {
+          "id": "if-q1997",
+          "difficulty": 2,
+          "answer": "Nils",
+          "clue": "Quel prénom porte Holgersson, le petit voyageur qui survole la Suède avec des oies dans le récit de Selma Lagerlöf ?"
+        },
+        {
+          "id": "if-q1998",
+          "difficulty": 1,
+          "answer": "Rémi",
+          "clue": "Quel garçon vendu au musicien ambulant Vitalis est le héros de Sans famille d’Hector Malot ?"
+        },
+        {
+          "id": "if-q1999",
+          "difficulty": 1,
+          "answer": "Sophie",
+          "clue": "Quel prénom porte la petite héroïne dont la comtesse de Ségur raconte les malheurs ?"
+        },
+        {
+          "id": "if-q2000",
+          "difficulty": 1,
+          "answer": "Matilda",
+          "clue": "Quelle petite fille très intelligente, héroïne de Roald Dahl, découvre des pouvoirs extraordinaires ?"
+        },
+        {
+          "id": "if-q2001",
+          "difficulty": 1,
+          "answer": "Wonka",
+          "clue": "Quel nom porte Willy, le propriétaire de la chocolaterie dans le roman de Roald Dahl ?"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,139 @@
+{
+  "schemaVersion": 1,
+  "kind": "quiz",
+  "references": {
+    "rowling": {"title":"J. K. Rowling — Writing","url":"https://www.jkrowling.com/writing/"},
+    "nobel": {"title":"NobelPrize.org — Facts on the Nobel Peace Prizes","url":"https://www.nobelprize.org/prizes/facts/facts-on-the-nobel-peace-prize/"},
+    "sauna": {"title":"UNESCO — Sauna culture in Finland","url":"https://ich.unesco.org/en/RL/traditional-finnish-sauna-culture-01596"},
+    "liberte": {"title":"National Park Service — Statue of Liberty, Frequently Asked Questions","url":"https://www.nps.gov/stli/faqs.htm"},
+    "helium": {"title":"Royal Society of Chemistry — Helium","url":"https://periodic-table.rsc.org/element/2/Helium"},
+    "corindon": {"title":"GIA — Geology of Corundum and Emerald Gem Deposits","url":"https://my.gia.edu/gems-gemology/winter-2019-geology-of-corundum-and-emerald-gem-deposits"},
+    "beryl": {"title":"GIA — Gübelin Gem Project, Beryl","url":"https://www.gia.edu/gia-gubelin-gem-project-research"}
+  },
+  "groups": [
+    { "category": "Littérature", "puzzles": [
+      {"id":"if-q902","difficulty":1,"answer":"Molière","clue":"Quel dramaturge a écrit Tartuffe et Le Bourgeois gentilhomme ?"},
+      {"id":"if-q903","difficulty":1,"answer":"Hugo","clue":"Quel poète prénommé Victor a écrit Demain, dès l’aube en souvenir de sa fille Léopoldine ?"},
+      {"id":"if-q904","difficulty":1,"answer":"Verne","clue":"Quel romancier a envoyé ses personnages au centre de la Terre et sous les mers à bord du Nautilus ?"},
+      {"id":"if-q905","difficulty":1,"answer":"Perrault","clue":"Quel conteur français a publié Le Petit Poucet à la fin du dix-septième siècle ?"},
+      {"id":"if-q906","difficulty":1,"answer":"Andersen","clue":"Quel conteur danois a écrit La Petite Fille aux allumettes ?"},
+      {"id":"if-q907","difficulty":2,"answer":"Dickens","clue":"Quel écrivain a créé Ebenezer Scrooge, l’avare visité par des esprits dans Un chant de Noël ?"},
+      {"id":"if-q908","difficulty":2,"answer":"Orwell","clue":"Quel écrivain a imaginé Big Brother et un ministère de la Vérité dans un roman sur une dictature omniprésente ?"},
+      {"id":"if-q909","difficulty":2,"answer":"Tolkien","clue":"Quel auteur du Hobbit était aussi un spécialiste des langues anciennes et a inventé des langues elfiques ?"}
+    ] },
+    { "category": "Bande dessinée", "puzzles": [
+      {"id":"if-q910","difficulty":2,"answer":"Hergé","clue":"Quel dessinateur belge a créé les deux garnements Quick et Flupke ?"}
+    ] },
+    { "category": "Littérature", "puzzles": [
+      {"id":"if-q911","difficulty":2,"answer":"Dumas","clue":"Quel écrivain prénommé Alexandre a écrit La Reine Margot ?"}
+    ] },
+    { "category": "Histoire", "puzzles": [
+      {"id":"if-q912","difficulty":2,"answer":"Zola","clue":"Quel écrivain a signé la lettre ouverte J’accuse publiée dans L’Aurore pour défendre Alfred Dreyfus ?"}
+    ] },
+    { "category": "Littérature", "puzzles": [
+      {"id":"if-q913","difficulty":1,"answer":"Pagnol","clue":"Quel écrivain provençal a raconté ses souvenirs d’enfance dans La Gloire de mon père et Le Château de ma mère ?"},
+      {"id":"if-q914","difficulty":2,"answer":"Balzac","clue":"Quel romancier a créé Eugénie Grandet, jeune héritière vivant à Saumur auprès d’un père avare ?"},
+      {"id":"if-q915","difficulty":2,"answer":"Flaubert","clue":"Quel écrivain a situé son roman Salammbô dans la Carthage antique ?"},
+      {"id":"if-q916","difficulty":2,"answer":"Maupassant","clue":"Quel auteur français a écrit Le Horla, récit d’un homme qui croit sentir une présence invisible ?"},
+      {"id":"if-q917","difficulty":2,"answer":"Hemingway","clue":"Quel écrivain américain est l’auteur de Pour qui sonne le glas, roman situé pendant la guerre d’Espagne ?"},
+      {"id":"if-q918","difficulty":1,"answer":"Shakespeare","clue":"Quel dramaturge anglais a créé les personnages de Macbeth et d’Othello ?"},
+      {"id":"if-q919","difficulty":1,"answer":"Christie","clue":"Quelle romancière a imaginé Le Meurtre de Roger Ackroyd et Mort sur le Nil ?"},
+      {"id":"if-q920","difficulty":2,"answer":"Austen","clue":"Quelle romancière anglaise est l’auteure de Raison et Sentiments, centré sur les sœurs Dashwood ?"},
+      {"id":"if-q921","difficulty":2,"answer":"Rowling","clue":"Quelle romancière britannique publie aussi des enquêtes policières sous le pseudonyme Robert Galbraith ?","reference":"rowling"}
+    ] },
+    { "category": "Théâtre et spectacle", "puzzles": [
+      {"id":"if-q922","difficulty":1,"answer":"Rostand","clue":"Quel dramaturge prénommé Edmond a écrit Cyrano de Bergerac ?"}
+    ] },
+    { "category": "Littérature", "puzzles": [
+      {"id":"if-q923","difficulty":1,"answer":"Daudet","clue":"Quel écrivain prénommé Alphonse a raconté les aventures de Tartarin de Tarascon ?"},
+      {"id":"if-q924","difficulty":2,"answer":"Apollinaire","clue":"Quel poète a réuni des poèmes en forme de dessins dans le recueil Calligrammes ?"},
+      {"id":"if-q925","difficulty":1,"answer":"Sand","clue":"Quel nom suit George dans le pseudonyme de l’écrivaine qui a publié La Mare au diable ?"},
+      {"id":"if-q926","difficulty":1,"answer":"London","clue":"Quel écrivain américain prénommé Jack a écrit Croc-Blanc et L’Appel de la forêt ?"}
+    ] },
+    { "category": "Musique", "puzzles": [
+      {"id":"if-q927","difficulty":1,"answer":"Mozart","clue":"Quel compositeur a écrit les opéras Les Noces de Figaro et Don Giovanni ?"},
+      {"id":"if-q928","difficulty":1,"answer":"Beethoven","clue":"Quel compositeur prénommé Ludwig a continué à créer malgré une surdité devenue presque totale ?"},
+      {"id":"if-q929","difficulty":2,"answer":"Vivaldi","clue":"Quel compositeur vénitien, également ordonné prêtre, était surnommé le Prêtre roux ?"},
+      {"id":"if-q930","difficulty":2,"answer":"Ravel","clue":"Quel compositeur français a écrit la Pavane pour une infante défunte ?"},
+      {"id":"if-q931","difficulty":2,"answer":"Bach","clue":"Quel compositeur prénommé Jean-Sébastien a écrit la Passion selon saint Matthieu ?"},
+      {"id":"if-q932","difficulty":2,"answer":"Debussy","clue":"Quel compositeur a écrit le Prélude à l’après-midi d’un faune, inspiré par un poème de Mallarmé ?"},
+      {"id":"if-q933","difficulty":1,"answer":"Verdi","clue":"Quel compositeur italien a situé son opéra Aida dans l’Égypte antique ?"},
+      {"id":"if-q934","difficulty":2,"answer":"Tchaïkovski","clue":"Quel compositeur russe a écrit la musique du ballet La Belle au bois dormant ?","acceptedAnswers":["Tchaikovsky","Tchaikovski"]},
+      {"id":"if-q935","difficulty":2,"answer":"Schubert","clue":"Quel compositeur autrichien a écrit le quintette surnommé La Truite ?"},
+      {"id":"if-q936","difficulty":2,"answer":"Strauss","clue":"Quel nom de famille porte Johann fils, compositeur du Beau Danube bleu ?"},
+      {"id":"if-q937","difficulty":1,"answer":"Offenbach","clue":"Quel compositeur a écrit Orphée aux enfers, dont le galop est souvent associé au french cancan ?"},
+      {"id":"if-q938","difficulty":2,"answer":"Puccini","clue":"Quel compositeur italien a écrit les opéras La Bohème, Tosca et Madame Butterfly ?"},
+      {"id":"if-q939","difficulty":2,"answer":"Prokofiev","clue":"Quel compositeur a créé Pierre et le Loup pour faire découvrir les instruments de l’orchestre aux enfants ?","acceptedAnswers":["Prokofyev"]},
+      {"id":"if-q940","difficulty":2,"answer":"Satie","clue":"Quel compositeur prénommé Erik est l’auteur des Gymnopédies ?"},
+      {"id":"if-q941","difficulty":2,"answer":"Wagner","clue":"Quel compositeur allemand a créé le cycle d’opéras L’Anneau du Nibelung ?"}
+    ] },
+    { "category": "Chanson française", "puzzles": [
+      {"id":"if-q942","difficulty":1,"answer":"Hallyday","clue":"Quel chanteur français surnommé Johnny a interprété Allumer le feu et Que je t’aime ?"},
+      {"id":"if-q943","difficulty":1,"answer":"Sardou","clue":"Quel chanteur prénommé Michel a interprété Les Lacs du Connemara ?"},
+      {"id":"if-q944","difficulty":1,"answer":"Goldman","clue":"Quel auteur-compositeur prénommé Jean-Jacques a chanté Je te donne avec Michael Jones ?"},
+      {"id":"if-q945","difficulty":1,"answer":"Berger","clue":"Quel compositeur prénommé Michel a écrit et chanté La Groupie du pianiste ?"},
+      {"id":"if-q946","difficulty":1,"answer":"Balavoine","clue":"Quel chanteur prénommé Daniel a interprété Le Chanteur et L’Aziza ?"},
+      {"id":"if-q947","difficulty":1,"answer":"Dassin","clue":"Quel chanteur prénommé Joe a interprété L’Été indien et Les Champs-Élysées ?"},
+      {"id":"if-q948","difficulty":1,"answer":"Renaud","clue":"Quel chanteur à la voix rocailleuse a écrit et interprété Mistral gagnant ?"},
+      {"id":"if-q949","difficulty":1,"answer":"Bashung","clue":"Quel chanteur prénommé Alain a interprété Gaby oh Gaby et Osez Joséphine ?"},
+      {"id":"if-q950","difficulty":1,"answer":"Nougaro","clue":"Quel chanteur prénommé Claude a rendu hommage à sa ville natale dans Toulouse ?"},
+      {"id":"if-q951","difficulty":1,"answer":"Dutronc","clue":"Quel chanteur prénommé Jacques a interprété Il est cinq heures, Paris s’éveille ?"}
+    ] },
+    { "category": "Pays du monde", "puzzles": [
+      {"id":"if-q952","difficulty":2,"answer":"France","clue":"Quel pays européen partage une frontière terrestre avec le Brésil grâce à la Guyane ?"},
+      {"id":"if-q953","difficulty":1,"answer":"Allemagne","clue":"Quel pays a été réunifié après avoir été divisé en deux États, l’un à l’ouest et l’autre à l’est ?"},
+      {"id":"if-q954","difficulty":1,"answer":"Espagne","clue":"Dans quel pays peut-on visiter le musée du Prado à Madrid ?"},
+      {"id":"if-q955","difficulty":1,"answer":"Portugal","clue":"Quel pays abrite la tour de Belém et le monastère des Hiéronymites ?"},
+      {"id":"if-q956","difficulty":1,"answer":"Italie","clue":"Dans quel pays se trouvent la ville antique de Pompéi et la tour penchée de Pise ?"},
+      {"id":"if-q957","difficulty":1,"answer":"Belgique","clue":"Quel pays a vu naître le peintre René Magritte et le dessinateur Hergé ?"},
+      {"id":"if-q958","difficulty":1,"answer":"Suisse","clue":"Quel pays européen possède un drapeau national carré portant une croix blanche sur fond rouge ?"},
+      {"id":"if-q959","difficulty":1,"answer":"Autriche","clue":"Dans quel pays se trouvent les palais de Schönbrunn et de la Hofburg, liés à l’histoire des Habsbourg ?"},
+      {"id":"if-q960","difficulty":1,"answer":"Danemark","clue":"Dans quel pays sont nées les briques LEGO, inventées par une entreprise fondée à Billund ?"},
+      {"id":"if-q961","difficulty":2,"answer":"Norvège","clue":"Dans quel pays se déroule la remise du prix Nobel de la paix, distincte de celle des autres prix Nobel ?","reference":"nobel"},
+      {"id":"if-q962","difficulty":1,"answer":"Suède","clue":"Quel pays scandinave possède un drapeau bleu traversé d’une croix jaune ?"},
+      {"id":"if-q963","difficulty":1,"answer":"Finlande","clue":"Dans quel pays nordique la culture du sauna a-t-elle été inscrite au patrimoine culturel immatériel de l’UNESCO ?","reference":"sauna"},
+      {"id":"if-q964","difficulty":2,"answer":"Islande","clue":"Quel pays insulaire est traversé par la dorsale médio-atlantique et abrite le volcan Hekla ?"},
+      {"id":"if-q965","difficulty":2,"answer":"Irlande","clue":"Quel pays a vu naître les écrivains James Joyce et Oscar Wilde ?"},
+      {"id":"if-q966","difficulty":2,"answer":"Pologne","clue":"Dans quel pays se trouvent les mines de sel historiques de Wieliczka ?"},
+      {"id":"if-q967","difficulty":1,"answer":"Grèce","clue":"Dans quel pays se trouve Olympie, où étaient organisés les Jeux olympiques de l’Antiquité ?"},
+      {"id":"if-q968","difficulty":1,"answer":"Turquie","clue":"Dans quel pays peut-on découvrir les paysages de la Cappadoce et ses cheminées de fées ?"},
+      {"id":"if-q969","difficulty":1,"answer":"Égypte","clue":"Dans quel pays antique les dieux Osiris, Isis et Horus occupaient-ils une grande place ?"},
+      {"id":"if-q970","difficulty":1,"answer":"Maroc","clue":"Quel pays du Maghreb possède un drapeau rouge portant une étoile verte à cinq branches ?"},
+      {"id":"if-q971","difficulty":1,"answer":"Inde","clue":"Quel pays possède un drapeau safran, blanc et vert avec une roue bleue au centre ?"},
+      {"id":"if-q972","difficulty":1,"answer":"Chine","clue":"Dans quel pays la fête des bateaux-dragons est-elle une grande fête traditionnelle du calendrier lunaire ?"},
+      {"id":"if-q973","difficulty":1,"answer":"Japon","clue":"Dans quel pays le premier train à grande vitesse Shinkansen a-t-il relié Tokyo à Osaka ?"},
+      {"id":"if-q974","difficulty":1,"answer":"Australie","clue":"Dans quel pays se trouve Uluru, l’immense formation rocheuse rouge au cœur du continent ?"},
+      {"id":"if-q975","difficulty":1,"answer":"Canada","clue":"Quel pays possède une feuille d’érable rouge au centre de son drapeau ?"},
+      {"id":"if-q976","difficulty":1,"answer":"Mexique","clue":"Dans quel pays le Jour des morts est-il particulièrement associé aux autels fleuris et aux crânes décorés ?"}
+    ] },
+    { "category": "Sciences", "puzzles": [
+      {"id":"if-q977","difficulty":1,"answer":"or","clue":"Quel métal précieux est considéré comme pur lorsqu’il est annoncé à vingt-quatre carats ?"},
+      {"id":"if-q978","difficulty":2,"answer":"argent","clue":"Quel métal précieux peut se ternir et noircir au contact de composés soufrés présents dans l’air ?"},
+      {"id":"if-q979","difficulty":1,"answer":"cuivre","clue":"Quel métal constitue l’enveloppe de la statue de la Liberté, devenue verte avec le temps ?","reference":"liberte"},
+      {"id":"if-q980","difficulty":2,"answer":"carbone","clue":"Quel élément chimique possède un isotope quatorze utilisé pour dater des restes organiques anciens ?"},
+      {"id":"if-q981","difficulty":2,"answer":"hélium","clue":"Quel élément a été repéré dans le spectre du Soleil avant d’être identifié sur Terre ?","reference":"helium"},
+      {"id":"if-q982","difficulty":1,"answer":"mercure","clue":"Quel métal liquide à température ambiante se trouvait dans de nombreux thermomètres anciens ?"},
+      {"id":"if-q983","difficulty":1,"answer":"lithium","clue":"Quel métal léger donne son nom à une famille de batteries rechargeables très répandues dans les téléphones ?"},
+      {"id":"if-q984","difficulty":1,"answer":"calcium","clue":"Quel élément de symbole Ca entre notamment dans la composition minérale des os et des dents ?"},
+      {"id":"if-q985","difficulty":1,"answer":"chlore","clue":"Quel élément chimique donne son nom à des produits utilisés pour désinfecter l’eau des piscines ?"},
+      {"id":"if-q986","difficulty":2,"answer":"iode","clue":"Quel élément de symbole I est nécessaire à la fabrication des hormones de la thyroïde ?"},
+      {"id":"if-q987","difficulty":2,"answer":"platine","clue":"Quel métal précieux, également utilisé dans certains pots catalytiques, porte le symbole Pt ?"},
+      {"id":"if-q988","difficulty":2,"answer":"zinc","clue":"Quel métal recouvre l’acier galvanisé pour le protéger de la corrosion ?"},
+      {"id":"if-q989","difficulty":2,"answer":"étain","clue":"Quel métal recouvre le fer-blanc utilisé notamment pour fabriquer certaines boîtes de conserve ?"},
+      {"id":"if-q990","difficulty":1,"answer":"aluminium","clue":"Quel métal léger est principalement obtenu à partir d’un minerai appelé bauxite ?"},
+      {"id":"if-q991","difficulty":1,"answer":"soufre","clue":"Quel élément chimique jaune à l’état solide porte le symbole S ?"},
+      {"id":"if-q992","difficulty":2,"answer":"silicium","clue":"Quel élément, combiné à l’oxygène, forme la silice présente notamment dans le quartz ?"},
+      {"id":"if-q993","difficulty":1,"answer":"calcaire","clue":"Quelle roche riche en carbonate de calcium peut mousser lorsqu’on verse du vinaigre dessus ?"},
+      {"id":"if-q994","difficulty":1,"answer":"quartz","clue":"Quel minéral fait vibrer de nombreux mécanismes de montre à une fréquence très régulière ?"},
+      {"id":"if-q995","difficulty":1,"answer":"diamant","clue":"Quelle pierre précieuse sert de référence au niveau le plus élevé de l’échelle de dureté de Mohs ?"},
+      {"id":"if-q996","difficulty":1,"answer":"graphite","clue":"Quelle matière noire, mélangée notamment à de l’argile, constitue la mine d’un crayon ordinaire ?"},
+      {"id":"if-q997","difficulty":1,"answer":"rubis","clue":"Quelle pierre précieuse rouge est une variété de corindon ?","reference":"corindon"},
+      {"id":"if-q998","difficulty":1,"answer":"saphir","clue":"Quelle pierre précieuse traditionnellement associée au bleu appartient, comme le rubis, à la famille du corindon ?","reference":"corindon"},
+      {"id":"if-q999","difficulty":1,"answer":"émeraude","clue":"Quelle pierre précieuse verte est une variété de béryl ?","reference":"beryl"},
+      {"id":"if-q1000","difficulty":1,"answer":"ambre","clue":"Quelle résine fossilisée peut emprisonner d’anciens insectes et se porter en bijou ?"}
+    ] },
+    { "category": "Nature", "puzzles": [
+      {"id":"if-q1001","difficulty":1,"answer":"perle","clue":"Quelle petite formation de nacre peut être produite à l’intérieur de certains mollusques et utilisée en bijouterie ?"}
+    ] }
+  ]
+}

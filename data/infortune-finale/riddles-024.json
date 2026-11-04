@@ -1,0 +1,638 @@
+{
+  "schemaVersion": 1,
+  "kind": "riddle",
+  "groups": [
+    {
+      "category": "Gestes du quotidien",
+      "puzzles": [
+        {
+          "id": "if-r2201",
+          "difficulty": 2,
+          "answer": "acquiescer",
+          "clue": "D’un signe de tête, je fais comprendre que je suis d’accord."
+        },
+        {
+          "id": "if-r2202",
+          "difficulty": 1,
+          "answer": "hausser",
+          "clue": "Avec les épaules, je fais ce geste pour montrer l’indifférence ou le doute."
+        },
+        {
+          "id": "if-r2203",
+          "difficulty": 1,
+          "answer": "cligner",
+          "clue": "Avec les paupières, je ferme brièvement les yeux puis les rouvre."
+        },
+        {
+          "id": "if-r2204",
+          "difficulty": 1,
+          "answer": "froncer",
+          "clue": "Avec les sourcils, je rapproche et plisse cette zone quand je suis contrarié."
+        },
+        {
+          "id": "if-r2205",
+          "difficulty": 2,
+          "answer": "esquisser",
+          "clue": "Je commence un geste ou un dessin sans le développer complètement."
+        },
+        {
+          "id": "if-r2206",
+          "difficulty": 1,
+          "answer": "désigner",
+          "clue": "Du doigt ou par un mot, je montre précisément la personne ou la chose concernée."
+        },
+        {
+          "id": "if-r2207",
+          "difficulty": 1,
+          "answer": "indiquer",
+          "clue": "Je donne une direction ou une information qui aide à trouver ce qu’on cherche."
+        },
+        {
+          "id": "if-r2208",
+          "difficulty": 1,
+          "answer": "signaler",
+          "clue": "Je porte à l’attention des autres un fait qu’ils pourraient ne pas avoir remarqué."
+        },
+        {
+          "id": "if-r2209",
+          "difficulty": 1,
+          "answer": "interrompre",
+          "clue": "Je fais cesser une action avant son achèvement, parfois seulement pour un moment."
+        },
+        {
+          "id": "if-r2210",
+          "difficulty": 1,
+          "answer": "reprendre",
+          "clue": "Après une interruption, je me remets à ce qui avait été commencé."
+        },
+        {
+          "id": "if-r2211",
+          "difficulty": 1,
+          "answer": "achever",
+          "clue": "J’amène un travail commencé jusqu’à son terme.",
+          "acceptedAnswers": [
+            "terminer",
+            "finir"
+          ]
+        },
+        {
+          "id": "if-r2212",
+          "difficulty": 1,
+          "answer": "reporter",
+          "clue": "Je déplace une activité prévue vers une date ultérieure."
+        },
+        {
+          "id": "if-r2213",
+          "difficulty": 2,
+          "answer": "anticiper",
+          "clue": "Je tiens compte de ce qui pourrait arriver avant que cela ne se produise."
+        },
+        {
+          "id": "if-r2214",
+          "difficulty": 1,
+          "answer": "improviser",
+          "clue": "Je réalise quelque chose sur le moment, sans l’avoir préparé en détail."
+        },
+        {
+          "id": "if-r2215",
+          "difficulty": 1,
+          "answer": "adapter",
+          "clue": "Je modifie ce qui existe pour le rendre approprié à une nouvelle situation."
+        },
+        {
+          "id": "if-r2216",
+          "difficulty": 1,
+          "answer": "ajuster",
+          "clue": "Je corrige légèrement une position ou une mesure pour la faire correspondre au besoin."
+        },
+        {
+          "id": "if-r2217",
+          "difficulty": 1,
+          "answer": "rectifier",
+          "clue": "Je corrige une erreur ou une inexactitude déjà présente."
+        },
+        {
+          "id": "if-r2218",
+          "difficulty": 1,
+          "answer": "vérifier",
+          "clue": "Je recherche si une information, un calcul ou un montage est correct."
+        },
+        {
+          "id": "if-r2219",
+          "difficulty": 1,
+          "answer": "comparer",
+          "clue": "J’examine plusieurs choses ensemble pour repérer leurs ressemblances et leurs différences."
+        },
+        {
+          "id": "if-r2220",
+          "difficulty": 1,
+          "answer": "évaluer",
+          "clue": "J’estime une valeur, un niveau ou une importance à partir de critères."
+        }
+      ]
+    },
+    {
+      "category": "Communication",
+      "puzzles": [
+        {
+          "id": "if-r2221",
+          "difficulty": 1,
+          "answer": "reformuler",
+          "clue": "Je redis la même idée autrement pour la rendre plus claire."
+        },
+        {
+          "id": "if-r2222",
+          "difficulty": 1,
+          "answer": "résumer",
+          "clue": "Je conserve l’essentiel d’un texte en employant moins de mots."
+        },
+        {
+          "id": "if-r2223",
+          "difficulty": 1,
+          "answer": "détailler",
+          "clue": "Je développe une explication en présentant ses éléments un à un."
+        },
+        {
+          "id": "if-r2224",
+          "difficulty": 1,
+          "answer": "illustrer",
+          "clue": "J’appuie une idée avec une image ou un exemple concret."
+        },
+        {
+          "id": "if-r2225",
+          "difficulty": 1,
+          "answer": "argumenter",
+          "clue": "Je présente des raisons destinées à soutenir mon point de vue."
+        },
+        {
+          "id": "if-r2226",
+          "difficulty": 1,
+          "answer": "convaincre",
+          "clue": "Par mes raisons, j’amène une personne à reconnaître le bien-fondé d’une idée."
+        },
+        {
+          "id": "if-r2227",
+          "difficulty": 2,
+          "answer": "persuader",
+          "clue": "J’amène quelqu’un à adopter une idée en faisant aussi appel à ses sentiments."
+        },
+        {
+          "id": "if-r2228",
+          "difficulty": 2,
+          "answer": "objecter",
+          "clue": "J’oppose à ce qui vient d’être dit une difficulté ou une raison contraire."
+        },
+        {
+          "id": "if-r2229",
+          "difficulty": 2,
+          "answer": "réfuter",
+          "clue": "Je montre, par des arguments, qu’une affirmation est fausse ou mal fondée."
+        },
+        {
+          "id": "if-r2230",
+          "difficulty": 2,
+          "answer": "nuancer",
+          "clue": "Je rends un jugement moins absolu en introduisant des distinctions."
+        },
+        {
+          "id": "if-r2231",
+          "difficulty": 2,
+          "answer": "tempérer",
+          "clue": "Je modère un enthousiasme, une colère ou un propos trop vif."
+        },
+        {
+          "id": "if-r2232",
+          "difficulty": 1,
+          "answer": "confirmer",
+          "clue": "Je donne un nouvel appui à une information déjà annoncée."
+        },
+        {
+          "id": "if-r2233",
+          "difficulty": 1,
+          "answer": "démentir",
+          "clue": "Je déclare fausse une information qui circulait."
+        },
+        {
+          "id": "if-r2234",
+          "difficulty": 1,
+          "answer": "préciser",
+          "clue": "J’ajoute ce qu’il faut pour rendre une indication moins vague."
+        },
+        {
+          "id": "if-r2235",
+          "difficulty": 2,
+          "answer": "expliciter",
+          "clue": "Je développe ce qui était seulement sous-entendu."
+        },
+        {
+          "id": "if-r2236",
+          "difficulty": 2,
+          "answer": "insinuer",
+          "clue": "Je fais comprendre une idée sans l’exprimer franchement."
+        },
+        {
+          "id": "if-r2237",
+          "difficulty": 1,
+          "answer": "suggérer",
+          "clue": "Je propose une possibilité, sans l’imposer comme une instruction."
+        },
+        {
+          "id": "if-r2238",
+          "difficulty": 2,
+          "answer": "préconiser",
+          "clue": "Je recommande une solution que je juge adaptée à un problème."
+        },
+        {
+          "id": "if-r2239",
+          "difficulty": 1,
+          "answer": "déconseiller",
+          "clue": "J’invite une personne à éviter une action que je juge peu souhaitable."
+        },
+        {
+          "id": "if-r2240",
+          "difficulty": 1,
+          "answer": "prévenir",
+          "clue": "J’informe quelqu’un d’un événement à venir ou d’un risque dont il doit tenir compte."
+        }
+      ]
+    },
+    {
+      "category": "Organisation et travail",
+      "puzzles": [
+        {
+          "id": "if-r2241",
+          "difficulty": 1,
+          "answer": "planifier",
+          "clue": "Je place à l’avance les étapes d’un travail dans un calendrier."
+        },
+        {
+          "id": "if-r2242",
+          "difficulty": 1,
+          "answer": "programmer",
+          "clue": "Je fixe le moment où une action devra se produire, parfois automatiquement."
+        },
+        {
+          "id": "if-r2243",
+          "difficulty": 2,
+          "answer": "coordonner",
+          "clue": "J’organise plusieurs actions pour qu’elles se déroulent ensemble sans se gêner."
+        },
+        {
+          "id": "if-r2244",
+          "difficulty": 1,
+          "answer": "répartir",
+          "clue": "Je distribue les tâches ou les objets entre plusieurs personnes."
+        },
+        {
+          "id": "if-r2245",
+          "difficulty": 2,
+          "answer": "déléguer",
+          "clue": "Je confie à quelqu’un une mission que je pourrais accomplir moi-même."
+        },
+        {
+          "id": "if-r2246",
+          "difficulty": 2,
+          "answer": "centraliser",
+          "clue": "Je rassemble en un même endroit des informations ou des moyens dispersés."
+        },
+        {
+          "id": "if-r2247",
+          "difficulty": 2,
+          "answer": "mutualiser",
+          "clue": "Je mets en commun des ressources pour que plusieurs personnes en bénéficient."
+        },
+        {
+          "id": "if-r2248",
+          "difficulty": 2,
+          "answer": "hiérarchiser",
+          "clue": "Je classe des éléments selon leur importance ou leur priorité."
+        },
+        {
+          "id": "if-r2249",
+          "difficulty": 2,
+          "answer": "prioriser",
+          "clue": "Je choisis ce qui doit passer avant le reste dans le travail à faire."
+        },
+        {
+          "id": "if-r2250",
+          "difficulty": 1,
+          "answer": "ordonner",
+          "clue": "Je place des éléments dans un ordre déterminé ; je peux aussi donner une instruction ferme."
+        },
+        {
+          "id": "if-r2251",
+          "difficulty": 1,
+          "answer": "classer",
+          "clue": "Je range des documents selon un système qui permettra de les retrouver."
+        },
+        {
+          "id": "if-r2252",
+          "difficulty": 1,
+          "answer": "archiver",
+          "clue": "Je conserve des documents qui ne servent plus quotidiennement, sans les détruire."
+        },
+        {
+          "id": "if-r2253",
+          "difficulty": 2,
+          "answer": "consigner",
+          "clue": "Je note des informations de façon à en garder une trace précise."
+        },
+        {
+          "id": "if-r2254",
+          "difficulty": 2,
+          "answer": "recenser",
+          "clue": "Je dresse la liste aussi complète que possible des éléments d’un ensemble."
+        },
+        {
+          "id": "if-r2255",
+          "difficulty": 2,
+          "answer": "inventorier",
+          "clue": "Je décris et compte les biens présents pour établir ce que l’on possède."
+        },
+        {
+          "id": "if-r2256",
+          "difficulty": 2,
+          "answer": "comptabiliser",
+          "clue": "Je prends en compte des éléments en les inscrivant dans un total ou dans des comptes."
+        },
+        {
+          "id": "if-r2257",
+          "difficulty": 2,
+          "answer": "budgéter",
+          "clue": "J’estime à l’avance les dépenses nécessaires à un projet."
+        },
+        {
+          "id": "if-r2258",
+          "difficulty": 1,
+          "answer": "financer",
+          "clue": "Je fournis les moyens monétaires nécessaires à la réalisation d’un projet."
+        },
+        {
+          "id": "if-r2259",
+          "difficulty": 2,
+          "answer": "rentabiliser",
+          "clue": "Je cherche à faire produire un bénéfice suffisant par rapport aux dépenses engagées."
+        },
+        {
+          "id": "if-r2260",
+          "difficulty": 2,
+          "answer": "amortir",
+          "clue": "Dans la vie courante, j’atténue un choc ; en comptabilité, je répartis le coût d’un bien dans le temps."
+        }
+      ]
+    },
+    {
+      "category": "Cuisine",
+      "puzzles": [
+        {
+          "id": "if-r2261",
+          "difficulty": 2,
+          "answer": "ciseler",
+          "clue": "Je coupe des herbes ou des légumes en morceaux très fins à l’aide d’une lame."
+        },
+        {
+          "id": "if-r2262",
+          "difficulty": 1,
+          "answer": "émincer",
+          "clue": "Je découpe un aliment en tranches très fines."
+        },
+        {
+          "id": "if-r2263",
+          "difficulty": 2,
+          "answer": "concasser",
+          "clue": "Je brise grossièrement un aliment dur, comme des noisettes, sans le réduire en poudre."
+        },
+        {
+          "id": "if-r2264",
+          "difficulty": 1,
+          "answer": "broyer",
+          "clue": "Je réduis une matière en fragments très petits sous une action mécanique."
+        },
+        {
+          "id": "if-r2265",
+          "difficulty": 1,
+          "answer": "piler",
+          "clue": "Je réduis des aliments en morceaux ou en poudre en les frappant dans un mortier."
+        },
+        {
+          "id": "if-r2266",
+          "difficulty": 1,
+          "answer": "écraser",
+          "clue": "Avec une fourchette, j’aplatis un aliment tendre pour le transformer en purée grossière."
+        },
+        {
+          "id": "if-r2267",
+          "difficulty": 2,
+          "answer": "effiler",
+          "clue": "Avec des amandes, je réalise des lamelles très minces."
+        },
+        {
+          "id": "if-r2268",
+          "difficulty": 2,
+          "answer": "zester",
+          "clue": "Je prélève la partie colorée de la peau d’un agrume sans prendre la couche blanche."
+        },
+        {
+          "id": "if-r2269",
+          "difficulty": 1,
+          "answer": "équeuter",
+          "clue": "Je retire les petites attaches vertes des fraises ou les extrémités des haricots."
+        },
+        {
+          "id": "if-r2270",
+          "difficulty": 1,
+          "answer": "épépiner",
+          "clue": "Je retire d’un fruit les petites graines qu’il contient."
+        },
+        {
+          "id": "if-r2271",
+          "difficulty": 1,
+          "answer": "dénoyauter",
+          "clue": "Je retire d’une cerise ou d’une olive sa partie dure centrale."
+        },
+        {
+          "id": "if-r2272",
+          "difficulty": 1,
+          "answer": "évider",
+          "clue": "Je retire l’intérieur d’un aliment pour laisser une cavité à garnir."
+        },
+        {
+          "id": "if-r2273",
+          "difficulty": 1,
+          "answer": "farcir",
+          "clue": "Je remplis l’intérieur d’un aliment avec une préparation qui lui sert de garniture."
+        },
+        {
+          "id": "if-r2274",
+          "difficulty": 1,
+          "answer": "napper",
+          "clue": "Je recouvre un aliment d’une couche de sauce ou de crème."
+        },
+        {
+          "id": "if-r2275",
+          "difficulty": 1,
+          "answer": "badigeonner",
+          "clue": "Je couvre une surface d’une couche liquide avec un pinceau ou un ustensile similaire."
+        },
+        {
+          "id": "if-r2276",
+          "difficulty": 1,
+          "answer": "dorer",
+          "clue": "Avant d’enfourner une pâte, je la couvre par exemple d’œuf battu pour améliorer son aspect après cuisson."
+        },
+        {
+          "id": "if-r2277",
+          "difficulty": 1,
+          "answer": "quadriller",
+          "clue": "Je trace sur une pâte ou marque sur une viande des lignes qui se croisent."
+        },
+        {
+          "id": "if-r2278",
+          "difficulty": 2,
+          "answer": "inciser",
+          "clue": "Je pratique une petite coupure à la surface d’un aliment sans le séparer entièrement."
+        },
+        {
+          "id": "if-r2279",
+          "difficulty": 1,
+          "answer": "piquer",
+          "clue": "Avec une fourchette, je fais de petits trous dans un fond de tarte avant cuisson."
+        },
+        {
+          "id": "if-r2280",
+          "difficulty": 2,
+          "answer": "chemiser",
+          "clue": "Je tapisse l’intérieur d’un moule avec une matière qui facilitera son démoulage."
+        }
+      ]
+    },
+    {
+      "category": "Bricolage",
+      "puzzles": [
+        {
+          "id": "if-r2281",
+          "difficulty": 1,
+          "answer": "poncer",
+          "clue": "Avec un abrasif, je retire de petites irrégularités d’une surface."
+        },
+        {
+          "id": "if-r2282",
+          "difficulty": 1,
+          "answer": "raboter",
+          "clue": "Avec une lame adaptée, j’enlève de minces copeaux pour ajuster une pièce de bois."
+        },
+        {
+          "id": "if-r2283",
+          "difficulty": 1,
+          "answer": "scier",
+          "clue": "Je coupe une matière en faisant travailler une lame munie de dents."
+        },
+        {
+          "id": "if-r2284",
+          "difficulty": 1,
+          "answer": "percer",
+          "clue": "Je réalise un trou dans une pièce à l’aide d’un outil adapté."
+        },
+        {
+          "id": "if-r2285",
+          "difficulty": 2,
+          "answer": "fraiser",
+          "clue": "J’usine notamment l’entrée d’un trou pour y loger une tête de vis."
+        },
+        {
+          "id": "if-r2286",
+          "difficulty": 1,
+          "answer": "entailler",
+          "clue": "Je fais une coupure limitée dans le bord ou la surface d’une pièce."
+        },
+        {
+          "id": "if-r2287",
+          "difficulty": 1,
+          "answer": "assembler",
+          "clue": "Je réunis plusieurs pièces pour qu’elles forment un ensemble."
+        },
+        {
+          "id": "if-r2288",
+          "difficulty": 1,
+          "answer": "coller",
+          "clue": "Je fixe deux surfaces l’une à l’autre avec une matière adhésive."
+        },
+        {
+          "id": "if-r2289",
+          "difficulty": 1,
+          "answer": "clouer",
+          "clue": "Je fixe des pièces en enfonçant des pointes à coups de marteau."
+        },
+        {
+          "id": "if-r2290",
+          "difficulty": 1,
+          "answer": "agrafer",
+          "clue": "Je réunis des éléments en y faisant pénétrer une petite attache métallique repliée."
+        },
+        {
+          "id": "if-r2291",
+          "difficulty": 2,
+          "answer": "river",
+          "clue": "Je fixe durablement des pièces en déformant l’extrémité d’une attache métallique.",
+          "acceptedAnswers": [
+            "riveter"
+          ]
+        },
+        {
+          "id": "if-r2292",
+          "difficulty": 1,
+          "answer": "souder",
+          "clue": "Je réunis des pièces, souvent métalliques, en créant une liaison permanente par un procédé adapté."
+        },
+        {
+          "id": "if-r2293",
+          "difficulty": 2,
+          "answer": "braser",
+          "clue": "Je réunis des métaux avec un métal d’apport fondu, sans faire fondre les pièces elles-mêmes."
+        },
+        {
+          "id": "if-r2294",
+          "difficulty": 2,
+          "answer": "sertir",
+          "clue": "Je maintiens une pierre ou une pièce en rabattant de la matière autour d’elle."
+        },
+        {
+          "id": "if-r2295",
+          "difficulty": 1,
+          "answer": "désassembler",
+          "clue": "Je sépare les pièces qui avaient été réunies pour former un ensemble."
+        },
+        {
+          "id": "if-r2296",
+          "difficulty": 1,
+          "answer": "sceller",
+          "clue": "Je fixe solidement une pièce dans un support, notamment avec un mortier."
+        },
+        {
+          "id": "if-r2297",
+          "difficulty": 2,
+          "answer": "calibrer",
+          "clue": "J’ajuste ou je classe des pièces pour qu’elles correspondent à une dimension déterminée."
+        },
+        {
+          "id": "if-r2298",
+          "difficulty": 1,
+          "answer": "mesurer",
+          "clue": "Je compare une grandeur avec une unité pour en donner une valeur."
+        },
+        {
+          "id": "if-r2299",
+          "difficulty": 1,
+          "answer": "tracer",
+          "clue": "Je marque une ligne qui servira de guide avant de couper ou de percer."
+        },
+        {
+          "id": "if-r2300",
+          "difficulty": 2,
+          "answer": "équerrer",
+          "clue": "Je règle deux pièces pour qu’elles forment un angle droit."
+        }
+      ]
+    }
+  ]
+}

@@ -1,5 +1,6 @@
 import React from "react";
 import PodiumTypographyTuner from "./dev/PodiumTypographyTuner.jsx";
+import WorkshopLinks from "./dev/WorkshopLinks.jsx";
 
 let globalAnnouncementDraftCache = "";
 
@@ -194,6 +195,7 @@ export default function DevSettingsPanel({
           ) : null}
           {available && !locked ? (
             <>
+          <WorkshopLinks className={mutedClass} />
           {renderToggle({ keyName: "enabled", label: "Mode developpeur" })}
           <div className={`rounded-xl border px-3 py-2 ${mutedClass}`}>
             <span className="block text-[11px] font-bold uppercase tracking-widest opacity-75">

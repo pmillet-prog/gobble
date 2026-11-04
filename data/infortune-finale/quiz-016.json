@@ -1,0 +1,663 @@
+{
+  "schemaVersion": 1,
+  "kind": "quiz",
+  "groups": [
+    {
+      "category": "Nature",
+      "puzzles": [
+        {
+          "id": "if-q1402",
+          "difficulty": 1,
+          "answer": "brebis",
+          "clue": "Quel nom porte la femelle du mouton ?"
+        },
+        {
+          "id": "if-q1403",
+          "difficulty": 1,
+          "answer": "bélier",
+          "clue": "Quel nom porte le mâle reproducteur chez les moutons ?"
+        },
+        {
+          "id": "if-q1404",
+          "difficulty": 1,
+          "answer": "agneau",
+          "clue": "Quel nom porte le petit de la brebis pendant sa jeunesse ?"
+        },
+        {
+          "id": "if-q1405",
+          "difficulty": 1,
+          "answer": "bouc",
+          "clue": "Quel nom porte une petite barbe limitée au menton, qui rappelle celle d’un caprin ?",
+          "category": "Soins et toilette"
+        },
+        {
+          "id": "if-q1406",
+          "difficulty": 1,
+          "answer": "becquée",
+          "clue": "Quel nom donne-t-on à la nourriture que l’oiseau apporte dans son bec à ses petits ?"
+        },
+        {
+          "id": "if-q1407",
+          "difficulty": 1,
+          "answer": "jument",
+          "clue": "Quel nom porte la femelle du cheval ?"
+        },
+        {
+          "id": "if-q1408",
+          "difficulty": 1,
+          "answer": "poulain",
+          "clue": "Quel nom porte le jeune cheval mâle ?"
+        },
+        {
+          "id": "if-q1409",
+          "difficulty": 1,
+          "answer": "étalon",
+          "clue": "Quel nom porte un cheval mâle utilisé pour la reproduction ?"
+        },
+        {
+          "id": "if-q1410",
+          "difficulty": 2,
+          "answer": "hongre",
+          "clue": "Quel nom donne-t-on à un cheval mâle castré ?"
+        },
+        {
+          "id": "if-q1411",
+          "difficulty": 1,
+          "answer": "sabot",
+          "clue": "Quelle enveloppe dure recouvre l’extrémité de chacun des pieds du cheval ?"
+        },
+        {
+          "id": "if-q1412",
+          "difficulty": 1,
+          "answer": "veau",
+          "clue": "Quel nom porte le petit de la vache ?"
+        },
+        {
+          "id": "if-q1413",
+          "difficulty": 2,
+          "answer": "génisse",
+          "clue": "Quel nom porte une jeune femelle bovine qui n’a pas encore eu de veau ?"
+        },
+        {
+          "id": "if-q1414",
+          "difficulty": 1,
+          "answer": "crête",
+          "clue": "Quelle excroissance charnue, souvent rouge et dentelée, surmonte la tête du coq ?"
+        },
+        {
+          "id": "if-q1415",
+          "difficulty": 2,
+          "answer": "verrat",
+          "clue": "Quel nom porte le mâle reproducteur du porc ?"
+        },
+        {
+          "id": "if-q1416",
+          "difficulty": 2,
+          "answer": "jabot",
+          "clue": "Chez certains oiseaux, quelle poche de l’œsophage sert à stocker temporairement la nourriture ?",
+          "acceptedAnswers": [
+            "goret"
+          ]
+        },
+        {
+          "id": "if-q1417",
+          "difficulty": 2,
+          "answer": "laie",
+          "clue": "Quel nom porte la femelle du sanglier ?"
+        },
+        {
+          "id": "if-q1418",
+          "difficulty": 1,
+          "answer": "marcassin",
+          "clue": "Quel nom porte le petit du sanglier, dont le pelage présente des rayures claires ?"
+        },
+        {
+          "id": "if-q1419",
+          "difficulty": 1,
+          "answer": "biche",
+          "clue": "Quel nom porte la femelle du cerf ?"
+        },
+        {
+          "id": "if-q1420",
+          "difficulty": 1,
+          "answer": "faon",
+          "clue": "Quel nom porte le petit du cerf ou du chevreuil ?"
+        },
+        {
+          "id": "if-q1421",
+          "difficulty": 1,
+          "answer": "renardeau",
+          "clue": "Quel nom porte le petit du renard ?"
+        }
+      ]
+    },
+    {
+      "category": "Nature",
+      "puzzles": [
+        {
+          "id": "if-q1422",
+          "difficulty": 1,
+          "answer": "coq",
+          "clue": "Quel oiseau de basse-cour est traditionnellement représenté sur de nombreuses girouettes de clochers français ?"
+        },
+        {
+          "id": "if-q1423",
+          "difficulty": 1,
+          "answer": "poussin",
+          "clue": "Quel nom porte le petit de la poule juste après l’éclosion ?"
+        },
+        {
+          "id": "if-q1424",
+          "difficulty": 2,
+          "answer": "jars",
+          "clue": "Quel nom porte le mâle de l’oie ?"
+        },
+        {
+          "id": "if-q1425",
+          "difficulty": 2,
+          "answer": "oison",
+          "clue": "Quel nom porte le petit de l’oie ?"
+        },
+        {
+          "id": "if-q1426",
+          "difficulty": 1,
+          "answer": "caneton",
+          "clue": "Quel nom porte le petit du canard ?"
+        },
+        {
+          "id": "if-q1427",
+          "difficulty": 1,
+          "answer": "dindon",
+          "clue": "Quel grand oiseau de basse-cour est le mâle de la dinde ?"
+        },
+        {
+          "id": "if-q1428",
+          "difficulty": 2,
+          "answer": "dindonneau",
+          "clue": "Quel nom porte le petit de la dinde ?"
+        },
+        {
+          "id": "if-q1429",
+          "difficulty": 1,
+          "answer": "pigeonneau",
+          "clue": "Quel nom porte le jeune pigeon ?"
+        },
+        {
+          "id": "if-q1430",
+          "difficulty": 1,
+          "answer": "chiot",
+          "clue": "Quel nom porte le jeune chien ?"
+        },
+        {
+          "id": "if-q1431",
+          "difficulty": 1,
+          "answer": "chaton",
+          "clue": "Quel nom porte le jeune chat ?"
+        },
+        {
+          "id": "if-q1432",
+          "difficulty": 1,
+          "answer": "lapereau",
+          "clue": "Quel nom porte le petit du lapin ?"
+        },
+        {
+          "id": "if-q1433",
+          "difficulty": 2,
+          "answer": "levraut",
+          "clue": "Quel nom porte le petit du lièvre ?"
+        },
+        {
+          "id": "if-q1434",
+          "difficulty": 1,
+          "answer": "ourson",
+          "clue": "Quel nom porte le petit de l’ours ?"
+        },
+        {
+          "id": "if-q1435",
+          "difficulty": 1,
+          "answer": "louveteau",
+          "clue": "Quel nom porte le petit du loup ?"
+        },
+        {
+          "id": "if-q1436",
+          "difficulty": 1,
+          "answer": "lionceau",
+          "clue": "Quel nom porte le petit du lion ?"
+        },
+        {
+          "id": "if-q1437",
+          "difficulty": 1,
+          "answer": "éléphanteau",
+          "clue": "Quel nom porte le petit de l’éléphant ?"
+        },
+        {
+          "id": "if-q1438",
+          "difficulty": 2,
+          "answer": "girafon",
+          "clue": "Quel nom porte le petit de la girafe ?"
+        },
+        {
+          "id": "if-q1439",
+          "difficulty": 2,
+          "answer": "baleineau",
+          "clue": "Quel nom porte le petit de la baleine ?"
+        },
+        {
+          "id": "if-q1440",
+          "difficulty": 1,
+          "answer": "oisillon",
+          "clue": "Quel nom général donne-t-on à un jeune oiseau, quelle que soit son espèce ?"
+        },
+        {
+          "id": "if-q1441",
+          "difficulty": 2,
+          "answer": "alevin",
+          "clue": "Quel nom général donne-t-on à un très jeune poisson ?"
+        }
+      ]
+    },
+    {
+      "category": "Cinéma et séries",
+      "puzzles": [
+        {
+          "id": "if-q1442",
+          "difficulty": 1,
+          "answer": "Simpson",
+          "clue": "Quel nom de famille portent Homer, Marge, Bart, Lisa et Maggie ?"
+        },
+        {
+          "id": "if-q1443",
+          "difficulty": 1,
+          "answer": "Springfield",
+          "clue": "Dans quelle ville fictive les Simpson vivent-ils ?"
+        },
+        {
+          "id": "if-q1444",
+          "difficulty": 1,
+          "answer": "Marge",
+          "clue": "Quel prénom porte la mère de Bart et Lisa, reconnaissable à sa haute chevelure bleue ?"
+        },
+        {
+          "id": "if-q1445",
+          "difficulty": 1,
+          "answer": "Lisa",
+          "clue": "Quelle enfant des Simpson joue du saxophone et est particulièrement douée à l’école ?"
+        },
+        {
+          "id": "if-q1446",
+          "difficulty": 1,
+          "answer": "Maggie",
+          "clue": "Quel est le prénom du bébé des Simpson, souvent représenté avec une tétine ?"
+        },
+        {
+          "id": "if-q1447",
+          "difficulty": 1,
+          "answer": "éponges",
+          "clue": "À quelle catégorie d’animaux marins le héros Bob doit-il son nom et sa forme carrée de dessin animé ?",
+          "acceptedAnswers": ["éponge"]
+        },
+        {
+          "id": "if-q1448",
+          "difficulty": 2,
+          "answer": "Sammy",
+          "clue": "Quel prénom français porte le meilleur ami humain du chien Scooby-Doo ?",
+          "acceptedAnswers": [
+            "Shaggy"
+          ]
+        },
+        {
+          "id": "if-q1449",
+          "difficulty": 1,
+          "answer": "Patrick",
+          "clue": "Quel prénom porte l’étoile de mer rose amie de Bob l’éponge ?"
+        },
+        {
+          "id": "if-q1450",
+          "difficulty": 2,
+          "answer": "Carlo",
+          "clue": "Quel nom français porte le voisin de Bob l’éponge qui joue de la clarinette ?",
+          "acceptedAnswers": [
+            "Squidward"
+          ]
+        },
+        {
+          "id": "if-q1451",
+          "difficulty": 2,
+          "answer": "Krabs",
+          "clue": "Quel nom porte le patron du restaurant où travaille Bob l’éponge ?"
+        },
+        {
+          "id": "if-q1452",
+          "difficulty": 1,
+          "answer": "ananas",
+          "clue": "Dans quel fruit creux Bob l’éponge habite-t-il au fond de l’océan ?"
+        },
+        {
+          "id": "if-q1453",
+          "difficulty": 2,
+          "answer": "Félix",
+          "clue": "Quel chat noir souriant des dessins animés classiques possède un sac magique ?"
+        },
+        {
+          "id": "if-q1454",
+          "difficulty": 1,
+          "answer": "Jerry",
+          "clue": "Quelle petite souris échappe sans cesse au chat Tom dans les dessins animés ?"
+        },
+        {
+          "id": "if-q1455",
+          "difficulty": 1,
+          "answer": "carotte",
+          "clue": "Quel légume Bugs Bunny grignote-t-il volontiers en parlant à ses adversaires ?"
+        },
+        {
+          "id": "if-q1456",
+          "difficulty": 1,
+          "answer": "canard",
+          "clue": "Quel oiseau noir au bec orange le personnage Daffy Duck représente-t-il ?"
+        },
+        {
+          "id": "if-q1457",
+          "difficulty": 1,
+          "answer": "Titi",
+          "clue": "Quel petit canari jaune échappe régulièrement au chat Grosminet ?"
+        },
+        {
+          "id": "if-q1458",
+          "difficulty": 1,
+          "answer": "Grosminet",
+          "clue": "Quel chat noir et blanc tente de capturer Titi dans les dessins animés ?",
+          "acceptedAnswers": [
+            "Sylvestre",
+            "Sylvester"
+          ]
+        },
+        {
+          "id": "if-q1459",
+          "difficulty": 1,
+          "answer": "Casper",
+          "clue": "Quel petit fantôme de dessin animé préfère se faire des amis plutôt que faire peur aux humains ?"
+        },
+        {
+          "id": "if-q1460",
+          "difficulty": 2,
+          "answer": "Olive",
+          "clue": "Quel prénom porte la grande amie de Popeye, dont le nom de famille est Oyl ?"
+        },
+        {
+          "id": "if-q1461",
+          "difficulty": 1,
+          "answer": "Calimero",
+          "clue": "Quel petit poussin noir porte une demi-coquille d’œuf sur la tête ?"
+        }
+      ]
+    },
+    {
+      "category": "Géographie",
+      "puzzles": [
+        {
+          "id": "if-q1462",
+          "difficulty": 1,
+          "answer": "Suez",
+          "clue": "Quel canal égyptien relie la Méditerranée à la mer Rouge ?"
+        },
+        {
+          "id": "if-q1463",
+          "difficulty": 1,
+          "answer": "Panama",
+          "clue": "Quel canal d’Amérique centrale permet de passer de l’Atlantique au Pacifique ?"
+        },
+        {
+          "id": "if-q1464",
+          "difficulty": 1,
+          "answer": "Gibraltar",
+          "clue": "Quel détroit sépare l’Espagne du Maroc et relie la Méditerranée à l’Atlantique ?"
+        },
+        {
+          "id": "if-q1465",
+          "difficulty": 2,
+          "answer": "Bosphore",
+          "clue": "Quel détroit traverse Istanbul en séparant sa partie européenne de sa partie asiatique ?"
+        },
+        {
+          "id": "if-q1466",
+          "difficulty": 2,
+          "answer": "Béring",
+          "clue": "Quel détroit sépare l’Alaska de la Sibérie ?"
+        },
+        {
+          "id": "if-q1467",
+          "difficulty": 1,
+          "answer": "Manche",
+          "clue": "Quelle mer sépare le nord de la France du sud de l’Angleterre ?"
+        },
+        {
+          "id": "if-q1468",
+          "difficulty": 2,
+          "answer": "Baltique",
+          "clue": "Quelle mer borde notamment la Suède, la Finlande, l’Estonie et la Pologne ?"
+        },
+        {
+          "id": "if-q1469",
+          "difficulty": 2,
+          "answer": "Adriatique",
+          "clue": "Quelle mer s’étend entre la péninsule italienne et la côte croate ?"
+        },
+        {
+          "id": "if-q1470",
+          "difficulty": 2,
+          "answer": "Égée",
+          "clue": "Quelle mer sépare principalement la Grèce continentale de la côte occidentale de la Turquie ?"
+        },
+        {
+          "id": "if-q1471",
+          "difficulty": 2,
+          "answer": "Caspienne",
+          "clue": "Quelle grande étendue d’eau fermée est bordée notamment par la Russie, l’Iran et le Kazakhstan ?"
+        },
+        {
+          "id": "if-q1472",
+          "difficulty": 2,
+          "answer": "Baïkal",
+          "clue": "Quel lac de Sibérie est connu comme le lac le plus profond du monde ?"
+        },
+        {
+          "id": "if-q1473",
+          "difficulty": 2,
+          "answer": "Titicaca",
+          "clue": "Quel grand lac d’altitude se situe à la frontière du Pérou et de la Bolivie ?"
+        },
+        {
+          "id": "if-q1474",
+          "difficulty": 1,
+          "answer": "Léman",
+          "clue": "Quel lac est partagé entre la France et la Suisse, avec Genève à son extrémité sud-ouest ?"
+        },
+        {
+          "id": "if-q1475",
+          "difficulty": 2,
+          "answer": "Victoria",
+          "clue": "Quel grand lac africain est bordé par l’Ouganda, le Kenya et la Tanzanie ?"
+        },
+        {
+          "id": "if-q1476",
+          "difficulty": 1,
+          "answer": "Niagara",
+          "clue": "Quel nom portent les célèbres chutes situées entre le lac Érié et le lac Ontario ?"
+        },
+        {
+          "id": "if-q1477",
+          "difficulty": 2,
+          "answer": "Iguazú",
+          "clue": "Quel nom portent les grandes chutes à la frontière de l’Argentine et du Brésil ?",
+          "acceptedAnswers": [
+            "Iguaçu",
+            "Iguazu",
+            "Iguassu"
+          ]
+        },
+        {
+          "id": "if-q1478",
+          "difficulty": 2,
+          "answer": "Zambèze",
+          "clue": "Quel fleuve forme les chutes Victoria, entre la Zambie et le Zimbabwe ?"
+        },
+        {
+          "id": "if-q1479",
+          "difficulty": 1,
+          "answer": "Colorado",
+          "clue": "Quel fleuve a creusé le Grand Canyon aux États-Unis ?"
+        },
+        {
+          "id": "if-q1480",
+          "difficulty": 2,
+          "answer": "Yukon",
+          "clue": "Quel fleuve traverse le nord-ouest du Canada puis l’Alaska avant de rejoindre la mer de Béring ?"
+        },
+        {
+          "id": "if-q1481",
+          "difficulty": 1,
+          "answer": "Sénégal",
+          "clue": "Quel fleuve marque une grande partie de la frontière entre le pays du même nom et la Mauritanie ?"
+        }
+      ]
+    },
+    {
+      "category": "Contes et légendes",
+      "puzzles": [
+        {
+          "id": "if-q1482",
+          "difficulty": 1,
+          "answer": "lièvre",
+          "clue": "Quel animal trop sûr de sa vitesse perd la course contre une tortue dans la fable de La Fontaine ?"
+        },
+        {
+          "id": "if-q1483",
+          "difficulty": 1,
+          "answer": "mouche",
+          "clue": "Quel insecte s’attribue tout le mérite lorsque l’attelage réussit à gravir la côte dans une fable de La Fontaine ?"
+        },
+        {
+          "id": "if-q1484",
+          "difficulty": 1,
+          "answer": "fromage",
+          "clue": "Quel aliment de Hollande sert de retraite à un rat dans Le Rat qui s’est retiré du monde, de La Fontaine ?"
+        },
+        {
+          "id": "if-q1485",
+          "difficulty": 1,
+          "answer": "agneau",
+          "clue": "Quel jeune animal est dévoré malgré ses arguments dans une fable opposant sa faiblesse à la force du loup ?"
+        },
+        {
+          "id": "if-q1486",
+          "difficulty": 1,
+          "answer": "chêne",
+          "clue": "Quel arbre déraciné par la tempête s’opposait au roseau dans une fable de La Fontaine ?"
+        },
+        {
+          "id": "if-q1487",
+          "difficulty": 1,
+          "answer": "grenouille",
+          "clue": "Quel petit animal veut devenir aussi gros que le bœuf dans une fable de La Fontaine ?"
+        },
+        {
+          "id": "if-q1488",
+          "difficulty": 1,
+          "answer": "rat",
+          "clue": "Quel petit rongeur ronge les mailles d’un filet pour libérer le lion dans une fable ?"
+        },
+        {
+          "id": "if-q1489",
+          "difficulty": 1,
+          "answer": "or",
+          "clue": "De quel métal sont les œufs pondus par la poule de la célèbre fable ?"
+        },
+        {
+          "id": "if-q1490",
+          "difficulty": 1,
+          "answer": "lait",
+          "clue": "Que transporte Perrette dans le pot qu’elle renverse en rêvant à sa fortune ?"
+        },
+        {
+          "id": "if-q1491",
+          "difficulty": 1,
+          "answer": "cigogne",
+          "clue": "Quel grand oiseau rend au renard sa ruse en servant le repas dans un vase au long col ?"
+        },
+        {
+          "id": "if-q1492",
+          "difficulty": 1,
+          "answer": "brique",
+          "clue": "Avec quel matériau le troisième petit cochon construit-il la maison qui résiste au souffle du loup ?",
+          "acceptedAnswers": [
+            "briques"
+          ]
+        },
+        {
+          "id": "if-q1493",
+          "difficulty": 1,
+          "answer": "pain",
+          "clue": "Quelle nourriture sert à construire une partie de la maison de la sorcière dans Hansel et Gretel ?"
+        },
+        {
+          "id": "if-q1494",
+          "difficulty": 2,
+          "answer": "perles",
+          "clue": "Dans Les Fées de Perrault, quels bijoux ronds sortent de la bouche de la cadette avec des fleurs et des diamants ?",
+          "acceptedAnswers": [
+            "perle"
+          ]
+        },
+        {
+          "id": "if-q1495",
+          "difficulty": 1,
+          "answer": "cygne",
+          "clue": "En quel bel oiseau le Vilain Petit Canard découvre-t-il qu’il s’est transformé ?"
+        },
+        {
+          "id": "if-q1496",
+          "difficulty": 1,
+          "answer": "allumettes",
+          "clue": "Quels petits objets la jeune fille du conte d’Andersen tente-t-elle de vendre dans le froid ?",
+          "acceptedAnswers": [
+            "allumette"
+          ]
+        },
+        {
+          "id": "if-q1497",
+          "difficulty": 2,
+          "answer": "étain",
+          "clue": "De quel métal est fait le petit soldat à une seule jambe du conte d’Andersen ?"
+        },
+        {
+          "id": "if-q1498",
+          "difficulty": 1,
+          "answer": "voix",
+          "clue": "Que sacrifie la Petite Sirène à la sorcière en échange de jambes dans le conte d’Andersen ?"
+        },
+        {
+          "id": "if-q1499",
+          "difficulty": 1,
+          "answer": "souris",
+          "clue": "Quel petit rongeur est Timothée, l’ami qui aide Dumbo à prendre confiance dans le dessin animé de Disney ?"
+        },
+        {
+          "id": "if-q1500",
+          "difficulty": 1,
+          "answer": "oreilles",
+          "clue": "Quelles parties du corps s’allongent lorsque Pinocchio commence à se transformer en âne ?",
+          "acceptedAnswers": [
+            "oreille"
+          ]
+        },
+        {
+          "id": "if-q1501",
+          "difficulty": 1,
+          "answer": "galette",
+          "clue": "Quel gâteau plat le Petit Chaperon rouge apporte-t-il à sa grand-mère avec un petit pot de beurre chez Perrault ?"
+        }
+      ]
+    }
+  ]
+}

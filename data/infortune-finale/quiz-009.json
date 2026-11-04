@@ -1,0 +1,135 @@
+{
+  "schemaVersion": 1,
+  "kind": "quiz",
+  "references": {
+    "munster": {"title":"INAO — Munster","url":"https://www.inao.gouv.fr/produit/munster-16348"},
+    "danton": {"title":"Assemblée nationale — Danton, discours du 2 septembre 1792","url":"https://www2.assemblee-nationale.fr/decouvrir-l-assemblee/histoire/grands-discours-parlementaires/danton-2-septembre-1792"},
+    "mitterrand": {"title":"Élysée — François Mitterrand","url":"https://www.elysee.fr/francois-mitterrand"},
+    "chirac": {"title":"Élysée — Jacques Chirac","url":"https://www.elysee.fr/jacques-chirac"},
+    "magellan": {"title":"Musée national de la Marine — Magellan, un voyage qui changea le monde","url":"https://www.musee-marine.fr/nos-musees/paris/expositions-et-evenements/les-expositions/2025-2026-magellan-un-voyage-qui-changea-le-monde.html"},
+    "sumo": {"title":"Japan Sumo Association — Introduction to sumo","url":"https://www.sumo.or.jp/pdf/en/sumo_introduction.pdf"},
+    "taekwondo": {"title":"Comité international olympique — World Taekwondo","url":"https://www.olympics.com/ioc/world-taekwondo-federation"}
+  },
+  "groups": [
+    { "category": "Sports", "puzzles": [
+      {"id":"if-q702","difficulty":1,"answer":"baseball","clue":"Dans quel sport le batteur tente-t-il de frapper une balle puis de parcourir quatre bases pour marquer un point ?"},
+      {"id":"if-q703","difficulty":2,"answer":"cricket","clue":"Quel sport très populaire en Inde oppose notamment un lanceur et un batteur devant un guichet formé de piquets ?"},
+      {"id":"if-q704","difficulty":1,"answer":"hockey","clue":"Quel sport collectif se joue sur glace avec des crosses et un palet ?"},
+      {"id":"if-q705","difficulty":1,"answer":"curling","clue":"Dans quel sport sur glace lance-t-on des pierres vers une cible pendant que des équipiers balaient leur trajectoire ?"},
+      {"id":"if-q706","difficulty":2,"answer":"squash","clue":"Quel sport de raquette se joue dans une salle où l’on renvoie une petite balle contre le mur avant ?"},
+      {"id":"if-q707","difficulty":2,"answer":"padel","clue":"Quel sport de raquette, généralement joué en double, utilise un terrain entouré de parois dont certaines sont vitrées ?"},
+      {"id":"if-q708","difficulty":1,"answer":"surf","clue":"Dans quel sport cherche-t-on à glisser debout sur une planche en suivant une vague ?"},
+      {"id":"if-q709","difficulty":1,"answer":"snowboard","clue":"Quel sport de glisse se pratique avec les deux pieds fixés sur une seule planche, de côté par rapport à la pente ?"},
+      {"id":"if-q710","difficulty":1,"answer":"ski","clue":"Quel sport de glisse possède une variante alpine avec des épreuves comme le slalom et la descente ?"},
+      {"id":"if-q711","difficulty":1,"answer":"sprint","clue":"Comment appelle-t-on une course courte courue à très grande vitesse, comme le cent mètres ?"},
+      {"id":"if-q712","difficulty":1,"answer":"marathon","clue":"Quelle course à pied se dispute sur un peu plus de quarante-deux kilomètres ?"},
+      {"id":"if-q713","difficulty":2,"answer":"décathlon","clue":"Quelle compétition d’athlétisme combine dix épreuves comprenant des courses, des sauts et des lancers ?"},
+      {"id":"if-q714","difficulty":2,"answer":"pentathlon","clue":"Quel nom porte une compétition sportive qui réunit cinq épreuves différentes ?"},
+      {"id":"if-q715","difficulty":1,"answer":"escalade","clue":"Quel sport consiste à progresser sur une paroi rocheuse ou artificielle à l’aide de prises ?"},
+      {"id":"if-q716","difficulty":1,"answer":"plongée","clue":"Quelle activité permet d’explorer les fonds marins en portant notamment un masque et parfois des bouteilles d’air ?"},
+      {"id":"if-q717","difficulty":2,"answer":"kitesurf","clue":"Dans quel sport glisse-t-on sur l’eau, debout sur une planche, tiré par une grande aile reliée à des lignes ?"},
+      {"id":"if-q718","difficulty":1,"answer":"parapente","clue":"Quel aéronef souple permet de décoller à pied d’une pente et de voler assis dans une sellette ?"},
+      {"id":"if-q719","difficulty":2,"answer":"deltaplane","clue":"Quel appareil de vol libre possède une aile triangulaire à structure rigide sous laquelle le pilote est suspendu ?"},
+      {"id":"if-q720","difficulty":1,"answer":"patinage","clue":"Quel sport sur glace possède une discipline artistique avec des sauts appelés axel, lutz ou boucle ?"},
+      {"id":"if-q721","difficulty":1,"answer":"sumo","clue":"Dans quel sport japonais perd-on en sortant du cercle ou en touchant le sol avec autre chose que la plante des pieds ?","reference":"sumo"},
+      {"id":"if-q722","difficulty":2,"answer":"taekwondo","clue":"Quel art martial coréen est devenu un sport olympique à médailles lors des Jeux de Sydney ?","reference":"taekwondo"},
+      {"id":"if-q723","difficulty":2,"answer":"aïkido","clue":"Quel art martial japonais fondé par Morihei Ueshiba utilise notamment des projections et des immobilisations ?"},
+      {"id":"if-q724","difficulty":2,"answer":"capoeira","clue":"Quel art brésilien mêle des mouvements de combat, des acrobaties et de la musique dans une ronde ?"},
+      {"id":"if-q725","difficulty":1,"answer":"lutte","clue":"Quel sport de combat possède notamment des variantes dites libre et gréco-romaine ?"},
+      {"id":"if-q726","difficulty":2,"answer":"pelote","clue":"Quel nom complète l’expression basque pour désigner un ensemble de jeux de balle pratiqués notamment contre un fronton ?","editorial":{"note":"Jeux de balle basques ; if-r590 décrit une boule de fil."}}
+    ] },
+    { "category": "Fromages", "puzzles": [
+      {"id":"if-q727","difficulty":1,"answer":"camembert","clue":"Quel fromage normand à pâte molle porte le nom d’un village de l’Orne et se vend souvent dans une boîte ronde ?"},
+      {"id":"if-q728","difficulty":1,"answer":"roquefort","clue":"Quel fromage de brebis à pâte persillée est affiné dans des caves de l’Aveyron ?"},
+      {"id":"if-q729","difficulty":1,"answer":"brie","clue":"Quel fromage à pâte molle et croûte blanche possède des variétés célèbres de Meaux et de Melun ?"},
+      {"id":"if-q730","difficulty":1,"answer":"comté","clue":"Quel fromage du massif jurassien, fabriqué au lait cru de vache, s’affine en grandes meules ?"},
+      {"id":"if-q731","difficulty":1,"answer":"munster","clue":"Quel fromage à croûte lavée, connu pour son odeur prononcée, est traditionnel du massif des Vosges ?","acceptedAnswers":["géromé"],"reference":"munster"},
+      {"id":"if-q732","difficulty":1,"answer":"emmental","clue":"Quel fromage en grandes meules est particulièrement connu pour les gros trous de sa pâte ?","acceptedAnswers":["emmenthal"]},
+      {"id":"if-q733","difficulty":2,"answer":"gruyère","clue":"Quel fromage suisse doit son nom à une ville du canton de Fribourg et possède une pâte traditionnellement sans trous ?"},
+      {"id":"if-q734","difficulty":1,"answer":"mozzarella","clue":"Quel fromage italien en boule blanche, traditionnellement au lait de bufflonne, accompagne souvent les tomates ?"},
+      {"id":"if-q735","difficulty":1,"answer":"parmesan","clue":"Quel fromage italien à pâte dure râpe-t-on sur les pâtes et appelle-t-on parmigiano reggiano en Italie ?"},
+      {"id":"if-q736","difficulty":1,"answer":"feta","clue":"Quel fromage grec blanc conservé en saumure est fait de lait de brebis, parfois mélangé à du lait de chèvre ?"},
+      {"id":"if-q737","difficulty":2,"answer":"ricotta","clue":"Quel produit laitier italien frais et granuleux est traditionnellement obtenu en chauffant le petit-lait ?"},
+      {"id":"if-q738","difficulty":2,"answer":"mascarpone","clue":"Quel fromage italien très crémeux entre dans la préparation du tiramisu ?"}
+    ] },
+    { "category": "Cuisine", "puzzles": [
+      {"id":"if-q739","difficulty":1,"answer":"raclette","clue":"Quel plat consiste à faire fondre un fromage puis à le verser notamment sur des pommes de terre ?"},
+      {"id":"if-q740","difficulty":1,"answer":"fondue","clue":"Quel plat suisse réunit les convives autour d’un caquelon où l’on trempe du pain dans du fromage chaud ?"},
+      {"id":"if-q741","difficulty":1,"answer":"tartiflette","clue":"Quel gratin savoyard associe pommes de terre, lardons, oignons et reblochon ?"},
+      {"id":"if-q742","difficulty":1,"answer":"quiche","clue":"Quelle tarte salée, dans sa version lorraine traditionnelle, contient des œufs, de la crème et des lardons ?"},
+      {"id":"if-q743","difficulty":1,"answer":"cassoulet","clue":"Quel plat du Sud-Ouest associe des haricots blancs et des viandes, notamment à Castelnaudary ?"},
+      {"id":"if-q744","difficulty":2,"answer":"brandade","clue":"Quelle spécialité de Nîmes est préparée en travaillant de la morue avec de l’huile d’olive ?"},
+      {"id":"if-q745","difficulty":1,"answer":"tapenade","clue":"Quelle pâte provençale à base d’olives et de câpres se tartine souvent sur du pain ?"},
+      {"id":"if-q746","difficulty":2,"answer":"aligot","clue":"Quelle spécialité de l’Aubrac mêle pommes de terre et tome fraîche pour former une purée très filante ?"},
+      {"id":"if-q747","difficulty":1,"answer":"pesto","clue":"Quelle sauce génoise verte associe traditionnellement basilic, ail, pignons, huile d’olive et fromage ?"},
+      {"id":"if-q748","difficulty":1,"answer":"sushi","clue":"Quel nom désigne une spécialité japonaise à base de riz vinaigré, souvent accompagnée de poisson ?"},
+      {"id":"if-q749","difficulty":2,"answer":"maki","clue":"Quel rouleau japonais est souvent formé de riz et d’une garniture enveloppés dans une feuille d’algue ?"},
+      {"id":"if-q750","difficulty":2,"answer":"falafel","clue":"Quelle boulette frite du Proche-Orient est préparée avec des pois chiches ou des fèves ?","acceptedAnswers":["falafels"]},
+      {"id":"if-q751","difficulty":1,"answer":"kebab","clue":"Quel nom désigne notamment le sandwich garni de viande découpée sur une broche verticale ?"}
+    ] },
+    { "category": "Histoire", "puzzles": [
+      {"id":"if-q752","difficulty":2,"answer":"Robespierre","clue":"Quel révolutionnaire français surnommé l’Incorruptible a été guillotiné après sa chute au neuf Thermidor ?"},
+      {"id":"if-q753","difficulty":2,"answer":"Danton","clue":"Quel révolutionnaire français prénommé Georges est associé à l’appel répété à l’audace pour sauver la patrie ?","reference":"danton"},
+      {"id":"if-q754","difficulty":1,"answer":"Richelieu","clue":"Quel cardinal fut le principal ministre de Louis treize et apparaît comme adversaire des mousquetaires chez Dumas ?"},
+      {"id":"if-q755","difficulty":2,"answer":"Mazarin","clue":"Quel cardinal succède à Richelieu comme principal ministre et sert la régente Anne d’Autriche ?"},
+      {"id":"if-q756","difficulty":2,"answer":"Colbert","clue":"Quel ministre de Louis quatorze est associé au développement des manufactures et à une politique économique dirigée par l’État ?"},
+      {"id":"if-q757","difficulty":1,"answer":"Ferry","clue":"Quel homme politique prénommé Jules a donné son nom aux lois scolaires sur la gratuité et l’instruction obligatoire ?"},
+      {"id":"if-q758","difficulty":2,"answer":"Jaurès","clue":"Quel dirigeant socialiste, fondateur du journal L’Humanité, a été assassiné à Paris à la veille de la Grande Guerre ?"},
+      {"id":"if-q759","difficulty":2,"answer":"Clemenceau","clue":"Quel homme d’État français surnommé le Tigre dirige le gouvernement à la fin de la Première Guerre mondiale ?"},
+      {"id":"if-q760","difficulty":1,"answer":"Pompidou","clue":"Quel président français a donné son nom au centre parisien d’art moderne également appelé Beaubourg ?"},
+      {"id":"if-q761","difficulty":1,"answer":"Mitterrand","clue":"Quel président français a été élu en mille neuf cent quatre-vingt-un puis réélu sept ans plus tard ?","reference":"mitterrand"},
+      {"id":"if-q762","difficulty":1,"answer":"Chirac","clue":"Quel président français, auparavant maire de Paris, a succédé à François Mitterrand ?","reference":"chirac"},
+      {"id":"if-q763","difficulty":1,"answer":"Churchill","clue":"Quel Premier ministre britannique a dirigé son pays pendant une grande partie de la Seconde Guerre mondiale ?"},
+      {"id":"if-q764","difficulty":1,"answer":"Lincoln","clue":"Quel président américain a dirigé le pays pendant la guerre de Sécession et a été assassiné au théâtre ?"},
+      {"id":"if-q765","difficulty":1,"answer":"Washington","clue":"Quel premier président des États-Unis a donné son nom à la capitale fédérale ?"},
+      {"id":"if-q766","difficulty":1,"answer":"Mandela","clue":"Quel dirigeant sud-africain, longtemps emprisonné, est devenu président après la fin de l’apartheid ?"},
+      {"id":"if-q767","difficulty":1,"answer":"Gandhi","clue":"Quel dirigeant indien est associé à la résistance non violente et à la marche du sel ?"},
+      {"id":"if-q768","difficulty":1,"answer":"King","clue":"Quel pasteur américain prénommé Martin Luther a lutté contre la ségrégation et prononcé un célèbre discours sur son rêve ?"}
+    ] },
+    { "category": "Exploration", "puzzles": [
+      {"id":"if-q769","difficulty":1,"answer":"Colomb","clue":"Quel navigateur prénommé Christophe traverse l’Atlantique pour atteindre les Antilles en cherchant une route vers l’Asie ?"},
+      {"id":"if-q770","difficulty":1,"answer":"Magellan","clue":"Quel navigateur portugais lance l’expédition qui accomplira le premier tour du monde, achevé après sa mort par Elcano ?","reference":"magellan"},
+      {"id":"if-q771","difficulty":1,"answer":"Armstrong","clue":"Quel astronaute prénommé Neil a été le premier humain à marcher sur la Lune ?"},
+      {"id":"if-q772","difficulty":1,"answer":"Gagarine","clue":"Quel cosmonaute soviétique a été le premier humain à voyager dans l’espace ?","acceptedAnswers":["Gagarin"]},
+      {"id":"if-q773","difficulty":1,"answer":"Cousteau","clue":"Quel commandant français, reconnaissable à son bonnet rouge, a exploré les océans à bord de la Calypso ?"},
+      {"id":"if-q774","difficulty":2,"answer":"Cartier","clue":"Quel navigateur français prénommé Jacques a exploré le fleuve Saint-Laurent au seizième siècle ?"},
+      {"id":"if-q775","difficulty":2,"answer":"Cook","clue":"Quel navigateur britannique prénommé James a mené trois grandes expéditions dans le Pacifique ?"}
+    ] },
+    { "category": "Histoire", "puzzles": [
+      {"id":"if-q776","difficulty":2,"answer":"Bourbon","clue":"À quelle maison royale appartient Henri quatre, roi de France après Henri trois ?","acceptedAnswers":["Bourbons"]}
+    ] },
+    { "category": "Paysages et reliefs", "puzzles": [
+      {"id":"if-q777","difficulty":2,"answer":"taïga","clue":"Quel nom désigne la grande forêt boréale de conifères qui couvre notamment une partie du Canada et de la Sibérie ?"},
+      {"id":"if-q778","difficulty":2,"answer":"toundra","clue":"Quel milieu des régions polaires, sans grands arbres, est notamment couvert de mousses, de lichens et de petits arbustes ?"},
+      {"id":"if-q779","difficulty":1,"answer":"savane","clue":"Quel paysage tropical est dominé par les herbes, avec des arbres et des arbustes dispersés ?"},
+      {"id":"if-q780","difficulty":2,"answer":"steppe","clue":"Quel paysage de plaine sèche, largement couvert d’herbes et presque sans arbres, est typique d’une partie de l’Asie centrale ?"},
+      {"id":"if-q781","difficulty":1,"answer":"désert","clue":"Quel milieu reçoit très peu de précipitations et peut être chaud ou froid ?"},
+      {"id":"if-q782","difficulty":2,"answer":"fjord","clue":"Quel bras de mer long et étroit occupe une ancienne vallée glaciaire entre des parois souvent abruptes ?"},
+      {"id":"if-q783","difficulty":2,"answer":"lagune","clue":"Quelle étendue d’eau côtière peu profonde est séparée de la mer par un cordon de sable ?"},
+      {"id":"if-q784","difficulty":2,"answer":"lagon","clue":"Quelle étendue d’eau peu profonde se trouve à l’intérieur d’un anneau corallien ou entre un récif et la côte ?"},
+      {"id":"if-q785","difficulty":2,"answer":"atoll","clue":"Quel nom porte un anneau de corail entourant une étendue d’eau peu profonde ?"},
+      {"id":"if-q786","difficulty":2,"answer":"récif","clue":"Quel relief rocheux ou corallien, proche de la surface de l’eau, peut rendre la navigation dangereuse ?"},
+      {"id":"if-q787","difficulty":2,"answer":"isthme","clue":"Quelle bande de terre étroite relie deux étendues terrestres plus vastes entre deux mers ?"},
+      {"id":"if-q788","difficulty":1,"answer":"détroit","clue":"Quel passage maritime étroit sépare deux terres et relie deux mers, comme celui de Gibraltar ?"},
+      {"id":"if-q789","difficulty":2,"answer":"péninsule","clue":"Quel nom désigne une grande avancée de terre entourée d’eau sur la majeure partie de son contour ?"},
+      {"id":"if-q790","difficulty":1,"answer":"baie","clue":"Quel nom géographique précède celui du Mont-Saint-Michel pour désigner l’échancrure du littoral qui l’entoure ?"},
+      {"id":"if-q791","difficulty":1,"answer":"golfe","clue":"Quel mot désigne une vaste avancée de la mer dans les terres et précède Persique ou du Bengale sur les cartes ?"},
+      {"id":"if-q792","difficulty":1,"answer":"cap","clue":"Quel mot désigne une pointe de terre qui s’avance dans la mer, comme Horn ou celui de Bonne-Espérance ?"}
+    ] },
+    { "category": "Fleuves", "puzzles": [
+      {"id":"if-q793","difficulty":2,"answer":"estuaire","clue":"Quel nom porte une embouchure de fleuve élargie où les marées font entrer de l’eau de mer ?"},
+      {"id":"if-q794","difficulty":2,"answer":"confluent","clue":"Comment appelle-t-on le lieu où deux cours d’eau se rejoignent ?","acceptedAnswers":["confluence"]},
+      {"id":"if-q795","difficulty":2,"answer":"affluent","clue":"Comment appelle-t-on un cours d’eau qui se jette dans un autre plutôt que directement dans la mer ?"},
+      {"id":"if-q796","difficulty":1,"answer":"berge","clue":"Quel nom désigne le bord d’un cours d’eau, où l’on peut aménager un chemin de promenade ?","acceptedAnswers":["rive"]}
+    ] },
+    { "category": "Géographie", "puzzles": [
+      {"id":"if-q797","difficulty":1,"answer":"littoral","clue":"Quel nom désigne la zone de contact entre la terre et la mer, avec ses plages, ses falaises et ses ports ?","acceptedAnswers":["côte"]}
+    ] },
+    { "category": "Paysages et reliefs", "puzzles": [
+      {"id":"if-q798","difficulty":1,"answer":"plaine","clue":"Quelle vaste étendue de terrain présente peu de relief et se trouve généralement à faible altitude ?"},
+      {"id":"if-q799","difficulty":2,"answer":"plateau","clue":"Quel relief forme une surface assez plane en altitude, souvent entaillée par des vallées ?","editorial":{"note":"Forme de relief ; if-r221 accepte ce mot pour l’espace scénique."}},
+      {"id":"if-q800","difficulty":1,"answer":"vallée","clue":"Quel creux allongé du relief, entre des versants, peut être occupé par une rivière ou un glacier ?"},
+      {"id":"if-q801","difficulty":1,"answer":"colline","clue":"Quel relief arrondi, généralement moins élevé qu’une montagne, domine doucement les terrains voisins ?"}
+    ] }
+  ]
+}

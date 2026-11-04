@@ -9,7 +9,10 @@ Les retours d'onglet réutilisent l'heure de célébration, sans relancer le dé
 du bilan de la dernière manche. Pendant les résultats de la finale,
 `useTournamentAvatarPreparation` charge les modules de présentation et prépare
 les portraits en une requête pour les trois premiers et le joueur local.
-Les poses calculées sont conservées par `createTournamentAvatarResources`
+Les poses générées à la sauvegarde sont téléchargées depuis leurs URLs versionnées
+et partagées entre écrans ; les anciens avatars sans images utilisent encore le
+compositeur local. Les expressions et les déplacements animés restent identiques.
+Les canvases de présentation sont conservés par `createTournamentAvatarResources`
 jusqu'à l'ouverture, puis réutilisées sans nouveau calcul. Une arrivée directe
 pendant la célébration lance la même préparation à la demande. Les tâches et
 canvases sont annulés/libérés à la fermeture, au changement de tournoi ou à la

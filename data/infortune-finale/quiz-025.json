@@ -1,0 +1,634 @@
+{
+  "schemaVersion": 1,
+  "kind": "quiz",
+  "groups": [
+    {
+      "category": "Cinéma et séries",
+      "puzzles": [
+        {
+          "id": "if-q2302",
+          "difficulty": 1,
+          "answer": "Spielberg",
+          "clue": "Quel réalisateur a dirigé Leonardo DiCaprio en jeune escroc dans Arrête-moi si tu peux ?"
+        },
+        {
+          "id": "if-q2303",
+          "difficulty": 1,
+          "answer": "Lucas",
+          "clue": "Quel réalisateur prénommé George a signé American Graffiti avant de créer Star Wars ?"
+        },
+        {
+          "id": "if-q2304",
+          "difficulty": 1,
+          "answer": "Cameron",
+          "clue": "Quel réalisateur a mis en scène Abyss, une aventure sous-marine fantastique ?"
+        },
+        {
+          "id": "if-q2305",
+          "difficulty": 1,
+          "answer": "Scott",
+          "clue": "Quel réalisateur prénommé Ridley a signé Blade Runner ?"
+        },
+        {
+          "id": "if-q2306",
+          "difficulty": 2,
+          "answer": "Kubrick",
+          "clue": "Quel réalisateur a signé le film de guerre Full Metal Jacket ?"
+        },
+        {
+          "id": "if-q2307",
+          "difficulty": 1,
+          "answer": "Hitchcock",
+          "clue": "Quel réalisateur britannique a signé Sueurs froides, également connu sous le titre Vertigo ?"
+        },
+        {
+          "id": "if-q2308",
+          "difficulty": 1,
+          "answer": "Chaplin",
+          "clue": "Quel cinéaste montre son vagabond aux prises avec une usine dans Les Temps modernes ?"
+        },
+        {
+          "id": "if-q2309",
+          "difficulty": 2,
+          "answer": "Keaton",
+          "clue": "Quel acteur et réalisateur du cinéma muet joue un cheminot dans Le Mécano de la Générale ?"
+        },
+        {
+          "id": "if-q2310",
+          "difficulty": 1,
+          "answer": "Tarantino",
+          "clue": "Quel réalisateur a consacré deux films au personnage de la Mariée dans Kill Bill ?"
+        },
+        {
+          "id": "if-q2311",
+          "difficulty": 2,
+          "answer": "Scorsese",
+          "clue": "Quel réalisateur prénommé Martin a signé Les Affranchis ?"
+        },
+        {
+          "id": "if-q2312",
+          "difficulty": 2,
+          "answer": "Coppola",
+          "clue": "Quel réalisateur prénommé Francis a mis en scène Apocalypse Now ?"
+        },
+        {
+          "id": "if-q2313",
+          "difficulty": 2,
+          "answer": "Nolan",
+          "clue": "Quel réalisateur a construit Memento autour d’un homme dont la mémoire récente est défaillante ?"
+        },
+        {
+          "id": "if-q2314",
+          "difficulty": 2,
+          "answer": "Fincher",
+          "clue": "Quel réalisateur prénommé David a signé le thriller Seven ?"
+        },
+        {
+          "id": "if-q2315",
+          "difficulty": 1,
+          "answer": "Burton",
+          "clue": "Quel réalisateur a créé l’univers gothique du film Edward aux mains d’argent ?"
+        },
+        {
+          "id": "if-q2316",
+          "difficulty": 2,
+          "answer": "Zemeckis",
+          "clue": "Quel réalisateur a signé Qui veut la peau de Roger Rabbit ?"
+        },
+        {
+          "id": "if-q2317",
+          "difficulty": 1,
+          "answer": "Eastwood",
+          "clue": "Quel réalisateur et acteur a joué un vétéran dans Gran Torino ?"
+        },
+        {
+          "id": "if-q2318",
+          "difficulty": 2,
+          "answer": "Polanski",
+          "clue": "Quel réalisateur a signé Le Pianiste, adapté des mémoires de Władysław Szpilman ?"
+        },
+        {
+          "id": "if-q2319",
+          "difficulty": 2,
+          "answer": "Almodóvar",
+          "clue": "Quel réalisateur espagnol a signé Tout sur ma mère et Parle avec elle ?"
+        },
+        {
+          "id": "if-q2320",
+          "difficulty": 2,
+          "answer": "Fellini",
+          "clue": "Quel réalisateur italien a mis en scène La Dolce Vita ?"
+        },
+        {
+          "id": "if-q2321",
+          "difficulty": 2,
+          "answer": "Leone",
+          "clue": "Quel réalisateur italien a signé Il était une fois dans l’Ouest ?"
+        }
+      ]
+    },
+    {
+      "category": "Cinéma et séries",
+      "puzzles": [
+        {
+          "id": "if-q2322",
+          "difficulty": 2,
+          "answer": "Truffaut",
+          "clue": "Quel réalisateur français a signé Le Dernier Métro avec Catherine Deneuve et Gérard Depardieu ?"
+        },
+        {
+          "id": "if-q2323",
+          "difficulty": 2,
+          "answer": "Godard",
+          "clue": "Quel réalisateur a mis en scène Jean-Paul Belmondo et Jean Seberg dans À bout de souffle ?"
+        },
+        {
+          "id": "if-q2324",
+          "difficulty": 2,
+          "answer": "Varda",
+          "clue": "Quelle réalisatrice a suivi une chanteuse parisienne dans Cléo de cinq à sept ?"
+        },
+        {
+          "id": "if-q2325",
+          "difficulty": 2,
+          "answer": "Demy",
+          "clue": "Quel réalisateur a signé Les Demoiselles de Rochefort ?"
+        },
+        {
+          "id": "if-q2326",
+          "difficulty": 2,
+          "answer": "Tati",
+          "clue": "Quel cinéaste a construit le décor futuriste de Playtime, où revient monsieur Hulot ?"
+        },
+        {
+          "id": "if-q2327",
+          "difficulty": 1,
+          "answer": "Pagnol",
+          "clue": "Quel écrivain et cinéaste a réalisé La Femme du boulanger avec Raimu ?"
+        },
+        {
+          "id": "if-q2328",
+          "difficulty": 2,
+          "answer": "Renoir",
+          "clue": "Quel réalisateur prénommé Jean a signé La Grande Illusion ?"
+        },
+        {
+          "id": "if-q2329",
+          "difficulty": 2,
+          "answer": "Carné",
+          "clue": "Quel réalisateur a signé Les Enfants du paradis sur un scénario de Jacques Prévert ?"
+        },
+        {
+          "id": "if-q2330",
+          "difficulty": 2,
+          "answer": "Clouzot",
+          "clue": "Quel réalisateur français a signé Le Salaire de la peur ?"
+        },
+        {
+          "id": "if-q2331",
+          "difficulty": 2,
+          "answer": "Melville",
+          "clue": "Quel réalisateur prénommé Jean-Pierre a dirigé Alain Delon dans Le Samouraï ?"
+        },
+        {
+          "id": "if-q2332",
+          "difficulty": 2,
+          "answer": "Sautet",
+          "clue": "Quel réalisateur a mis en scène Romy Schneider et Michel Piccoli dans Les Choses de la vie ?"
+        },
+        {
+          "id": "if-q2333",
+          "difficulty": 2,
+          "answer": "Chabrol",
+          "clue": "Quel réalisateur français a signé Le Boucher avec Stéphane Audran et Jean Yanne ?"
+        },
+        {
+          "id": "if-q2334",
+          "difficulty": 2,
+          "answer": "Resnais",
+          "clue": "Quel réalisateur a signé Hiroshima mon amour sur un scénario de Marguerite Duras ?"
+        },
+        {
+          "id": "if-q2335",
+          "difficulty": 1,
+          "answer": "Jeunet",
+          "clue": "Quel réalisateur a mis en scène Le Fabuleux Destin d’Amélie Poulain ?"
+        },
+        {
+          "id": "if-q2336",
+          "difficulty": 1,
+          "answer": "Besson",
+          "clue": "Quel réalisateur français a signé Léon et Le Cinquième Élément ?"
+        },
+        {
+          "id": "if-q2337",
+          "difficulty": 1,
+          "answer": "Oury",
+          "clue": "Quel réalisateur a réuni Bourvil et Louis de Funès dans La Grande Vadrouille ?"
+        },
+        {
+          "id": "if-q2338",
+          "difficulty": 1,
+          "answer": "Veber",
+          "clue": "Quel réalisateur a adapté sa pièce Le Dîner de cons au cinéma ?"
+        },
+        {
+          "id": "if-q2339",
+          "difficulty": 1,
+          "answer": "Leconte",
+          "clue": "Quel réalisateur a signé Les Bronzés font du ski ?"
+        },
+        {
+          "id": "if-q2340",
+          "difficulty": 1,
+          "answer": "Chabat",
+          "clue": "Quel réalisateur et acteur a signé Astérix et Obélix : Mission Cléopâtre ?"
+        },
+        {
+          "id": "if-q2341",
+          "difficulty": 2,
+          "answer": "Hazanavicius",
+          "clue": "Quel réalisateur français a signé The Artist ?"
+        }
+      ]
+    },
+    {
+      "category": "Littérature",
+      "puzzles": [
+        {
+          "id": "if-q2342",
+          "difficulty": 1,
+          "answer": "Hugo",
+          "clue": "Quel écrivain prénommé Victor a publié Les Travailleurs de la mer ?"
+        },
+        {
+          "id": "if-q2343",
+          "difficulty": 1,
+          "answer": "Dumas",
+          "clue": "Quel écrivain prénommé Alexandre retrouve ses mousquetaires dans Vingt Ans après ?"
+        },
+        {
+          "id": "if-q2344",
+          "difficulty": 2,
+          "answer": "Balzac",
+          "clue": "Quel écrivain a créé Lucien de Rubempré dans Illusions perdues ?"
+        },
+        {
+          "id": "if-q2345",
+          "difficulty": 1,
+          "answer": "Zola",
+          "clue": "Quel romancier a consacré Au Bonheur des Dames au monde des grands magasins ?"
+        },
+        {
+          "id": "if-q2346",
+          "difficulty": 1,
+          "answer": "Flaubert",
+          "clue": "Quel écrivain prénommé Gustave a publié L’Éducation sentimentale ?"
+        },
+        {
+          "id": "if-q2347",
+          "difficulty": 1,
+          "answer": "Maupassant",
+          "clue": "Quel écrivain prénommé Guy a publié le roman Une vie ?"
+        },
+        {
+          "id": "if-q2348",
+          "difficulty": 2,
+          "answer": "Stendhal",
+          "clue": "Quel écrivain français connu sous un pseudonyme s’appelait Henri Beyle ?"
+        },
+        {
+          "id": "if-q2349",
+          "difficulty": 1,
+          "answer": "Sand",
+          "clue": "Quel nom porte George, l’écrivaine du roman La Petite Fadette ?"
+        },
+        {
+          "id": "if-q2350",
+          "difficulty": 1,
+          "answer": "Verne",
+          "clue": "Quel écrivain prénommé Jules a publié Les Enfants du capitaine Grant ?"
+        },
+        {
+          "id": "if-q2351",
+          "difficulty": 1,
+          "answer": "Daudet",
+          "clue": "Quel écrivain prénommé Alphonse a réuni des récits sous le titre Lettres de mon moulin ?"
+        },
+        {
+          "id": "if-q2352",
+          "difficulty": 2,
+          "answer": "Proust",
+          "clue": "Quel écrivain a donné le titre Du côté de chez Swann au début de son grand cycle romanesque ?"
+        },
+        {
+          "id": "if-q2353",
+          "difficulty": 2,
+          "answer": "Colette",
+          "clue": "Quelle écrivaine française a publié le roman Chéri ?"
+        },
+        {
+          "id": "if-q2354",
+          "difficulty": 2,
+          "answer": "Giono",
+          "clue": "Quel écrivain provençal a écrit Le Hussard sur le toit ?"
+        },
+        {
+          "id": "if-q2355",
+          "difficulty": 1,
+          "answer": "Pagnol",
+          "clue": "Quel écrivain provençal a publié les romans Jean de Florette et Manon des sources ?"
+        },
+        {
+          "id": "if-q2356",
+          "difficulty": 1,
+          "answer": "Camus",
+          "clue": "Quel écrivain prénommé Albert a publié le récit La Chute ?"
+        },
+        {
+          "id": "if-q2357",
+          "difficulty": 2,
+          "answer": "Sartre",
+          "clue": "Quel écrivain et philosophe a écrit le roman La Nausée ?"
+        },
+        {
+          "id": "if-q2358",
+          "difficulty": 2,
+          "answer": "Beauvoir",
+          "clue": "Quel nom porte Simone, l’autrice des Mémoires d’une jeune fille rangée ?"
+        },
+        {
+          "id": "if-q2359",
+          "difficulty": 2,
+          "answer": "Duras",
+          "clue": "Quelle écrivaine prénommée Marguerite a signé Un barrage contre le Pacifique ?"
+        },
+        {
+          "id": "if-q2360",
+          "difficulty": 2,
+          "answer": "Yourcenar",
+          "clue": "Quelle écrivaine prénommée Marguerite a composé les Mémoires d’Hadrien ?"
+        },
+        {
+          "id": "if-q2361",
+          "difficulty": 2,
+          "answer": "Perec",
+          "clue": "Quel écrivain a écrit La Disparition sans utiliser la lettre E ?"
+        }
+      ]
+    },
+    {
+      "category": "Littérature",
+      "puzzles": [
+        {
+          "id": "if-q2362",
+          "difficulty": 2,
+          "answer": "Orwell",
+          "clue": "Quel écrivain prénommé George a raconté son expérience de la guerre d’Espagne dans Hommage à la Catalogne ?"
+        },
+        {
+          "id": "if-q2363",
+          "difficulty": 2,
+          "answer": "Huxley",
+          "clue": "Quel écrivain britannique a imaginé la société du Meilleur des mondes ?"
+        },
+        {
+          "id": "if-q2364",
+          "difficulty": 2,
+          "answer": "Bradbury",
+          "clue": "Quel écrivain américain a imaginé des pompiers brûlant les livres dans Fahrenheit quatre cent cinquante et un ?"
+        },
+        {
+          "id": "if-q2365",
+          "difficulty": 2,
+          "answer": "Asimov",
+          "clue": "Quel auteur de science-fiction est associé aux trois lois de la robotique ?"
+        },
+        {
+          "id": "if-q2366",
+          "difficulty": 2,
+          "answer": "Herbert",
+          "clue": "Quel écrivain prénommé Frank a créé l’univers de Dune ?"
+        },
+        {
+          "id": "if-q2367",
+          "difficulty": 2,
+          "answer": "Tolkien",
+          "clue": "Quel écrivain a rassemblé une mythologie de la Terre du Milieu dans Le Silmarillion ?"
+        },
+        {
+          "id": "if-q2368",
+          "difficulty": 1,
+          "answer": "Rowling",
+          "clue": "Quelle romancière connue pour Harry Potter a aussi publié le roman pour adultes Une place à prendre ?"
+        },
+        {
+          "id": "if-q2369",
+          "difficulty": 1,
+          "answer": "King",
+          "clue": "Quel écrivain prénommé Stephen a créé le clown terrifiant de Ça ?"
+        },
+        {
+          "id": "if-q2370",
+          "difficulty": 2,
+          "answer": "Lovecraft",
+          "clue": "Quel écrivain américain a imaginé la créature Cthulhu ?"
+        },
+        {
+          "id": "if-q2371",
+          "difficulty": 2,
+          "answer": "Poe",
+          "clue": "Quel écrivain prénommé Edgar Allan a écrit Le Chat noir ?"
+        },
+        {
+          "id": "if-q2372",
+          "difficulty": 2,
+          "answer": "Shelley",
+          "clue": "Quel nom porte Mary, l’autrice du roman Frankenstein ?"
+        },
+        {
+          "id": "if-q2373",
+          "difficulty": 2,
+          "answer": "Eco",
+          "clue": "Quel écrivain italien prénommé Umberto a écrit Le Pendule de Foucault ?"
+        },
+        {
+          "id": "if-q2374",
+          "difficulty": 2,
+          "answer": "Stevenson",
+          "clue": "Quel écrivain écossais a réuni le docteur Jekyll et monsieur Hyde dans un même récit ?"
+        },
+        {
+          "id": "if-q2375",
+          "difficulty": 2,
+          "answer": "Wells",
+          "clue": "Quel écrivain britannique a raconté une invasion martienne dans La Guerre des mondes ?"
+        },
+        {
+          "id": "if-q2376",
+          "difficulty": 1,
+          "answer": "London",
+          "clue": "Quel écrivain prénommé Jack raconte le parcours d’un marin devenu écrivain dans Martin Eden ?"
+        },
+        {
+          "id": "if-q2377",
+          "difficulty": 2,
+          "answer": "Kipling",
+          "clue": "Quel écrivain a donné le nom Rikki-Tikki-Tavi à une mangouste héroïque ?"
+        },
+        {
+          "id": "if-q2378",
+          "difficulty": 2,
+          "answer": "Twain",
+          "clue": "Quel nom de plume suit Mark chez l’auteur des Aventures de Huckleberry Finn ?"
+        },
+        {
+          "id": "if-q2379",
+          "difficulty": 1,
+          "answer": "Dickens",
+          "clue": "Quel écrivain britannique a créé le jeune Pip dans Les Grandes Espérances ?"
+        },
+        {
+          "id": "if-q2380",
+          "difficulty": 2,
+          "answer": "Austen",
+          "clue": "Quelle romancière prénommée Jane a donné le titre Emma à un roman ?"
+        },
+        {
+          "id": "if-q2381",
+          "difficulty": 2,
+          "answer": "Bronte",
+          "clue": "Quel nom de famille porte Charlotte, l’autrice de Jane Eyre ?",
+          "acceptedAnswers": [
+            "Brontë"
+          ]
+        }
+      ]
+    },
+    {
+      "category": "Arts",
+      "puzzles": [
+        {
+          "id": "if-q2382",
+          "difficulty": 1,
+          "answer": "Monet",
+          "clue": "Quel peintre a décliné la façade de la cathédrale de Rouen sous différentes lumières ?"
+        },
+        {
+          "id": "if-q2383",
+          "difficulty": 1,
+          "answer": "Renoir",
+          "clue": "Quel peintre prénommé Auguste a peint le Bal du moulin de la Galette ?"
+        },
+        {
+          "id": "if-q2384",
+          "difficulty": 1,
+          "answer": "Degas",
+          "clue": "Quel peintre prénommé Edgar a représenté deux ouvrières dans Les Repasseuses ?"
+        },
+        {
+          "id": "if-q2385",
+          "difficulty": 1,
+          "answer": "Cézanne",
+          "clue": "Quel peintre prénommé Paul a réalisé une série de tableaux intitulée Les Joueurs de cartes ?"
+        },
+        {
+          "id": "if-q2386",
+          "difficulty": 1,
+          "answer": "Gauguin",
+          "clue": "Quel peintre prénommé Paul a situé Le Christ jaune dans un paysage breton ?"
+        },
+        {
+          "id": "if-q2387",
+          "difficulty": 2,
+          "answer": "Seurat",
+          "clue": "Quel peintre prénommé Georges a réalisé Une baignade à Asnières ?"
+        },
+        {
+          "id": "if-q2388",
+          "difficulty": 2,
+          "answer": "Signac",
+          "clue": "Quel peintre prénommé Paul est associé au divisionnisme et à des vues de ports aux couleurs lumineuses ?"
+        },
+        {
+          "id": "if-q2389",
+          "difficulty": 2,
+          "answer": "Pissarro",
+          "clue": "Quel peintre prénommé Camille a représenté le boulevard Montmartre dans une série de toiles ?"
+        },
+        {
+          "id": "if-q2390",
+          "difficulty": 2,
+          "answer": "Sisley",
+          "clue": "Quel peintre impressionniste d’origine britannique a représenté les inondations de Port-Marly ?"
+        },
+        {
+          "id": "if-q2391",
+          "difficulty": 2,
+          "answer": "Morisot",
+          "clue": "Quel nom porte Berthe, peintre impressionniste et autrice du Berceau ?"
+        },
+        {
+          "id": "if-q2392",
+          "difficulty": 2,
+          "answer": "Cassatt",
+          "clue": "Quelle peintre américaine prénommée Mary a représenté de nombreuses scènes de mères avec leurs enfants ?"
+        },
+        {
+          "id": "if-q2393",
+          "difficulty": 2,
+          "answer": "Manet",
+          "clue": "Quel peintre prénommé Édouard a représenté une serveuse et son reflet dans Un bar aux Folies Bergère ?"
+        },
+        {
+          "id": "if-q2394",
+          "difficulty": 2,
+          "answer": "Courbet",
+          "clue": "Quel peintre prénommé Gustave s’est représenté au centre de L’Atelier du peintre ?"
+        },
+        {
+          "id": "if-q2395",
+          "difficulty": 2,
+          "answer": "Millet",
+          "clue": "Quel peintre prénommé Jean-François a représenté un paysan lançant des graines dans Le Semeur ?"
+        },
+        {
+          "id": "if-q2396",
+          "difficulty": 2,
+          "answer": "Corot",
+          "clue": "Quel peintre prénommé Camille est notamment connu pour ses paysages aux atmosphères argentées ?"
+        },
+        {
+          "id": "if-q2397",
+          "difficulty": 2,
+          "answer": "Delacroix",
+          "clue": "Quel peintre a représenté des combattants grecs dans Scènes des massacres de Scio ?"
+        },
+        {
+          "id": "if-q2398",
+          "difficulty": 2,
+          "answer": "Ingres",
+          "clue": "Quel peintre a représenté une baigneuse assise de dos, dite de Valpinçon ?"
+        },
+        {
+          "id": "if-q2399",
+          "difficulty": 2,
+          "answer": "David",
+          "clue": "Quel peintre a réalisé Le Serment des Horaces ?"
+        },
+        {
+          "id": "if-q2400",
+          "difficulty": 2,
+          "answer": "Géricault",
+          "clue": "Quel peintre français a représenté une course de chevaux dans Le Derby d’Epsom ?"
+        },
+        {
+          "id": "if-q2401",
+          "difficulty": 2,
+          "answer": "Turner",
+          "clue": "Quel peintre britannique a signé Pluie, Vapeur et Vitesse ?"
+        }
+      ]
+    }
+  ]
+}

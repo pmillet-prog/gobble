@@ -1,0 +1,254 @@
+{
+  "schemaVersion": 1,
+  "kind": "riddle",
+  "groups": [
+    { "category": "Cuisine", "puzzles": [
+      {"id":"if-r901","difficulty":1,"answer":"mousse","clue":"Au chocolat, mes petites bulles d’air rendent le dessert léger ; une cuillère traverse mon corps sans effort."}
+    ] },
+    { "category": "Navigation", "puzzles": [
+      {"id":"if-r902","difficulty":2,"answer":"mousse","clue":"Jeune apprenti à bord d’un bateau, je découvre le métier de marin en aidant l’équipage."}
+    ] },
+    { "category": "Vêtements et accessoires", "puzzles": [
+      {"id":"if-r903","difficulty":1,"answer":"voile","clue":"Étoffe légère posée sur la tête ou devant le visage, je peux accompagner la robe de la mariée."}
+    ] },
+    { "category": "Bricolage", "puzzles": [
+      {"id":"if-r904","difficulty":1,"answer":"manche","clue":"Partie de l’outil que vous tenez, je garde votre main loin de la lame ou de la tête qui frappe."}
+    ] },
+    { "category": "Jeux et jouets", "puzzles": [
+      {"id":"if-r905","difficulty":1,"answer":"manche","clue":"Partie d’un match ou d’une partie, je peux être gagnée sans que toute la rencontre soit terminée."}
+    ] },
+    { "category": "Histoire", "puzzles": [
+      {"id":"if-r906","difficulty":2,"answer":"page","clue":"Jeune garçon attaché au service d’un seigneur, je peux apprendre les usages de la cour avant de devenir écuyer."}
+    ] },
+    { "category": "Monnaies", "puzzles": [
+      {"id":"if-r907","difficulty":1,"answer":"livre","clue":"Au Royaume-Uni, je paie les achats sans être un ouvrage à lire ; on me qualifie de sterling."}
+    ] },
+    { "category": "Musique", "puzzles": [
+      {"id":"if-r908","difficulty":1,"answer":"sol","clue":"Note de musique, je me place entre fa et la dans la gamme qui commence par do."}
+    ] },
+    { "category": "Fêtes et traditions", "puzzles": [
+      {"id":"if-r909","difficulty":2,"answer":"loup","clue":"Petit masque de fête, je couvre les yeux et le haut du nez sans cacher entièrement le visage."}
+    ] },
+    { "category": "Langue française", "puzzles": [
+      {"id":"if-r910","difficulty":1,"answer":"ours","clue":"Dans le langage familier, on me compare à un gros animal pour dire que je suis peu sociable et bourru."}
+    ] },
+    { "category": "Histoire", "puzzles": [
+      {"id":"if-r911","difficulty":2,"answer":"dauphin","clue":"Sous la monarchie française, mon titre désigne traditionnellement le fils aîné du roi appelé à lui succéder."}
+    ] },
+    { "category": "Presse", "puzzles": [
+      {"id":"if-r912","difficulty":1,"answer":"canard","clue":"Dans le langage familier, je suis un journal que l’on achète au kiosque ; mon nom appartient aussi à un oiseau."}
+    ] },
+    { "category": "Langue française", "puzzles": [
+      {"id":"if-r913","difficulty":1,"answer":"poulet","clue":"Nom familier d’un policier, je peux porter un uniforme sans avoir la moindre plume."}
+    ] },
+    { "category": "Maison", "puzzles": [
+      {"id":"if-r914","difficulty":1,"answer":"mouton","clue":"Petit amas de poussière et de fibres, je me cache sous le lit sans avoir besoin de berger."}
+    ] },
+    { "category": "Voyages et transports", "puzzles": [
+      {"id":"if-r915","difficulty":2,"answer":"chenille","clue":"Large bande articulée autour des roues d’un engin, je l’aide à avancer sur la boue sans être un insecte."}
+    ] },
+    { "category": "Sports", "puzzles": [
+      {"id":"if-r916","difficulty":2,"answer":"papillon","clue":"Nage où les deux bras reviennent ensemble au-dessus de l’eau, j’utilise une ondulation du corps pour avancer."}
+    ] },
+    { "category": "Informatique", "puzzles": [
+      {"id":"if-r917","difficulty":1,"answer":"puce","clue":"Minuscule composant électronique, je peux contenir de nombreux circuits sans avoir de pattes."}
+    ] },
+    { "category": "Agriculture", "puzzles": [
+      {"id":"if-r918","difficulty":1,"answer":"ferme","clue":"Mes bâtiments et mes terres servent à l’agriculture ; les récoltes et les animaux y occupent bien plus de place que les bureaux."}
+    ] },
+    { "category": "Informatique", "puzzles": [
+      {"id":"if-r919","difficulty":1,"answer":"touche","clue":"Sur le clavier, vous m’enfoncez pour saisir une lettre ou lancer une commande."}
+    ] },
+    { "category": "Musique", "puzzles": [
+      {"id":"if-r920","difficulty":1,"answer":"baguette","clue":"Petit bâton du chef d’orchestre, je dessine le rythme dans l’air sans frapper les musiciens."}
+    ] },
+    { "category": "Commerces et métiers", "puzzles": [
+      {"id":"if-r921","difficulty":2,"answer":"fourchette","clue":"Pour annoncer un prix encore incertain, mes deux limites encadrent l’estimation sans toucher à une assiette.","acceptedAnswers":["intervalle"]}
+    ] },
+    { "category": "Voyages et transports", "puzzles": [
+      {"id":"if-r922","difficulty":2,"answer":"palette","clue":"Support plat de manutention, je porte les cartons pendant que le chariot élévateur glisse ses fourches sous moi."}
+    ] },
+    { "category": "Musique", "puzzles": [
+      {"id":"if-r923","difficulty":1,"answer":"clavier","clue":"Sur le piano, mes touches noires forment des groupes de deux ou trois au milieu des blanches."}
+    ] },
+    { "category": "Sports", "puzzles": [
+      {"id":"if-r924","difficulty":1,"answer":"point","clue":"Au tennis, je m’ajoute au score après un échange remporté ; il en faut plusieurs pour gagner un jeu."}
+    ] },
+    { "category": "Mathématiques", "puzzles": [
+      {"id":"if-r925","difficulty":1,"answer":"virgule","clue":"Dans l’écriture française d’un nombre décimal, je sépare la partie entière des chiffres qui viennent après."}
+    ] },
+    { "category": "Pêche", "puzzles": [
+      {"id":"if-r926","difficulty":1,"answer":"ligne","clue":"Mon fil relie la canne à l’hameçon ; le pêcheur me lance dans l’eau puis me ramène."}
+    ] },
+    { "category": "Informatique", "puzzles": [
+      {"id":"if-r927","difficulty":1,"answer":"colonne","clue":"Dans une feuille de calcul, je range les cellules verticalement et porte souvent une lettre en haut."}
+    ] },
+    { "category": "Arts", "puzzles": [
+      {"id":"if-r928","difficulty":1,"answer":"cadre","clue":"Je borde le tableau pour le protéger et le mettre en valeur sans faire partie de la peinture."}
+    ] },
+    { "category": "Électricité", "puzzles": [
+      {"id":"if-r929","difficulty":1,"answer":"tableau","clue":"Dans la maison, je rassemble les disjoncteurs et les protections des différents circuits électriques."}
+    ] },
+    { "category": "Nature", "puzzles": [
+      {"id":"if-r930","difficulty":1,"answer":"toile","clue":"Réseau de fils de soie tendus par une araignée, je peux retenir un insecte bien plus gros qu’un de mes fils."}
+    ] },
+    { "category": "Maison", "puzzles": [
+      {"id":"if-r931","difficulty":1,"answer":"bureau","clue":"Meuble où l’on pose ses cahiers et son ordinateur pour travailler assis, je possède parfois des tiroirs."}
+    ] },
+    { "category": "Presse", "puzzles": [
+      {"id":"if-r932","difficulty":2,"answer":"coquille","clue":"Petite erreur de typographie oubliée dans un texte imprimé, je n’abrite ni œuf ni escargot."}
+    ] },
+    { "category": "Littérature", "puzzles": [
+      {"id":"if-r933","difficulty":2,"answer":"plume","clue":"Par mon nom d’ancienne pièce d’oiseau utilisée pour écrire, je désigne aussi le talent ou le style d’un auteur."}
+    ] },
+    { "category": "Nature", "puzzles": [
+      {"id":"if-r934","difficulty":1,"answer":"feuille","clue":"Portée par la tige ou la branche, je montre des nervures et capte la lumière avec ma surface souvent verte."},
+      {"id":"if-r935","difficulty":1,"answer":"branche","clue":"Issue du tronc, je porte des rameaux et des feuilles ; les oiseaux peuvent se poser sur moi."}
+    ] },
+    { "category": "Mathématiques", "puzzles": [
+      {"id":"if-r936","difficulty":2,"answer":"racine","clue":"Quand je suis carrée, me multiplier par moi-même permet de retrouver le nombre dont je proviens."}
+    ] },
+    { "category": "Objets du quotidien", "puzzles": [
+      {"id":"if-r937","difficulty":2,"answer":"tronc","clue":"Dans une église, ma boîte fermée reçoit les dons des visiteurs par une petite fente."}
+    ] },
+    { "category": "Soins et toilette", "puzzles": [
+      {"id":"if-r938","difficulty":1,"answer":"bouton","clue":"Petite bosse sur la peau, je peux apparaître sur le visage à l’adolescence sans servir à fermer un vêtement."}
+    ] },
+    { "category": "Expressions françaises", "puzzles": [
+      {"id":"if-r939","difficulty":1,"answer":"épine","clue":"Quand on me retire du pied au sens figuré, on vous débarrasse d’une difficulté qui vous gênait."}
+    ] },
+    { "category": "Objets du quotidien", "puzzles": [
+      {"id":"if-r940","difficulty":1,"answer":"queue","clue":"File de personnes qui attendent leur tour, je m’allonge lorsque le guichet n’avance pas."}
+    ] },
+    { "category": "Nature", "puzzles": [
+      {"id":"if-r941","difficulty":1,"answer":"corne","clue":"Pointe dure sur la tête de certains animaux, je peux être droite, courbée ou en spirale."}
+    ] },
+    { "category": "Voyages et transports", "puzzles": [
+      {"id":"if-r942","difficulty":1,"answer":"aile","clue":"De chaque côté de l’avion, ma forme contribue à produire la force qui le maintient en vol."}
+    ] },
+    { "category": "Cuisine", "puzzles": [
+      {"id":"if-r943","difficulty":1,"answer":"bec","clue":"Petite avancée au bord de la verseuse, je guide le liquide pour qu’il atteigne la tasse."}
+    ] },
+    { "category": "Bricolage", "puzzles": [
+      {"id":"if-r944","difficulty":1,"answer":"dent","clue":"Pointe répétée sur le bord d’une scie, j’attaque la matière avec mes voisines sans appartenir à une bouche."}
+    ] },
+    { "category": "Météo", "puzzles": [
+      {"id":"if-r945","difficulty":1,"answer":"œil","clue":"Au centre de certains cyclones, je forme une zone relativement calme entourée de vents violents."}
+    ] },
+    { "category": "Commerces et métiers", "puzzles": [
+      {"id":"if-r946","difficulty":2,"answer":"nez","clue":"Créateur de parfums au talent olfactif exercé, je porte le nom de l’organe dont je me sers."}
+    ] },
+    { "category": "Corps humain", "puzzles": [
+      {"id":"if-r947","difficulty":1,"answer":"langue","clue":"Muscle mobile dans la bouche, j’aide à parler, à avaler et à percevoir les saveurs."},
+      {"id":"if-r948","difficulty":2,"answer":"palais","clue":"Voûte qui forme le toit de la bouche, je sépare en partie celle-ci des fosses nasales."}
+    ] },
+    { "category": "Paysages et reliefs", "puzzles": [
+      {"id":"if-r949","difficulty":2,"answer":"gorge","clue":"Vallée étroite et profonde aux parois abruptes, je peux être creusée par une rivière.","acceptedAnswers":["canyon"]}
+    ] },
+    { "category": "Unités de mesure", "puzzles": [
+      {"id":"if-r950","difficulty":2,"answer":"pied","clue":"Unité de longueur anglo-saxonne, je vaux douze pouces et porte le nom d’une partie du corps."}
+    ] },
+    { "category": "Jeux et jouets", "puzzles": [
+      {"id":"if-r951","difficulty":1,"answer":"main","clue":"Ensemble des cartes reçues par un joueur, je peux être excellente même s’il n’a que deux bras."}
+    ] },
+    { "category": "Bricolage", "puzzles": [
+      {"id":"if-r952","difficulty":1,"answer":"coude","clue":"Raccord de tuyauterie courbé, je fais changer la direction d’un conduit."}
+    ] },
+    { "category": "Fleuves", "puzzles": [
+      {"id":"if-r953","difficulty":1,"answer":"lit","clue":"Je reçois le cours de la rivière entre ses rives, sans draps ni oreiller."}
+    ] },
+    { "category": "Littérature", "puzzles": [
+      {"id":"if-r954","difficulty":2,"answer":"dos","clue":"Partie étroite visible d’un livre rangé debout, je porte souvent son titre entre les deux couvertures."}
+    ] },
+    { "category": "Jeux et jouets", "puzzles": [
+      {"id":"if-r955","difficulty":1,"answer":"cœur","clue":"Rouge dans un jeu de cartes français, je suis l’une des quatre enseignes avec le carreau, le trèfle et le pique."}
+    ] },
+    { "category": "Fleuves", "puzzles": [
+      {"id":"if-r956","difficulty":2,"answer":"bras","clue":"Division d’un cours d’eau, je peux me séparer des autres au milieu d’un delta."}
+    ] },
+    { "category": "Communication", "puzzles": [
+      {"id":"if-r957","difficulty":1,"answer":"pouce","clue":"Dressé vers le haut sous une publication, mon dessin sert souvent à montrer que l’on apprécie son contenu."}
+    ] },
+    { "category": "Corps humain", "puzzles": [
+      {"id":"if-r958","difficulty":1,"answer":"index","clue":"Doigt placé entre le pouce et le majeur, je sers volontiers à désigner quelque chose."}
+    ] },
+    { "category": "Temps et calendrier", "puzzles": [
+      {"id":"if-r959","difficulty":1,"answer":"aiguille","clue":"Sur le cadran de l’horloge, je tourne pour montrer l’heure sans jamais traverser de tissu."}
+    ] },
+    { "category": "Commerces et métiers", "puzzles": [
+      {"id":"if-r960","difficulty":1,"answer":"rayon","clue":"Dans un magasin, je regroupe les produits d’une même famille pour aider les clients à les trouver."}
+    ] },
+    { "category": "Sports", "puzzles": [
+      {"id":"if-r961","difficulty":2,"answer":"disque","clue":"En athlétisme, mon objet rond et aplati est lancé le plus loin possible après une rotation de l’athlète."}
+    ] },
+    { "category": "Nature", "puzzles": [
+      {"id":"if-r962","difficulty":2,"answer":"cerne","clue":"Anneau visible sur une coupe de bois, je témoigne d’une période de croissance de l’arbre."}
+    ] },
+    { "category": "Cuisine", "puzzles": [
+      {"id":"if-r963","difficulty":1,"answer":"étoile","clue":"Dans le guide Michelin, je récompense la cuisine d’un restaurant ; un établissement peut en recevoir jusqu’à trois."}
+    ] },
+    { "category": "Astronomie", "puzzles": [
+      {"id":"if-r964","difficulty":1,"answer":"planète","clue":"Astre comme la Terre ou Mars, je tourne autour d’une étoile sans produire ma propre lumière visible."}
+    ] },
+    { "category": "Géographie", "puzzles": [
+      {"id":"if-r965","difficulty":1,"answer":"quartier","clue":"Partie d’une ville, je peux rassembler plusieurs rues et posséder un marché ou une place bien connus des habitants."}
+    ] },
+    { "category": "Justice", "puzzles": [
+      {"id":"if-r966","difficulty":1,"answer":"cellule","clue":"Petite pièce d’une prison où l’on enferme une personne détenue, ma porte ne s’ouvre pas librement."}
+    ] },
+    { "category": "Sciences", "puzzles": [
+      {"id":"if-r967","difficulty":2,"answer":"noyau","clue":"Au centre de l’atome, je rassemble les protons et les neutrons lorsqu’il y en a."}
+    ] },
+    { "category": "Médecine", "puzzles": [
+      {"id":"if-r968","difficulty":1,"answer":"opération","clue":"Acte du chirurgien sur le corps, je demande souvent une anesthésie sans être un calcul.","acceptedAnswers":["intervention"]}
+    ] },
+    { "category": "Mathématiques", "puzzles": [
+      {"id":"if-r969","difficulty":1,"answer":"produit","clue":"Résultat d’une multiplication, je vaux douze lorsque trois est multiplié par quatre."},
+      {"id":"if-r970","difficulty":1,"answer":"somme","clue":"Résultat d’une addition, je réunis les nombres que l’on vient d’ajouter."},
+      {"id":"if-r971","difficulty":1,"answer":"différence","clue":"Résultat d’une soustraction, je mesure ce qui sépare les deux nombres du calcul."},
+      {"id":"if-r972","difficulty":1,"answer":"fraction","clue":"Avec un nombre au-dessus d’une barre et un autre en dessous, je peux représenter une part de gâteau."},
+      {"id":"if-r973","difficulty":2,"answer":"puissance","clue":"Avec un exposant entier positif, je représente une multiplication où le même nombre est répété comme facteur."},
+      {"id":"if-r974","difficulty":1,"answer":"reste","clue":"Après une division entière, je suis ce qui n’a pas pu être réparti en parts complètes."},
+      {"id":"if-r975","difficulty":1,"answer":"moyenne","clue":"Pour me calculer, on additionne les valeurs puis on divise ce total par leur nombre."},
+      {"id":"if-r976","difficulty":2,"answer":"médiane","clue":"Au milieu d’une série rangée, je partage les valeurs en deux groupes d’effectifs aussi proches que possible."},
+      {"id":"if-r977","difficulty":2,"answer":"multiple","clue":"Je m’obtiens en multipliant un nombre entier par un autre entier ; les résultats de sa table sont mes semblables."},
+      {"id":"if-r978","difficulty":2,"answer":"diviseur","clue":"Je partage exactement un entier sans laisser de reste ; l’unité peut jouer mon rôle pour tous les entiers."},
+      {"id":"if-r979","difficulty":1,"answer":"double","clue":"Je contiens deux fois la quantité de départ, comme deux parts identiques réunies."},
+      {"id":"if-r980","difficulty":1,"answer":"moitié","clue":"Avec une autre part égale à moi, je reconstitue le tout qui a été partagé en deux."}
+    ] },
+    { "category": "Langue française", "puzzles": [
+      {"id":"if-r981","difficulty":1,"answer":"avocat","clue":"Dans une discussion, je défends une cause ou une personne ; on dit parfois que je suis celui du diable."}
+    ] },
+    { "category": "Vêtements et accessoires", "puzzles": [
+      {"id":"if-r982","difficulty":2,"answer":"marcel","clue":"Haut de coton sans manches, je porte un prénom masculin et laisse les épaules découvertes.","acceptedAnswers":["débardeur"]},
+      {"id":"if-r983","difficulty":1,"answer":"ballerine","clue":"Chaussure basse et légère inspirée de la danse, je me porte au quotidien sans faire de pointes."},
+      {"id":"if-r984","difficulty":1,"answer":"fuseau","clue":"Pantalon ajusté, je peux posséder une bride qui passe sous le pied pour maintenir mes jambes tendues."}
+    ] },
+    { "category": "Sports", "puzzles": [
+      {"id":"if-r985","difficulty":2,"answer":"plastron","clue":"Protection portée sur la poitrine, je peux amortir les coups dans certains sports de combat."}
+    ] },
+    { "category": "Vêtements et accessoires", "puzzles": [
+      {"id":"if-r986","difficulty":1,"answer":"nœud","clue":"Avec les deux bouts d’un lacet, vous me formez pour que la chaussure reste attachée."}
+    ] },
+    { "category": "Cuisine", "puzzles": [
+      {"id":"if-r987","difficulty":2,"answer":"robe","clue":"Sur la pomme de terre cuite avec sa peau, je suis dite des champs ; le tubercule n’a pourtant pas de vêtement."},
+      {"id":"if-r988","difficulty":1,"answer":"chemise","clue":"Autour de la gousse d’ail cuite entière, je désigne sa fine peau laissée en place."}
+    ] },
+    { "category": "Nature", "puzzles": [
+      {"id":"if-r989","difficulty":1,"answer":"parasol","clue":"Mon nom d’objet qui fait de l’ombre qualifie aussi le pin dont la cime est large et étalée."},
+      {"id":"if-r990","difficulty":2,"answer":"balai","clue":"Dans le nom d’un genêt, je rappelle que ses rameaux servaient à fabriquer un outil pour nettoyer le sol."}
+    ] },
+    { "category": "Musique", "puzzles": [
+      {"id":"if-r991","difficulty":1,"answer":"accord","clue":"Plusieurs notes jouées ensemble me composent ; je peux être majeur ou mineur sans être un compromis."},
+      {"id":"if-r992","difficulty":2,"answer":"mesure","clue":"Entre deux barres de la partition, je rassemble un nombre de temps défini."},
+      {"id":"if-r993","difficulty":1,"answer":"portée","clue":"Mes cinq lignes parallèles accueillent les notes et les silences sur la partition."},
+      {"id":"if-r994","difficulty":2,"answer":"silence","clue":"En musique, mon signe impose de ne jouer aucun son pendant une durée précise.","acceptedAnswers":["pause"]},
+      {"id":"if-r995","difficulty":2,"answer":"clé","clue":"Au début de la portée, mon symbole sert à situer la hauteur des notes ; je peux être de sol ou de fa.","acceptedAnswers":["clef"]},
+      {"id":"if-r996","difficulty":1,"answer":"note","clue":"Petit signe sur une partition, ma position indique la hauteur d’un son et ma forme contribue à en donner la durée."},
+      {"id":"if-r997","difficulty":2,"answer":"tempo","clue":"Je règle la vitesse d’exécution d’un morceau ; le métronome peut m’indiquer en battements par minute."},
+      {"id":"if-r998","difficulty":2,"answer":"refrain","clue":"Partie d’une chanson qui revient entre les couplets, je suis souvent celle que le public reprend en chœur."},
+      {"id":"if-r999","difficulty":1,"answer":"couplet","clue":"Strophe d’une chanson, je fais avancer le texte avant que la partie répétée revienne."},
+      {"id":"if-r1000","difficulty":2,"answer":"gamme","clue":"Suite ordonnée de notes, je monte ou descends ; les musiciens me répètent pour travailler leur instrument."}
+    ] }
+  ]
+}

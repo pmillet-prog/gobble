@@ -43,7 +43,7 @@ Sorties :
 - `data/word-summary.json` : bilan et listes des exclusions par motif.
 - `.tmp/motus/word-report.json` : rapport détaillé par mot, décisions, catégories et liens vers les pages sources ; conservé hors du runtime.
 
-Premier passage : **17 991 propositions**, **11 780 cibles**, **5 868 formes uniquement conjuguées**, **343 non classées**. Les cibles sont grammaticalement filtrées, sans sélection de difficulté ou de fréquence : des mots rares peuvent donc être tirés. Le filtre ne prétend pas remplacer une relecture éditoriale.
+Banque grammaticale de l’atelier : **17 991 propositions**, **11 780 cibles**, **5 868 formes uniquement conjuguées**, **343 non classées**. Cette source conserve les mots rares pour permettre de régler le filtre sans relire le dump. Le jeu Gotus intégré utilise une sélection distincte de **6 567 cibles**, produite par `npm run gotus:words`, commune au live et à l’entraînement. Voir [le vivier Gotus](../../docs/gotus-word-pool.md).
 
 Options du script : `--dictionary`, `--dump`, `--output`, `--report`, suivies chacune d’un chemin. Sans dump disponible, la banque déjà générée suffit pour jouer.
 

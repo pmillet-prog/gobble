@@ -1,0 +1,22 @@
+Banque de mots Gotus — sélection du 1er novembre 2026
+
+La classification grammaticale est dérivée du Wiktionnaire français :
+https://fr.wiktionary.org/ — contributeurs du Wiktionnaire, CC BY-SA / GFDL.
+
+Le filtre de familiarité et de fréquence est dérivé de Lexique 4.10 :
+https://www.lexique.org/
+Boris New, Christophe Pallier, Gauvain Schalchli, Jessica Bourgin et Manuel Gimenes.
+Référence : New et al. (2026), Lexique 4: A major upgrade of the Lexique French
+lexical database. https://doi.org/10.3758/s13428-026-02967-5
+
+Modifications par le projet Gobble : restriction aux mots de six lettres du
+dictionnaire du jeu, normalisation des accents et ligatures, filtre grammatical,
+puis sélection selon la familiarité ou la fréquence. Ces mesures ne sont pas
+une garantie de difficulté individuelle.
+
+La sélection de données et l’extrait de mesures dérivé sont sous licence
+Creative Commons Attribution – Partage dans les mêmes conditions 4.0 :
+https://creativecommons.org/licenses/by-sa/4.0/
+
+Les métadonnées de words.json indiquent les sources, leurs empreintes et les
+seuils appliqués. Le filtre ne réduit pas les propositions autorisées.

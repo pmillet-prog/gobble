@@ -1,0 +1,182 @@
+{
+  "schemaVersion": 1,
+  "kind": "quiz",
+  "references": {
+    "monet": {
+      "title": "Musée de l’Orangerie — Les Nymphéas de Claude Monet",
+      "url": "https://www.musee-orangerie.fr/fr/collection/les-nympheas-de-claude-monet"
+    },
+    "rodin": {
+      "title": "Musée Rodin — Le Penseur",
+      "url": "https://www.musee-rodin.fr/musee/collections/oeuvres/penseur"
+    },
+    "picasso": {
+      "title": "Museo Reina Sofía — Guernica",
+      "url": "https://www.museoreinasofia.es/colecciones/obra/guernica/"
+    },
+    "vermeer": {
+      "title": "Mauritshuis — Girl with a Pearl Earring",
+      "url": "https://www.mauritshuis.nl/en/our-collection/artworks/670-girl-with-a-pearl-earring"
+    },
+    "louvre": {
+      "title": "Musée du Louvre — De La Joconde aux Noces de Cana",
+      "url": "https://www.louvre.fr/decouvrir/le-palais/de-la-joconde-aux-noces-de-cana"
+    },
+    "orwell": {
+      "title": "BnF, Nouveautés éditeurs — La Ferme des animaux",
+      "url": "https://nouveautes-editeurs.bnf.fr/accueil?id_declaration=10000001319028&titre_livre=La_ferme_des_animaux"
+    },
+    "hibernation": {
+      "title": "Muséum national d’Histoire naturelle — Hivernation et hibernation",
+      "url": "https://www.mnhn.fr/fr/quelle-difference-entre-l-hivernation-et-l-hibernation"
+    },
+    "hydrogen": {
+      "title": "Royal Society of Chemistry — Hydrogen",
+      "url": "https://periodic-table.rsc.org/element/1/hydrogen"
+    },
+    "oxygen": {
+      "title": "Royal Society of Chemistry — Oxygen",
+      "url": "https://periodic-table.rsc.org/element/8/oxygen"
+    },
+    "carbon": {
+      "title": "Royal Society of Chemistry — Carbon",
+      "url": "https://periodic-table.rsc.org/element/6/carbon"
+    },
+    "nitrogen": {
+      "title": "Royal Society of Chemistry — Nitrogen",
+      "url": "https://periodic-table.rsc.org/element/7/nitrogen"
+    },
+    "helium": {
+      "title": "Royal Society of Chemistry — Helium",
+      "url": "https://periodic-table.rsc.org/element/2/helium"
+    },
+    "sodium": {
+      "title": "Royal Society of Chemistry — Sodium",
+      "url": "https://periodic-table.rsc.org/element/11/sodium"
+    },
+    "iron": {
+      "title": "Royal Society of Chemistry — Iron",
+      "url": "https://periodic-table.rsc.org/element/26/iron"
+    },
+    "copper": {
+      "title": "Royal Society of Chemistry — Copper",
+      "url": "https://periodic-table.rsc.org/element/29/copper"
+    },
+    "silver": {
+      "title": "Royal Society of Chemistry — Silver",
+      "url": "https://periodic-table.rsc.org/element/47/silver"
+    },
+    "gold": {
+      "title": "Royal Society of Chemistry — Gold",
+      "url": "https://periodic-table.rsc.org/element/79/gold"
+    },
+    "aluminium": {
+      "title": "Royal Society of Chemistry — Aluminium",
+      "url": "https://periodic-table.rsc.org/element/13/aluminium"
+    },
+    "silicon": {
+      "title": "Royal Society of Chemistry — Silicon",
+      "url": "https://periodic-table.rsc.org/element/14/silicon"
+    },
+    "dali": {
+      "title": "MoMA — Salvador Dalí, The Persistence of Memory",
+      "url": "https://www.moma.org/collection/works/79018"
+    },
+    "berlioz": {
+      "title": "Philharmonie de Paris — Symphonie fantastique de Hector Berlioz",
+      "url": "https://pad.philharmoniedeparis.fr/0301457-symphonie-fantastique-de-hector-berlioz.aspx?_lg=fr-FR"
+    }
+  },
+  "groups": [
+    { "category": "Arts", "puzzles": [
+      {"id":"if-q079","difficulty":2,"clue":"Quel peintre impressionniste prénommé Claude a consacré de nombreuses toiles aux Nymphéas ?","answer":"Monet","reference":"monet"},
+      {"id":"if-q080","difficulty":2,"clue":"Quel sculpteur prénommé Auguste a créé Le Penseur et Le Baiser ?","answer":"Rodin","reference":"rodin"},
+      {"id":"if-q081","difficulty":2,"clue":"Quel peintre espagnol prénommé Pablo est l’auteur de Guernica ?","answer":"Picasso","reference":"picasso"},
+      {"id":"if-q082","difficulty":2,"clue":"Quel peintre surréaliste prénommé Salvador a représenté des montres molles dans La Persistance de la mémoire ?","answer":"Dalí","reference":"dali"},
+      {"id":"if-q083","difficulty":2,"clue":"Quel peintre néerlandais prénommé Johannes a réalisé La Jeune Fille à la perle ?","answer":"Vermeer","reference":"vermeer"},
+      {"id":"if-q084","difficulty":3,"clue":"Quel peintre néerlandais a réalisé La Ronde de nuit ?","answer":"Rembrandt"},
+      {"id":"if-q085","difficulty":2,"clue":"Quel peintre prénommé Henri, associé au fauvisme, est aussi célèbre pour ses papiers découpés ?","answer":"Matisse"},
+      {"id":"if-q086","difficulty":2,"clue":"Quel peintre prénommé Paul s’est installé à Tahiti et a souvent représenté ses habitantes ?","answer":"Gauguin"},
+      {"id":"if-q087","difficulty":2,"clue":"Quel artiste prénommé Edgar a peint de nombreuses danseuses de ballet ?","answer":"Degas"},
+      {"id":"if-q088","difficulty":1,"clue":"Quel musée parisien expose La Joconde ?","answer":"Louvre","reference":"louvre"}
+    ] },
+    { "category": "Architecture", "puzzles": [
+      {"id":"if-q089","difficulty":2,"clue":"Quel architecte prénommé Charles a donné son nom à un célèbre palais de l’Opéra à Paris ?","answer":"Garnier"}
+    ] },
+    { "category": "Arts", "puzzles": [
+      {"id":"if-q090","difficulty":2,"clue":"Quelle technique décorative compose une image en assemblant de petits fragments de pierre, de verre ou de céramique ?","answer":"mosaïque"}
+    ] },
+    { "category": "Littérature", "puzzles": [
+      {"id":"if-q091","difficulty":1,"clue":"Quel auteur de théâtre français a écrit L’Avare et Le Malade imaginaire ?","answer":"Molière"},
+      {"id":"if-q092","difficulty":1,"clue":"Quel est le nom de famille de Victor, l’auteur des Misérables et de Notre-Dame de Paris ?","answer":"Hugo"},
+      {"id":"if-q093","difficulty":1,"clue":"Quel romancier prénommé Jules a écrit Le Tour du monde en quatre-vingts jours ?","answer":"Verne"},
+      {"id":"if-q094","difficulty":2,"clue":"Quel auteur prénommé Charles a écrit les contes Peau d’âne et Le Chat botté ?","answer":"Perrault"},
+      {"id":"if-q095","difficulty":2,"clue":"Quel conteur danois est l’auteur du Vilain Petit Canard et de La Petite Sirène ?","answer":"Andersen"},
+      {"id":"if-q096","difficulty":2,"clue":"Quel nom suit Lewis dans le pseudonyme de l’auteur d’Alice au pays des merveilles ?","answer":"Carroll"},
+      {"id":"if-q097","difficulty":2,"clue":"Quel écrivain britannique prénommé Charles a créé Oliver Twist et David Copperfield ?","answer":"Dickens"},
+      {"id":"if-q098","difficulty":2,"clue":"Quel écrivain britannique prénommé George est l’auteur de La Ferme des animaux ?","answer":"Orwell","reference":"orwell"},
+      {"id":"if-q099","difficulty":2,"clue":"Quel écrivain britannique a inventé la Terre du Milieu et écrit Le Seigneur des anneaux ?","answer":"Tolkien"}
+    ] },
+    { "category": "Bande dessinée", "puzzles": [
+      {"id":"if-q100","difficulty":1,"clue":"Quel dessinateur belge, connu sous un pseudonyme, a créé Tintin et le capitaine Haddock ?","answer":"Hergé"}
+    ] },
+    { "category": "Littérature", "puzzles": [
+      {"id":"if-q101","difficulty":1,"clue":"Quelle marionnette de bois créée par Carlo Collodi voit son nez s’allonger lorsqu’elle ment ?","answer":"Pinocchio"},
+      {"id":"if-q102","difficulty":2,"clue":"Quel est le nom du sous-marin du capitaine Nemo dans Vingt Mille Lieues sous les mers ?","answer":"Nautilus"},
+      {"id":"if-q103","difficulty":2,"clue":"Comment s’appelle le personnage obsédé par son argent dans L’Avare de Molière ?","answer":"Harpagon"},
+      {"id":"if-q104","difficulty":2,"clue":"Quel personnage est le sonneur de cloches dans Notre-Dame de Paris de Victor Hugo ?","answer":"Quasimodo"},
+      {"id":"if-q105","difficulty":1,"clue":"Quelle héroïne de Lewis Carroll suit un lapin blanc avant de tomber dans son terrier ?","answer":"Alice"},
+      {"id":"if-q106","difficulty":3,"clue":"Quel géant de Rabelais est le père de Pantagruel ?","answer":"Gargantua"}
+    ] },
+    { "category": "Musique", "puzzles": [
+      {"id":"if-q107","difficulty":2,"clue":"Quel compositeur prénommé Wolfgang Amadeus a écrit l’opéra La Flûte enchantée ?","answer":"Mozart"},
+      {"id":"if-q108","difficulty":2,"clue":"Quel compositeur a intégré l’Ode à la joie au dernier mouvement de sa Neuvième Symphonie ?","answer":"Beethoven"},
+      {"id":"if-q109","difficulty":2,"clue":"Quel compositeur italien prénommé Antonio a écrit les concertos des Quatre Saisons ?","answer":"Vivaldi"},
+      {"id":"if-q110","difficulty":2,"clue":"Quel compositeur français prénommé Georges est l’auteur de l’opéra Carmen ?","answer":"Bizet"},
+      {"id":"if-q111","difficulty":2,"clue":"Quel compositeur prénommé Maurice a créé le célèbre Boléro pour orchestre ?","answer":"Ravel"},
+      {"id":"if-q112","difficulty":3,"clue":"Quel compositeur français prénommé Hector a écrit la Symphonie fantastique ?","answer":"Berlioz","reference":"berlioz"},
+      {"id":"if-q113","difficulty":1,"clue":"Quel instrument possède un soufflet que l’on ouvre et referme en jouant sur des touches ou des boutons ?","answer":"accordéon"},
+      {"id":"if-q114","difficulty":1,"clue":"Quel instrument à quatre cordes, plus petit que l’alto, se joue généralement sous le menton avec un archet ?","answer":"violon"},
+      {"id":"if-q115","difficulty":1,"clue":"Quel instrument à clavier fait frapper ses cordes par de petits marteaux quand on appuie sur ses touches ?","answer":"piano"},
+      {"id":"if-q116","difficulty":1,"clue":"Quel grand instrument possède des cordes de longueurs variées que l’on pince dans un cadre triangulaire ?","answer":"harpe"}
+    ] },
+    { "category": "Nature", "puzzles": [
+      {"id":"if-q117","difficulty":2,"clue":"Quel mammifère australien pond des œufs et possède un large bec qui rappelle celui du canard ?","answer":"ornithorynque"},
+      {"id":"if-q151","difficulty":2,"clue":"Comment appelle-t-on le long repos hivernal de la marmotte, durant lequel son organisme fonctionne au ralenti ?","answer":"hibernation","reference":"hibernation","excludedAnswers":["hivernation"]},
+      {"id":"if-q119","difficulty":1,"clue":"Quel grand marsupial australien se déplace par bonds et porte son petit dans une poche ventrale ?","answer":"kangourou"},
+      {"id":"if-q120","difficulty":1,"clue":"Quel est le nom courant de l’arachnide qui tisse une toile pour capturer ses proies ?","answer":"araignée"},
+      {"id":"if-q121","difficulty":1,"clue":"Quel mollusque marin possède huit bras munis de ventouses et porte aussi le nom de pieuvre ?","answer":"poulpe"},
+      {"id":"if-q122","difficulty":1,"clue":"Quel insecte les apiculteurs élèvent-ils dans des ruches pour récolter du miel ?","answer":"abeille"},
+      {"id":"if-q123","difficulty":1,"clue":"Quel rongeur à large queue aplatie construit des barrages avec des branches ?","answer":"castor"},
+      {"id":"if-q124","difficulty":2,"clue":"Quel lézard capture les insectes avec une longue langue projetée et peut orienter ses yeux séparément ?","answer":"caméléon"},
+      {"id":"if-q125","difficulty":2,"clue":"Quel poisson à tête de cheval confie au mâle les œufs, qu’il porte dans une poche ventrale ?","answer":"hippocampe"},
+      {"id":"if-q126","difficulty":1,"clue":"Quel oiseau marin de l’hémisphère Sud utilise ses ailes pour nager mais ne peut pas voler ?","answer":"manchot"},
+      {"id":"if-q127","difficulty":2,"clue":"Comment s’appelle le stade de transformation situé entre la chenille et le papillon adulte ?","answer":"chrysalide","acceptedAnswers":["nymphe"]},
+      {"id":"if-q128","difficulty":2,"clue":"Comment appelle-t-on les grains produits par les étamines des fleurs et transportés notamment par les abeilles ?","answer":"pollen"},
+      {"id":"if-q129","difficulty":2,"clue":"Quel processus permet aux plantes vertes d’utiliser la lumière pour fabriquer de la matière organique ?","answer":"photosynthèse"},
+      {"id":"if-q130","difficulty":1,"clue":"Quel nom courant regroupe les girolles, les morilles et les cèpes ?","answer":"champignon","acceptedAnswers":["champignons"]},
+      {"id":"if-q131","difficulty":2,"clue":"Quelle plante grimpante du genre Hedera conserve ses feuilles et s’accroche aux murs par des crampons ?","answer":"lierre"},
+      {"id":"if-q132","difficulty":1,"clue":"Quelle grande graminée à tiges ligneuses constitue l’essentiel de l’alimentation du panda géant ?","answer":"bambou"}
+    ] },
+    { "category": "Sciences", "puzzles": [
+      {"id":"if-q133","difficulty":2,"clue":"Quel élément chimique de symbole H occupe la première case du tableau périodique ?","answer":"hydrogène","reference":"hydrogen"},
+      {"id":"if-q134","difficulty":1,"clue":"Quel élément chimique se cache derrière le symbole O ?","answer":"oxygène","reference":"oxygen"},
+      {"id":"if-q135","difficulty":2,"clue":"Le diamant et le graphite sont deux formes de quel élément chimique de symbole C ?","answer":"carbone","reference":"carbon"},
+      {"id":"if-q136","difficulty":2,"clue":"Quel est le nom français de l’élément chimique représenté par N dans le tableau périodique ?","answer":"azote","reference":"nitrogen"},
+      {"id":"if-q137","difficulty":2,"clue":"Quel gaz noble porte le symbole He ?","answer":"hélium","reference":"helium"},
+      {"id":"if-q138","difficulty":2,"clue":"Quel métal est désigné par Na, symbole issu de son nom latin natrium ?","answer":"sodium","reference":"sodium"},
+      {"id":"if-q139","difficulty":1,"clue":"Quel métal de symbole Fe est notamment le principal constituant de l’acier ?","answer":"fer","reference":"iron"},
+      {"id":"if-q140","difficulty":2,"clue":"Quel métal conducteur, souvent employé dans les fils électriques, porte le symbole Cu ?","answer":"cuivre","reference":"copper"},
+      {"id":"if-q141","difficulty":2,"clue":"Quel métal précieux est désigné par Ag dans le tableau périodique ?","answer":"argent","reference":"silver"},
+      {"id":"if-q142","difficulty":1,"clue":"Quel métal précieux jaune a pour symbole chimique Au ?","answer":"or","reference":"gold"},
+      {"id":"if-q143","difficulty":2,"clue":"Quel métal léger est représenté par le symbole Al ?","answer":"aluminium","reference":"aluminium"},
+      {"id":"if-q144","difficulty":2,"clue":"Quel élément de symbole Si est très utilisé pour fabriquer des puces électroniques ?","answer":"silicium","reference":"silicon"},
+      {"id":"if-q145","difficulty":2,"clue":"Quelle particule de charge électrique négative occupe le nuage autour du noyau d’un atome ?","answer":"électron"},
+      {"id":"if-q146","difficulty":2,"clue":"Quelle particule chargée positivement se trouve dans le noyau de l’atome ?","answer":"proton"},
+      {"id":"if-q147","difficulty":2,"clue":"Quelle particule électriquement neutre accompagne les protons dans la plupart des noyaux atomiques ?","answer":"neutron"},
+      {"id":"if-q148","difficulty":1,"clue":"Quel phénomène d’attraction fait tomber les objets vers le sol et maintient la Lune autour de la Terre ?","answer":"gravitation","acceptedAnswers":["gravité"]},
+      {"id":"if-q149","difficulty":2,"clue":"Quel changement d’état fait disparaître progressivement une flaque, devenue vapeur à sa surface ?","answer":"évaporation","acceptedAnswers":["vaporisation"]},
+      {"id":"if-q150","difficulty":2,"clue":"Quel changement d’état transforme la vapeur d’eau en gouttelettes sur une vitre froide ?","answer":"condensation","acceptedAnswers":["liquéfaction"]}
+    ] }
+  ]
+}

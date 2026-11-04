@@ -1,0 +1,810 @@
+{
+  "schemaVersion": 1,
+  "kind": "riddle",
+  "groups": [
+    {
+      "category": "Émotions et caractère",
+      "puzzles": [
+        {
+          "id": "if-r2401",
+          "difficulty": 1,
+          "answer": "optimiste",
+          "clue": "Même avant de connaître le résultat, je suis porté à croire que les choses tourneront bien."
+        },
+        {
+          "id": "if-r2402",
+          "difficulty": 1,
+          "answer": "pessimiste",
+          "clue": "Devant plusieurs issues possibles, je m’attends surtout à celle qui se passera mal."
+        },
+        {
+          "id": "if-r2403",
+          "difficulty": 1,
+          "answer": "impulsif",
+          "clue": "Je qualifie celui qui agit sous le coup de son émotion avant de réfléchir aux conséquences.",
+          "acceptedAnswers": [
+            "impulsive"
+          ]
+        },
+        {
+          "id": "if-r2404",
+          "difficulty": 1,
+          "answer": "réservé",
+          "clue": "Je qualifie une personne qui exprime peu ses sentiments et se livre difficilement.",
+          "acceptedAnswers": [
+            "réservée"
+          ]
+        },
+        {
+          "id": "if-r2405",
+          "difficulty": 2,
+          "answer": "expansif",
+          "clue": "Je qualifie une personne qui exprime volontiers et abondamment son affection ou sa joie.",
+          "acceptedAnswers": [
+            "expansive"
+          ]
+        },
+        {
+          "id": "if-r2406",
+          "difficulty": 1,
+          "answer": "susceptible",
+          "clue": "Une remarque anodine suffit à me vexer : je prends facilement les choses pour une attaque."
+        },
+        {
+          "id": "if-r2407",
+          "difficulty": 1,
+          "answer": "rancunier",
+          "clue": "Longtemps après une offense, je continue d’en vouloir à celui qui me l’a faite.",
+          "acceptedAnswers": [
+            "rancunière"
+          ]
+        },
+        {
+          "id": "if-r2408",
+          "difficulty": 1,
+          "answer": "indulgent",
+          "clue": "Devant une petite faute, je préfère excuser plutôt que punir sévèrement.",
+          "acceptedAnswers": [
+            "indulgente"
+          ]
+        },
+        {
+          "id": "if-r2409",
+          "difficulty": 1,
+          "answer": "impatient",
+          "clue": "L’attente m’irrite : je voudrais que les choses arrivent tout de suite.",
+          "acceptedAnswers": [
+            "impatiente"
+          ]
+        },
+        {
+          "id": "if-r2410",
+          "difficulty": 2,
+          "answer": "stoïque",
+          "clue": "Même quand j’ai mal, je supporte l’épreuve sans plainte ni agitation apparente."
+        },
+        {
+          "id": "if-r2411",
+          "difficulty": 1,
+          "answer": "jovial",
+          "clue": "Je qualifie quelqu’un dont la bonne humeur souriante se communique facilement autour de lui.",
+          "acceptedAnswers": [
+            "joviale"
+          ]
+        },
+        {
+          "id": "if-r2412",
+          "difficulty": 1,
+          "answer": "maussade",
+          "clue": "Je qualifie une humeur sombre et peu aimable, comme un temps triste et gris."
+        },
+        {
+          "id": "if-r2413",
+          "difficulty": 1,
+          "answer": "lunatique",
+          "clue": "Je change brusquement d’humeur, sans raison que mon entourage puisse prévoir."
+        },
+        {
+          "id": "if-r2414",
+          "difficulty": 1,
+          "answer": "nostalgique",
+          "clue": "En repensant à une époque heureuse et révolue, je ressens un regret attendri."
+        },
+        {
+          "id": "if-r2415",
+          "difficulty": 1,
+          "answer": "perplexe",
+          "clue": "Devant une situation que je ne comprends pas, j’hésite et ne sais que penser."
+        },
+        {
+          "id": "if-r2416",
+          "difficulty": 1,
+          "answer": "abasourdi",
+          "clue": "Une nouvelle stupéfiante me laisse un instant incapable de réagir.",
+          "acceptedAnswers": [
+            "abasourdie",
+            "stupéfait",
+            "stupéfaite"
+          ]
+        },
+        {
+          "id": "if-r2417",
+          "difficulty": 1,
+          "answer": "soulagé",
+          "clue": "La nouvelle rassurante vient de faire disparaître le poids de mon inquiétude.",
+          "acceptedAnswers": [
+            "soulagée"
+          ]
+        },
+        {
+          "id": "if-r2418",
+          "difficulty": 1,
+          "answer": "contrarié",
+          "clue": "Un imprévu vient de déranger mes projets et cela me met de mauvaise humeur.",
+          "acceptedAnswers": [
+            "contrariée"
+          ]
+        },
+        {
+          "id": "if-r2419",
+          "difficulty": 1,
+          "answer": "désemparé",
+          "clue": "Je ne sais plus quoi faire ni vers qui me tourner devant ce qui m’arrive.",
+          "acceptedAnswers": [
+            "désemparée"
+          ]
+        },
+        {
+          "id": "if-r2420",
+          "difficulty": 1,
+          "answer": "exaspéré",
+          "clue": "À force de subir la même contrariété, ma patience est arrivée à son extrême limite.",
+          "acceptedAnswers": [
+            "exaspérée"
+          ]
+        }
+      ]
+    },
+    {
+      "category": "Relations et vie quotidienne",
+      "puzzles": [
+        {
+          "id": "if-r2421",
+          "difficulty": 1,
+          "answer": "anonyme",
+          "clue": "Je qualifie un message dont l’auteur n’a pas révélé son identité."
+        },
+        {
+          "id": "if-r2422",
+          "difficulty": 1,
+          "answer": "solidaire",
+          "clue": "Je me sens lié aux autres et les soutiens lorsqu’ils rencontrent une difficulté."
+        },
+        {
+          "id": "if-r2423",
+          "difficulty": 1,
+          "answer": "complice",
+          "clue": "Sans avoir besoin de parler, mon sourire montre que je partage le petit secret de mon ami."
+        },
+        {
+          "id": "if-r2424",
+          "difficulty": 1,
+          "answer": "impartial",
+          "clue": "Arbitre entre deux personnes, je ne favorise aucune d’elles au détriment de l’autre.",
+          "acceptedAnswers": [
+            "impartiale"
+          ]
+        },
+        {
+          "id": "if-r2425",
+          "difficulty": 1,
+          "answer": "équitable",
+          "clue": "Je qualifie un partage qui cherche à respecter ce qui est juste pour chacun."
+        },
+        {
+          "id": "if-r2426",
+          "difficulty": 1,
+          "answer": "réciproque",
+          "clue": "Je qualifie une affection que deux personnes éprouvent l’une pour l’autre."
+        },
+        {
+          "id": "if-r2427",
+          "difficulty": 1,
+          "answer": "unanime",
+          "clue": "Je qualifie un accord auquel tous les membres du groupe adhèrent sans exception."
+        },
+        {
+          "id": "if-r2428",
+          "difficulty": 1,
+          "answer": "cordial",
+          "clue": "Même entre personnes qui se connaissent peu, je qualifie un accueil chaleureux et aimable.",
+          "acceptedAnswers": [
+            "cordiale"
+          ]
+        },
+        {
+          "id": "if-r2429",
+          "difficulty": 1,
+          "answer": "conciliante",
+          "clue": "Je qualifie, au féminin, une personne prête à faire des concessions pour éviter un conflit.",
+          "acceptedAnswers": [
+            "conciliant"
+          ]
+        },
+        {
+          "id": "if-r2430",
+          "difficulty": 1,
+          "answer": "solennel",
+          "clue": "Je qualifie une promesse exprimée avec gravité dans une circonstance officielle.",
+          "acceptedAnswers": [
+            "solennelle"
+          ]
+        },
+        {
+          "id": "if-r2431",
+          "difficulty": 1,
+          "answer": "confidentiel",
+          "clue": "Je qualifie un renseignement réservé à quelques personnes et qui ne doit pas être divulgué.",
+          "acceptedAnswers": [
+            "confidentielle"
+          ]
+        },
+        {
+          "id": "if-r2432",
+          "difficulty": 1,
+          "answer": "public",
+          "clue": "Je qualifie un débat ouvert à tous, par opposition à une réunion privée.",
+          "acceptedAnswers": [
+            "publique"
+          ]
+        },
+        {
+          "id": "if-r2433",
+          "difficulty": 1,
+          "answer": "clandestin",
+          "clue": "Je qualifie une activité organisée en secret pour échapper à une interdiction ou à un contrôle.",
+          "acceptedAnswers": [
+            "clandestine"
+          ]
+        },
+        {
+          "id": "if-r2434",
+          "difficulty": 2,
+          "answer": "officieux",
+          "clue": "Je qualifie un renseignement communiqué sans avoir encore de caractère officiel.",
+          "acceptedAnswers": [
+            "officieuse"
+          ]
+        },
+        {
+          "id": "if-r2435",
+          "difficulty": 1,
+          "answer": "authentique",
+          "clue": "Je qualifie un document qui est bien ce qu’il prétend être, et non une imitation."
+        },
+        {
+          "id": "if-r2436",
+          "difficulty": 1,
+          "answer": "fictif",
+          "clue": "Je qualifie un personnage inventé pour une histoire plutôt qu’une personne réelle.",
+          "acceptedAnswers": [
+            "fictive"
+          ]
+        },
+        {
+          "id": "if-r2437",
+          "difficulty": 1,
+          "answer": "spontané",
+          "clue": "Je qualifie un geste qui naît naturellement, sans préparation ni calcul préalable.",
+          "acceptedAnswers": [
+            "spontanée"
+          ]
+        },
+        {
+          "id": "if-r2438",
+          "difficulty": 1,
+          "answer": "prémédité",
+          "clue": "Je qualifie un acte délibérément préparé avant d’être accompli.",
+          "acceptedAnswers": [
+            "préméditée"
+          ]
+        },
+        {
+          "id": "if-r2439",
+          "difficulty": 1,
+          "answer": "volontaire",
+          "clue": "Je qualifie une personne qui se propose d’aider de son plein gré, sans y être contrainte."
+        },
+        {
+          "id": "if-r2440",
+          "difficulty": 1,
+          "answer": "involontaire",
+          "clue": "Je qualifie une maladresse commise sans intention de nuire."
+        }
+      ]
+    },
+    {
+      "category": "Matières et sensations",
+      "puzzles": [
+        {
+          "id": "if-r2441",
+          "difficulty": 2,
+          "answer": "hydrofuge",
+          "clue": "Je qualifie un traitement qui empêche l’eau de pénétrer dans une matière, comme celui d’une veste de pluie."
+        },
+        {
+          "id": "if-r2442",
+          "difficulty": 1,
+          "answer": "friable",
+          "clue": "Je qualifie une matière qui se réduit facilement en petits morceaux lorsqu’on la touche."
+        },
+        {
+          "id": "if-r2443",
+          "difficulty": 1,
+          "answer": "malléable",
+          "clue": "Je qualifie un métal que l’on peut aplatir et modeler sans le casser."
+        },
+        {
+          "id": "if-r2444",
+          "difficulty": 2,
+          "answer": "ductile",
+          "clue": "Je qualifie un métal que l’on peut étirer pour fabriquer des fils très fins."
+        },
+        {
+          "id": "if-r2445",
+          "difficulty": 2,
+          "answer": "réfractaire",
+          "clue": "Je qualifie une brique capable de supporter les fortes températures d’un four sans se dégrader."
+        },
+        {
+          "id": "if-r2446",
+          "difficulty": 1,
+          "answer": "étanche",
+          "clue": "Je qualifie un récipient qui ne laisse pas s’échapper le liquide qu’il contient."
+        },
+        {
+          "id": "if-r2447",
+          "difficulty": 2,
+          "answer": "phosphorescent",
+          "clue": "Après avoir reçu de la lumière, je continue à luire quelque temps dans le noir.",
+          "acceptedAnswers": [
+            "phosphorescente"
+          ]
+        },
+        {
+          "id": "if-r2448",
+          "difficulty": 1,
+          "answer": "métallisé",
+          "clue": "Je qualifie une peinture enrichie de petites particules qui lui donnent des reflets de métal.",
+          "acceptedAnswers": [
+            "métallisée"
+          ]
+        },
+        {
+          "id": "if-r2449",
+          "difficulty": 1,
+          "answer": "irisé",
+          "clue": "Je qualifie les reflets changeants aux couleurs de l’arc-en-ciel que l’on voit sur une bulle de savon.",
+          "acceptedAnswers": [
+            "irisée"
+          ]
+        },
+        {
+          "id": "if-r2450",
+          "difficulty": 2,
+          "answer": "satiné",
+          "clue": "Entre le mat et le brillant, je qualifie un fini à l’éclat doux et discret.",
+          "acceptedAnswers": [
+            "satinée"
+          ]
+        },
+        {
+          "id": "if-r2451",
+          "difficulty": 1,
+          "answer": "abrasif",
+          "clue": "Ma surface rugueuse use celle qu’on frotte contre moi, comme le papier de verre.",
+          "acceptedAnswers": [
+            "abrasive"
+          ]
+        },
+        {
+          "id": "if-r2452",
+          "difficulty": 1,
+          "answer": "gluant",
+          "clue": "Je qualifie une matière molle et collante dont il est difficile de débarrasser ses doigts.",
+          "acceptedAnswers": [
+            "gluante"
+          ]
+        },
+        {
+          "id": "if-r2453",
+          "difficulty": 1,
+          "answer": "granuleux",
+          "clue": "Au toucher, je présente de petits grains plutôt qu’une surface parfaitement lisse.",
+          "acceptedAnswers": [
+            "granuleuse"
+          ]
+        },
+        {
+          "id": "if-r2454",
+          "difficulty": 1,
+          "answer": "fibreux",
+          "clue": "Je qualifie une matière composée de longs filaments, comme certaines tiges difficiles à mâcher.",
+          "acceptedAnswers": [
+            "fibreuse"
+          ]
+        },
+        {
+          "id": "if-r2455",
+          "difficulty": 1,
+          "answer": "spongieux",
+          "clue": "Je qualifie une matière molle et pleine de petits vides, comparable à une éponge.",
+          "acceptedAnswers": [
+            "spongieuse"
+          ]
+        },
+        {
+          "id": "if-r2456",
+          "difficulty": 1,
+          "answer": "crayeux",
+          "clue": "Blanchâtre et poudreux, je rappelle la roche tendre avec laquelle on écrivait au tableau.",
+          "acceptedAnswers": [
+            "crayeuse"
+          ]
+        },
+        {
+          "id": "if-r2457",
+          "difficulty": 1,
+          "answer": "soyeux",
+          "clue": "Au toucher, je rappelle la douceur lisse de la soie.",
+          "acceptedAnswers": [
+            "soyeuse"
+          ]
+        },
+        {
+          "id": "if-r2458",
+          "difficulty": 1,
+          "answer": "velouté",
+          "clue": "Je qualifie une douceur rappelant la surface du velours, par exemple sur la peau d’une pêche.",
+          "acceptedAnswers": [
+            "veloutée"
+          ]
+        },
+        {
+          "id": "if-r2459",
+          "difficulty": 1,
+          "answer": "corrosif",
+          "clue": "Je qualifie un produit capable d’attaquer chimiquement une surface et de la détériorer.",
+          "acceptedAnswers": [
+            "corrosive"
+          ]
+        },
+        {
+          "id": "if-r2460",
+          "difficulty": 1,
+          "answer": "inodore",
+          "clue": "Même en approchant le nez, on ne me reconnaît à aucune odeur."
+        }
+      ]
+    },
+    {
+      "category": "Positions et mouvements",
+      "puzzles": [
+        {
+          "id": "if-r2461",
+          "difficulty": 1,
+          "answer": "instable",
+          "clue": "Posé en équilibre précaire, je risque de basculer au moindre mouvement."
+        },
+        {
+          "id": "if-r2462",
+          "difficulty": 1,
+          "answer": "sédentaire",
+          "clue": "Je qualifie un mode de vie comportant beaucoup de temps assis et peu de déplacements."
+        },
+        {
+          "id": "if-r2463",
+          "difficulty": 1,
+          "answer": "nomade",
+          "clue": "Je qualifie un peuple qui se déplace régulièrement au lieu de vivre toujours au même endroit."
+        },
+        {
+          "id": "if-r2464",
+          "difficulty": 1,
+          "answer": "itinérant",
+          "clue": "Je qualifie un spectacle qui voyage de ville en ville au lieu de rester dans une salle fixe.",
+          "acceptedAnswers": [
+            "itinérante"
+          ]
+        },
+        {
+          "id": "if-r2465",
+          "difficulty": 2,
+          "answer": "oscillant",
+          "clue": "Je qualifie un ventilateur dont la tête tourne alternativement d’un côté puis de l’autre.",
+          "acceptedAnswers": [
+            "oscillante"
+          ]
+        },
+        {
+          "id": "if-r2466",
+          "difficulty": 1,
+          "answer": "rotatif",
+          "clue": "Je qualifie un mouvement qui tourne autour d’un axe.",
+          "acceptedAnswers": [
+            "rotative"
+          ]
+        },
+        {
+          "id": "if-r2467",
+          "difficulty": 2,
+          "answer": "hélicoïdal",
+          "clue": "Je qualifie un escalier dont les marches s’enroulent autour d’un axe, à la manière d’une hélice.",
+          "acceptedAnswers": [
+            "hélicoïdale"
+          ]
+        },
+        {
+          "id": "if-r2468",
+          "difficulty": 1,
+          "answer": "sinueux",
+          "clue": "Je qualifie un chemin dont les nombreux virages dessinent des courbes successives.",
+          "acceptedAnswers": [
+            "sinueuse"
+          ]
+        },
+        {
+          "id": "if-r2469",
+          "difficulty": 2,
+          "answer": "tangent",
+          "clue": "Je qualifie chacun de deux cercles qui se touchent en un seul point sans se couper.",
+          "acceptedAnswers": [
+            "tangente"
+          ]
+        },
+        {
+          "id": "if-r2470",
+          "difficulty": 2,
+          "answer": "colinéaire",
+          "clue": "Je qualifie deux vecteurs non nuls de même direction, même s’ils ont des sens opposés."
+        },
+        {
+          "id": "if-r2471",
+          "difficulty": 2,
+          "answer": "concentrique",
+          "clue": "Je qualifie chacun de plusieurs cercles qui ont tous le même centre."
+        },
+        {
+          "id": "if-r2472",
+          "difficulty": 2,
+          "answer": "excentrique",
+          "clue": "En mécanique, je qualifie une pièce dont le centre est décalé par rapport à son axe de rotation."
+        },
+        {
+          "id": "if-r2473",
+          "difficulty": 1,
+          "answer": "symétrique",
+          "clue": "Je qualifie une figure que l’on peut superposer à son reflet de part et d’autre d’un axe."
+        },
+        {
+          "id": "if-r2474",
+          "difficulty": 1,
+          "answer": "asymétrique",
+          "clue": "Je qualifie une coupe de cheveux volontairement différente à gauche et à droite."
+        },
+        {
+          "id": "if-r2475",
+          "difficulty": 1,
+          "answer": "frontal",
+          "clue": "Je qualifie un choc qui se produit de face plutôt que sur le côté.",
+          "acceptedAnswers": [
+            "frontale"
+          ]
+        },
+        {
+          "id": "if-r2476",
+          "difficulty": 1,
+          "answer": "latéral",
+          "clue": "Je qualifie un déplacement qui se fait sur le côté.",
+          "acceptedAnswers": [
+            "latérale"
+          ]
+        },
+        {
+          "id": "if-r2477",
+          "difficulty": 1,
+          "answer": "central",
+          "clue": "Je qualifie un emplacement situé au milieu de l’ensemble.",
+          "acceptedAnswers": [
+            "centrale"
+          ]
+        },
+        {
+          "id": "if-r2478",
+          "difficulty": 2,
+          "answer": "périphérique",
+          "clue": "Je qualifie ce qui se trouve sur le pourtour, loin du centre."
+        },
+        {
+          "id": "if-r2479",
+          "difficulty": 2,
+          "answer": "adjacent",
+          "clue": "Je qualifie deux locaux placés immédiatement l’un à côté de l’autre.",
+          "acceptedAnswers": [
+            "adjacente"
+          ]
+        },
+        {
+          "id": "if-r2480",
+          "difficulty": 1,
+          "answer": "superposé",
+          "clue": "Je qualifie l’un de deux lits installés l’un au-dessus de l’autre.",
+          "acceptedAnswers": [
+            "superposée"
+          ]
+        }
+      ]
+    },
+    {
+      "category": "Organisation et travail",
+      "puzzles": [
+        {
+          "id": "if-r2481",
+          "difficulty": 1,
+          "answer": "prioritaire",
+          "clue": "Parmi plusieurs tâches, je dois être traité avant les autres."
+        },
+        {
+          "id": "if-r2482",
+          "difficulty": 1,
+          "answer": "facultatif",
+          "clue": "Je qualifie un travail que l’on est libre de faire, sans obligation.",
+          "acceptedAnswers": [
+            "facultative"
+          ]
+        },
+        {
+          "id": "if-r2483",
+          "difficulty": 1,
+          "answer": "obligatoire",
+          "clue": "Je qualifie une étape que les règles ne permettent pas de sauter."
+        },
+        {
+          "id": "if-r2484",
+          "difficulty": 1,
+          "answer": "préliminaire",
+          "clue": "Je qualifie une étape qui précède et prépare le travail principal."
+        },
+        {
+          "id": "if-r2485",
+          "difficulty": 2,
+          "answer": "ultérieur",
+          "clue": "Je qualifie un événement qui aura lieu après le moment dont on parle.",
+          "acceptedAnswers": [
+            "ultérieure"
+          ]
+        },
+        {
+          "id": "if-r2486",
+          "difficulty": 1,
+          "answer": "réversible",
+          "clue": "Je qualifie une modification que l’on peut annuler pour retrouver l’état initial."
+        },
+        {
+          "id": "if-r2487",
+          "difficulty": 1,
+          "answer": "irréversible",
+          "clue": "Une fois que je suis accompli, aucun retour à l’état précédent n’est possible."
+        },
+        {
+          "id": "if-r2488",
+          "difficulty": 2,
+          "answer": "rétroactif",
+          "clue": "Je qualifie une mesure dont les effets remontent à une date antérieure à son adoption.",
+          "acceptedAnswers": [
+            "rétroactive"
+          ]
+        },
+        {
+          "id": "if-r2489",
+          "difficulty": 1,
+          "answer": "successif",
+          "clue": "Je qualifie des événements qui arrivent l’un après l’autre.",
+          "acceptedAnswers": [
+            "successive"
+          ]
+        },
+        {
+          "id": "if-r2490",
+          "difficulty": 1,
+          "answer": "intermittent",
+          "clue": "Je qualifie un fonctionnement qui alterne des périodes d’activité et d’arrêt.",
+          "acceptedAnswers": [
+            "intermittente"
+          ]
+        },
+        {
+          "id": "if-r2491",
+          "difficulty": 1,
+          "answer": "continu",
+          "clue": "Je qualifie un fonctionnement qui se poursuit sans interruption.",
+          "acceptedAnswers": [
+            "continue"
+          ]
+        },
+        {
+          "id": "if-r2492",
+          "difficulty": 1,
+          "answer": "ponctuel",
+          "clue": "Arrivé à l’heure exacte du rendez-vous, je respecte le temps des autres.",
+          "acceptedAnswers": [
+            "ponctuelle"
+          ]
+        },
+        {
+          "id": "if-r2493",
+          "difficulty": 2,
+          "answer": "assidu",
+          "clue": "Je qualifie celui qui participe régulièrement et avec application à toutes les séances.",
+          "acceptedAnswers": [
+            "assidue"
+          ]
+        },
+        {
+          "id": "if-r2494",
+          "difficulty": 2,
+          "answer": "méticuleux",
+          "clue": "Je travaille en portant une grande attention aux plus petits détails.",
+          "acceptedAnswers": [
+            "méticuleuse"
+          ]
+        },
+        {
+          "id": "if-r2495",
+          "difficulty": 1,
+          "answer": "polyvalent",
+          "clue": "Dans mon travail, je peux remplir plusieurs fonctions différentes.",
+          "acceptedAnswers": [
+            "polyvalente"
+          ]
+        },
+        {
+          "id": "if-r2496",
+          "difficulty": 1,
+          "answer": "autonome",
+          "clue": "Je peux organiser et accomplir ma tâche sans avoir besoin d’une aide constante."
+        },
+        {
+          "id": "if-r2497",
+          "difficulty": 2,
+          "answer": "subalterne",
+          "clue": "Dans une hiérarchie professionnelle, mon poste est placé sous l’autorité d’un autre."
+        },
+        {
+          "id": "if-r2498",
+          "difficulty": 2,
+          "answer": "collégial",
+          "clue": "Je qualifie une décision prise collectivement par les membres d’un même groupe dirigeant.",
+          "acceptedAnswers": [
+            "collégiale"
+          ]
+        },
+        {
+          "id": "if-r2499",
+          "difficulty": 2,
+          "answer": "lucratif",
+          "clue": "Je qualifie une activité qui rapporte de l’argent à celui qui l’exerce.",
+          "acceptedAnswers": [
+            "lucrative"
+          ]
+        },
+        {
+          "id": "if-r2500",
+          "difficulty": 1,
+          "answer": "bénévole",
+          "clue": "J’accomplis un travail de mon plein gré, sans être rémunéré pour le faire."
+        }
+      ]
+    }
+  ]
+}

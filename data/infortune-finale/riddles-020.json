@@ -1,0 +1,646 @@
+{
+  "schemaVersion": 1,
+  "kind": "riddle",
+  "groups": [
+    {
+      "category": "Charades",
+      "puzzles": [
+        {
+          "id": "if-r1801",
+          "difficulty": 1,
+          "answer": "chapeau",
+          "clue": "Mon premier miaule, mon second couvre le corps ; mon tout protège la tête du soleil."
+        },
+        {
+          "id": "if-r1802",
+          "difficulty": 1,
+          "answer": "château",
+          "clue": "Mon premier ronronne, mon second coule au robinet ; mon tout peut être entouré de douves."
+        },
+        {
+          "id": "if-r1803",
+          "difficulty": 1,
+          "answer": "chameau",
+          "clue": "Mon premier chasse les souris, mon second compose une phrase ; mon tout porte deux bosses."
+        },
+        {
+          "id": "if-r1804",
+          "difficulty": 1,
+          "answer": "pinceau",
+          "clue": "Mon premier sort du four du boulanger, mon second transporte de l’eau ; mon tout étale la peinture."
+        },
+        {
+          "id": "if-r1805",
+          "difficulty": 1,
+          "answer": "bateau",
+          "clue": "Mon premier est le contraire de haut, mon second le contraire de tard ; mon tout navigue."
+        },
+        {
+          "id": "if-r1806",
+          "difficulty": 1,
+          "answer": "bâton",
+          "clue": "Mon premier est le contraire de haut, mon second un gros poisson ; mon tout aide parfois à marcher."
+        },
+        {
+          "id": "if-r1807",
+          "difficulty": 1,
+          "answer": "rideau",
+          "clue": "Mon premier se mange en grains, mon second est derrière le torse ; mon tout peut cacher la fenêtre."
+        },
+        {
+          "id": "if-r1808",
+          "difficulty": 1,
+          "answer": "radis",
+          "clue": "Mon premier est un rongeur, mon second est « dire » avec je au présent ; mon tout croque sous la dent."
+        },
+        {
+          "id": "if-r1809",
+          "difficulty": 1,
+          "answer": "radeau",
+          "clue": "Mon premier est un rongeur, mon second porte le sac du randonneur ; mon tout flotte sans coque profonde."
+        },
+        {
+          "id": "if-r1810",
+          "difficulty": 1,
+          "answer": "carreau",
+          "clue": "Mon premier transporte des voyageurs sur la route, mon second coule au robinet ; mon tout peut couvrir le sol."
+        },
+        {
+          "id": "if-r1811",
+          "difficulty": 1,
+          "answer": "carotte",
+          "clue": "Mon premier est un autocar en plus court, mon second aspire les fumées de cuisine ; mon tout pousse au potager."
+        },
+        {
+          "id": "if-r1812",
+          "difficulty": 1,
+          "answer": "carton",
+          "clue": "Mon premier transporte des voyageurs, mon second se pêche en mer ; mon tout sert à fabriquer des boîtes."
+        },
+        {
+          "id": "if-r1813",
+          "difficulty": 1,
+          "answer": "cartable",
+          "clue": "Mon premier est un véhicule de groupe, mon second reçoit les assiettes ; mon tout transporte les cahiers."
+        },
+        {
+          "id": "if-r1814",
+          "difficulty": 1,
+          "answer": "couvert",
+          "clue": "Mon premier relie la tête au torse, mon second se tortille dans la terre ; mon tout se met à table."
+        },
+        {
+          "id": "if-r1815",
+          "difficulty": 1,
+          "answer": "coussin",
+          "clue": "Mon premier soutient la tête, mon second désigne une poitrine au singulier ; mon tout adoucit un siège."
+        },
+        {
+          "id": "if-r1816",
+          "difficulty": 1,
+          "answer": "couloir",
+          "clue": "Mon premier soutient la tête, mon second est un petit rongeur dormeur ; mon tout relie les pièces."
+        },
+        {
+          "id": "if-r1817",
+          "difficulty": 1,
+          "answer": "coupon",
+          "clue": "Mon premier soutient la tête, mon second franchit la rivière ; mon tout peut offrir une réduction."
+        },
+        {
+          "id": "if-r1818",
+          "difficulty": 1,
+          "answer": "couteau",
+          "clue": "Mon premier est entre tête et épaules, mon second s’oppose à tard ; mon tout coupe."
+        },
+        {
+          "id": "if-r1819",
+          "difficulty": 1,
+          "answer": "mouton",
+          "clue": "Mon premier est le contraire de dur, mon second un gros poisson ; mon tout fournit de la laine."
+        },
+        {
+          "id": "if-r1820",
+          "difficulty": 1,
+          "answer": "moulin",
+          "clue": "Mon premier s’oppose à dur, mon second fournit une fibre textile ; mon tout peut moudre du grain."
+        }
+      ]
+    },
+    {
+      "category": "Charades",
+      "puzzles": [
+        {
+          "id": "if-r1821",
+          "difficulty": 1,
+          "answer": "toupie",
+          "clue": "Mon premier désigne l’ensemble, mon second est un oiseau noir et blanc ; mon tout tourne sur sa pointe."
+        },
+        {
+          "id": "if-r1822",
+          "difficulty": 1,
+          "answer": "toucan",
+          "clue": "Mon premier s’oppose à rien, mon second accueille des campeurs ; mon tout est un oiseau au grand bec."
+        },
+        {
+          "id": "if-r1823",
+          "difficulty": 1,
+          "answer": "toupet",
+          "clue": "Mon premier désigne l’ensemble, mon second s’oppose à la guerre ; mon tout est une petite touffe de cheveux."
+        },
+        {
+          "id": "if-r1824",
+          "difficulty": 1,
+          "answer": "taureau",
+          "clue": "Mon premier s’oppose à raison, mon second tombe en pluie ; mon tout est le mâle de la vache."
+        },
+        {
+          "id": "if-r1825",
+          "difficulty": 1,
+          "answer": "râteau",
+          "clue": "Mon premier est un rongeur, mon second s’oppose à tard ; mon tout rassemble les feuilles mortes."
+        },
+        {
+          "id": "if-r1826",
+          "difficulty": 1,
+          "answer": "raquette",
+          "clue": "Mon premier est un rongeur, mon second une recherche entreprise ; mon tout frappe la balle au tennis."
+        },
+        {
+          "id": "if-r1827",
+          "difficulty": 1,
+          "answer": "bassin",
+          "clue": "Mon premier est le contraire de haut, mon second une partie de la poitrine ; mon tout peut contenir de l’eau."
+        },
+        {
+          "id": "if-r1828",
+          "difficulty": 2,
+          "answer": "basson",
+          "clue": "Mon premier est le contraire de haut, mon second ce qu’entend l’oreille ; mon tout joue dans l’orchestre."
+        },
+        {
+          "id": "if-r1829",
+          "difficulty": 1,
+          "answer": "jardin",
+          "clue": "Mon premier est un grand récipient en terre, mon second un cousin du cerf ; mon tout accueille les plantations."
+        },
+        {
+          "id": "if-r1830",
+          "difficulty": 1,
+          "answer": "lapin",
+          "clue": "Mon premier est une note après sol, mon second sort de la boulangerie ; mon tout possède de longues oreilles."
+        },
+        {
+          "id": "if-r1831",
+          "difficulty": 1,
+          "answer": "lutin",
+          "clue": "Mon premier est le participe passé de lire, mon second parfume la cuisine provençale ; mon tout est un petit être malicieux."
+        },
+        {
+          "id": "if-r1832",
+          "difficulty": 1,
+          "answer": "nougat",
+          "clue": "Mon premier est le pluriel de je, mon second un garçon familier ; mon tout est une confiserie aux fruits secs."
+        },
+        {
+          "id": "if-r1833",
+          "difficulty": 1,
+          "answer": "portail",
+          "clue": "Mon premier est un cochon, mon second la dimension d’un vêtement ; mon tout ferme l’entrée du jardin."
+        },
+        {
+          "id": "if-r1834",
+          "difficulty": 1,
+          "answer": "marmite",
+          "clue": "Mon premier est une petite étendue d’eau, mon second attaque les vêtements ; mon tout cuit le repas."
+        },
+        {
+          "id": "if-r1835",
+          "difficulty": 1,
+          "answer": "marteau",
+          "clue": "Mon premier est une petite étendue d’eau, mon second s’oppose à tard ; mon tout frappe les clous."
+        },
+        {
+          "id": "if-r1836",
+          "difficulty": 1,
+          "answer": "mardi",
+          "clue": "Mon premier est une petite étendue d’eau, mon second est « dire » avec je au présent ; mon tout suit lundi."
+        },
+        {
+          "id": "if-r1837",
+          "difficulty": 1,
+          "answer": "dimanche",
+          "clue": "Mon premier est « dire » avec je au présent, mon second couvre le bras ; mon tout termine la semaine civile."
+        },
+        {
+          "id": "if-r1838",
+          "difficulty": 1,
+          "answer": "couplet",
+          "clue": "Mon premier soutient la tête, mon second est une blessure ouverte ; mon tout alterne avec le refrain."
+        },
+        {
+          "id": "if-r1839",
+          "difficulty": 1,
+          "answer": "salami",
+          "clue": "Mon premier est le contraire de propre, mon second n’est pas un ennemi ; mon tout est une charcuterie."
+        },
+        {
+          "id": "if-r1840",
+          "difficulty": 1,
+          "answer": "robot",
+          "clue": "Mon premier est un renvoi sonore après le repas, mon second le contraire de laid ; mon tout exécute des tâches programmées."
+        }
+      ]
+    },
+    {
+      "category": "Relations et vie quotidienne",
+      "puzzles": [
+        {
+          "id": "if-r1841",
+          "difficulty": 1,
+          "answer": "voisin",
+          "clue": "Je vis à côté de chez vous sans appartenir forcément à votre famille.",
+          "acceptedAnswers": [
+            "voisine"
+          ]
+        },
+        {
+          "id": "if-r1842",
+          "difficulty": 1,
+          "answer": "colocataire",
+          "clue": "Je partage avec d’autres la location d’un même logement."
+        },
+        {
+          "id": "if-r1843",
+          "difficulty": 1,
+          "answer": "locataire",
+          "clue": "J’occupe un logement loué en payant un loyer à son propriétaire."
+        },
+        {
+          "id": "if-r1844",
+          "difficulty": 1,
+          "answer": "propriétaire",
+          "clue": "Le logement m’appartient, même si quelqu’un d’autre l’occupe avec mon accord."
+        },
+        {
+          "id": "if-r1845",
+          "difficulty": 1,
+          "answer": "invité",
+          "clue": "On m’a proposé de venir à la fête ; je ne suis pas l’organisateur qui reçoit.",
+          "acceptedAnswers": [
+            "invitée"
+          ]
+        },
+        {
+          "id": "if-r1846",
+          "difficulty": 1,
+          "answer": "hôte",
+          "clue": "Mon nom peut désigner aussi bien celui qui reçoit que celui qui est accueilli."
+        },
+        {
+          "id": "if-r1847",
+          "difficulty": 1,
+          "answer": "témoin",
+          "clue": "Lors d’un mariage, je peux attester la cérémonie ; je ne suis ni l’un ni l’autre des époux."
+        },
+        {
+          "id": "if-r1848",
+          "difficulty": 1,
+          "answer": "parrain",
+          "clue": "Avec la marraine, je peux accompagner un enfant au baptême et lui garder une place particulière."
+        },
+        {
+          "id": "if-r1849",
+          "difficulty": 1,
+          "answer": "marraine",
+          "clue": "Avec le parrain, je peux accompagner un enfant au baptême sans être sa mère."
+        },
+        {
+          "id": "if-r1850",
+          "difficulty": 1,
+          "answer": "filleul",
+          "clue": "Garçon qui a un parrain ou une marraine, je porte ce nom dans la relation qui nous unit."
+        },
+        {
+          "id": "if-r1851",
+          "difficulty": 1,
+          "answer": "cousin",
+          "clue": "Mon père ou ma mère est le frère ou la sœur d’un de vos parents ; au masculin, je suis votre…"
+        },
+        {
+          "id": "if-r1852",
+          "difficulty": 1,
+          "answer": "neveu",
+          "clue": "Je suis le fils de votre frère ou de votre sœur, sans être votre enfant."
+        },
+        {
+          "id": "if-r1853",
+          "difficulty": 1,
+          "answer": "nièce",
+          "clue": "Je suis la fille de votre frère ou de votre sœur, sans être votre enfant."
+        },
+        {
+          "id": "if-r1854",
+          "difficulty": 1,
+          "answer": "oncle",
+          "clue": "Je suis le frère de votre père ou de votre mère ; mon titre peut aussi venir d’un mariage."
+        },
+        {
+          "id": "if-r1855",
+          "difficulty": 1,
+          "answer": "tante",
+          "clue": "Je suis la sœur de votre père ou de votre mère ; mon titre peut aussi venir d’un mariage."
+        },
+        {
+          "id": "if-r1856",
+          "difficulty": 1,
+          "answer": "ancêtre",
+          "clue": "J’appartiens aux générations familiales qui vous ont précédé, parfois bien avant vos grands-parents."
+        },
+        {
+          "id": "if-r1857",
+          "difficulty": 1,
+          "answer": "descendant",
+          "clue": "Dans l’arbre familial, je viens après une personne dont je suis issu, directement ou par plusieurs générations."
+        },
+        {
+          "id": "if-r1858",
+          "difficulty": 2,
+          "answer": "fratrie",
+          "clue": "Je rassemble les frères et sœurs d’une même famille."
+        },
+        {
+          "id": "if-r1859",
+          "difficulty": 1,
+          "answer": "jumeaux",
+          "clue": "Nous sommes deux enfants issus d’une même grossesse, sans être forcément identiques.",
+          "acceptedAnswers": [
+            "jumeau"
+          ]
+        },
+        {
+          "id": "if-r1860",
+          "difficulty": 1,
+          "answer": "triplés",
+          "clue": "Nous sommes trois enfants issus d’une même grossesse.",
+          "acceptedAnswers": [
+            "triplé"
+          ]
+        }
+      ]
+    },
+    {
+      "category": "Émotions et caractère",
+      "puzzles": [
+        {
+          "id": "if-r1861",
+          "difficulty": 1,
+          "answer": "générosité",
+          "clue": "Je partage volontiers ce que j’ai ou mon temps avec les autres."
+        },
+        {
+          "id": "if-r1862",
+          "difficulty": 1,
+          "answer": "égoïsme",
+          "clue": "Je fais passer mon intérêt avant celui des autres, en oubliant parfois ce dont ils ont besoin."
+        },
+        {
+          "id": "if-r1863",
+          "difficulty": 1,
+          "answer": "honnêteté",
+          "clue": "J’invite à dire vrai et à ne pas tromper les autres pour obtenir un avantage."
+        },
+        {
+          "id": "if-r1864",
+          "difficulty": 1,
+          "answer": "modestie",
+          "clue": "Je laisse reconnaître ses qualités sans chercher à les afficher ou à se vanter."
+        },
+        {
+          "id": "if-r1865",
+          "difficulty": 1,
+          "answer": "orgueil",
+          "clue": "Je pousse à se placer très haut dans sa propre estime et parfois à refuser d’admettre ses torts."
+        },
+        {
+          "id": "if-r1866",
+          "difficulty": 2,
+          "answer": "humilité",
+          "clue": "Je permets de reconnaître ses limites sans se croire supérieur aux autres."
+        },
+        {
+          "id": "if-r1867",
+          "difficulty": 1,
+          "answer": "persévérance",
+          "clue": "Malgré les difficultés, je poursuis les efforts au lieu d’abandonner au premier échec."
+        },
+        {
+          "id": "if-r1868",
+          "difficulty": 2,
+          "answer": "obstination",
+          "clue": "Je maintiens une décision avec fermeté, parfois même lorsque les arguments invitent à changer.",
+          "acceptedAnswers": [
+            "entêtement"
+          ]
+        },
+        {
+          "id": "if-r1869",
+          "difficulty": 1,
+          "answer": "optimisme",
+          "clue": "Je tends à envisager une issue favorable et à voir les possibilités plutôt que les seules difficultés."
+        },
+        {
+          "id": "if-r1870",
+          "difficulty": 1,
+          "answer": "pessimisme",
+          "clue": "Je m’attends plutôt au pire et regarde facilement le côté défavorable d’une situation."
+        },
+        {
+          "id": "if-r1871",
+          "difficulty": 1,
+          "answer": "bienveillance",
+          "clue": "Je porte aux autres une attention favorable, avec l’intention de les aider plutôt que de les rabaisser."
+        },
+        {
+          "id": "if-r1872",
+          "difficulty": 1,
+          "answer": "malveillance",
+          "clue": "Je cherche ou souhaite le mal d’autrui plutôt que son bien."
+        },
+        {
+          "id": "if-r1873",
+          "difficulty": 1,
+          "answer": "loyauté",
+          "clue": "Je reste fidèle à un engagement ou à une personne sans la tromper en secret."
+        },
+        {
+          "id": "if-r1874",
+          "difficulty": 2,
+          "answer": "hypocrisie",
+          "clue": "J’affiche des sentiments ou des principes différents de ceux qui guident réellement mes actes."
+        },
+        {
+          "id": "if-r1875",
+          "difficulty": 1,
+          "answer": "sincérité",
+          "clue": "J’exprime ce que je pense ou ressens réellement, sans jouer un sentiment pour tromper."
+        },
+        {
+          "id": "if-r1876",
+          "difficulty": 2,
+          "answer": "susceptibilité",
+          "clue": "Je rends très sensible aux remarques, même lorsqu’elles ne veulent pas blesser."
+        },
+        {
+          "id": "if-r1877",
+          "difficulty": 1,
+          "answer": "impatience",
+          "clue": "Je supporte mal d’attendre et voudrais que les choses arrivent tout de suite."
+        },
+        {
+          "id": "if-r1878",
+          "difficulty": 1,
+          "answer": "indifférence",
+          "clue": "Je laisse une personne peu touchée par ce qui arrive, sans intérêt ni émotion marquée."
+        },
+        {
+          "id": "if-r1879",
+          "difficulty": 1,
+          "answer": "enthousiasme",
+          "clue": "Je donne un élan joyeux et énergique pour participer à une activité ou défendre une idée."
+        },
+        {
+          "id": "if-r1880",
+          "difficulty": 2,
+          "answer": "résignation",
+          "clue": "J’accepte une situation pénible en cessant de lutter contre elle."
+        }
+      ]
+    },
+    {
+      "category": "Environnement",
+      "puzzles": [
+        {
+          "id": "if-r1881",
+          "difficulty": 1,
+          "answer": "recyclage",
+          "clue": "Je transforme des déchets en matières qui pourront servir à fabriquer de nouveaux produits."
+        },
+        {
+          "id": "if-r1882",
+          "difficulty": 1,
+          "answer": "réemploi",
+          "clue": "Je donne un nouvel usage à un objet sans le transformer d’abord en matière première."
+        },
+        {
+          "id": "if-r1883",
+          "difficulty": 1,
+          "answer": "tri",
+          "clue": "Je sépare les déchets selon leur nature pour qu’ils suivent les filières adaptées."
+        },
+        {
+          "id": "if-r1884",
+          "difficulty": 1,
+          "answer": "déchet",
+          "clue": "Objet ou matière dont on se défait, je peux parfois devenir une ressource après traitement."
+        },
+        {
+          "id": "if-r1885",
+          "difficulty": 1,
+          "answer": "pollution",
+          "clue": "Je dégrade un milieu par l’introduction de substances ou de nuisances qui lui font du tort."
+        },
+        {
+          "id": "if-r1886",
+          "difficulty": 2,
+          "answer": "biodiversité",
+          "clue": "Je désigne la diversité du vivant, des gènes aux espèces et aux milieux."
+        },
+        {
+          "id": "if-r1887",
+          "difficulty": 2,
+          "answer": "écosystème",
+          "clue": "Je réunis un milieu, les êtres qui y vivent et les relations qu’ils entretiennent."
+        },
+        {
+          "id": "if-r1888",
+          "difficulty": 1,
+          "answer": "habitat",
+          "clue": "Dans la nature, j’offre à une espèce les conditions et les ressources de son lieu de vie."
+        },
+        {
+          "id": "if-r1889",
+          "difficulty": 1,
+          "answer": "déforestation",
+          "clue": "Je fais disparaître durablement une surface forestière au profit d’un autre usage."
+        },
+        {
+          "id": "if-r1890",
+          "difficulty": 1,
+          "answer": "reboisement",
+          "clue": "Je rétablis des arbres sur une surface qui en a perdu, par plantation ou régénération accompagnée."
+        },
+        {
+          "id": "if-r1891",
+          "difficulty": 1,
+          "answer": "braconnage",
+          "clue": "Je prélève clandestinement du gibier ou du poisson, en enfreignant les règles de chasse ou de pêche."
+        },
+        {
+          "id": "if-r1892",
+          "difficulty": 1,
+          "answer": "compostage",
+          "clue": "Je transforme des déchets organiques en matière utile au sol grâce à leur décomposition contrôlée."
+        },
+        {
+          "id": "if-r1893",
+          "difficulty": 1,
+          "answer": "sobriété",
+          "clue": "Je cherche à réduire les besoins et les usages superflus plutôt qu’à seulement rendre les appareils plus efficaces."
+        },
+        {
+          "id": "if-r1894",
+          "difficulty": 1,
+          "answer": "gaspillage",
+          "clue": "Je consomme ou jette des ressources sans utilité suffisante, comme un repas oublié puis jeté."
+        },
+        {
+          "id": "if-r1895",
+          "difficulty": 1,
+          "answer": "réparation",
+          "clue": "Je remets un objet en état de fonctionner au lieu de le remplacer immédiatement."
+        },
+        {
+          "id": "if-r1896",
+          "difficulty": 1,
+          "answer": "récupération",
+          "clue": "Je recueille des objets ou des matières abandonnés pour leur trouver un usage."
+        },
+        {
+          "id": "if-r1897",
+          "difficulty": 1,
+          "answer": "consigne",
+          "clue": "Somme ajoutée à l’achat d’un contenant, je peux être rendue lorsqu’on rapporte ce contenant."
+        },
+        {
+          "id": "if-r1898",
+          "difficulty": 2,
+          "answer": "biodégradable",
+          "clue": "Des organismes vivants peuvent me décomposer dans des conditions adaptées."
+        },
+        {
+          "id": "if-r1899",
+          "difficulty": 1,
+          "answer": "renouvelable",
+          "clue": "Pour une ressource, je signifie qu’elle peut se reconstituer à une échelle de temps compatible avec son utilisation."
+        },
+        {
+          "id": "if-r1900",
+          "difficulty": 1,
+          "answer": "durable",
+          "clue": "Je cherche à répondre aux besoins présents en tenant compte des conséquences pour l’avenir."
+        }
+      ]
+    }
+  ]
+}

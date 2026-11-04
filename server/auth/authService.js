@@ -15,6 +15,8 @@ import { createAvatarInventoryRepository } from "../avatars/avatarInventoryRepos
 import { createDonorAvatarRepository } from "../avatars/donorAvatarRepository.js";
 import { createWeeklyAvatarAuras } from "../avatars/weeklyAvatarAuras.js";
 import { createAvatarThumbnailRenderer } from "../avatars/avatarThumbnailRenderer.js";
+import { createAvatarRenderRepository } from "../avatars/avatarRenderRepository.js";
+import { RELEASE_SCOPE, avatarAssetMigrationEnabled } from "../../shared/releaseScope.js";
 import { loadCatalog } from "../avatars/avatarValidation.js";
 import { initGobblarsService } from "../stats/gobblarsService.js";
 import { createAvatarStarterGrant, recordStarterGrant } from "../stats/avatarStarterGrant.js";
@@ -244,7 +246,7 @@ async function ensureDb() {
       await fs.mkdir(DATA_DIR, { recursive: true });
       const handle = await open({ filename: DB_PATH, driver: sqlite3.Database });
       const migrationNames = (await fs.readdir(MIGRATIONS_DIR))
-        .filter((name) => name.endsWith(".sql"))
+        .filter((name) => name.endsWith(".sql") && avatarAssetMigrationEnabled(name))
         .sort();
       db = handle;
       await runAuthWrite(async () => {
@@ -523,7 +525,8 @@ export const avatarGobblarGrants = {
   acknowledge: async (userId, key) => (await avatarFaceGrant.acknowledge(userId, key)) || avatarStarterGrant.acknowledge(userId, key),
 };
 
-export const userAvatars = createAvatarRepository({ getDb: ensureDb, runWrite: runAuthWrite });
+const avatarRenders = RELEASE_SCOPE.avatarRenderAssets ? createAvatarRenderRepository({ getDb: ensureDb }) : null;
+export const userAvatars = createAvatarRepository({ getDb: ensureDb, runWrite: runAuthWrite, renders: avatarRenders });
 const donorAvatars = createDonorAvatarRepository({ getDb: ensureDb, runWrite: runAuthWrite });
 export const weeklyAvatarAuras = createWeeklyAvatarAuras({ getDb: ensureDb, runWrite: runAuthWrite, loadCatalog });
 export const avatarInventory = createAvatarInventoryRepository({
@@ -535,6 +538,7 @@ export const avatarInventory = createAvatarInventoryRepository({
 export const avatarThumbnails = {
   ...createAvatarThumbnailRenderer(),
   get: userAvatars.getThumbnail,
+  assets: avatarRenders,
 };
 
 export async function listUserUiSeenMarkers(userId) {

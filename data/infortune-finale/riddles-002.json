@@ -1,0 +1,138 @@
+{
+  "schemaVersion": 1,
+  "kind": "riddle",
+  "groups": [
+    { "category": "Météo", "puzzles": [
+      {"id":"if-r079","difficulty":2,"clue":"Je pivote sur le toit sans quitter ma place ; le vent choisit la direction que ma flèche vous montre.","answer":"girouette"}
+    ] },
+    { "category": "Sciences", "puzzles": [
+      {"id":"if-r080","difficulty":2,"clue":"Mes trois grandes pales tournent en haut d’un mât pour produire de l’électricité à la force du vent.","answer":"éolienne"}
+    ] },
+    { "category": "Jardinage", "puzzles": [
+      {"id":"if-r081","difficulty":1,"clue":"Dans le potager, je porte de vieux habits et j’écarte les bras pour effrayer ceux qui picorent.","answer":"épouvantail"},
+      {"id":"if-r082","difficulty":1,"clue":"Quand vous inclinez mon ventre plein, ma pomme fait tomber une petite pluie sur les fleurs.","answer":"arrosoir"},
+      {"id":"if-r083","difficulty":2,"clue":"Avec une seule roue et deux poignées, je transporte la terre du jardin pendant que vous me poussez.","answer":"brouette"},
+      {"id":"if-r084","difficulty":2,"clue":"Mes longues dents alignées peignent les feuilles mortes pour les réunir en tas sur la pelouse.","answer":"râteau"},
+      {"id":"if-r085","difficulty":2,"clue":"Une pression de votre main rapproche mes deux lames pour couper proprement une petite branche.","answer":"sécateur"},
+      {"id":"if-r086","difficulty":2,"clue":"Poussez du pied sur mon épaule plate : ma lame s’enfonce dans la terre avant de la retourner.","answer":"bêche"},
+      {"id":"if-r087","difficulty":2,"clue":"Mes grosses dents plongent dans le sol du potager ; mon manche fait levier pour soulever la terre et les racines.","answer":"fourche"},
+      {"id":"if-r088","difficulty":2,"clue":"Je loge les plantes derrière des parois transparentes et retiens pour elles un peu de chaleur.","answer":"serre"}
+    ] },
+    { "category": "Architecture", "puzzles": [
+      {"id":"if-r089","difficulty":2,"clue":"Du toit, je recueille la pluie pour l’envoyer vers un tuyau, au lieu de la laisser tomber sur vos épaules.","answer":"gouttière"},
+      {"id":"if-r090","difficulty":2,"clue":"Je trace une route entre deux rives sans jamais nager dans la rivière que je franchis.","answer":"pont","acceptedAnswers":["passerelle","viaduc"]},
+      {"id":"if-r091","difficulty":2,"clue":"Je fais traverser la montagne aux voitures en leur offrant un chemin dans son ventre.","answer":"tunnel"}
+    ] },
+    { "category": "Voyages et transports", "puzzles": [
+      {"id":"if-r092","difficulty":2,"clue":"Je monte la garde près de la mer ; la nuit, mon feu revient régulièrement guider les bateaux.","answer":"phare"},
+      {"id":"if-r093","difficulty":2,"clue":"On me jette au fond pour empêcher le bateau de partir, puis ma chaîne me remonte avant le voyage.","answer":"ancre"},
+      {"id":"if-r094","difficulty":2,"clue":"Une coque s’appuie sur l’eau, ma grande toile s’appuie sur le vent pour la faire avancer.","answer":"voile"},
+      {"id":"if-r095","difficulty":2,"clue":"Dans les mains du rameur, je pousse l’eau en arrière pour faire avancer la barque.","answer":"rame","acceptedAnswers":["aviron"]},
+      {"id":"if-r096","difficulty":2,"clue":"Je tourne sous l’eau à l’arrière du bateau ; mes pales font ce que vos bras feraient avec des rames.","answer":"hélice"},
+      {"id":"if-r097","difficulty":2,"clue":"Ma voile se gonfle au-dessus de votre tête pour ralentir la chute jusqu’au sol.","answer":"parachute"},
+      {"id":"if-r098","difficulty":2,"clue":"L’air chaud remplit mon immense enveloppe et soulève la nacelle où mes passagers prennent place.","answer":"montgolfière","acceptedAnswers":["ballon","aérostat"]}
+    ] },
+    { "category": "Jeux et jouets", "puzzles": [
+      {"id":"if-r099","difficulty":2,"clue":"Je transforme la descente en glissade, mais reste attachée à la pente du terrain de jeux.","answer":"toboggan"},
+      {"id":"if-r100","difficulty":1,"clue":"Un siège suspendu entre deux cordes : vous avancez et reculez sur moi sans quitter le jardin.","answer":"balançoire"},
+      {"id":"if-r101","difficulty":2,"clue":"Sur mes chevaux de bois, vous voyagez longtemps tout en revenant toujours au même endroit.","answer":"manège","acceptedAnswers":["carrousel"]}
+    ] },
+    { "category": "Maison", "puzzles": [
+      {"id":"if-r102","difficulty":2,"clue":"Je tends mon lit entre deux arbres et vous berce sans avoir besoin de pieds.","answer":"hamac"}
+    ] },
+    { "category": "Langue française", "puzzles": [
+      {"id":"if-r103","difficulty":2,"clue":"Je renferme des milliers de mots rangés par leurs lettres, pour expliquer ceux que vous ne comprenez pas.","answer":"dictionnaire"}
+    ] },
+    { "category": "Géographie", "puzzles": [
+      {"id":"if-r104","difficulty":2,"clue":"Ouvrez mes pages et vous voyagerez de continent en continent, en suivant seulement des cartes.","answer":"atlas"}
+    ] },
+    { "category": "Presse", "puzzles": [
+      {"id":"if-r105","difficulty":2,"clue":"Chaque matin, ma une vous raconte ce qui s’est passé ; le lendemain, mes nouvelles ont déjà vieilli.","answer":"journal","acceptedAnswers":["quotidien"]}
+    ] },
+    { "category": "Papeterie", "puzzles": [
+      {"id":"if-r106","difficulty":1,"clue":"Je cache votre lettre pendant son voyage et porte l’adresse qui la conduit à son destinataire.","answer":"enveloppe"},
+      {"id":"if-r107","difficulty":2,"clue":"Petit rectangle collé sur une lettre, je paie son voyage et reçois souvent la marque d’un tampon.","answer":"timbre"}
+    ] },
+    { "category": "Arts", "puzzles": [
+      {"id":"if-r108","difficulty":2,"clue":"Ma tête de poils se charge de couleur, puis laisse sur la toile les gestes de votre main.","answer":"pinceau"},
+      {"id":"if-r109","difficulty":2,"clue":"Le peintre mélange ses couleurs sur mon dos, souvent en passant son pouce dans mon trou.","answer":"palette"},
+      {"id":"if-r110","difficulty":2,"clue":"Je porte la toile du peintre sur mes pieds de bois et lui évite de la tenir pendant qu’il travaille.","answer":"chevalet"}
+    ] },
+    { "category": "Papeterie", "puzzles": [
+      {"id":"if-r111","difficulty":2,"clue":"Je sèche après avoir coulé de la plume ; tant que je suis fraîche, vos doigts peuvent étaler les mots.","answer":"encre"},
+      {"id":"if-r112","difficulty":2,"clue":"Ma petite bille roule sur la feuille et dépose la réserve colorée cachée dans mon tube.","answer":"stylo"},
+      {"id":"if-r113","difficulty":2,"clue":"Mes carreaux ou mes lignes attendent vos notes ; une spirale ou une couture garde mes pages ensemble.","answer":"cahier","acceptedAnswers":["carnet"]}
+    ] },
+    { "category": "Bande dessinée", "puzzles": [
+      {"id":"if-r114","difficulty":2,"clue":"En deux lettres, je vous raconte une histoire bulle après bulle, dans une suite de cases dessinées.","answer":"bd","acceptedAnswers":["bédé"]}
+    ] },
+    { "category": "Jeux et jouets", "puzzles": [
+      {"id":"if-r115","difficulty":2,"clue":"Mes petits morceaux ne sont pas perdus : réunissez-les et l’image entière réapparaît.","answer":"puzzle"},
+      {"id":"if-r116","difficulty":2,"clue":"Sur mes deux moitiés, des points se répondent ; dans le jeu, on me pose contre le même nombre.","answer":"domino"},
+      {"id":"if-r117","difficulty":2,"clue":"Je franchis les pièces d’un échiquier et dessine un L chaque fois que je change de case.","answer":"cavalier"},
+      {"id":"if-r118","difficulty":2,"clue":"Sur l’échiquier, je reste fidèle aux diagonales et à la couleur de ma case de départ.","answer":"fou"}
+    ] },
+    { "category": "Musique", "puzzles": [
+      {"id":"if-r119","difficulty":2,"clue":"Le musicien lit mes notes sur des portées pour jouer une musique que le papier ne peut faire entendre.","answer":"partition"},
+      {"id":"if-r120","difficulty":2,"clue":"Je bats régulièrement la mesure sur le pupitre, sans jamais interpréter la moindre mélodie.","answer":"métronome"},
+      {"id":"if-r121","difficulty":2,"clue":"Soufflez dans mes petits trous : mes lamelles vibrent et je joue tout entier entre vos deux mains.","answer":"harmonica"},
+      {"id":"if-r122","difficulty":2,"clue":"On me frappe du plat de la main et mes petites rondelles métalliques se mettent aussi à sonner.","answer":"tambourin"},
+      {"id":"if-r123","difficulty":3,"clue":"Frappez doucement mes deux branches de métal : leur vibration donne au musicien une note de référence.","answer":"diapason"}
+    ] },
+    { "category": "Théâtre et spectacle", "puzzles": [
+      {"id":"if-r124","difficulty":2,"clue":"Je parle sur scène avec la voix d’un autre ; mes fils ou sa main décident de chacun de mes gestes.","answer":"marionnette"},
+      {"id":"if-r125","difficulty":2,"clue":"Je prends la place de votre visage aux yeux des autres, tout en vous laissant regarder par mes ouvertures.","answer":"masque"}
+    ] },
+    { "category": "Jeux et jouets", "puzzles": [
+      {"id":"if-r126","difficulty":3,"clue":"Tournez mon tube devant l’œil : des fragments colorés y composent des figures symétriques toujours nouvelles.","answer":"kaléidoscope"}
+    ] },
+    { "category": "Informatique", "puzzles": [
+      {"id":"if-r127","difficulty":2,"clue":"Mes lettres et mes chiffres s’enfoncent sous vos doigts pour apparaître sur l’écran.","answer":"clavier"},
+      {"id":"if-r128","difficulty":1,"clue":"Sur le bureau, je glisse sous votre paume ; à l’écran, une flèche suit mes mouvements.","answer":"souris"},
+      {"id":"if-r129","difficulty":2,"clue":"Je transforme les pages de l’écran en feuilles que vous pouvez emporter dans votre main.","answer":"imprimante"},
+      {"id":"if-r130","difficulty":2,"clue":"J’avale l’image d’une feuille posée sur ma vitre pour la faire apparaître dans l’ordinateur.","answer":"scanner","acceptedAnswers":["scanneur"]},
+      {"id":"if-r131","difficulty":2,"clue":"Installée au-dessus de l’écran, ma petite lentille vous filme pendant votre appel vidéo.","answer":"webcam","acceptedAnswers":["caméra"]}
+    ] },
+    { "category": "Maison", "puzzles": [
+      {"id":"if-r132","difficulty":2,"clue":"Sans quitter votre canapé, mes boutons vous font changer de chaîne ou baisser le son de la télévision.","answer":"télécommande"},
+      {"id":"if-r133","difficulty":2,"clue":"J’avale la poussière du tapis dans un sac ou un réservoir en faisant beaucoup de bruit.","answer":"aspirateur"},
+      {"id":"if-r134","difficulty":1,"clue":"Mes longs poils poussent les miettes devant eux, pendant que votre main dirige mon manche.","answer":"balai"},
+      {"id":"if-r135","difficulty":2,"clue":"Je tourne sur place avec mes pales pour vous envoyer de l’air pendant les journées trop chaudes.","answer":"ventilateur"}
+    ] },
+    { "category": "Mathématiques", "puzzles": [
+      {"id":"if-r136","difficulty":2,"clue":"Mes boutons et mon écran ne servent qu’à répondre aux opérations que vous me confiez.","answer":"calculatrice"}
+    ] },
+    { "category": "Sciences", "puzzles": [
+      {"id":"if-r137","difficulty":2,"clue":"Sans raccourcir les distances, ma lentille fait paraître plus grandes les petites lettres du livre.","answer":"loupe"},
+      {"id":"if-r138","difficulty":2,"clue":"On me regarde d’un œil pour découvrir des détails invisibles dans une goutte posée sur une lame.","answer":"microscope"}
+    ] },
+    { "category": "Astronomie", "puzzles": [
+      {"id":"if-r139","difficulty":2,"clue":"On me règle sur les astres lointains ; mon miroir recueille leur faible lumière pour mieux les observer.","answer":"télescope"}
+    ] },
+    { "category": "Objets du quotidien", "puzzles": [
+      {"id":"if-r140","difficulty":2,"clue":"Mes deux tubes rapprochent le paysage de vos deux yeux, sans vous faire avancer d’un pas.","answer":"jumelles"}
+    ] },
+    { "category": "Sciences", "puzzles": [
+      {"id":"if-r141","difficulty":2,"clue":"Ma colonne ou mes chiffres vous disent si l’eau du bain est trop chaude ou si vous avez de la fièvre.","answer":"thermomètre"},
+      {"id":"if-r142","difficulty":2,"clue":"Vous montez sur mon plateau, je vous réponds par un nombre de kilos, sans porter de jugement.","answer":"balance"}
+    ] },
+    { "category": "Sports", "puzzles": [
+      {"id":"if-r143","difficulty":2,"clue":"Au départ, vous me lancez ; à l’arrivée, vous m’arrêtez pour connaître exactement la durée de la course.","answer":"chronomètre"}
+    ] },
+    { "category": "Météo", "puzzles": [
+      {"id":"if-r144","difficulty":3,"clue":"Mon cadran indique la pression de l’air ; ses variations donnent des indices sur le temps à venir.","answer":"baromètre"},
+      {"id":"if-r145","difficulty":3,"clue":"Mes petites coupelles tournent dans le vent et leur vitesse permet de mesurer la sienne.","answer":"anémomètre"},
+      {"id":"if-r146","difficulty":2,"clue":"Je recueille la pluie dans un récipient gradué pour dire quelle quantité est tombée.","answer":"pluviomètre"}
+    ] },
+    { "category": "Musique", "puzzles": [
+      {"id":"if-r147","difficulty":2,"clue":"Ma fine pointe suit un sillon noir ; ce disque qui tourne fait alors entendre de la musique.","answer":"platine","acceptedAnswers":["électrophone","phonographe","gramophone"]}
+    ] },
+    { "category": "Sports", "puzzles": [
+      {"id":"if-r148","difficulty":2,"clue":"Je compte vos pas pendant la promenade, sans connaître les paysages que vous traversez.","answer":"podomètre"}
+    ] },
+    { "category": "Voyages et transports", "puzzles": [
+      {"id":"if-r149","difficulty":2,"clue":"Autour de la jante, je roule sur la route ; mon caoutchouc accroche le sol mais je crains les crevaisons.","answer":"pneu","acceptedAnswers":["pneumatique"]},
+      {"id":"if-r150","difficulty":2,"clue":"À vélo, mes patins serrent la jante quand votre main tire le levier, et votre allure diminue.","answer":"frein"}
+    ] }
+  ]
+}

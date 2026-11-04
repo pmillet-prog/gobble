@@ -1,0 +1,106 @@
+{
+  "schemaVersion": 1,
+  "kind": "riddle",
+  "groups": [
+    { "category": "Objets du quotidien", "puzzles": [
+      {"id":"if-r007","difficulty":1,"clue":"Je porte des dents dans votre poche ; la bonne serrure les reconnaît et s’ouvre.","answer":"clé","acceptedAnswers":["clef"]},
+      {"id":"if-r008","difficulty":1,"clue":"Je vous rends votre sourire sans le garder, mais votre main droite change de côté.","answer":"miroir","acceptedAnswers":["glace"]},
+      {"id":"if-r009","difficulty":1,"clue":"Avec mes deux verres devant vos yeux, je vous aide à lire sans jamais ouvrir un livre.","answer":"lunettes"},
+      {"id":"if-r010","difficulty":2,"clue":"Une fente me fait avaler vos pièces ; pour les retrouver, il faut m’ouvrir, parfois même me casser.","answer":"tirelire"},
+      {"id":"if-r011","difficulty":1,"clue":"Je me raccourcis en chassant l’obscurité ; une petite flamme fait couler mes larmes de cire.","answer":"bougie","acceptedAnswers":["chandelle"]}
+    ] },
+    { "category": "Temps et calendrier", "puzzles": [
+      {"id":"if-r012","category":"Papeterie","difficulty":2,"clue":"Je vous montre les jours à venir sans pouvoir annoncer ce qui s’y passera.","answer":"calendrier","acceptedAnswers":["agenda","almanach"]},
+      {"id":"if-r013","difficulty":1,"clue":"Mes deux bras tournent toute la journée ; fixée au mur, je n’embrasse que les heures.","answer":"horloge","acceptedAnswers":["pendule"]},
+      {"id":"if-r014","difficulty":1,"clue":"C’est quand vous dormez le mieux que je me mets à sonner, à l’heure que vous avez choisie.","answer":"réveil","acceptedAnswers":["alarme"]},
+      {"id":"if-r015","difficulty":2,"clue":"Deux poches de verre partagent mes grains : retournez-moi et l’attente recommence.","answer":"sablier"}
+    ] },
+    { "category": "Maison", "puzzles": [
+      {"id":"if-r016","difficulty":1,"clue":"Vous posez vos soucis sur moi le soir, avec votre tête, avant de vous endormir.","answer":"oreiller","acceptedAnswers":["coussin","traversin"]},
+      {"id":"if-r017","difficulty":2,"clue":"La nuit, je sépare vos rêves du sommier ; mes ressorts ou ma mousse portent tout votre poids.","answer":"matelas"},
+      {"id":"if-r018","difficulty":2,"clue":"Ma tringle me guide devant la fenêtre ; quand je m’écarte, la pièce retrouve le jour.","answer":"rideau"},
+      {"id":"if-r019","difficulty":1,"clue":"On me marche dessus avant d’entrer, et je vous remercie en gardant la boue de vos chaussures.","answer":"paillasson"},
+      {"id":"if-r020","difficulty":1,"clue":"J’ai une épaule de chaque côté et un crochet pour tête ; dans l’armoire, je porte votre veste.","answer":"cintre"}
+    ] },
+    { "category": "Vêtements et accessoires", "puzzles": [
+      {"id":"if-r021","difficulty":2,"clue":"Sous vos doigts, mes petites dents s’unissent derrière une tirette pour fermer votre veste.","answer":"zip","acceptedAnswers":["fermeture","glissière"]},
+      {"id":"if-r022","difficulty":1,"clue":"Cousu au vêtement, je traverse ma petite fente pour que les deux pans restent ensemble.","answer":"bouton"},
+      {"id":"if-r023","difficulty":1,"clue":"Je m’allonge dans vos chaussures, passe dans leurs œillets et termine ma course par un nœud.","answer":"lacet"},
+      {"id":"if-r024","difficulty":2,"clue":"Je serre votre taille sans bras, et ma boucle choisit le trou où vous vous sentez à l’aise.","answer":"ceinture","acceptedAnswers":["ceinturon"]},
+      {"id":"if-r025","difficulty":1,"clue":"J’ai cinq petites chambres et pourtant une seule entrée, réservée à votre main.","answer":"gant"},
+      {"id":"if-r026","difficulty":2,"clue":"Je suis souvent portée par deux, mais une seule de nous disparaît mystérieusement dans la lessive.","answer":"chaussette"}
+    ] },
+    { "category": "Objets du quotidien", "puzzles": [
+      {"id":"if-r027","difficulty":2,"clue":"Je quitte votre poche pour recueillir vos larmes, puis votre nez vient aussi me demander secours.","answer":"mouchoir"},
+      {"id":"if-r028","difficulty":1,"clue":"Je fonds entre vos mains sans avoir chaud, et mes bulles emportent la saleté avec l’eau.","answer":"savon"},
+      {"id":"if-r029","difficulty":2,"clue":"À chaque pression sur mon tube, je sors pour accompagner la brosse qui nettoie vos dents.","answer":"dentifrice"},
+      {"id":"if-r030","difficulty":1,"clue":"Je vous sèche après le bain, mais c’est moi qui finis toute mouillée.","answer":"serviette"}
+    ] },
+    { "category": "Papeterie", "puzzles": [
+      {"id":"if-r031","difficulty":1,"clue":"Mes deux lames se croisent à chaque mouvement de vos doigts et séparent le papier sans le déchirer.","answer":"ciseaux"}
+    ] },
+    { "category": "Couture", "puzzles": [
+      {"id":"if-r032","difficulty":2,"clue":"Je traverse le tissu, la tête percée, en laissant derrière moi le fil qui referme une déchirure.","answer":"aiguille","excludedAnswers":["anguille"]},
+      {"id":"if-r033","difficulty":2,"clue":"Une petite tête d’un côté, une pointe de l’autre : je maintiens les tissus ensemble avant la couture.","answer":"épingle"}
+    ] },
+    { "category": "Papeterie", "puzzles": [
+      {"id":"if-r034","difficulty":2,"clue":"Mon bras rabat deux pattes de métal sous les feuilles pour qu’elles restent ensemble.","answer":"agrafeuse"},
+      {"id":"if-r035","difficulty":2,"clue":"Fil de métal replié sur moi-même, je réunis les feuilles sans leur faire le moindre trou.","answer":"trombone"},
+      {"id":"if-r036","difficulty":1,"clue":"Plus vous me frottez sur vos erreurs de crayon, plus je disparais avec elles.","answer":"gomme"},
+      {"id":"if-r037","difficulty":1,"clue":"Je perds un peu de ma mine à chaque mot ; quand je n’ai plus de pointe, on me taille.","answer":"crayon"}
+    ] },
+    { "category": "Géométrie", "puzzles": [
+      {"id":"if-r038","difficulty":2,"clue":"Deux branches, une pointe et une mine : l’une reste au centre pendant que l’autre dessine le tour.","answer":"compas"},
+      {"id":"if-r039","difficulty":1,"clue":"Mes petits traits comptent les centimètres et mon bord vous aide à tirer droit.","answer":"règle"},
+      {"id":"if-r040","difficulty":2,"clue":"Sur la feuille, mon angle droit sert de modèle, sans jamais avoir besoin de mesurer ses degrés.","answer":"équerre"},
+      {"id":"if-r041","difficulty":2,"clue":"Ma demi-lune graduée vous dit combien de degrés séparent deux traits partis du même point.","answer":"rapporteur"}
+    ] },
+    { "category": "Bricolage", "puzzles": [
+      {"id":"if-r042","difficulty":1,"clue":"Ma tête frappe celle du clou ; c’est ainsi que je le convaincs d’entrer dans le bois.","answer":"marteau"},
+      {"id":"if-r043","difficulty":2,"clue":"Avec ma pointe dans la tête de la vis, je tourne sur moi-même pour l’enfoncer ou la retirer.","answer":"tournevis"},
+      {"id":"if-r044","difficulty":1,"clue":"Mes dents avancent puis reculent dans la planche, laissant de la poussière à chaque passage.","answer":"scie"},
+      {"id":"if-r045","difficulty":2,"clue":"Je fais tourner un foret si vite que les murs finissent par me laisser un passage.","answer":"perceuse"},
+      {"id":"if-r046","difficulty":2,"clue":"Je rabote le bois en fines boucles qui tombent devant moi, jusqu’à rendre la planche régulière.","answer":"rabot"},
+      {"id":"if-r047","difficulty":2,"clue":"Pour savoir si votre étagère penche, regardez où ma petite bulle s’est arrêtée.","answer":"niveau"},
+      {"id":"if-r048","difficulty":1,"clue":"Je porte deux longs montants reliés par des barreaux ; vos pieds les empruntent pour monter.","answer":"échelle"}
+    ] },
+    { "category": "Voyages et transports", "puzzles": [
+      {"id":"if-r049","difficulty":2,"clue":"Sous la voiture, je grandis quand vous m’actionnez, jusqu’à décoller une roue du sol.","answer":"cric"}
+    ] },
+    { "category": "Bricolage", "puzzles": [
+      {"id":"if-r050","difficulty":2,"clue":"Mon anse s’accroche au portail ; sans la bonne clé ou la bonne combinaison, je refuse de la libérer.","answer":"cadenas"},
+      {"id":"if-r051","difficulty":2,"clue":"Je retiens la porte sans la clouer ; il suffit de faire glisser ma petite tige pour la libérer.","answer":"verrou","acceptedAnswers":["loquet","targette"]},
+      {"id":"if-r052","difficulty":2,"clue":"Deux plaques réunies par un axe permettent à votre porte de tourner sans quitter son cadre.","answer":"charnière","acceptedAnswers":["paumelle"]}
+    ] },
+    { "category": "Sciences", "puzzles": [
+      {"id":"if-r053","difficulty":2,"clue":"On me comprime, je veux m’allonger ; on m’étire, je réclame ma longueur de départ.","answer":"ressort"},
+      {"id":"if-r054","difficulty":2,"clue":"Je peux attirer un clou sans le toucher, et mes deux pôles ne sont pas des endroits où voyager.","answer":"aimant"}
+    ] },
+    { "category": "Cuisine", "puzzles": [
+      {"id":"if-r055","difficulty":1,"clue":"Mes trous laissent filer l’eau chaude, mais les pâtes restent toutes dans mon ventre.","answer":"passoire"},
+      {"id":"if-r056","difficulty":1,"clue":"J’offre une grande bouche au liquide et une petite sortie pour viser le goulot sans déborder.","answer":"entonnoir"},
+      {"id":"if-r057","difficulty":2,"clue":"Mes fils métalliques tournent dans le bol pour faire entrer de l’air dans les blancs d’œufs.","answer":"fouet"},
+      {"id":"if-r058","difficulty":2,"clue":"Un long manche et un petit bol : je voyage de la marmite à votre assiette en transportant la soupe.","answer":"louche"},
+      {"id":"if-r059","difficulty":2,"clue":"Mon bol percé remonte les aliments du bouillon, mais abandonne le liquide dans la casserole.","answer":"écumoire"},
+      {"id":"if-r060","difficulty":2,"clue":"Le fromage entier ressort de ma surface hérissée sous la forme de minuscules copeaux.","answer":"râpe"},
+      {"id":"if-r061","difficulty":2,"clue":"Je retire un fin ruban de peau de la pomme de terre en laissant sa chair presque intacte.","answer":"économe","acceptedAnswers":["éplucheur","éplucheuse"]},
+      {"id":"if-r062","difficulty":2,"clue":"Avec mes deux poignées, je roule sur la pâte pour l’amincir avant qu’elle devienne une tarte.","answer":"rouleau"},
+      {"id":"if-r063","difficulty":2,"clue":"Je garde les grains trop gros au-dessus de mon fin grillage et laisse tomber la farine légère.","answer":"tamis"},
+      {"id":"if-r064","difficulty":2,"clue":"Le pilon vient frapper dans mon ventre de pierre pour réduire les épices en poudre.","answer":"mortier"},
+      {"id":"if-r065","difficulty":2,"clue":"Tournez ma tête au-dessus de l’assiette : mes petites meules transforment les grains de poivre en poudre.","answer":"moulin","acceptedAnswers":["poivrier"]},
+      {"id":"if-r066","difficulty":1,"clue":"Quand on me branche, je chauffe l’eau ; mon bec sert ensuite à la verser dans la tasse.","answer":"bouilloire"},
+      {"id":"if-r067","difficulty":2,"clue":"Dans mon petit ventre couvert, des feuilles infusent ; par mon bec, leur parfum rejoint la tasse.","answer":"théière"},
+      {"id":"if-r068","difficulty":1,"clue":"Je conserve le déjeuner au froid derrière ma porte, sans attendre que l’hiver arrive.","answer":"réfrigérateur","acceptedAnswers":["frigo"]},
+      {"id":"if-r069","difficulty":2,"clue":"Dans mes tiroirs glacés, les provisions durcissent et patientent bien plus longtemps qu’au frais.","answer":"congélateur"},
+      {"id":"if-r070","difficulty":1,"clue":"Je chauffe les plats dans une chambre fermée ; vous regardez leur cuisson à travers ma porte.","answer":"four"},
+      {"id":"if-r071","difficulty":1,"clue":"Mon long manche reste dans votre main pendant que les crêpes dansent sur mon fond chaud.","answer":"poêle","acceptedAnswers":["crêpière"]},
+      {"id":"if-r072","difficulty":2,"clue":"Mon couvercle verrouillé retient la pression et ma soupape siffle pendant que le repas cuit.","answer":"autocuiseur","acceptedAnswers":["cocotte"]},
+      {"id":"if-r073","difficulty":1,"clue":"Je porte des dents à table, mais c’est votre bouche qui mange ce que je pique.","answer":"fourchette"},
+      {"id":"if-r074","difficulty":1,"clue":"Je tiens la soupe sans la percer et accompagne aussi le café, en beaucoup plus petit.","answer":"cuillère","acceptedAnswers":["cuiller"]},
+      {"id":"if-r075","difficulty":1,"clue":"Mon manche reste sage dans votre main tandis que ma lame partage ce qu’il y a dans l’assiette.","answer":"couteau"},
+      {"id":"if-r076","difficulty":2,"clue":"Retournez-moi au-dessus du plat : mes petits trous y laissent tomber quelques grains blancs.","answer":"salière"},
+      {"id":"if-r077","difficulty":2,"clue":"Je porte l’œuf debout au petit déjeuner ; grâce à moi, vous pouvez manger son intérieur à la cuillère.","answer":"coquetier"},
+      {"id":"if-r078","difficulty":2,"clue":"Mon corps plein de petits trous boit la flaque sur la table et la relâche quand vous me pressez.","answer":"éponge"}
+    ] }
+  ]
+}

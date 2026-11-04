@@ -3,6 +3,7 @@ import { createStateFeature } from "../../app/core/createStateFeature.js";
 export function createInitialResultsState() {
   return {
     analysis: null,
+    receivedRound: null,
     definitionBlink: false,
     desktopSummaryExpanded: true,
     dismissedTournamentFinaleKey: null,

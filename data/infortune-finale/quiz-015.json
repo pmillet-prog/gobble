@@ -1,0 +1,652 @@
+{
+  "schemaVersion": 1,
+  "kind": "quiz",
+  "references": {
+    "ovid3": {
+      "title": "Ministère de la Culture — Les Métamorphoses d’Ovide, livre 3",
+      "url": "https://www.culture.gouv.fr/thematiques/musees/Les-musees-en-France/les-collections-des-musees-de-france/decouvrir-les-collections/les-metamorphoses-d-ovide/les-metamorphoses-d-ovide-livre-3"
+    },
+    "loki": {
+      "title": "BnF — Loki, god of fire and deception",
+      "url": "https://fantasy.bnf.fr/en/grand/fan_077.php"
+    },
+    "radeau": {
+      "title": "Metropolitan Museum — Géricault, étude pour le Radeau de la Méduse",
+      "url": "https://www.metmuseum.org/art/collection/search/747484"
+    }
+  },
+  "groups": [
+    {
+      "category": "Mythologie",
+      "puzzles": [
+        {
+          "id": "if-q1302",
+          "difficulty": 2,
+          "answer": "Thor",
+          "clue": "Quel dieu nordique du tonnerre manie le marteau Mjöllnir ?"
+        },
+        {
+          "id": "if-q1303",
+          "difficulty": 2,
+          "answer": "Odin",
+          "clue": "Quel dieu nordique, père de Thor, est souvent représenté avec un seul œil ?"
+        },
+        {
+          "id": "if-q1304",
+          "difficulty": 2,
+          "answer": "Loki",
+          "clue": "Quel personnage rusé de la mythologie nordique est associé aux tromperies et aux métamorphoses ?",
+          "reference": "loki"
+        },
+        {
+          "id": "if-q1305",
+          "difficulty": 2,
+          "answer": "Narcisse",
+          "clue": "Quel jeune homme de la mythologie grecque tombe amoureux de son propre reflet ?",
+          "reference": "ovid3"
+        },
+        {
+          "id": "if-q1306",
+          "difficulty": 2,
+          "answer": "Écho",
+          "clue": "Quelle nymphe, amoureuse de Narcisse, ne peut plus que répéter les dernières paroles entendues ?",
+          "reference": "ovid3"
+        },
+        {
+          "id": "if-q1307",
+          "difficulty": 2,
+          "answer": "Midas",
+          "clue": "Quel roi mythique obtient le pouvoir de transformer en or tout ce qu’il touche ?"
+        },
+        {
+          "id": "if-q1308",
+          "difficulty": 2,
+          "answer": "Sisyphe",
+          "clue": "Quel personnage mythologique doit pousser éternellement un rocher qui retombe avant le sommet ?"
+        },
+        {
+          "id": "if-q1309",
+          "difficulty": 2,
+          "answer": "Tantale",
+          "clue": "Quel personnage est puni par la faim et la soif alors que l’eau et les fruits se dérobent devant lui ?"
+        },
+        {
+          "id": "if-q1310",
+          "difficulty": 2,
+          "answer": "Orphée",
+          "clue": "Quel musicien mythique descend aux Enfers pour tenter de ramener son épouse Eurydice ?"
+        },
+        {
+          "id": "if-q1311",
+          "difficulty": 2,
+          "answer": "Atlas",
+          "clue": "Quel Titan de la mythologie grecque est condamné à porter la voûte céleste ?"
+        },
+        {
+          "id": "if-q1312",
+          "difficulty": 2,
+          "answer": "Jason",
+          "clue": "Quel héros grec dirige les Argonautes dans leur quête de la Toison d’or ?"
+        },
+        {
+          "id": "if-q1313",
+          "difficulty": 2,
+          "answer": "Médée",
+          "clue": "Quelle magicienne, fille du roi de Colchide, aide Jason grâce à ses enchantements avant de partir avec lui ?"
+        },
+        {
+          "id": "if-q1314",
+          "difficulty": 2,
+          "answer": "Hélène",
+          "clue": "Quelle femme emmenée par Pâris à Troie est au cœur de la guerre racontée par les récits grecs ?"
+        },
+        {
+          "id": "if-q1315",
+          "difficulty": 2,
+          "answer": "Pâris",
+          "clue": "Quel prince troyen choisit Aphrodite lors du jugement des trois déesses ?"
+        },
+        {
+          "id": "if-q1316",
+          "difficulty": 2,
+          "answer": "Hector",
+          "clue": "Quel grand défenseur de Troie est tué par Achille dans l’Iliade ?"
+        },
+        {
+          "id": "if-q1317",
+          "difficulty": 2,
+          "answer": "Cassandre",
+          "clue": "Quelle princesse troyenne prédit les malheurs sans parvenir à se faire croire ?"
+        },
+        {
+          "id": "if-q1318",
+          "difficulty": 2,
+          "answer": "Dédale",
+          "clue": "Quel artisan mythique construit le Labyrinthe de Crète avant de s’enfuir avec son fils Icare ?"
+        },
+        {
+          "id": "if-q1319",
+          "difficulty": 2,
+          "answer": "Chimère",
+          "clue": "Quel monstre grec combine notamment des parties de lion, de chèvre et de serpent ?"
+        },
+        {
+          "id": "if-q1320",
+          "difficulty": 2,
+          "answer": "Hydre",
+          "clue": "Quel monstre de Lerne possède plusieurs têtes qui repoussent lorsqu’on les tranche ?"
+        },
+        {
+          "id": "if-q1321",
+          "difficulty": 2,
+          "answer": "Cupidon",
+          "clue": "Quel dieu romain, représenté comme un enfant ailé portant un arc, rend ses cibles amoureuses ?",
+          "acceptedAnswers": [
+            "Amour"
+          ]
+        }
+      ]
+    },
+    {
+      "category": "Musique",
+      "puzzles": [
+        {
+          "id": "if-q1322",
+          "difficulty": 1,
+          "answer": "Beatles",
+          "clue": "Quel groupe de Liverpool a enregistré les albums Abbey Road et Sgt. Pepper’s Lonely Hearts Club Band ?"
+        },
+        {
+          "id": "if-q1323",
+          "difficulty": 1,
+          "answer": "Lennon",
+          "clue": "Quel nom porte John, membre des Beatles et interprète d’Imagine ?"
+        },
+        {
+          "id": "if-q1324",
+          "difficulty": 1,
+          "answer": "McCartney",
+          "clue": "Quel nom porte Paul, bassiste des Beatles puis fondateur du groupe Wings ?"
+        },
+        {
+          "id": "if-q1325",
+          "difficulty": 2,
+          "answer": "Starr",
+          "clue": "Quel nom suit Ringo dans le nom de scène du batteur des Beatles ?"
+        },
+        {
+          "id": "if-q1326",
+          "difficulty": 1,
+          "answer": "Presley",
+          "clue": "Quel nom porte Elvis, chanteur américain surnommé le King ?"
+        },
+        {
+          "id": "if-q1327",
+          "difficulty": 1,
+          "answer": "Jackson",
+          "clue": "Quel nom porte Michael, interprète de Thriller et célèbre pour son moonwalk ?"
+        },
+        {
+          "id": "if-q1328",
+          "difficulty": 1,
+          "answer": "Madonna",
+          "clue": "Quelle chanteuse américaine a enregistré Like a Virgin et Like a Prayer ?"
+        },
+        {
+          "id": "if-q1329",
+          "difficulty": 1,
+          "answer": "Queen",
+          "clue": "Quel groupe britannique, dont Freddie Mercury était le chanteur, a enregistré Bohemian Rhapsody ?"
+        },
+        {
+          "id": "if-q1330",
+          "difficulty": 2,
+          "answer": "Mercury",
+          "clue": "Quel nom porte Freddie, le chanteur qui interprète Barcelona en duo avec la cantatrice Montserrat Caballé ?"
+        },
+        {
+          "id": "if-q1331",
+          "difficulty": 1,
+          "answer": "Bowie",
+          "clue": "Quel nom porte David, le chanteur britannique qui a créé le personnage de Ziggy Stardust ?"
+        },
+        {
+          "id": "if-q1332",
+          "difficulty": 1,
+          "answer": "Prince",
+          "clue": "Quel musicien américain, associé à la couleur pourpre, a enregistré Purple Rain ?"
+        },
+        {
+          "id": "if-q1333",
+          "difficulty": 1,
+          "answer": "Marley",
+          "clue": "Quel nom porte Bob, chanteur jamaïcain devenu une figure mondiale du reggae ?"
+        },
+        {
+          "id": "if-q1334",
+          "difficulty": 1,
+          "answer": "Nirvana",
+          "clue": "Quel groupe de Kurt Cobain a enregistré l’album Nevermind ?"
+        },
+        {
+          "id": "if-q1335",
+          "difficulty": 1,
+          "answer": "ABBA",
+          "clue": "Quel groupe suédois a interprété Dancing Queen et Mamma Mia ?"
+        },
+        {
+          "id": "if-q1336",
+          "difficulty": 2,
+          "answer": "Sting",
+          "clue": "Quel chanteur britannique fut la voix du groupe The Police avant sa carrière solo ?"
+        },
+        {
+          "id": "if-q1337",
+          "difficulty": 1,
+          "answer": "Adele",
+          "clue": "Quelle chanteuse britannique a enregistré les chansons Rolling in the Deep et Hello ?"
+        },
+        {
+          "id": "if-q1338",
+          "difficulty": 1,
+          "answer": "Shakira",
+          "clue": "Quelle chanteuse colombienne a interprété Waka Waka pour la Coupe du monde de football en Afrique du Sud ?"
+        },
+        {
+          "id": "if-q1339",
+          "difficulty": 1,
+          "answer": "Dion",
+          "clue": "Quel nom porte Céline, la chanteuse québécoise qui interprète My Heart Will Go On dans Titanic ?"
+        },
+        {
+          "id": "if-q1340",
+          "difficulty": 1,
+          "answer": "Beyoncé",
+          "clue": "Quelle chanteuse américaine était membre de Destiny’s Child avant ses succès Crazy in Love et Halo ?"
+        },
+        {
+          "id": "if-q1341",
+          "difficulty": 1,
+          "answer": "Rihanna",
+          "clue": "Quelle chanteuse originaire de la Barbade a interprété Umbrella et Diamonds ?"
+        }
+      ]
+    },
+    {
+      "category": "Arts",
+      "puzzles": [
+        {
+          "id": "if-q1342",
+          "difficulty": 2,
+          "answer": "Delacroix",
+          "clue": "Quel peintre français est l’auteur de La Liberté guidant le peuple ?"
+        },
+        {
+          "id": "if-q1343",
+          "difficulty": 2,
+          "answer": "Géricault",
+          "clue": "Quel peintre français a réalisé Le Radeau de la Méduse ?",
+          "reference": "radeau"
+        },
+        {
+          "id": "if-q1344",
+          "difficulty": 2,
+          "answer": "David",
+          "clue": "Quel peintre prénommé Jacques-Louis a représenté Le Sacre de Napoléon ?"
+        },
+        {
+          "id": "if-q1345",
+          "difficulty": 2,
+          "answer": "Ingres",
+          "clue": "Quel peintre français prénommé Jean-Auguste-Dominique a réalisé La Grande Odalisque ?"
+        },
+        {
+          "id": "if-q1346",
+          "difficulty": 2,
+          "answer": "Courbet",
+          "clue": "Quel peintre réaliste français est l’auteur d’Un enterrement à Ornans ?"
+        },
+        {
+          "id": "if-q1347",
+          "difficulty": 2,
+          "answer": "Millet",
+          "clue": "Quel peintre prénommé Jean-François a représenté L’Angélus et Des glaneuses ?"
+        },
+        {
+          "id": "if-q1348",
+          "difficulty": 2,
+          "answer": "Seurat",
+          "clue": "Quel peintre a composé Un dimanche après-midi à l’île de la Grande Jatte avec une multitude de petites touches ?"
+        },
+        {
+          "id": "if-q1349",
+          "difficulty": 2,
+          "answer": "Rousseau",
+          "clue": "Quel peintre surnommé le Douanier a représenté des jungles imaginaires et Le Rêve ?"
+        },
+        {
+          "id": "if-q1350",
+          "difficulty": 2,
+          "answer": "Arcimboldo",
+          "clue": "Quel peintre composait des portraits en assemblant des fruits, des légumes ou des objets ?"
+        },
+        {
+          "id": "if-q1351",
+          "difficulty": 2,
+          "answer": "Hokusai",
+          "clue": "Quel artiste japonais a créé l’estampe La Grande Vague de Kanagawa ?"
+        },
+        {
+          "id": "if-q1352",
+          "difficulty": 2,
+          "answer": "Kahlo",
+          "clue": "Quel nom porte Frida, peintre mexicaine célèbre pour ses autoportraits ?"
+        },
+        {
+          "id": "if-q1353",
+          "difficulty": 2,
+          "answer": "Delaunay",
+          "clue": "Quel nom porte Sonia, artiste qui a exploré la couleur aussi bien en peinture que dans les tissus ?"
+        },
+        {
+          "id": "if-q1354",
+          "difficulty": 2,
+          "answer": "Claudel",
+          "clue": "Quel nom porte Camille, sculptrice française qui a notamment créé La Valse ?"
+        },
+        {
+          "id": "if-q1355",
+          "difficulty": 2,
+          "answer": "Giacometti",
+          "clue": "Quel sculpteur prénommé Alberto est célèbre pour ses personnages très allongés, comme L’Homme qui marche ?"
+        },
+        {
+          "id": "if-q1356",
+          "difficulty": 2,
+          "answer": "Picasso",
+          "clue": "Quel peintre espagnol prénommé Pablo a bouleversé la représentation des corps dans Les Demoiselles d’Avignon ?"
+        },
+        {
+          "id": "if-q1357",
+          "difficulty": 2,
+          "answer": "Calder",
+          "clue": "Quel artiste américain est célèbre pour ses sculptures suspendues et mobiles ?"
+        },
+        {
+          "id": "if-q1358",
+          "difficulty": 2,
+          "answer": "César",
+          "clue": "Quel sculpteur français a notamment créé des compressions de voitures et un Pouce monumental ?"
+        },
+        {
+          "id": "if-q1359",
+          "difficulty": 2,
+          "answer": "Niki",
+          "clue": "Quel prénom porte de Saint Phalle, l’artiste célèbre pour ses sculptures féminines colorées appelées Nanas ?"
+        },
+        {
+          "id": "if-q1360",
+          "difficulty": 2,
+          "answer": "Soulages",
+          "clue": "Quel peintre français prénommé Pierre est associé à l’outrenoir et aux reflets de la lumière sur le noir ?"
+        },
+        {
+          "id": "if-q1361",
+          "difficulty": 2,
+          "answer": "Banksy",
+          "clue": "Quel artiste de rue britannique, connu sous un pseudonyme, a peint une petite fille lâchant un ballon rouge ?"
+        }
+      ]
+    },
+    {
+      "category": "Paysages et reliefs",
+      "puzzles": [
+        {
+          "id": "if-q1362",
+          "difficulty": 1,
+          "answer": "Camargue",
+          "clue": "Quelle région du delta du Rhône est célèbre pour ses marais, ses flamants et ses chevaux blancs ?"
+        },
+        {
+          "id": "if-q1363",
+          "difficulty": 1,
+          "answer": "Cévennes",
+          "clue": "Quel massif du sud du Massif central est notamment associé au mont Aigoual et aux vallées de châtaigniers ?"
+        },
+        {
+          "id": "if-q1364",
+          "difficulty": 1,
+          "answer": "Ardennes",
+          "clue": "Quel massif ancien et boisé s’étend notamment sur la Belgique, le Luxembourg et le nord-est de la France ?"
+        },
+        {
+          "id": "if-q1365",
+          "difficulty": 2,
+          "answer": "Vercors",
+          "clue": "Quel massif des Préalpes françaises est connu pour ses falaises calcaires et son histoire de résistance ?"
+        },
+        {
+          "id": "if-q1366",
+          "difficulty": 2,
+          "answer": "Luberon",
+          "clue": "Quel massif provençal donne son nom à un parc naturel et abrite des villages comme Bonnieux ?"
+        },
+        {
+          "id": "if-q1367",
+          "difficulty": 2,
+          "answer": "Esterel",
+          "clue": "Quel massif volcanique aux roches rouges borde la Méditerranée entre Saint-Raphaël et Cannes ?"
+        },
+        {
+          "id": "if-q1368",
+          "difficulty": 2,
+          "answer": "Morvan",
+          "clue": "Quel massif bourguignon abrite de grandes forêts et des lacs comme celui des Settons ?"
+        },
+        {
+          "id": "if-q1369",
+          "difficulty": 2,
+          "answer": "Sologne",
+          "clue": "Quelle région située au sud de la Loire est réputée pour ses forêts et ses nombreux étangs ?"
+        },
+        {
+          "id": "if-q1370",
+          "difficulty": 2,
+          "answer": "Beauce",
+          "clue": "Quelle grande région agricole au sud-ouest de Paris est souvent décrite comme un grenier à céréales ?"
+        },
+        {
+          "id": "if-q1371",
+          "difficulty": 1,
+          "answer": "Landes",
+          "clue": "Quel département du sud-ouest donne son nom à une vaste forêt de pins maritimes ?"
+        },
+        {
+          "id": "if-q1372",
+          "difficulty": 1,
+          "answer": "Bretagne",
+          "clue": "Quelle région française abrite la pointe du Raz et la côte de Granit rose ?"
+        },
+        {
+          "id": "if-q1373",
+          "difficulty": 1,
+          "answer": "Normandie",
+          "clue": "Quelle région française réunit notamment les falaises d’Étretat et la plage de Deauville ?"
+        },
+        {
+          "id": "if-q1374",
+          "difficulty": 1,
+          "answer": "Alsace",
+          "clue": "Quelle région historique française associe villages à colombages, vignobles et plaine du Rhin ?"
+        },
+        {
+          "id": "if-q1375",
+          "difficulty": 1,
+          "answer": "Auvergne",
+          "clue": "Quelle région historique française est particulièrement connue pour la chaîne des Puys et ses volcans ?"
+        },
+        {
+          "id": "if-q1376",
+          "difficulty": 1,
+          "answer": "Corse",
+          "clue": "Quelle île française abrite les calanques de Piana et le golfe de Porto ?"
+        },
+        {
+          "id": "if-q1377",
+          "difficulty": 1,
+          "answer": "Sardaigne",
+          "clue": "Quelle grande île italienne se trouve immédiatement au sud de la Corse ?"
+        },
+        {
+          "id": "if-q1378",
+          "difficulty": 1,
+          "answer": "Sicile",
+          "clue": "Quelle grande île italienne est séparée de la péninsule par le détroit de Messine ?"
+        },
+        {
+          "id": "if-q1379",
+          "difficulty": 1,
+          "answer": "Crète",
+          "clue": "Quelle grande île grecque abrite le palais antique de Cnossos ?"
+        },
+        {
+          "id": "if-q1380",
+          "difficulty": 2,
+          "answer": "Chypre",
+          "clue": "Quelle île de Méditerranée orientale est traditionnellement associée à la naissance d’Aphrodite ?"
+        },
+        {
+          "id": "if-q1381",
+          "difficulty": 2,
+          "answer": "Malte",
+          "clue": "Quel pays insulaire méditerranéen a pour capitale La Valette ?"
+        }
+      ]
+    },
+    {
+      "category": "Corps humain",
+      "puzzles": [
+        {
+          "id": "if-q1382",
+          "difficulty": 1,
+          "answer": "digestion",
+          "clue": "Quel ensemble de transformations permet au corps de tirer des nutriments des aliments ?"
+        },
+        {
+          "id": "if-q1383",
+          "difficulty": 1,
+          "answer": "respiration",
+          "clue": "Quelle fonction permet notamment de faire entrer de l’oxygène et de rejeter du dioxyde de carbone ?"
+        },
+        {
+          "id": "if-q1384",
+          "difficulty": 1,
+          "answer": "circulation",
+          "clue": "Quel mot désigne le déplacement du sang dans le réseau des vaisseaux grâce au cœur ?"
+        },
+        {
+          "id": "if-q1385",
+          "difficulty": 2,
+          "answer": "déglutition",
+          "clue": "Quel nom porte l’action d’avaler les aliments ou la salive ?"
+        },
+        {
+          "id": "if-q1386",
+          "difficulty": 1,
+          "answer": "mastication",
+          "clue": "Quel nom porte l’action de broyer les aliments avec les dents avant de les avaler ?"
+        },
+        {
+          "id": "if-q1387",
+          "difficulty": 1,
+          "answer": "transpiration",
+          "clue": "Quel phénomène libère de la sueur à la surface de la peau et contribue à refroidir le corps ?"
+        },
+        {
+          "id": "if-q1388",
+          "difficulty": 2,
+          "answer": "coagulation",
+          "clue": "Quel processus transforme le sang liquide en un caillot qui aide à limiter un saignement ?"
+        },
+        {
+          "id": "if-q1389",
+          "difficulty": 1,
+          "answer": "cicatrisation",
+          "clue": "Quel processus répare une plaie et permet à la peau de se refermer ?"
+        },
+        {
+          "id": "if-q1390",
+          "difficulty": 1,
+          "answer": "pouls",
+          "clue": "Quel battement perçu dans une artère permet de compter le rythme du cœur ?"
+        },
+        {
+          "id": "if-q1391",
+          "difficulty": 1,
+          "answer": "artère",
+          "clue": "Quel type de vaisseau conduit le sang depuis le cœur vers les organes ?"
+        },
+        {
+          "id": "if-q1392",
+          "difficulty": 1,
+          "answer": "veine",
+          "clue": "Quel type de vaisseau ramène le sang vers le cœur ?"
+        },
+        {
+          "id": "if-q1393",
+          "difficulty": 2,
+          "answer": "capillaire",
+          "clue": "Quel très fin vaisseau permet les échanges entre le sang et les tissus ?"
+        },
+        {
+          "id": "if-q1394",
+          "difficulty": 2,
+          "answer": "plasma",
+          "clue": "Quel liquide constitue la partie du sang dans laquelle circulent notamment les globules ?"
+        },
+        {
+          "id": "if-q1395",
+          "difficulty": 2,
+          "answer": "hémoglobine",
+          "clue": "Quelle protéine des globules rouges transporte notamment l’oxygène ?"
+        },
+        {
+          "id": "if-q1396",
+          "difficulty": 2,
+          "answer": "plaquette",
+          "clue": "Quel petit élément du sang participe à la formation du bouchon qui limite un saignement ?"
+        },
+        {
+          "id": "if-q1397",
+          "difficulty": 2,
+          "answer": "moelle",
+          "clue": "Quel mot désigne, lorsqu’elle est osseuse, le tissu qui produit les cellules du sang ?"
+        },
+        {
+          "id": "if-q1398",
+          "difficulty": 1,
+          "answer": "muscle",
+          "clue": "Quel organe se contracte pour produire un mouvement ou maintenir une posture ?"
+        },
+        {
+          "id": "if-q1399",
+          "difficulty": 1,
+          "answer": "nerf",
+          "clue": "Quel faisceau de fibres transmet des signaux entre le système nerveux et les différentes parties du corps ?"
+        },
+        {
+          "id": "if-q1400",
+          "difficulty": 1,
+          "answer": "réflexe",
+          "clue": "Quelle réponse rapide et automatique à une stimulation peut faire retirer la main d’une surface brûlante ?"
+        },
+        {
+          "id": "if-q1401",
+          "difficulty": 1,
+          "answer": "équilibre",
+          "clue": "Quelle fonction, à laquelle participe l’oreille interne, aide à rester debout sans tomber ?"
+        }
+      ]
+    }
+  ]
+}

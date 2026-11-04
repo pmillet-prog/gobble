@@ -1,0 +1,138 @@
+{
+  "schemaVersion": 1,
+  "kind": "quiz",
+  "references": {
+    "si": {"title":"NIST — The International System of Units, section 2","url":"https://www.nist.gov/pml/special-publication-330/sp-330-section-2"},
+    "parlement": {"title":"Vie publique — Comment définir le Parlement ?","url":"https://www.vie-publique.fr/fiches/19485-comment-definir-le-parlement"},
+    "referendum": {"title":"Vie publique — Le référendum en France en sept questions","url":"https://www.vie-publique.fr/questions-reponses/290760-le-referendum-en-france-en-sept-questions"},
+    "greffe": {"title":"Ministère de la Justice — Les personnels de greffe","url":"https://www.justice.gouv.fr/justice-france/acteurs-justice/personnels-greffe"},
+    "notaire": {"title":"Ministère de la Justice — Le notaire","url":"https://www.justice.gouv.fr/justice-france/acteurs-justice/professionnels-du-droit/notaire"},
+    "parquet": {"title":"Ministère de la Justice — Les magistrats du parquet","url":"https://www.justice.gouv.fr/magistrats-du-parquet"}
+  },
+  "groups": [
+    { "category": "Sciences", "puzzles": [
+      {"id":"if-q602","difficulty":2,"answer":"Galilée","clue":"Quel savant italien a observé avec une lunette les quatre grandes lunes de Jupiter au début du dix-septième siècle ?","acceptedAnswers":["Galileo"]},
+      {"id":"if-q603","difficulty":1,"answer":"Newton","clue":"Quel savant anglais a formulé la loi de la gravitation universelle et donne son nom à une unité de force ?"},
+      {"id":"if-q604","difficulty":1,"answer":"Einstein","clue":"Quel physicien prénommé Albert est associé à la théorie de la relativité ?"},
+      {"id":"if-q605","difficulty":1,"answer":"Curie","clue":"Quel nom de famille porte Marie, scientifique qui a reçu un prix Nobel de physique puis un de chimie ?"},
+      {"id":"if-q606","difficulty":1,"answer":"Darwin","clue":"Quel naturaliste britannique a exposé la théorie de l’évolution par sélection naturelle dans L’Origine des espèces ?"},
+      {"id":"if-q607","difficulty":1,"answer":"Pasteur","clue":"Quel scientifique français, prénommé Louis, est associé à la mise au point d’un vaccin contre la rage ?"},
+      {"id":"if-q608","difficulty":2,"answer":"Fleming","clue":"Quel médecin écossais a découvert la pénicilline après avoir observé l’action d’une moisissure sur des bactéries ?"}
+    ] },
+    { "category": "Histoire", "puzzles": [
+      {"id":"if-q609","difficulty":1,"answer":"Gutenberg","clue":"Quel imprimeur de Mayence est associé au développement de l’imprimerie à caractères métalliques mobiles en Europe ?"}
+    ] },
+    { "category": "Unités de mesure", "puzzles": [
+      {"id":"if-q610","difficulty":2,"answer":"watt","clue":"Quelle unité de puissance est indiquée par la lettre W sur une ampoule électrique ?","reference":"si"},
+      {"id":"if-q611","difficulty":1,"answer":"volt","clue":"Quelle unité de tension électrique est abrégée par la lettre V ?","reference":"si"},
+      {"id":"if-q612","difficulty":2,"answer":"ampère","clue":"Quelle unité mesure l’intensité d’un courant électrique et s’abrège par la lettre A ?","reference":"si"},
+      {"id":"if-q613","difficulty":2,"answer":"ohm","clue":"Quelle unité de résistance électrique a pour symbole la lettre grecque oméga ?","reference":"si"},
+      {"id":"if-q614","difficulty":2,"answer":"joule","clue":"Quelle unité du système international mesure l’énergie et s’abrège par la lettre J ?","reference":"si"},
+      {"id":"if-q615","difficulty":2,"answer":"hertz","clue":"Quelle unité de fréquence correspond à un cycle par seconde et s’abrège par Hz ?","reference":"si"},
+      {"id":"if-q616","difficulty":1,"answer":"litre","clue":"Quelle unité de volume correspond à mille millilitres ?"},
+      {"id":"if-q617","difficulty":1,"answer":"gramme","clue":"Quelle unité de masse correspond à mille milligrammes ?"}
+    ] },
+    { "category": "Sciences", "puzzles": [
+      {"id":"if-q618","difficulty":1,"answer":"fusion","clue":"Comment appelle-t-on le passage d’une substance de l’état solide à l’état liquide ?"},
+      {"id":"if-q619","difficulty":2,"answer":"solidification","clue":"Quel changement d’état transforme un liquide en solide, comme lorsque de l’eau devient de la glace ?","acceptedAnswers":["congélation"]},
+      {"id":"if-q620","difficulty":2,"answer":"sublimation","clue":"Quel changement d’état permet à un solide de passer directement à l’état gazeux, sans devenir liquide ?"}
+    ] },
+    { "category": "Géométrie", "puzzles": [
+      {"id":"if-q621","difficulty":1,"answer":"cylindre","clue":"Quel solide possède deux bases en disque identiques et parallèles, comme une boîte de conserve droite ?"},
+      {"id":"if-q622","difficulty":1,"answer":"cône","clue":"Quel solide possède une base en disque et se termine par une pointe, comme un cornet de glace ?"},
+      {"id":"if-q623","difficulty":1,"answer":"cube","clue":"Quel solide possède six faces carrées identiques ?"},
+      {"id":"if-q624","difficulty":1,"answer":"sphère","clue":"Comment appelle-t-on la surface dont tous les points sont à la même distance d’un centre, comme celle d’une boule idéale ?"},
+      {"id":"if-q625","difficulty":2,"answer":"prisme","clue":"Quel solide possède deux bases polygonales identiques et parallèles reliées par des faces en parallélogramme ?"}
+    ] },
+    { "category": "Astronomie", "puzzles": [
+      {"id":"if-q626","difficulty":2,"answer":"solstice","clue":"Quel événement marque le début de l’été ou de l’hiver astronomique et un extrême de durée du jour ?"}
+    ] },
+    { "category": "Institutions", "puzzles": [
+      {"id":"if-q627","difficulty":2,"answer":"république","clue":"Quel régime politique français tire son nom du latin res publica, qui signifie la chose publique ?"},
+      {"id":"if-q628","difficulty":1,"answer":"démocratie","clue":"Quel régime politique repose sur la souveraineté du peuple, exercée directement ou par ses représentants ?"},
+      {"id":"if-q629","difficulty":1,"answer":"monarchie","clue":"Quel régime politique place un roi ou une reine à la tête de l’État ?"},
+      {"id":"if-q630","difficulty":2,"answer":"constitution","clue":"Quel texte fondamental définit l’organisation des pouvoirs et les principes d’un État ?"},
+      {"id":"if-q631","difficulty":1,"answer":"parlement","clue":"En France, quel ensemble réunit l’Assemblée nationale et le Sénat ?","reference":"parlement"},
+      {"id":"if-q632","difficulty":1,"answer":"sénat","clue":"En France, quelle chambre du Parlement siège au palais du Luxembourg ?"},
+      {"id":"if-q633","difficulty":1,"answer":"député","clue":"Comment appelle-t-on un élu qui siège à l’Assemblée nationale française ?","acceptedAnswers":["députée"],"reference":"parlement"},
+      {"id":"if-q634","difficulty":1,"answer":"maire","clue":"En France, quel élu dirige la municipalité et préside le conseil municipal ?"},
+      {"id":"if-q635","difficulty":2,"answer":"ambassadeur","clue":"Quel représentant d’un État est à la tête d’une mission diplomatique dans un autre pays ?","acceptedAnswers":["ambassadrice"]},
+      {"id":"if-q636","difficulty":2,"answer":"référendum","clue":"Comment appelle-t-on un vote où les citoyens répondent directement à une question qui leur est soumise ?","reference":"referendum"},
+      {"id":"if-q637","difficulty":2,"answer":"citoyen","clue":"Quel mot désigne un membre d’un État qui y possède des droits politiques et des devoirs ?","acceptedAnswers":["citoyenne"]},
+      {"id":"if-q638","difficulty":2,"answer":"scrutin","clue":"Quel terme désigne l’ensemble des opérations d’un vote, qu’il soit majoritaire ou proportionnel ?"},
+      {"id":"if-q639","difficulty":1,"answer":"urne","clue":"Dans quel récipient transparent dépose-t-on son enveloppe électorale dans un bureau de vote français ?"},
+      {"id":"if-q640","difficulty":1,"answer":"bulletin","clue":"Quelle feuille portant le choix de l’électeur est glissée dans l’enveloppe avant le dépôt dans l’urne ?"},
+      {"id":"if-q641","difficulty":1,"answer":"isoloir","clue":"Dans quel petit espace fermé par un rideau prépare-t-on son vote à l’abri des regards ?"},
+      {"id":"if-q642","difficulty":1,"answer":"mairie","clue":"Quel bâtiment abrite les services municipaux et accueille traditionnellement les mariages civils en France ?"},
+      {"id":"if-q643","difficulty":2,"answer":"préfecture","clue":"Comment appelle-t-on le bâtiment qui accueille les services du représentant de l’État à la tête d’un département français ?"}
+    ] },
+    { "category": "Justice", "puzzles": [
+      {"id":"if-q644","difficulty":1,"answer":"tribunal","clue":"Quel lieu accueille les audiences où les juges examinent les affaires qui leur sont soumises ?"},
+      {"id":"if-q645","difficulty":1,"answer":"juge","clue":"Quel magistrat est chargé de trancher un litige et de rendre une décision de justice ?"},
+      {"id":"if-q646","difficulty":2,"answer":"procureur","clue":"En France, quel magistrat dirige le parquet d’un tribunal judiciaire et représente le ministère public ?","acceptedAnswers":["procureure"],"reference":"parquet"},
+      {"id":"if-q647","difficulty":1,"answer":"notaire","clue":"En France, quel professionnel authentifie notamment les actes de vente immobilière et ceux liés aux successions ?","reference":"notaire"},
+      {"id":"if-q648","difficulty":2,"answer":"greffier","clue":"En France, quel professionnel de justice consigne les débats et authentifie les actes de la procédure ?","acceptedAnswers":["greffière"],"reference":"greffe"},
+      {"id":"if-q649","difficulty":1,"answer":"jury","clue":"Quel nom collectif désigne les citoyens appelés à participer au jugement dans une cour d’assises ?"},
+      {"id":"if-q650","difficulty":1,"answer":"témoin","clue":"Comment appelle-t-on une personne qui rapporte à la justice ce qu’elle a vu ou entendu ?"},
+      {"id":"if-q651","difficulty":1,"answer":"alibi","clue":"Quel mot désigne la preuve qu’une personne se trouvait ailleurs au moment où une infraction a été commise ?"}
+    ] },
+    { "category": "Arts", "puzzles": [
+      {"id":"if-q652","difficulty":1,"answer":"aquarelle","clue":"Quelle technique de peinture utilise des couleurs diluées dans l’eau, en laissant généralement voir la blancheur du papier ?"},
+      {"id":"if-q653","difficulty":2,"answer":"gouache","clue":"Quelle peinture à l’eau, habituellement opaque, se distingue de la transparence de l’aquarelle ?"},
+      {"id":"if-q654","difficulty":2,"answer":"pastel","clue":"Quel bâtonnet de pigments secs ou gras sert à dessiner directement en couleur ?"},
+      {"id":"if-q655","difficulty":2,"answer":"fusain","clue":"Quel bâtonnet de charbon de bois permet de dessiner des traits noirs que l’on peut facilement estomper ?"},
+      {"id":"if-q656","difficulty":2,"answer":"gravure","clue":"Quelle technique creuse ou taille une surface pour en tirer ensuite une image imprimée ?"},
+      {"id":"if-q657","difficulty":2,"answer":"fresque","clue":"Quelle peinture murale est, dans sa technique traditionnelle, réalisée sur un enduit encore frais ?"},
+      {"id":"if-q658","difficulty":1,"answer":"collage","clue":"Quelle technique artistique assemble des éléments découpés et fixés sur un support ?"},
+      {"id":"if-q659","difficulty":1,"answer":"portrait","clue":"Quel type de peinture ou de photographie représente une personne, en mettant souvent son visage en valeur ?"},
+      {"id":"if-q660","difficulty":1,"answer":"paysage","clue":"Quel genre pictural prend pour sujet une vue de la nature ou d’un lieu extérieur ?"},
+      {"id":"if-q661","difficulty":1,"answer":"autoportrait","clue":"Comment appelle-t-on une représentation de l’artiste réalisée par lui-même ?"},
+      {"id":"if-q662","difficulty":1,"answer":"caricature","clue":"Quel dessin exagère volontairement certains traits d’une personne, souvent pour la faire reconnaître en faisant rire ?"},
+      {"id":"if-q663","difficulty":2,"answer":"croquis","clue":"Quel dessin rapide saisit les grandes lignes d’un sujet sans en travailler tous les détails ?","acceptedAnswers":["esquisse"]},
+      {"id":"if-q664","difficulty":1,"answer":"tatouage","clue":"Quel dessin durable est réalisé en introduisant des pigments dans la peau ?"},
+      {"id":"if-q665","difficulty":1,"answer":"origami","clue":"Quel art japonais crée des formes en pliant du papier, généralement sans le découper ni le coller ?"}
+    ] },
+    { "category": "Danse", "puzzles": [
+      {"id":"if-q666","difficulty":1,"answer":"ballet","clue":"Quel spectacle de danse associe une chorégraphie à une musique, comme Le Lac des cygnes ?"},
+      {"id":"if-q667","difficulty":1,"answer":"tango","clue":"Quelle danse de couple emblématique de l’Argentine est souvent accompagnée au bandonéon ?"},
+      {"id":"if-q668","difficulty":1,"answer":"valse","clue":"Quelle danse de couple à trois temps est particulièrement associée à Vienne ?"},
+      {"id":"if-q669","difficulty":2,"answer":"salsa","clue":"Quelle danse de couple porte en espagnol le même nom qu’une préparation qui accompagne un plat ?"},
+      {"id":"if-q670","difficulty":1,"answer":"flamenco","clue":"Quel art d’Andalousie mêle notamment chant, guitare et danse aux frappes de pieds ?"},
+      {"id":"if-q671","difficulty":1,"answer":"samba","clue":"Quelle danse brésilienne est emblématique du carnaval de Rio ?"}
+    ] },
+    { "category": "Musique", "puzzles": [
+      {"id":"if-q672","difficulty":2,"answer":"jazz","clue":"Quel genre musical né aux États-Unis fait une grande place à l’improvisation et compte Louis Armstrong parmi ses figures ?"},
+      {"id":"if-q673","difficulty":2,"answer":"blues","clue":"Quel genre musical afro-américain, associé notamment à B. B. King, emploie souvent une structure en douze mesures ?"},
+      {"id":"if-q674","difficulty":1,"answer":"rock","clue":"Quel genre musical aux guitares électriques compte Elvis Presley et Chuck Berry parmi ses pionniers ?"},
+      {"id":"if-q675","difficulty":1,"answer":"rap","clue":"Quel genre musical fait déclamer des paroles rythmées et rimées, et constitue un élément de la culture hip-hop ?"},
+      {"id":"if-q676","difficulty":1,"answer":"reggae","clue":"Quel genre musical venu de Jamaïque est particulièrement associé à Bob Marley ?"}
+    ] },
+    { "category": "Nature", "puzzles": [
+      {"id":"if-q677","difficulty":1,"answer":"chien","clue":"Quel animal domestique aboie et compte le teckel et le labrador parmi ses races ?"},
+      {"id":"if-q678","difficulty":1,"answer":"chat","clue":"Quel animal domestique possède des griffes rétractiles, ronronne et compte le siamois parmi ses races ?"},
+      {"id":"if-q679","difficulty":1,"answer":"cheval","clue":"Quel animal domestique compte le percheron parmi ses races et le poulain parmi ses petits ?"},
+      {"id":"if-q680","difficulty":1,"answer":"âne","clue":"Quel équidé domestique aux longues oreilles brait au lieu de hennir ?"},
+      {"id":"if-q681","difficulty":2,"answer":"mulet","clue":"Comment appelle-t-on le descendant généralement stérile d’un âne mâle et d’une jument ?","acceptedAnswers":["mule"]},
+      {"id":"if-q682","difficulty":1,"answer":"vache","clue":"Comment appelle-t-on la femelle adulte du taureau ?"},
+      {"id":"if-q683","difficulty":1,"answer":"chèvre","clue":"Quelle femelle domestique a pour mâle le bouc et pour petit le chevreau ?"},
+      {"id":"if-q684","difficulty":1,"answer":"mouton","clue":"Quel animal d’élevage forme un troupeau dont les femelles sont des brebis et les petits des agneaux ?"},
+      {"id":"if-q685","difficulty":1,"answer":"poule","clue":"Quel oiseau domestique a pour mâle le coq et pour petit le poussin ?"},
+      {"id":"if-q686","difficulty":1,"answer":"canard","clue":"Quel oiseau aquatique aux pattes palmées compte le colvert parmi ses espèces ?"},
+      {"id":"if-q687","difficulty":1,"answer":"crocodile","clue":"Quel grand reptile semi-aquatique donne son nom à une espèce du Nil et à une autre dite marine ?"},
+      {"id":"if-q688","difficulty":2,"answer":"alligator","clue":"Quel grand reptile proche du crocodile, au museau généralement plus arrondi, vit notamment dans les marais de Floride ?"},
+      {"id":"if-q689","difficulty":2,"answer":"iguane","clue":"Quel grand lézard d’Amérique tropicale possède souvent une crête sur le dos et un repli de peau sous la gorge ?"},
+      {"id":"if-q690","difficulty":1,"answer":"tortue","clue":"Quel reptile possède une carapace qui protège son corps ?"},
+      {"id":"if-q691","difficulty":1,"answer":"serpent","clue":"Quel groupe de reptiles au corps allongé et dépourvu de pattes comprend les couleuvres et les vipères ?"},
+      {"id":"if-q692","difficulty":1,"answer":"cobra","clue":"Quel serpent peut élargir le haut de son cou pour former une coiffe quand il se sent menacé ?","acceptedAnswers":["naja"]},
+      {"id":"if-q693","difficulty":2,"answer":"vipère","clue":"Quel serpent venimeux présent en France compte une espèce appelée aspic ?"},
+      {"id":"if-q694","difficulty":2,"answer":"python","clue":"Quel grand serpent non venimeux, dont une espèce est dite réticulée, étouffe ses proies en s’enroulant autour ?"},
+      {"id":"if-q695","difficulty":1,"answer":"requin","clue":"Quel poisson au squelette cartilagineux compte le grand blanc et le marteau parmi ses espèces ?"},
+      {"id":"if-q696","difficulty":1,"answer":"saumon","clue":"Quel poisson à chair rosée remonte les rivières pour se reproduire après une partie de sa vie en mer ?"},
+      {"id":"if-q697","difficulty":1,"answer":"truite","clue":"Quel poisson de rivière de la famille des salmonidés possède une variété dite arc-en-ciel ?"},
+      {"id":"if-q698","difficulty":1,"answer":"sardine","clue":"Quel petit poisson argenté est souvent mis en conserve, rangé serré dans une boîte à l’huile ?"},
+      {"id":"if-q699","difficulty":1,"answer":"thon","clue":"Quel grand poisson migrateur, vendu frais ou en conserve, compte des espèces dites rouge et albacore ?"},
+      {"id":"if-q700","difficulty":1,"answer":"raie","clue":"Quel poisson cartilagineux au corps aplati possède de larges nageoires évoquant des ailes ?"},
+      {"id":"if-q701","difficulty":1,"answer":"sole","clue":"Quel poisson plat, apprécié en cuisine, donne son nom à une préparation dite meunière ?"}
+    ] }
+  ]
+}

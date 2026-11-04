@@ -4,6 +4,9 @@ import {
   useFeatureSelector,
 } from "../../app/react/useFeatureRuntime.js";
 import { createPortal } from "react-dom";
+import { getRoundBonusPresentation } from "../../features/round/roundBonusPresentation.js";
+import RoundBonusAnnouncement from "../round/RoundBonusAnnouncement.jsx";
+import { RELEASE_SCOPE } from "../../../shared/releaseScope.js";
 
 function clampValue(value, min, max) {
   return Math.max(min, Math.min(max, value));
@@ -19,6 +22,8 @@ function MobileRoundIntroOverlay({
   roundLabel = "",
   roundDescription = "",
   roundTypeLabel = "",
+  specialRound = null,
+  previewBonuses = false,
   stage = "idle",
   titleFadeMs = 180,
 }) {
@@ -115,6 +120,8 @@ function MobileRoundIntroOverlay({
       ? "mobile-round-intro-fade-from-black"
       : "mobile-round-intro-backdrop";
   const showsTitle = stage === "title" || stage === "title_fade_out";
+  const bonusPreview = RELEASE_SCOPE.roundBonusAnnouncements || previewBonuses;
+  const bonus = bonusPreview ? getRoundBonusPresentation(specialRound) : null;
   const showsCountdown = stage === "countdown";
   const countdownIsGo =
     typeof countdown === "string" && countdown.trim().toUpperCase() === String(goLabel).trim();
@@ -146,7 +153,7 @@ function MobileRoundIntroOverlay({
       {showsBackdrop ? <div className={`absolute inset-0 bg-black ${backdropClass}`} /> : null}
       {showsTitle && styleForRender ? (
         <div
-          className="fixed flex flex-col items-center justify-center rounded-2xl border-2 bg-black/82 px-4 py-5 text-center"
+          className={`fixed flex flex-col items-center justify-center rounded-2xl border-2 px-4 py-5 text-center ${bonusPreview ? "round-intro-title bg-black/[0.82]" : "bg-black/82"}${bonus ? " round-intro-title--bonus" : ""}`}
           style={{
             ...styleForRender,
             borderColor: "rgba(196,128,52,0.78)",
@@ -162,7 +169,7 @@ function MobileRoundIntroOverlay({
             {roundLabel || "MANCHE"}
           </div>
           <div
-            className={`nick-podium-gold mt-3 text-[clamp(15px,1.5vw,23px)] font-black tracking-[0.08em] uppercase ${
+            className={`${bonusPreview ? "round-intro-title__type " : ""}nick-podium-gold mt-3 text-[clamp(15px,1.5vw,23px)] font-black tracking-[0.08em] uppercase ${
               isSpecial ? "" : ""
             }`}
             style={{
@@ -173,10 +180,11 @@ function MobileRoundIntroOverlay({
             {roundTypeLabel || "manche classique"}
           </div>
           {roundDescription ? (
-            <div className="mt-3 max-w-[92%] text-[11px] font-semibold leading-snug text-white/82">
+            <div className={`mt-3 max-w-[92%] text-[11px] font-semibold leading-snug ${bonusPreview ? "round-intro-title__description text-white/[0.82]" : "text-white/82"}`}>
               {roundDescription}
             </div>
           ) : null}
+          <RoundBonusAnnouncement bonus={bonus} />
         </div>
       ) : null}
       {showsCountdown && styleForRender ? (

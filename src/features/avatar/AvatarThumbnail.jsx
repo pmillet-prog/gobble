@@ -1,7 +1,14 @@
 import React from "react";
 import { chatAvatarRevisions } from "./chatAvatarRevisions.js";
+import useCachedAvatarThumbnail from "./useCachedAvatarThumbnail.js";
 import { useTournamentThumbnail } from "./TournamentAvatarsProvider.jsx";
+import { RELEASE_SCOPE } from "../../../shared/releaseScope.js";
 import "./avatarThumbnail.css";
+
+// The choice is fixed for the lifetime of this build; preserve the published
+// tournament cache until the new global cache is released.
+const useReleasedThumbnail = RELEASE_SCOPE.avatarRenderAssets
+  ? (_userId, source) => useCachedAvatarThumbnail(source) : useTournamentThumbnail;
 
 // Reuse the server PNG and browser cache across chat and ranking rows. No canvas.
 export default React.memo(function AvatarThumbnail({ userId, size = 28, className = "", onClick, label = "Voir le profil", showPlaceholder = false, buttonProps }) {
@@ -11,7 +18,7 @@ export default React.memo(function AvatarThumbnail({ userId, size = 28, classNam
     snapshot,
     snapshot,
   );
-  const cached = useTournamentThumbnail(Number(userId), remoteSource);
+  const cached = useReleasedThumbnail(Number(userId), remoteSource);
   const source = cached ? cached.url : remoteSource;
   const [result, setResult] = React.useState(null);
   const status = result?.source === source ? result.status : cached?.status === "ready" ? "loaded" : "loading";

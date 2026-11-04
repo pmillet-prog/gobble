@@ -1,0 +1,127 @@
+{
+  "schemaVersion": 1,
+  "kind": "riddle",
+  "references": {
+    "apricot": { "title": "INRAE — L’abricotier : description du fruit", "url": "https://ephytia.inrae.fr/fr/C/11241/Hypp-encyclopedie-en-protection-des-plantes-l-abricotier-Prunus-armeniaca" }
+  },
+  "groups": [
+    { "category": "Fruits et légumes", "puzzles": [
+      { "id": "if-r301", "difficulty": 1, "clue": "Ronde et croquante, je cache des pépins autour d’un trognon ; on me retrouve aussi transformée en cidre.", "answer": "pomme" },
+      { "id": "if-r302", "difficulty": 1, "clue": "Mon fruit est large en bas et plus étroit près de la queue ; on peut me préparer Belle-Hélène avec du chocolat.", "answer": "poire" },
+      { "id": "if-r303", "difficulty": 1, "clue": "Courbée dans ma peau jaune, je me découvre en tirant de longues bandes, sans couteau ni économe.", "answer": "banane" },
+      { "id": "if-r304", "difficulty": 1, "clue": "Agrume rond à presser, je partage mon nom avec la couleur de ma peau et de mon jus.", "answer": "orange" },
+      { "id": "if-r305", "difficulty": 1, "clue": "Mon jus acide peut vous faire grimacer ; mon fruit jaune, souvent pointu aux deux bouts, accompagne le poisson.", "answer": "citron" },
+      { "id": "if-r306", "difficulty": 2, "clue": "Gros agrume souvent servi en deux moitiés, ma chair rose ou jaune mêle le sucre à une pointe d’amertume.", "answer": "pamplemousse", "acceptedAnswers": ["pomelo", "pomélo"] }
+    ] },
+    { "category": "Cuisine", "puzzles": [
+      { "id": "if-r307", "difficulty": 1, "clue": "Des fruits cuisent avec du sucre pour remplir mon pot ; mes morceaux s’étalent ensuite sur les tartines.", "answer": "confiture" }
+    ] },
+    { "category": "Fruits et légumes", "puzzles": [
+      { "id": "if-r308", "difficulty": 1, "clue": "Sous ma peau brune et velue, une chair souvent verte entoure un centre clair semé de petits grains noirs.", "answer": "kiwi" },
+      { "id": "if-r309", "difficulty": 1, "clue": "Je porte une couronne de feuilles au-dessus de ma peau à écailles ; mon cœur jaune se découpe en rondelles.", "answer": "ananas" },
+      { "id": "if-r310", "difficulty": 2, "clue": "Petit fruit orange et velouté, je me sépare en deux oreillons autour d’un noyau lisse, au début de l’été.", "answer": "abricot", "reference": "apricot" },
+      { "id": "if-r311", "difficulty": 2, "clue": "Mon fruit juteux ressemble à une nectarine, mais ma peau est duveteuse et mon noyau profondément creusé.", "answer": "pêche" },
+      { "id": "if-r312", "difficulty": 1, "clue": "Je suis le fruit à noyau dont la mirabelle est une variété ; séchée, je peux devenir un pruneau.", "answer": "prune" },
+      { "id": "if-r313", "difficulty": 1, "clue": "Petite boule rouge à noyau, je me balance au bout d’une longue queue et termine parfois sur le gâteau.", "answer": "cerise" },
+      { "id": "if-r314", "difficulty": 1, "clue": "Rouge sous ma collerette de feuilles, je porte mes petits grains à l’extérieur et accompagne la chantilly.", "answer": "fraise" },
+      { "id": "if-r315", "difficulty": 2, "clue": "Mes petites billes rouges restent soudées ensemble ; cueillie, je garde un creux au centre comme un minuscule dé.", "answer": "framboise" },
+      { "id": "if-r316", "difficulty": 2, "clue": "Je noircis sur les ronces en réunissant de petites boules juteuses ; les épines compliquent ma cueillette.", "answer": "mûre" },
+      { "id": "if-r317", "difficulty": 2, "clue": "Petite baie bleu sombre des sous-bois, ma chair colore les doigts et je garnis souvent les tartes de montagne.", "answer": "myrtille", "acceptedAnswers": ["bleuet"] },
+      { "id": "if-r318", "difficulty": 1, "clue": "Mes grains se réunissent en grappes sur la vigne ; pressé puis fermenté, mon jus peut devenir du vin.", "answer": "raisin" },
+      { "id": "if-r319", "difficulty": 1, "clue": "Sous mon épaisse enveloppe verte, une chair rouge très riche en eau cache souvent des pépins noirs.", "answer": "pastèque" },
+      { "id": "if-r320", "difficulty": 1, "clue": "Dans ma variété charentaise, je cache une chair orange parfumée et une poche centrale remplie de pépins.", "answer": "melon" },
+      { "id": "if-r321", "difficulty": 2, "clue": "Verte ou violette dehors, je cache de minuscules grains dans une chair sucrée ; mon arbre a de grandes feuilles lobées.", "answer": "figue" },
+      { "id": "if-r322", "difficulty": 2, "clue": "Je mûris en régimes sur un palmier ; brune et très sucrée, je garde un long noyau au milieu.", "answer": "datte" },
+      { "id": "if-r323", "difficulty": 2, "clue": "Ma peau épaisse couronnée s’ouvre sur une foule de grains rouges ; mon nom est aussi celui d’un explosif.", "answer": "grenade" },
+      { "id": "if-r324", "difficulty": 2, "clue": "Mon gros fruit tropical cache un noyau plat dans une chair orange ; on me retrouve dans le lassi indien.", "answer": "mangue" },
+      { "id": "if-r325", "difficulty": 1, "clue": "Petite coque brune presque ronde, je protège la graine que l’écureuil grignote et que l’on mélange au chocolat.", "answer": "noisette" },
+      { "id": "if-r326", "difficulty": 1, "clue": "Ma coque dure et bosselée s’ouvre en deux ; mon cerneau ressemble alors à un tout petit cerveau.", "answer": "noix" },
+      { "id": "if-r327", "difficulty": 1, "clue": "Allongée sous une fine peau brune, je me réduis en poudre pour la frangipane ou m’effile sur les pâtisseries.", "answer": "amande" },
+      { "id": "if-r328", "difficulty": 1, "clue": "Ma coque entrouverte laisse deviner une graine verte ; je parfume les glaces et croque à l’apéritif.", "answer": "pistache" },
+      { "id": "if-r329", "difficulty": 2, "clue": "Mes graines mûrissent dans une coque sous terre ; grillées, elles se mangent à l’apéritif ou se transforment en beurre.", "answer": "cacahuète", "acceptedAnswers": ["cacahouète", "arachide"] },
+      { "id": "if-r330", "difficulty": 1, "clue": "Je suis le fruit comestible des bogues à nombreuses épines fines ; l’automne me fait griller dans la rue.", "answer": "châtaigne", "acceptedAnswers": ["marron"] },
+      { "id": "if-r331", "difficulty": 1, "clue": "Mes fanes dépassent du sol, mais ma longue racine orange attend en dessous avant de finir râpée.", "answer": "carotte" },
+      { "id": "if-r332", "difficulty": 1, "clue": "Mon long fût blanc se prolonge en feuilles vertes plates ; je peux finir en soupe ou sous une vinaigrette.", "answer": "poireau" },
+      { "id": "if-r333", "difficulty": 1, "clue": "On m’épluche couche après couche et je fais parfois pleurer le cuisinier qui me découpe.", "answer": "oignon", "acceptedAnswers": ["ognon"] },
+      { "id": "if-r334", "difficulty": 1, "clue": "Ma tête se partage en gousses sous une enveloppe sèche ; une seule suffit à parfumer fortement le plat.", "answer": "ail" },
+      { "id": "if-r335", "difficulty": 2, "clue": "Cousine de l’oignon, mon petit bulbe souvent allongé se hache notamment dans le vinaigre qui accompagne les huîtres.", "answer": "échalote" },
+      { "id": "if-r336", "difficulty": 1, "clue": "Petite racine croquante souvent rose au bout blanc, je me mange crue avec du pain, du beurre et du sel.", "answer": "radis" },
+      { "id": "if-r337", "difficulty": 2, "clue": "Légume-racine souvent blanc au collet violet, je partage mon nom avec un film que les spectateurs trouvent mauvais.", "answer": "navet" },
+      { "id": "if-r338", "difficulty": 1, "clue": "Dans ma variété rouge, ma racine cuite colore la salade et vos doigts d’un violet intense.", "answer": "betterave" },
+      { "id": "if-r339", "difficulty": 1, "clue": "Je suis une jeune courge que l’on mange avec sa peau tendre, souvent verte ; mon nom en est le diminutif.", "answer": "courgette" },
+      { "id": "if-r340", "difficulty": 1, "clue": "Violette et brillante sous mon chapeau vert, je deviens un caviar végétal et figure dans la moussaka.", "answer": "aubergine" },
+      { "id": "if-r341", "difficulty": 1, "clue": "On détache mes feuilles une à une avant d’atteindre mon cœur, en retirant d’abord mon foin.", "answer": "artichaut" },
+      { "id": "if-r342", "difficulty": 2, "clue": "Blanche ou verte, ma jeune pousse se termine par une pointe serrée ; je sors de terre au printemps.", "answer": "asperge" },
+      { "id": "if-r343", "difficulty": 2, "clue": "Mes feuilles pâles serrées poussent à l’abri de la lumière ; roulée dans du jambon, je passe au gratin.", "answer": "endive", "acceptedAnswers": ["chicon"] },
+      { "id": "if-r344", "difficulty": 1, "clue": "Je suis le légume vert en feuilles que Popeye avale pour devenir très fort dans ses dessins animés.", "answer": "épinard", "acceptedAnswers": ["épinards"] },
+      { "id": "if-r345", "difficulty": 1, "clue": "Salade aux feuilles tendres, je porte notamment les noms de batavia ou d’iceberg selon ma variété.", "answer": "laitue" },
+      { "id": "if-r346", "difficulty": 1, "clue": "Long et vert, je me coupe en rondelles fraîches et croquantes pour la salade ou le tzatziki.", "answer": "concombre" },
+      { "id": "if-r347", "difficulty": 1, "clue": "Petit cousin du concombre cueilli jeune, je patiente dans le vinaigre avant d’accompagner la charcuterie.", "answer": "cornichon" },
+      { "id": "if-r348", "difficulty": 1, "clue": "Botaniquement un fruit, je rougis dans le potager et fournis la base du ketchup.", "answer": "tomate" },
+      { "id": "if-r349", "difficulty": 1, "clue": "Vert, rouge ou jaune, je suis un gros piment doux et creux que l’on peut farcir après avoir retiré mes graines.", "answer": "poivron" },
+      { "id": "if-r350", "difficulty": 1, "clue": "Je donne du piquant à la harissa ; séché ou frais, je peux mettre la bouche en feu.", "answer": "piment" },
+      { "id": "if-r351", "difficulty": 1, "clue": "Gros fruit orange du potager, je me creuse à Halloween pour afficher une grimace éclairée de l’intérieur.", "answer": "citrouille", "acceptedAnswers": ["potiron", "courge"] },
+      { "id": "if-r352", "difficulty": 1, "clue": "Verte ou noire selon ma maturité et ma préparation, je viens d’un arbre méditerranéen et peux fournir de l’huile.", "answer": "olive" },
+      { "id": "if-r353", "difficulty": 1, "clue": "Ma chair verte et crémeuse entoure un gros noyau ; mon nom désigne aussi quelqu’un qui défend au tribunal.", "answer": "avocat" }
+    ] },
+    { "category": "Cuisine", "puzzles": [
+      { "id": "if-r354", "difficulty": 1, "clue": "Petite graine plate à cuire, je partage mon nom avec le disque transparent que l’on pose sur l’œil.", "answer": "lentille" },
+      { "id": "if-r355", "difficulty": 1, "clue": "On mange ma gousse quand je suis vert ; sec, je fournis notamment les grains blancs du cassoulet.", "answer": "haricot" },
+      { "id": "if-r356", "difficulty": 1, "clue": "Nous sommes de petites billes vertes alignées dans une cosse ; la princesse d’un conte nous sent sous ses matelas.", "answer": "pois" },
+      { "id": "if-r357", "difficulty": 1, "clue": "Mes grains jaunes se serrent sur un épi ; certaines variétés éclatent en flocons blancs quand on les chauffe.", "answer": "maïs" },
+      { "id": "if-r358", "difficulty": 1, "clue": "Mes grains poussent dans des rizières ; après cuisson, je peux accompagner le curry ou entrer dans un sushi.", "answer": "riz" },
+      { "id": "if-r359", "difficulty": 1, "clue": "Céréale des champs dorés, ma variété tendre fournit la farine du pain et ma variété dure celle des pâtes.", "answer": "blé", "acceptedAnswers": ["froment"] },
+      { "id": "if-r360", "difficulty": 2, "clue": "Mes flocons gonflent dans le lait du porridge ; ma céréale nourrit aussi les chevaux.", "answer": "avoine" }
+    ] },
+    { "category": "Boulangerie et pâtisserie", "puzzles": [
+      { "id": "if-r361", "difficulty": 1, "clue": "Sous ma croûte, ma mie reçoit beurre ou confiture ; le boulanger me prépare avec de la farine, de l’eau et du levain.", "answer": "pain" },
+      { "id": "if-r362", "difficulty": 1, "clue": "Long pain français à croûte dorée, je partage mon nom avec le petit bâton du magicien.", "answer": "baguette" },
+      { "id": "if-r363", "difficulty": 1, "clue": "Viennoiserie feuilletée au beurre, mon nom désigne aussi une forme que prend la Lune.", "answer": "croissant" },
+      { "id": "if-r364", "difficulty": 1, "clue": "Mon pain moelleux et légèrement sucré s’enrichit d’œufs et de beurre ; on peut tresser ma pâte avant cuisson.", "answer": "brioche" },
+      { "id": "if-r365", "difficulty": 1, "clue": "Tranche de pain séchée par une nouvelle cuisson, je craque sous le beurre et casse facilement dans le bol.", "answer": "biscotte" },
+      { "id": "if-r366", "difficulty": 1, "clue": "Petit gâteau sec du goûter, je peux sortir d’un paquet et me tremper dans une tasse sans être une tartine.", "answer": "biscuit" },
+      { "id": "if-r367", "difficulty": 1, "clue": "Deux plaques chaudes dessinent sur ma pâte des petits carrés creux où le sucre et le chocolat aiment se loger.", "answer": "gaufre" },
+      { "id": "if-r368", "difficulty": 1, "clue": "Une louche de pâte s’étale en disque très fin dans la poêle ; on me retourne parfois en me faisant sauter.", "answer": "crêpe" },
+      { "id": "if-r369", "difficulty": 1, "clue": "Ma pâte gonfle dans l’huile chaude ; rond et sucré, je peux cacher de la confiture sous ma croûte.", "answer": "beignet", "acceptedAnswers": ["donut", "donuts"] },
+      { "id": "if-r370", "difficulty": 2, "clue": "Des blancs d’œufs battus avec du sucre me donnent une coque légère et craquante après un long passage au four doux.", "answer": "meringue" },
+      { "id": "if-r371", "difficulty": 2, "clue": "Dans ma version blanche de Montélimar, des amandes restent prises dans une confiserie au miel et au blanc d’œuf.", "answer": "nougat" },
+      { "id": "if-r372", "difficulty": 1, "clue": "Le sucre chauffé me fait prendre une couleur ambrée ; je peux napper un flan ou me transformer en bonbon.", "answer": "caramel" },
+      { "id": "if-r373", "difficulty": 1, "clue": "En tablette ou en boisson, je dois mon goût au cacao ; noir ou au lait, je fonds doucement dans la bouche.", "answer": "chocolat" }
+    ] },
+    { "category": "Cuisine", "puzzles": [
+      { "id": "if-r374", "difficulty": 1, "clue": "Les abeilles m’élaborent et me stockent dans leurs rayons ; je sucre les tartines sans venir d’une betterave.", "answer": "miel" },
+      { "id": "if-r375", "difficulty": 1, "clue": "La crème battue me fait apparaître ; doux ou salé, je m’étale sur le pain et fonds dans la poêle.", "answer": "beurre" },
+      { "id": "if-r376", "difficulty": 1, "clue": "Issu du lait caillé, je peux être frais ou affiné ; camembert et comté appartiennent à ma grande famille.", "answer": "fromage" },
+      { "id": "if-r377", "difficulty": 1, "clue": "Lait fermenté présenté en pot, on me mange à la cuillère, nature ou mélangé à des fruits.", "answer": "yaourt", "acceptedAnswers": ["yogourt", "yoghourt"] },
+      { "id": "if-r378", "difficulty": 1, "clue": "Riche partie grasse du lait, je peux devenir chantilly quand on me fouette avec du sucre.", "answer": "crème" },
+      { "id": "if-r379", "difficulty": 1, "clue": "Je viens de grains moulus en poudre ; dans le saladier, je donne de la matière à la pâte du gâteau.", "answer": "farine" },
+      { "id": "if-r380", "difficulty": 2, "clue": "Dans ma version de boulanger, mes organismes vivants produisent le gaz qui fait gonfler la pâte avant cuisson.", "answer": "levure" },
+      { "id": "if-r381", "difficulty": 1, "clue": "En morceaux ou en poudre, je peux venir de la canne ou de la betterave pour adoucir le café.", "answer": "sucre" },
+      { "id": "if-r382", "difficulty": 1, "clue": "Le paludier me récolte après l’évaporation de l’eau de mer ; quelques grains suffisent à assaisonner votre assiette.", "answer": "sel" },
+      { "id": "if-r383", "difficulty": 1, "clue": "Liquide acide issu d’une fermentation, je conserve les cornichons et me mélange à l’huile pour la salade.", "answer": "vinaigre" },
+      { "id": "if-r384", "difficulty": 1, "clue": "Olive, colza ou tournesol peuvent me fournir ; ce liquide gras assaisonne les plats et sert aussi à les cuire.", "answer": "huile" },
+      { "id": "if-r385", "difficulty": 2, "clue": "Eau parfumée par la cuisson de légumes ou de viande, je me bois ou donne du goût au riz pendant qu’il cuit.", "answer": "bouillon" },
+      { "id": "if-r386", "difficulty": 1, "clue": "Des pommes de terre cuites passent sous le presse-légumes ; avec du lait, je deviens une préparation douce et lisse.", "answer": "purée" },
+      { "id": "if-r387", "difficulty": 1, "clue": "Les œufs sont battus avant de me former dans la poêle ; on peut me plier autour de fromage ou de champignons.", "answer": "omelette" },
+      { "id": "if-r388", "difficulty": 2, "clue": "Mes blancs montés me font prendre de la hauteur au four ; je peux retomber avant que les invités me goûtent.", "answer": "soufflé" },
+      { "id": "if-r389", "difficulty": 2, "clue": "Dessert glacé à base d’eau, de sucre et de fruit, je peux rafraîchir sans contenir ni lait ni crème.", "answer": "sorbet" },
+      { "id": "if-r390", "difficulty": 1, "clue": "Dessert gelé préparé avec du lait ou de la crème, on me sert en boules ; je fonds si le cornet attend trop longtemps.", "answer": "glace", "editorial": { "note": "Même mot qu’une variante de miroir, mais sens alimentaire et énigme distincts." } }
+    ] },
+    { "category": "Sports", "puzzles": [
+      { "id": "if-r391", "difficulty": 1, "clue": "Au football, les joueurs me gonflent avant le match ; ils me passent avec leurs pieds pour m’envoyer dans le but.", "answer": "ballon", "editorial": { "note": "Sens sportif distinct du ballon de la montgolfière." } },
+      { "id": "if-r392", "difficulty": 1, "clue": "Au tennis, je suis petite, jaune et couverte de feutre ; les raquettes me renvoient par-dessus le filet.", "answer": "balle" },
+      { "id": "if-r393", "difficulty": 2, "clue": "Mon nom sert à conduire une voiture, mais au badminton, on me frappe et je peux porter une couronne de plumes.", "answer": "volant" }
+    ] },
+    { "category": "Pêche", "puzzles": [
+      { "id": "if-r394", "difficulty": 1, "clue": "Mes mailles laissent traverser l’eau, mais retiennent les poissons quand le pêcheur me remonte.", "answer": "filet" },
+      { "id": "if-r395", "difficulty": 1, "clue": "Petit crochet pointu au bout d’une ligne, je me cache sous l’appât pour retenir le poisson qui mord.", "answer": "hameçon" },
+      { "id": "if-r396", "difficulty": 2, "clue": "Je ferme le goulot d’une bouteille, mais je peux aussi flotter sur la ligne d’un pêcheur pour lui signaler une touche.", "answer": "bouchon" },
+      { "id": "if-r397", "difficulty": 2, "clue": "Mon manche porte un petit filet en forme de poche ; je soulève le poisson hors de l’eau à la fin de sa capture.", "answer": "épuisette" }
+    ] },
+    { "category": "Sports", "puzzles": [
+      { "id": "if-r398", "difficulty": 1, "clue": "À la pétanque, on me lance vers le cochonnet ; au bowling, des trous dans mon corps accueillent les doigts.", "answer": "boule" },
+      { "id": "if-r399", "difficulty": 1, "clue": "Au fond de la piste de bowling, j’attends debout avec mes voisines que la boule nous renverse.", "answer": "quille" },
+      { "id": "if-r400", "difficulty": 2, "clue": "Petit disque noir, je glisse sur la glace du hockey sous les coups de crosse des joueurs.", "answer": "palet", "acceptedAnswers": ["rondelle", "puck"], "editorial": { "note": "La variante rondelle désigne ici le palet de hockey, pas la pièce métallique de bricolage." } }
+    ] }
+  ]
+}

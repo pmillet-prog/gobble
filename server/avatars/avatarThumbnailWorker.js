@@ -7,10 +7,11 @@ import { getWeeklyAvatarAura } from "../../shared/avatarWeeklyAuras.js";
 import { getAvatarPartIds } from "../../shared/avatarSelections.js";
 
 const root = new URL("../../public/avatars/v1/", import.meta.url);
-parentPort.on("message", async ({ avatar }) => {
+parentPort.on("message", async ({ avatar, allAssets = false }) => {
   try {
+    const catalog = await loadCatalog();
     const renderer = await createAvatarRenderer({
-      catalog: await loadCatalog(), makeCanvas: createCanvas,
+      catalog, makeCanvas: createCanvas,
       loadImage: url => loadImage(fileURLToPath(new URL(url.slice("/avatars/v1/".length), root))),
     });
     // Keep time-limited decorations out of the immutable chat PNG, like medals.
@@ -21,7 +22,8 @@ parentPort.on("message", async ({ avatar }) => {
     const canvas = createCanvas(64, 64);
     result.draw(canvas, "face", null);
     const png = await canvas.encode("png");
-    parentPort.postMessage({ png });
+    const assets = allAssets ? await (await import("./renderAvatarAssets.js")).renderAvatarAssets(avatar, { renderer, createCanvas, catalog }) : undefined;
+    parentPort.postMessage({ png, assets });
   } catch (error) {
     parentPort.postMessage({ error: error?.message || "thumbnail_failed" });
   }

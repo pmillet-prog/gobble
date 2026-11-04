@@ -1,12 +1,28 @@
 import { defineConfig } from "vite";
+import { fileURLToPath } from "node:url";
 import react from "@vitejs/plugin-react";
 import { nativeMediaManifestPlugin } from "./scripts/android/mediaManifestPlugin.mjs";
+import { cameraTimelineStoragePlugin } from "./dev/infortune-perspective/cameraTimelineStoragePlugin.mjs";
 
 export default defineConfig({
-  plugins: [react(), nativeMediaManifestPlugin()],
+  plugins: [react(), nativeMediaManifestPlugin(), cameraTimelineStoragePlugin()],
   optimizeDeps: {
     entries: ["index.html"],
     include: ["@react-three/fiber", "three"],
+  },
+  build: {
+    rollupOptions: {
+      // Separate documents keep the workshop's renderer and styles out of the
+      // home screen, while sharing the normal dev and preview server.
+      input: {
+        game: fileURLToPath(new URL("./index.html", import.meta.url)),
+        wheelTraining: fileURLToPath(new URL("./entrainement/roue/index.html", import.meta.url)),
+        wheel3d: fileURLToPath(new URL("./dev/infortune-perspective/index.html", import.meta.url)),
+        wheel2d: fileURLToPath(new URL("./dev/infortune/index.html", import.meta.url)),
+        wheelFinale: fileURLToPath(new URL("./dev/infortune-finale/index.html", import.meta.url)),
+        roundIntro: fileURLToPath(new URL("./dev/round-intro/index.html", import.meta.url)),
+      },
+    },
   },
   server: {
     host: "0.0.0.0",

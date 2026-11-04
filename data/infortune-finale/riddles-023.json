@@ -1,0 +1,689 @@
+{
+  "schemaVersion": 1,
+  "kind": "riddle",
+  "groups": [
+    {
+      "category": "Quantités et proportions",
+      "puzzles": [
+        {
+          "id": "if-r2101",
+          "difficulty": 1,
+          "answer": "cinquième",
+          "clue": "Je suis une part obtenue en partageant un tout en cinq portions égales."
+        },
+        {
+          "id": "if-r2102",
+          "difficulty": 1,
+          "answer": "tiers",
+          "clue": "Il faut réunir trois parts de ma taille pour reconstituer l’entier."
+        },
+        {
+          "id": "if-r2103",
+          "difficulty": 1,
+          "answer": "quart",
+          "clue": "Je suis la part obtenue quand on partage un tout en quatre portions égales."
+        },
+        {
+          "id": "if-r2104",
+          "difficulty": 1,
+          "answer": "quadruple",
+          "clue": "Je représente quatre fois la quantité de départ."
+        },
+        {
+          "id": "if-r2105",
+          "difficulty": 1,
+          "answer": "triple",
+          "clue": "Je représente trois fois la quantité de départ, sans être seulement son voisin supérieur."
+        },
+        {
+          "id": "if-r2106",
+          "difficulty": 1,
+          "answer": "douzaine",
+          "clue": "Je rassemble autant d’unités qu’il y a de mois dans une année."
+        },
+        {
+          "id": "if-r2107",
+          "difficulty": 1,
+          "answer": "dizaine",
+          "clue": "Je rassemble autant d’unités qu’il y a de doigts sur deux mains ordinaires."
+        },
+        {
+          "id": "if-r2108",
+          "difficulty": 1,
+          "answer": "centaine",
+          "clue": "Dix groupes de dix objets forment une unité de mon ordre."
+        },
+        {
+          "id": "if-r2109",
+          "difficulty": 1,
+          "answer": "millier",
+          "clue": "Dix centaines suffisent à former une unité de mon ordre."
+        },
+        {
+          "id": "if-r2110",
+          "difficulty": 1,
+          "answer": "paire",
+          "clue": "Deux objets qui vont ensemble me forment, comme les chaussures que vous portez."
+        },
+        {
+          "id": "if-r2111",
+          "difficulty": 1,
+          "answer": "majorité",
+          "clue": "Dans un groupe, je rassemble plus de la moitié des éléments considérés."
+        },
+        {
+          "id": "if-r2112",
+          "difficulty": 1,
+          "answer": "minorité",
+          "clue": "Dans un vote à deux choix, je désigne le camp qui réunit le moins de voix."
+        },
+        {
+          "id": "if-r2113",
+          "difficulty": 1,
+          "answer": "totalité",
+          "clue": "Quand rien ne manque et que tout est pris en compte, je désigne l’ensemble complet."
+        },
+        {
+          "id": "if-r2114",
+          "difficulty": 1,
+          "answer": "cinquantaine",
+          "clue": "Je peux désigner un groupe de cinquante éléments ou un âge voisin de cinquante ans."
+        },
+        {
+          "id": "if-r2115",
+          "difficulty": 2,
+          "answer": "proportion",
+          "clue": "Je compare la taille d’une partie à celle de l’ensemble auquel elle appartient."
+        },
+        {
+          "id": "if-r2116",
+          "difficulty": 1,
+          "answer": "surplus",
+          "clue": "Je suis la quantité qui dépasse ce dont on avait besoin.",
+          "acceptedAnswers": [
+            "excédent"
+          ]
+        },
+        {
+          "id": "if-r2117",
+          "difficulty": 1,
+          "answer": "pénurie",
+          "clue": "Quand une ressource manque gravement par rapport aux besoins, je décris la situation."
+        },
+        {
+          "id": "if-r2118",
+          "difficulty": 2,
+          "answer": "équivalence",
+          "clue": "Deux quantités ou deux valeurs se correspondent exactement : je nomme ce rapport."
+        },
+        {
+          "id": "if-r2119",
+          "difficulty": 2,
+          "answer": "étendue",
+          "clue": "Dans une série de nombres, je suis la différence entre la plus grande et la plus petite valeur."
+        },
+        {
+          "id": "if-r2120",
+          "difficulty": 2,
+          "answer": "effectif",
+          "clue": "Je donne le nombre d’éléments d’un groupe, comme celui des élèves inscrits dans une classe."
+        }
+      ]
+    },
+    {
+      "category": "Gestes du quotidien",
+      "puzzles": [
+        {
+          "id": "if-r2121",
+          "difficulty": 1,
+          "answer": "plier",
+          "clue": "Pour ranger une serviette en réduisant son encombrement, on me fait sans couper le tissu."
+        },
+        {
+          "id": "if-r2122",
+          "difficulty": 1,
+          "answer": "déplier",
+          "clue": "La carte routière vient de sortir de sa poche ; on doit me faire pour voir toute sa surface."
+        },
+        {
+          "id": "if-r2123",
+          "difficulty": 1,
+          "answer": "enrouler",
+          "clue": "Avec un câble, je consiste à former des tours successifs autour d’un axe ou de la main."
+        },
+        {
+          "id": "if-r2124",
+          "difficulty": 1,
+          "answer": "dérouler",
+          "clue": "Avec un tapis encore serré sur lui-même, je permets d’en étendre toute la longueur."
+        },
+        {
+          "id": "if-r2125",
+          "difficulty": 1,
+          "answer": "nouer",
+          "clue": "Avec les deux extrémités d’un lacet, je réalise un entrelacement qui tient."
+        },
+        {
+          "id": "if-r2126",
+          "difficulty": 1,
+          "answer": "dénouer",
+          "clue": "Face à un lacet attaché, je libère ses brins sans les couper."
+        },
+        {
+          "id": "if-r2127",
+          "difficulty": 1,
+          "answer": "visser",
+          "clue": "Je fais tourner une pièce filetée pour la faire entrer et la serrer dans son logement."
+        },
+        {
+          "id": "if-r2128",
+          "difficulty": 1,
+          "answer": "dévisser",
+          "clue": "Je fais tourner une pièce filetée dans le sens qui permet de la retirer."
+        },
+        {
+          "id": "if-r2129",
+          "difficulty": 1,
+          "answer": "emboîter",
+          "clue": "Je fais entrer une pièce dans une autre dont la forme lui correspond."
+        },
+        {
+          "id": "if-r2130",
+          "difficulty": 1,
+          "answer": "empiler",
+          "clue": "Avec plusieurs assiettes, je les place les unes sur les autres."
+        },
+        {
+          "id": "if-r2131",
+          "difficulty": 1,
+          "answer": "aligner",
+          "clue": "Avec des objets dispersés, je les place sur une même ligne."
+        },
+        {
+          "id": "if-r2132",
+          "difficulty": 1,
+          "answer": "trier",
+          "clue": "Je sépare les éléments d’un ensemble selon un critère choisi, comme la taille ou la couleur."
+        },
+        {
+          "id": "if-r2133",
+          "difficulty": 1,
+          "answer": "tamiser",
+          "clue": "Pour débarrasser une poudre de ses gros morceaux, je la fais passer à travers un maillage fin."
+        },
+        {
+          "id": "if-r2134",
+          "difficulty": 1,
+          "answer": "égoutter",
+          "clue": "Dans la passoire, je laisse partir le liquide qui entoure les aliments."
+        },
+        {
+          "id": "if-r2135",
+          "difficulty": 1,
+          "answer": "essorer",
+          "clue": "Avec du linge mouillé, je chasse l’eau en le pressant ou en le faisant tourner rapidement."
+        },
+        {
+          "id": "if-r2136",
+          "difficulty": 1,
+          "answer": "éponger",
+          "clue": "Sur une flaque, je fais absorber le liquide avec une matière appropriée."
+        },
+        {
+          "id": "if-r2137",
+          "difficulty": 1,
+          "answer": "racler",
+          "clue": "Je déplace un bord rigide contre une surface pour en retirer ce qui y adhère."
+        },
+        {
+          "id": "if-r2138",
+          "difficulty": 1,
+          "answer": "polir",
+          "clue": "À force de frottements adaptés, je rends une surface plus lisse et parfois brillante."
+        },
+        {
+          "id": "if-r2139",
+          "difficulty": 2,
+          "answer": "lustrer",
+          "clue": "Sur une chaussure cirée, je fais ressortir le brillant par frottement."
+        },
+        {
+          "id": "if-r2140",
+          "difficulty": 2,
+          "answer": "calfeutrer",
+          "clue": "Autour d’une fenêtre qui laisse passer l’air, je bouche les interstices."
+        }
+      ]
+    },
+    {
+      "category": "Positions et mouvements",
+      "puzzles": [
+        {
+          "id": "if-r2141",
+          "difficulty": 1,
+          "answer": "horizontal",
+          "clue": "Je suis parallèle à la surface d’une eau immobile, comme une étagère bien posée.",
+          "acceptedAnswers": [
+            "horizontale"
+          ]
+        },
+        {
+          "id": "if-r2142",
+          "difficulty": 1,
+          "answer": "vertical",
+          "clue": "Je suis la direction indiquée par un fil à plomb suspendu librement.",
+          "acceptedAnswers": [
+            "verticale"
+          ]
+        },
+        {
+          "id": "if-r2143",
+          "difficulty": 2,
+          "answer": "oblique",
+          "clue": "Je penche : ma direction n’est ni parfaitement debout ni parfaitement à plat."
+        },
+        {
+          "id": "if-r2144",
+          "difficulty": 1,
+          "answer": "immobile",
+          "clue": "Même si le monde bouge autour de moi, ma position reste inchangée.",
+          "acceptedAnswers": [
+            "fixe"
+          ]
+        },
+        {
+          "id": "if-r2145",
+          "difficulty": 1,
+          "answer": "mobile",
+          "clue": "Je peux être déplacé ; mon contraire reste fixé au même endroit."
+        },
+        {
+          "id": "if-r2146",
+          "difficulty": 2,
+          "answer": "oscillation",
+          "clue": "Je suis un mouvement qui revient de part et d’autre d’une position d’équilibre."
+        },
+        {
+          "id": "if-r2147",
+          "difficulty": 2,
+          "answer": "translation",
+          "clue": "Dans mon déplacement géométrique, une figure glisse sans tourner ni changer de forme."
+        },
+        {
+          "id": "if-r2148",
+          "difficulty": 1,
+          "answer": "inclinaison",
+          "clue": "Je mesure ou décris la façon dont quelque chose penche par rapport à une référence."
+        },
+        {
+          "id": "if-r2149",
+          "difficulty": 1,
+          "answer": "ascension",
+          "clue": "Je suis une progression vers le haut, comme celle d’un alpiniste vers le sommet."
+        },
+        {
+          "id": "if-r2150",
+          "difficulty": 1,
+          "answer": "descente",
+          "clue": "Après le sommet, je ramène le randonneur vers une altitude plus basse."
+        },
+        {
+          "id": "if-r2151",
+          "difficulty": 1,
+          "answer": "recul",
+          "clue": "Je déplace vers l’arrière ; au figuré, me prendre aide à examiner une situation."
+        },
+        {
+          "id": "if-r2152",
+          "difficulty": 1,
+          "answer": "avancée",
+          "clue": "Je gagne du terrain vers l’avant ; dans un travail, je représente aussi un progrès."
+        },
+        {
+          "id": "if-r2153",
+          "difficulty": 1,
+          "answer": "glissade",
+          "clue": "Sur une surface trop lisse, je peux entraîner le pied plus loin que prévu."
+        },
+        {
+          "id": "if-r2154",
+          "difficulty": 1,
+          "answer": "ricochet",
+          "clue": "Avec un galet lancé presque à plat, je multiplie les petits bonds à la surface de l’eau."
+        },
+        {
+          "id": "if-r2155",
+          "difficulty": 2,
+          "answer": "tressautement",
+          "clue": "Petit mouvement brusque et involontaire, je fais parfois sursauter brièvement un membre."
+        },
+        {
+          "id": "if-r2156",
+          "difficulty": 1,
+          "answer": "trajectoire",
+          "clue": "Je dessine le chemin suivi par un objet qui se déplace, comme une balle lancée."
+        },
+        {
+          "id": "if-r2157",
+          "difficulty": 2,
+          "answer": "orbital",
+          "clue": "Je qualifie un mouvement autour d’un astre sur une trajectoire fermée ou presque.",
+          "acceptedAnswers": [
+            "orbitale"
+          ]
+        },
+        {
+          "id": "if-r2158",
+          "difficulty": 2,
+          "answer": "pendulaire",
+          "clue": "Je qualifie un mouvement de va-et-vient semblable à celui d’un balancier."
+        },
+        {
+          "id": "if-r2159",
+          "difficulty": 2,
+          "answer": "rectiligne",
+          "clue": "Je qualifie un déplacement qui suit une ligne droite."
+        },
+        {
+          "id": "if-r2160",
+          "difficulty": 1,
+          "answer": "circulaire",
+          "clue": "Je qualifie un parcours dont les points dessinent un cercle."
+        }
+      ]
+    },
+    {
+      "category": "Liens entre les mots",
+      "puzzles": [
+        {
+          "id": "if-r2161",
+          "difficulty": 2,
+          "answer": "péjoratif",
+          "clue": "Je qualifie un mot qui exprime un jugement dévalorisant sur ce qu’il désigne.",
+          "acceptedAnswers": [
+            "péjorative"
+          ]
+        },
+        {
+          "id": "if-r2162",
+          "difficulty": 1,
+          "answer": "familier",
+          "clue": "Je qualifie le registre de langue relâché que l’on emploie volontiers entre proches.",
+          "acceptedAnswers": [
+            "familière"
+          ]
+        },
+        {
+          "id": "if-r2163",
+          "difficulty": 1,
+          "answer": "soutenu",
+          "clue": "Je qualifie un registre de langue particulièrement soigné, adapté aux circonstances solennelles.",
+          "acceptedAnswers": [
+            "soutenue"
+          ]
+        },
+        {
+          "id": "if-r2164",
+          "difficulty": 1,
+          "answer": "masculin",
+          "clue": "Dans le genre grammatical, je suis celui de « le soleil » et de « un jardin »."
+        },
+        {
+          "id": "if-r2165",
+          "difficulty": 1,
+          "answer": "neutre",
+          "clue": "Ni pour ni contre, je refuse de choisir un camp dans le désaccord."
+        },
+        {
+          "id": "if-r2166",
+          "difficulty": 1,
+          "answer": "collectif",
+          "clue": "Je qualifie ce qui concerne un groupe entier, plutôt qu’un seul de ses membres.",
+          "acceptedAnswers": [
+            "collective"
+          ]
+        },
+        {
+          "id": "if-r2167",
+          "difficulty": 1,
+          "answer": "individuel",
+          "clue": "Je concerne une seule personne à la fois, comme un entretien mené sans les autres candidats.",
+          "acceptedAnswers": [
+            "individuelle"
+          ]
+        },
+        {
+          "id": "if-r2168",
+          "difficulty": 1,
+          "answer": "commun",
+          "clue": "Je peux être partagé par plusieurs personnes ; en grammaire, je m’oppose à propre.",
+          "acceptedAnswers": [
+            "commune"
+          ]
+        },
+        {
+          "id": "if-r2169",
+          "difficulty": 1,
+          "answer": "propre",
+          "clue": "Dans « Paris », je qualifie le nom ; dans une maison, je peux qualifier un sol sans saleté."
+        },
+        {
+          "id": "if-r2170",
+          "difficulty": 2,
+          "answer": "concret",
+          "clue": "On peut me percevoir ou me représenter comme une chose précise ; je m’oppose à abstrait.",
+          "acceptedAnswers": [
+            "concrète"
+          ]
+        },
+        {
+          "id": "if-r2171",
+          "difficulty": 2,
+          "answer": "abstrait",
+          "clue": "Je qualifie une idée détachée d’un objet matériel précis, comme la justice ou la liberté.",
+          "acceptedAnswers": [
+            "abstraite"
+          ]
+        },
+        {
+          "id": "if-r2172",
+          "difficulty": 1,
+          "answer": "explicite",
+          "clue": "Je dis les choses clairement, sans laisser l’essentiel à deviner."
+        },
+        {
+          "id": "if-r2173",
+          "difficulty": 2,
+          "answer": "implicite",
+          "clue": "Je reste sous-entendu : le contexte permet de me comprendre sans que tout soit formulé."
+        },
+        {
+          "id": "if-r2174",
+          "difficulty": 2,
+          "answer": "littéral",
+          "clue": "Je m’en tiens au sens premier des mots, sans interprétation figurée.",
+          "acceptedAnswers": [
+            "littérale"
+          ]
+        },
+        {
+          "id": "if-r2175",
+          "difficulty": 2,
+          "answer": "figuré",
+          "clue": "Je qualifie le sens dans lequel on peut avoir le cœur sur la main sans opération chirurgicale.",
+          "acceptedAnswers": [
+            "figurée"
+          ]
+        },
+        {
+          "id": "if-r2176",
+          "difficulty": 1,
+          "answer": "précis",
+          "clue": "Avec moi, une indication réduit l’incertitude ; « vers là-bas » n’est guère de mon genre.",
+          "acceptedAnswers": [
+            "précise"
+          ]
+        },
+        {
+          "id": "if-r2177",
+          "difficulty": 1,
+          "answer": "vague",
+          "clue": "Comme adjectif, je manque de netteté ; comme nom, je peux déferler sur une plage."
+        },
+        {
+          "id": "if-r2178",
+          "difficulty": 2,
+          "answer": "ambigu",
+          "clue": "Je laisse hésiter entre plusieurs interprétations possibles.",
+          "acceptedAnswers": [
+            "ambiguë",
+            "ambigüe"
+          ]
+        },
+        {
+          "id": "if-r2179",
+          "difficulty": 2,
+          "answer": "cohérent",
+          "clue": "Mes différentes parties s’accordent entre elles, sans se contredire.",
+          "acceptedAnswers": [
+            "cohérente"
+          ]
+        },
+        {
+          "id": "if-r2180",
+          "difficulty": 2,
+          "answer": "contradictoire",
+          "clue": "Je ne peux pas être vrai en même temps que l’affirmation à laquelle je m’oppose."
+        }
+      ]
+    },
+    {
+      "category": "Vie quotidienne",
+      "puzzles": [
+        {
+          "id": "if-r2181",
+          "difficulty": 1,
+          "answer": "trêve",
+          "clue": "Je suspends temporairement les hostilités, sans être nécessairement une paix définitive."
+        },
+        {
+          "id": "if-r2182",
+          "difficulty": 2,
+          "answer": "concession",
+          "clue": "Dans une discussion, je suis ce que l’on accepte de céder pour faciliter l’accord."
+        },
+        {
+          "id": "if-r2183",
+          "difficulty": 2,
+          "answer": "consensus",
+          "clue": "Je suis un accord largement partagé dans un groupe, sans opposition qui le bloque."
+        },
+        {
+          "id": "if-r2184",
+          "difficulty": 1,
+          "answer": "désaccord",
+          "clue": "Deux personnes ne partagent pas le même avis : je nomme ce qui les sépare."
+        },
+        {
+          "id": "if-r2185",
+          "difficulty": 2,
+          "answer": "conciliation",
+          "clue": "Je cherche à rapprocher les positions pour résoudre un différend."
+        },
+        {
+          "id": "if-r2186",
+          "difficulty": 2,
+          "answer": "médiation",
+          "clue": "Un tiers aide deux parties à renouer le dialogue : je suis cette démarche."
+        },
+        {
+          "id": "if-r2187",
+          "difficulty": 1,
+          "answer": "négociation",
+          "clue": "On y discute les conditions d’un accord avant de décider de l’accepter."
+        },
+        {
+          "id": "if-r2188",
+          "difficulty": 2,
+          "answer": "arbitrage",
+          "clue": "Une personne chargée de trancher un différend me rend entre les positions en conflit."
+        },
+        {
+          "id": "if-r2189",
+          "difficulty": 1,
+          "answer": "engagement",
+          "clue": "Je suis une promesse ou une obligation que l’on accepte de respecter."
+        },
+        {
+          "id": "if-r2190",
+          "difficulty": 1,
+          "answer": "serment",
+          "clue": "Engagement solennel, je peux être prêté en levant la main devant un tribunal."
+        },
+        {
+          "id": "if-r2191",
+          "difficulty": 1,
+          "answer": "accord",
+          "clue": "Je peux être signé après une discussion ; en musique, mes notes sonnent ensemble."
+        },
+        {
+          "id": "if-r2192",
+          "difficulty": 1,
+          "answer": "refus",
+          "clue": "Je réponds non à une demande, sans nécessairement expliquer pourquoi."
+        },
+        {
+          "id": "if-r2193",
+          "difficulty": 1,
+          "answer": "acceptation",
+          "clue": "Une proposition est accueillie favorablement : je marque le fait d’y consentir."
+        },
+        {
+          "id": "if-r2194",
+          "difficulty": 2,
+          "answer": "consentement",
+          "clue": "Je suis un accord donné librement à ce qui est proposé."
+        },
+        {
+          "id": "if-r2195",
+          "difficulty": 1,
+          "answer": "permission",
+          "clue": "Demandée avant d’agir, je signifie que la personne compétente autorise l’action.",
+          "acceptedAnswers": [
+            "autorisation"
+          ]
+        },
+        {
+          "id": "if-r2196",
+          "difficulty": 1,
+          "answer": "méfiance",
+          "clue": "Devant une proposition qui paraît trop belle, je retiens la confiance et pousse à vérifier."
+        },
+        {
+          "id": "if-r2197",
+          "difficulty": 1,
+          "answer": "responsabilité",
+          "clue": "Je lie une personne aux actes qu’elle accomplit et aux conséquences dont elle doit répondre."
+        },
+        {
+          "id": "if-r2198",
+          "difficulty": 1,
+          "answer": "solidarité",
+          "clue": "Je rapproche ceux qui s’entraident face à une difficulté commune."
+        },
+        {
+          "id": "if-r2199",
+          "difficulty": 2,
+          "answer": "réciprocité",
+          "clue": "Ce que l’un accorde à l’autre lui est rendu en retour : je décris ce rapport."
+        },
+        {
+          "id": "if-r2200",
+          "difficulty": 2,
+          "answer": "équité",
+          "clue": "Je cherche un traitement juste en tenant compte des situations de chacun."
+        }
+      ]
+    }
+  ]
+}

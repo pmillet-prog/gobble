@@ -1,0 +1,128 @@
+{
+  "schemaVersion": 1,
+  "kind": "quiz",
+  "references": {
+    "planets": {
+      "title": "NASA — About the Planets",
+      "url": "https://science.nasa.gov/solar-system/planets/"
+    },
+    "ceres": {
+      "title": "NASA — Ceres Facts",
+      "url": "https://science.nasa.gov/dwarf-planets/ceres/facts/"
+    },
+    "paris": {
+      "title": "UNESCO — Paris, rives de la Seine",
+      "url": "https://whc.unesco.org/fr/list/600/"
+    },
+    "athens": {
+      "title": "UNESCO — Acropole d’Athènes",
+      "url": "https://whc.unesco.org/fr/list/404/"
+    },
+    "judo": {
+      "title": "Fédération internationale de judo — Judo Corner, histoire du Kodokan",
+      "url": "https://www.ijf.org/history/judo-corner"
+    },
+    "sun": {
+      "title": "NASA — Sun Facts",
+      "url": "https://science.nasa.gov/sun/facts/"
+    },
+    "moon": {
+      "title": "NASA — Moon Facts",
+      "url": "https://science.nasa.gov/moon/facts/"
+    },
+    "eclipse": {
+      "title": "NASA — Types of Solar Eclipses",
+      "url": "https://science.nasa.gov/eclipses/types/"
+    },
+    "comet": {
+      "title": "NASA — Comet Facts",
+      "url": "https://science.nasa.gov/solar-system/comets/facts/"
+    }
+  },
+  "groups": [
+    { "category": "Astronomie", "puzzles": [
+      {"id":"if-q007","difficulty":1,"clue":"Quelle planète est à la fois la plus petite des huit et la plus proche du Soleil ?","answer":"Mercure","reference":"planets"},
+      {"id":"if-q008","difficulty":1,"clue":"Quelle planète se trouve entre Mercure et la Terre dans l’ordre des orbites autour du Soleil ?","answer":"Vénus","reference":"planets"},
+      {"id":"if-q009","difficulty":1,"clue":"Quelle planète voisine de la Terre doit son surnom de planète rouge à sa couleur ?","answer":"Mars","reference":"planets"},
+      {"id":"if-q010","difficulty":1,"clue":"Quelle géante gazeuse, sixième planète depuis le Soleil, est célèbre pour ses grands anneaux ?","answer":"Saturne","reference":"planets"},
+      {"id":"if-q011","difficulty":2,"clue":"Quelle planète géante occupe la septième place depuis le Soleil, entre Saturne et Neptune ?","answer":"Uranus","reference":"planets"},
+      {"id":"if-q012","difficulty":2,"clue":"Depuis le classement de Pluton parmi les planètes naines, quelle planète est la plus éloignée du Soleil ?","answer":"Neptune","reference":"planets"},
+      {"id":"if-q013","difficulty":1,"clue":"Quel astre, longtemps présenté comme la neuvième planète, a été reclassé comme planète naine ?","answer":"Pluton","reference":"planets"},
+      {"id":"if-q014","difficulty":3,"clue":"Quelle planète naine est le plus gros objet de la ceinture d’astéroïdes entre Mars et Jupiter ?","answer":"Cérès","reference":"ceres"},
+      {"id":"if-q015","difficulty":1,"clue":"Quel est le nom de l’étoile autour de laquelle la Terre accomplit son orbite annuelle ?","answer":"Soleil","reference":"sun"},
+      {"id":"if-q016","difficulty":1,"clue":"Quel astre est l’unique satellite naturel permanent de la Terre ?","answer":"Lune","reference":"moon"},
+      {"id":"if-q017","difficulty":2,"clue":"Quel phénomène solaire observe-t-on lorsque la Lune masque tout ou partie du disque du Soleil ?","answer":"éclipse","reference":"eclipse"},
+      {"id":"if-q018","difficulty":2,"clue":"Quel type d’astre possède un noyau glacé qui peut développer des queues à l’approche du Soleil ?","answer":"comète","reference":"comet"}
+    ] },
+    { "category": "Villes et capitales", "puzzles": [
+      {"id":"if-q019","difficulty":1,"clue":"Quelle capitale traversée par la Seine abrite la tour Eiffel ?","answer":"Paris","reference":"paris"},
+      {"id":"if-q020","difficulty":1,"clue":"Dans quelle capitale peut-on voir le palais de Westminster au bord de la Tamise ?","answer":"Londres"},
+      {"id":"if-q021","difficulty":2,"clue":"Quelle capitale portugaise abrite la tour de Belém, près de l’embouchure du Tage ?","answer":"Lisbonne"},
+      {"id":"if-q022","difficulty":1,"clue":"Quelle capitale grecque est dominée par l’Acropole et son Parthénon ?","answer":"Athènes","reference":"athens"},
+      {"id":"if-q023","difficulty":1,"clue":"Quelle métropole japonaise, autrefois appelée Edo, est aujourd’hui la capitale du pays ?","answer":"Tokyo"},
+      {"id":"if-q024","difficulty":2,"clue":"Quelle ville est la capitale du Canada, plutôt que Montréal ou Toronto ?","answer":"Ottawa"}
+    ] },
+    { "category": "Géographie", "puzzles": [
+      {"id":"if-q025","difficulty":1,"clue":"Quel fleuve arrose l’Égypte avant de rejoindre la Méditerranée par un vaste delta ?","answer":"Nil"},
+      {"id":"if-q026","difficulty":2,"clue":"Quel grand fleuve traverse le nord du Brésil et donne son nom à la forêt qui l’entoure ?","answer":"Amazone"},
+      {"id":"if-q027","difficulty":2,"clue":"Quel fleuve européen traverse Vienne, Budapest et Belgrade avant de rejoindre la mer Noire ?","answer":"Danube"},
+      {"id":"if-q028","difficulty":1,"clue":"Quel immense désert chaud s’étend sur une grande partie du nord de l’Afrique ?","answer":"Sahara"},
+      {"id":"if-q029","difficulty":2,"clue":"Quelle chaîne de montagnes sépare la péninsule Ibérique du reste de l’Europe ?","answer":"Pyrénées"},
+      {"id":"if-q030","difficulty":2,"clue":"Dans quelle chaîne de montagnes se trouve l’Everest ?","answer":"Himalaya"},
+      {"id":"if-q031","difficulty":2,"clue":"Quel océan borde à la fois la côte ouest des Amériques et la côte est de l’Asie ?","answer":"Pacifique"},
+      {"id":"if-q032","difficulty":2,"clue":"Quelle grande mer s’étend entre le sud de l’Europe et le nord de l’Afrique ?","answer":"Méditerranée"},
+      {"id":"if-q033","difficulty":2,"clue":"Quel continent porte le pôle Sud et une immense calotte de glace ?","answer":"Antarctique"},
+      {"id":"if-q034","difficulty":2,"clue":"Quel pays africain forme la grande île située à l’est du Mozambique ?","answer":"Madagascar"},
+      {"id":"if-q035","difficulty":2,"clue":"Quelle île française de Méditerranée a pour préfecture Ajaccio ?","answer":"Corse"},
+      {"id":"if-q036","difficulty":2,"clue":"Quel pays d’Amérique du Sud possède la ville de Rio de Janeiro ?","answer":"Brésil"}
+    ] },
+    { "category": "Géométrie", "puzzles": [
+      {"id":"if-q037","difficulty":1,"clue":"Quel nom donne-t-on à un polygone qui possède trois côtés ?","answer":"triangle"},
+      {"id":"if-q038","difficulty":1,"clue":"Quelle figure plane possède quatre côtés égaux et quatre angles droits ?","answer":"carré"},
+      {"id":"if-q039","difficulty":1,"clue":"Quel quadrilatère a quatre angles droits et deux grands côtés plus longs que ses deux petits côtés ?","answer":"rectangle"},
+      {"id":"if-q040","difficulty":2,"clue":"Comment nomme-t-on un quadrilatère qui a quatre côtés égaux, même lorsqu’aucun angle n’est droit ?","answer":"losange"},
+      {"id":"if-q041","difficulty":2,"clue":"Quel nom générique désigne la famille des quadrilatères dont les côtés opposés sont parallèles deux à deux ?","answer":"parallélogramme"},
+      {"id":"if-q042","difficulty":2,"clue":"Quel quadrilatère possède deux bases parallèles, alors que ses deux autres côtés ne le sont pas ?","answer":"trapèze"},
+      {"id":"if-q043","difficulty":2,"clue":"Comment appelle-t-on un polygone à cinq côtés ?","answer":"pentagone"},
+      {"id":"if-q044","difficulty":1,"clue":"Quel nom de polygone à six côtés sert aussi de surnom à la France métropolitaine ?","answer":"hexagone"},
+      {"id":"if-q045","difficulty":2,"clue":"Quel nom donne-t-on au polygone qui compte dix côtés ?","answer":"décagone"},
+      {"id":"if-q046","difficulty":1,"clue":"Quelle courbe plane fermée rassemble tous les points situés à une même distance d’un centre ?","answer":"cercle"},
+      {"id":"if-q047","difficulty":2,"clue":"Quel segment relie deux points d’un cercle en passant par son centre ?","answer":"diamètre"},
+      {"id":"if-q048","difficulty":2,"clue":"Dans un triangle rectangle, quel nom porte le côté opposé à l’angle droit ?","answer":"hypoténuse"}
+    ] },
+    { "category": "Langue française", "puzzles": [
+      {"id":"if-q049","difficulty":1,"clue":"Dans la phrase Le chat dort, quelle fonction grammaticale remplit le groupe Le chat ?","answer":"sujet"},
+      {"id":"if-q050","difficulty":1,"clue":"Quelle classe grammaticale rassemble des mots comme courir, dormir et sembler ?","answer":"verbe"},
+      {"id":"if-q051","difficulty":1,"clue":"À quelle classe grammaticale appartient le mot bleu dans l’expression un vélo bleu ?","answer":"adjectif"},
+      {"id":"if-q052","difficulty":1,"clue":"Quel nombre grammatical s’oppose au singulier dans des expressions comme les chats ?","answer":"pluriel"},
+      {"id":"if-q053","difficulty":2,"clue":"Comment appelle-t-on un mot de sens voisin d’un autre, comme heureux par rapport à content ?","answer":"synonyme"},
+      {"id":"if-q054","difficulty":2,"clue":"Quel nom porte un mot de sens opposé à un autre, comme froid par rapport à chaud ?","answer":"antonyme","acceptedAnswers":["contraire"]},
+      {"id":"if-q055","difficulty":2,"clue":"Quel mot désigne le résultat obtenu en réordonnant toutes les lettres d’un autre mot, comme chien et niche ?","answer":"anagramme"},
+      {"id":"if-q056","difficulty":2,"clue":"Comment appelle-t-on un mot qui se lit de la même façon dans les deux sens, comme radar ?","answer":"palindrome"},
+      {"id":"if-q057","difficulty":2,"clue":"Quel adjectif qualifie deux mots de même prononciation, comme mer et mère ?","answer":"homophone","acceptedAnswers":["homophones"]},
+      {"id":"if-q058","difficulty":2,"clue":"Quel nom donne-t-on à un mot qui imite un bruit, comme boum ou cocorico ?","answer":"onomatopée"},
+      {"id":"if-q059","difficulty":1,"clue":"Quel nom de catégorie réunit les lettres A, E, I, O, U et Y dans l’alphabet français scolaire ?","answer":"voyelle","acceptedAnswers":["voyelles"]},
+      {"id":"if-q060","difficulty":1,"clue":"Quel nom de catégorie réunit les lettres B, C, D et F, par opposition aux voyelles ?","answer":"consonne","acceptedAnswers":["consonnes"]}
+    ] },
+    { "category": "Sports", "puzzles": [
+      {"id":"if-q061","difficulty":1,"clue":"Quel sport se joue avec un volant que les adversaires se renvoient à l’aide de raquettes ?","answer":"badminton"},
+      {"id":"if-q062","difficulty":1,"clue":"Quel sport consiste à envoyer un ballon dans un panier placé en hauteur chez l’adversaire ?","answer":"basket","acceptedAnswers":["basketball"]},
+      {"id":"if-q063","difficulty":1,"clue":"Dans quel sport les équipes se renvoient-elles un ballon au-dessus d’un filet, sans le laisser toucher leur sol ?","answer":"volley","acceptedAnswers":["volleyball"]},
+      {"id":"if-q064","difficulty":1,"clue":"Quel sport d’équipe se joue principalement avec les pieds et possède un poste de gardien de but ?","answer":"football","acceptedAnswers":["foot","soccer"]},
+      {"id":"if-q065","difficulty":1,"clue":"Quel sport collectif se joue à la main avec un ballon lancé vers un but défendu par un gardien, en salle ?","answer":"handball","acceptedAnswers":["hand"]},
+      {"id":"if-q066","difficulty":1,"clue":"Quel sport de raquette est notamment pratiqué lors du tournoi de Roland-Garros ?","answer":"tennis"},
+      {"id":"if-q067","difficulty":1,"clue":"Dans quel sport collectif à ballon ovale marque-t-on des essais et dispute-t-on des mêlées ?","answer":"rugby"},
+      {"id":"if-q068","difficulty":2,"clue":"Quelle discipline sportive réunit l’épée, le fleuret et le sabre ?","answer":"escrime"},
+      {"id":"if-q069","difficulty":2,"clue":"Quel art martial japonais a été créé par Jigoro Kano, fondateur du Kodokan ?","answer":"judo","reference":"judo"},
+      {"id":"if-q070","difficulty":2,"clue":"Quel art martial d’origine okinawaïenne utilise des coups de poing et de pied et des enchaînements appelés katas ?","answer":"karaté"},
+      {"id":"if-q071","difficulty":1,"clue":"Quel sport de combat possède une forme anglaise où les adversaires se frappent uniquement avec les poings gantés ?","answer":"boxe"},
+      {"id":"if-q072","difficulty":1,"clue":"Quel jeu de boules consiste à se rapprocher d’un cochonnet en lançant depuis un cercle, les pieds au sol ?","answer":"pétanque"},
+      {"id":"if-q073","difficulty":1,"clue":"Quel sport utilise des clubs pour envoyer une petite balle dans une série de trous ?","answer":"golf"},
+      {"id":"if-q074","difficulty":1,"clue":"Quel sport regroupe notamment la brasse, le dos, le crawl et le papillon ?","answer":"natation"},
+      {"id":"if-q075","difficulty":1,"clue":"À quelle discipline sportive appartient le Tour de France disputé à vélo ?","answer":"cyclisme"},
+      {"id":"if-q076","difficulty":2,"clue":"Quel sport d’hiver associe le ski de fond au tir à la carabine ?","answer":"biathlon"},
+      {"id":"if-q077","difficulty":2,"clue":"Quelle épreuve enchaîne habituellement la natation, le vélo puis la course à pied ?","answer":"triathlon"},
+      {"id":"if-q078","difficulty":2,"clue":"Quel sport de force comprend les mouvements de l’arraché et de l’épaulé-jeté ?","answer":"haltérophilie"}
+    ] }
+  ]
+}
