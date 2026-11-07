@@ -1,4 +1,5 @@
 import { AdditiveBlending, BackSide, CanvasTexture, CylinderGeometry, FrontSide, Group, Mesh, MeshBasicMaterial, MeshStandardMaterial, RepeatWrapping, SRGBColorSpace } from "three";
+import { createRenderCanvas } from './wheelRenderPlatform.js';
 import { deskWallRadius } from "./stageDeskDimensions.js";
 
 export const LED_BANDS = Object.freeze([
@@ -21,7 +22,7 @@ export function ledBandGeometry(face, height, offset) {
 }
 
 function stripTexture() {
-  const canvas = Object.assign(document.createElement("canvas"), { width: 64, height: 64 });
+  const canvas = createRenderCanvas(64, 64);
   const context = canvas.getContext("2d"), halo = context.createRadialGradient(32, 32, 1, 32, 32, 31);
   halo.addColorStop(0, "#ffffff"); halo.addColorStop(0.18, "#d9ffff");
   halo.addColorStop(0.4, "rgba(96,238,242,0.9)"); halo.addColorStop(1, "rgba(27,154,169,0)");
@@ -32,7 +33,7 @@ function stripTexture() {
 }
 
 function spillTexture() {
-  const canvas = Object.assign(document.createElement("canvas"), { width: 1, height: 128 });
+  const canvas = createRenderCanvas(1, 128);
   const context = canvas.getContext("2d"), gradient = context.createLinearGradient(0, 0, 0, 128);
   for (const [stop, alpha] of [[0, 0], [0.25, 0.12], [0.5, 0.65], [0.75, 0.12], [1, 0]]) gradient.addColorStop(stop, `rgba(255,255,255,${alpha})`);
   context.fillStyle = gradient; context.fillRect(0, 0, 1, 128);

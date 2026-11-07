@@ -1,0 +1,40 @@
+.infortune-countdown { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 10px 14px; border: 1px solid #6c8ba5; border-radius: 8px; color: #d3e9fa; background: #0b2033; font-size: 12px; }
+.infortune-countdown strong { color: #fff1b8; font-size: 22px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.infortune-countdown[data-urgent="true"] { border-color: #efa96f; }
+.perspective-workshop__viewport > .infortune-countdown { margin: 12px 16px 0; }
+.tournament-exchange { position: absolute; z-index: 6; left: 50%; bottom: 14px; transform: translateX(-50%); box-sizing: border-box; width: min(94%, 540px); padding: 20px 24px; border: 1px solid #f6cf87; border-radius: 18px; color: #f0f6ff; background: linear-gradient(140deg, #142d42f5, #070f20fa); box-shadow: 0 12px 36px #000a, 0 0 22px #ffd58622; text-align: center; pointer-events: auto; animation: tournament-choice-appear .3s ease-out; }
+.tournament-exchange__eyebrow { margin: 0 0 8px; color: #ffe2a5; font-size: 10px; letter-spacing: .18em; font-weight: 750; }
+.tournament-exchange h2 { margin: 6px 0 12px; font-size: 21px; }
+.tournament-exchange p { font-size: 12px; line-height: 1.5; }
+.tournament-exchange .perspective-workshop__launch { width: 100%; margin-top: 0; }
+.tournament-exchange small { display: block; margin-top: 10px; color: #acbdce; font-size: 10px; }
+.tournament-exchange__transfer { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 16px; margin: 20px 0; }
+.tournament-exchange__transfer > div { display: grid; gap: 6px; padding: 12px 8px; border: 1px solid #99cddd55; border-radius: 10px; background: #183449; }
+.tournament-exchange__transfer span { font-size: 12px; }
+.tournament-exchange__transfer del { color: #9cb1c8; font-size: 14px; }
+.tournament-exchange__transfer strong { color: #fff0c3; font-size: clamp(20px, 3vw, 32px); animation: tournament-bank-arrive .8s .5s both; }
+.tournament-exchange__transfer > b { color: #80e7ed; font-size: 36px; animation: tournament-swap .9s ease-in-out; }
+.tournament-exchange__impact > b { display: block; margin-top: 8px; font-size: 22px; }
+.tournament-exchange__impact[data-gain="1"] > b { color: #8be2ba; }
+.tournament-exchange__impact[data-gain="-1"] > b { color: #ffb29a; }
+.tournament-exchange-wait { position: absolute; z-index: 6; bottom: 18px; left: 5%; right: 5%; padding: 14px; border: 1px solid #80c8dd; border-radius: 12px; background: #061c30ed; color: #e4f6ff; text-align: center; font-size: 13px; }
+.tournament-exchange-summary { margin-top: 16px; padding: 16px 20px; border: 1px solid #d9bf7966; border-radius: 12px; background: #152a37; color: #e2eef6; font-size: 13px; line-height: 1.7; }
+.tournament-exchange-summary h3 { margin: 0; color: #ffe0a3; }
+.workshop-tournament__scenario { display: grid; gap: 8px; margin-top: 18px; color: #c2d1df; font-size: 11px; }
+.workshop-tournament__scenario select { max-width: 100%; min-width: 0; background: #102235; color: #fff0d2; padding: 8px; border: 1px solid #557184; border-radius: 6px; }
+@keyframes tournament-choice-appear { from { opacity: 0; translate: 0 12px; } to { opacity: 1; translate: 0 0; } }
+@keyframes tournament-bank-arrive { from { opacity: 0; transform: translateY(-14px) scale(.8); } to { opacity: 1; transform: none; } }
+@keyframes tournament-swap { 50% { transform: rotate(180deg) scale(1.3); } to { transform: rotate(360deg); } }
+@media(max-width: 650px) {
+  .workshop-tournament .perspective-workshop__scene[data-exchanging="true"] { min-height: 340px; }
+  .tournament-exchange { padding: 13px 14px; bottom: 8px; }
+  .tournament-exchange h2 { font-size: 17px; margin-bottom: 6px; }
+  .tournament-exchange p { margin: 6px 0; font-size: 11px; }
+  .tournament-exchange .infortune-countdown { padding: 4px 10px; }
+  .tournament-exchange__transfer { margin: 12px 0; gap: 8px; }
+  .tournament-exchange small { font-size: 9px; margin-top: 5px; }
+  .workshop-tournament button.infortune-contestants__player { padding: 10px; flex: 1; }
+}
+@media(prefers-reduced-motion: reduce) {
+  .tournament-exchange, .tournament-exchange__transfer strong, .tournament-exchange__transfer > b { animation: none; }
+}

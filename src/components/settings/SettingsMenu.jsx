@@ -172,6 +172,8 @@ function SettingsMenu(props) {
     soundTileStepEnabled,
     soundTimerEnabled,
     soundValidationEnabled,
+    soundWheelIntroEnabled,
+    onToggleWheelIntro,
     themeApplying,
     themeCategoryLabel,
     themeControlButtons,
@@ -208,6 +210,8 @@ function SettingsMenu(props) {
     tileLetterColorValue,
     tilePointsVisible,
     tileScore,
+    toggleDarkModeQuick,
+    toggleSoundQuick,
     unlockDevControls,
     vibrationOn,
     visualConfettiEnabled,
@@ -416,9 +420,10 @@ function SettingsMenu(props) {
   return (
     <SettingsMenuFrame
       onClose={() => closeSettingsMenu({ animatePanels: true })}
+      isMobileLayout={isMobileLayout}
     >
       <div
-        className={`relative w-full max-w-xs max-h-full overflow-y-auto rounded-3xl border p-5 shadow-2xl ${settingsShellClass}`}
+        className={`settings-menu-card relative w-full max-w-xs max-h-full overflow-y-auto rounded-3xl border shadow-2xl ${settingsShellClass}`}
       >
         <div className="flex items-center justify-between mb-3">
           {isHelpMenuOpen ? <button type="button" onClick={() => setIsHelpMenuOpen(false)}
@@ -434,7 +439,7 @@ function SettingsMenu(props) {
           </button>
           <button
             type="button"
-            className={`h-7 w-7 rounded-full border flex items-center justify-center ${
+            className={`settings-menu-close rounded-full border flex items-center justify-center ${
               "bg-gradient-to-b from-amber-200 to-amber-600 border-amber-300/70 text-slate-950"
             }`}
             onClick={() => {
@@ -451,6 +456,10 @@ function SettingsMenu(props) {
           onTutorial={() => { closeSettingsMenu({ animatePanels: true }); openTutorialFromHome(); }}
         /> : <SettingsShortcutMenu
           darkMode={menuDarkMode}
+          gameDarkMode={darkMode}
+          allSoundOn={allSoundOn}
+          onToggleSound={toggleSoundQuick}
+          onToggleDarkMode={toggleDarkModeQuick}
           devMenuUnlocked={devMenuUnlocked}
           devControlsEnabled={devControls?.enabled}
           moderationAvailable={moderationAvailable}
@@ -465,6 +474,8 @@ function SettingsMenu(props) {
       </div>
       <div
         className={`absolute inset-y-0 right-0 w-full max-w-md border-l-2 shadow-2xl transition-transform duration-300 ${settingsShellClass} ${isGeneralMenuOpen ? "translate-x-0" : "translate-x-full invisible pointer-events-none"}`}
+        inert={isGeneralMenuOpen ? undefined : ""}
+        aria-hidden={isGeneralMenuOpen ? undefined : true}
       >
         <div className="h-full flex flex-col">
           <div className="shrink-0 px-4 py-3 border-b border-amber-200/25 bg-amber-300/10">
@@ -619,6 +630,8 @@ function SettingsMenu(props) {
             soundTileStepEnabled,
             soundTimerEnabled,
             soundGobbleEnabled,
+            soundWheelIntroEnabled,
+            onToggleWheelIntro,
             onClose: closeSoundMenu,
             onToggleAll: () => setAllSoundEnabled(!allSoundOn),
             onMasterVolumeChange: (next) =>
@@ -740,6 +753,8 @@ function SettingsMenu(props) {
         className={`absolute inset-y-0 right-0 w-full max-w-md border-l-2 border-amber-300/70 shadow-2xl transition-transform duration-300 bg-[linear-gradient(180deg,rgba(18,47,103,0.97),rgba(7,22,55,0.99))] text-amber-50 ${
           isThemeMenuOpen ? "translate-x-0" : "translate-x-full pointer-events-none"
         }`}
+        inert={isThemeMenuOpen ? undefined : ""}
+        aria-hidden={isThemeMenuOpen ? undefined : true}
       >
         <div className="h-full flex flex-col">
           <div

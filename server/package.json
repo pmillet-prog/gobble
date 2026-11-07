@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "start": "node scripts/start-server.mjs",
-    "start:local": "node scripts/start-server.mjs",
+    "start:local": "node scripts/start-server.mjs --local",
     "test:bots": "node ./tests/botManager.test.js",
     "auth:force-reset": "node ./scripts/auth-force-reset.js",
     "profile:repair-word-records": "node ./scripts/repair-profile-word-records-from-weekly.mjs"

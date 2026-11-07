@@ -1,8 +1,9 @@
 // Measure the real scene after shader warmup. Visibility changes discard the
 // partial sample, so a background tab cannot be mistaken for a slow phone.
+import { renderVisibility } from './wheelRenderPlatform.js';
 export function measureWheelRendering({ draw, signal, duration = 1200, maxDuration = 4000,
   requestFrame = requestAnimationFrame, cancelFrame = cancelAnimationFrame,
-  now = () => performance.now(), visibility = document }) {
+  now = () => performance.now(), visibility = renderVisibility }) {
   return new Promise((resolve, reject) => {
     let frame = null, previous = null, elapsed = 0, visibleElapsed = 0, count = 0, settled = false;
     let intervals = [], costs = [];

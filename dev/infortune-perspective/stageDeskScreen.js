@@ -1,6 +1,8 @@
 import { BackSide, CanvasTexture, Mesh, MeshStandardMaterial, SRGBColorSpace } from "three";
 import { createDeskWallGeometry } from "./stageDeskGeometry.js";
 import { DESK, DESK_SCREEN_TEXT, DESK_WALL_HEIGHT } from "./stageDeskDimensions.js";
+import { contestantBankView } from "../../src/features/infortune/contestantBankView.js";
+import { createRenderCanvas } from './wheelRenderPlatform.js';
 
 const TAU = Math.PI * 2;
 const circumference = TAU * DESK.innerTopRadius;
@@ -14,16 +16,16 @@ export function createDeskScreenGeometry() {
   return geometry;
 }
 
-function screenFields(contestants, economy) {
+function screenFields(contestants, economy, selectedId) {
   return contestants.map(contestant => {
-    const member = economy?.members?.[contestant.id];
-    return { name: contestant.nick, color: contestant.color,
+    const bank = contestantBankView(economy, contestant.id);
+    const selected = contestant.id === selectedId;
+    return { name: contestant.nick, color: selected ? "#ffd36b" : contestant.color, selected,
       angle: Math.atan2(contestant.position[0], contestant.position[2]),
-      amount: economy?.hidden ? "CAGNOTTE MASQUÉE"
-        : Number.isFinite(member?.bank) ? `${member.bank.toLocaleString("fr-FR")} €` : "—",
-      hidden: Boolean(economy?.hidden),
-      caption: contestant.isBot ? "PRÉSENTATEUR INVITÉ"
-        : contestant.rank ? `CANDIDAT · ${contestant.rank}${contestant.rank === 1 ? "er" : "e"}` : "CANDIDAT",
+      amount: bank.hidden ? bank.amount.toLocaleUpperCase("fr-FR") : bank.amount,
+      hidden: bank.hidden,
+      caption: selected ? "CANDIDAT SÉLECTIONNÉ" : bank.status?.toLocaleUpperCase("fr-FR") || (contestant.isBot ? "PRÉSENTATEUR INVITÉ"
+        : contestant.rank ? `CANDIDAT · ${contestant.rank}${contestant.rank === 1 ? "er" : "e"}` : "CANDIDAT"),
     };
   });
 }
@@ -64,18 +66,18 @@ function paintScreen(canvas, fields) {
     ctx.fillText(value, x, DESK.topBaseY - worldY, DESK_SCREEN_TEXT.arcWidth * DESK.innerTopRadius * 0.94);
   }
   const center = circumference / 2;
-  text("LA ROUE DE", center, DESK_SCREEN_TEXT.nameY, 11, "#e3c691", 600);
-  text("L’INFORTUNE", center, DESK_SCREEN_TEXT.amountY, 22, "#ffe1a1", 800);
-  text("gobble", center, DESK_SCREEN_TEXT.captionY, 9, "#d5bf99");
+  text("LA ROUE DE", center, 94, 10, "#e3c691", 600);
+  text("L’INFORTUNE", center, 77, 17, "#ffe1a1", 800);
+  text("Christian Mauresque", center, 47, 21, "#f7dfac");
   for (const field of fields) {
     const x = (0.5 - field.angle / TAU) * circumference;
-    text(field.name, x, DESK_SCREEN_TEXT.nameY, 15, "#f1f7ff");
-    text(field.amount, x, DESK_SCREEN_TEXT.amountY, field.hidden ? 11 : 24, field.color, 800);
-    text(field.caption, x, DESK_SCREEN_TEXT.captionY, 7.5, "#bad1e0", 600);
+    text(field.name, x, DESK_SCREEN_TEXT.nameY, 25, field.selected ? "#ffe5a0" : "#f1f7ff", 800);
+    text(field.amount, x, DESK_SCREEN_TEXT.amountY, field.hidden ? 16 : 38, field.color, 800);
+    text(field.caption, x, DESK_SCREEN_TEXT.captionY, 8, "#bad1e0", 600);
   }
 }
 
-export function createDeskScreen(contestants, { textureWidth = 4096, createCanvas = () => document.createElement("canvas") } = {}) {
+export function createDeskScreen(contestants, { textureWidth = 4096, createCanvas = createRenderCanvas } = {}) {
   const canvas = createCanvas(); canvas.width = textureWidth; canvas.height = Math.round(textureWidth / 8);
   const texture = new CanvasTexture(canvas); texture.colorSpace = SRGBColorSpace; texture.anisotropy = 4;
   texture.name = "continuous-desk-screen";
@@ -83,14 +85,16 @@ export function createDeskScreen(contestants, { textureWidth = 4096, createCanva
     emissive: "#ffffff", emissiveMap: texture, emissiveIntensity: 1.1, side: BackSide });
   const mesh = new Mesh(createDeskScreenGeometry(), material); mesh.name = "desk-inner-screen";
   mesh.castShadow = true; mesh.receiveShadow = true;
-  let signature;
-  function setBanks(economy) {
-    const fields = screenFields(contestants, economy), next = JSON.stringify(fields);
+  let signature, economy = null, selectedId = null;
+  function refresh() {
+    const fields = screenFields(contestants, economy, selectedId), next = JSON.stringify(fields);
     if (next === signature) return;
     signature = next; paintScreen(canvas, fields); texture.needsUpdate = true;
   }
-  setBanks(null);
+  function setBanks(value) { economy = value; refresh(); }
+  function setSelected(id) { selectedId = id; refresh(); }
+  refresh();
   // Geometry, material and the single reusable texture belong to the stage's
   // existing disposal traversal. No animation loop or additional render pass.
-  return { mesh, setBanks };
+  return { mesh, setBanks, setSelected };
 }

@@ -98,5 +98,12 @@ test("the halo follows current spot position, aim, colour and intensity without 
   assert.equal(uniforms.haloCones.value[0].x, 320000);
   assert.equal(uniforms.contourMap.value, texture);
   light.visible = false; halo.update(); assert.equal(uniforms.haloCones.value[0].x, 0);
+  const version = halo.material.version;
+  halo.setSelected(true); halo.update();
+  assert.equal(uniforms.selectedHalo.value, 1);
+  assert.equal(uniforms.contourMap.value, texture, "Selection reuses the existing silhouette mask");
+  assert.equal(halo.material.version, version, "Selection does not trigger shader recompilation");
+  halo.setSelected(false); halo.update();
+  assert.equal(uniforms.selectedHalo.value, 0);
   halo.material.dispose(); texture.dispose();
 });

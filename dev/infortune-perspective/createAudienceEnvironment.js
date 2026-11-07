@@ -1,4 +1,5 @@
-import { BackSide, Color, Group, Mesh, MeshBasicMaterial, SRGBColorSpace, TextureLoader } from "three";
+import { BackSide, CanvasTexture, Color, Group, Mesh, MeshBasicMaterial, SRGBColorSpace } from "three";
+import { loadRenderImage } from './wheelRenderPlatform.js';
 import { AUDIENCE_ROWS, audienceRowGeometry, audienceTierGeometry, placeAudienceRow } from "./audienceRows.js";
 import { STAGE_FLOOR } from "./stageFixtures.js";
 
@@ -6,13 +7,15 @@ import { STAGE_FLOOR } from "./stageFixtures.js";
 // parallax and mutual occlusion come from the camera and depth buffer.
 export function createAudienceEnvironment() {
   const root = new Group(); root.name = "tiered-photographic-audience";
-  const loader = new TextureLoader();
+  const images = [], abort = new AbortController();
   const platformMaterial = new MeshBasicMaterial({ color: "#050911", toneMapped: false });
   let platformAttached = false;
   let disposed = false;
   const ready = Promise.allSettled(AUDIENCE_ROWS.map(async row => {
-    const texture = await loader.loadAsync(row.url);
-    if (disposed) { texture.dispose(); return; }
+    const image = await loadRenderImage(row.url, { signal: abort.signal });
+    if (disposed) { image.width = image.height = 0; return; }
+    images.push(image);
+    const texture = new CanvasTexture(image);
     texture.colorSpace = SRGBColorSpace; texture.anisotropy = 4;
     const aspect = texture.image.width / texture.image.height;
     const material = new MeshBasicMaterial({ map: texture, color: new Color().setScalar(row.brightness),
@@ -43,5 +46,10 @@ export function createAudienceEnvironment() {
     if (failures.length) throw new AggregateError(failures.map(result => result.reason), "Certaines rangées du public n’ont pas pu être chargées.");
   });
   // The scene owns loaded mesh resources. Late textures are disposed above.
-  return { root, ready, dispose() { disposed = true; if (!platformAttached) platformMaterial.dispose(); } };
+  return { root, ready, dispose() {
+    disposed = true; abort.abort();
+    for (const image of images) image.width = image.height = 0;
+    images.length = 0;
+    if (!platformAttached) platformMaterial.dispose();
+  } };
 }

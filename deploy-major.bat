@@ -20,6 +20,14 @@ if not exist "%~dp0deploy-tools\vm_build.sh" (
   exit /b 1
 )
 
+echo === Controle de la publication majeure ===
+node --preserve-symlinks --preserve-symlinks-main scripts/check-major-release.mjs
+if errorlevel 1 (
+  echo ERREUR: publication majeure incomplete. Aucun envoi effectue.
+  pause
+  exit /b 1
+)
+
 echo === 1) Mise a jour majeure: preparation de l'archive locale SANS GIT ===
 if exist "%ARCHIVE%" del /q "%ARCHIVE%" >nul 2>&1
 
@@ -41,6 +49,10 @@ tar -czf "%ARCHIVE%" ^
   --exclude=data/*.sqlite-* ^
   --exclude=data/*.db ^
   --exclude=data/*.db-* ^
+  --exclude=data/frwiktionary-* ^
+  --exclude=data/definitions-fr*.jsonl* ^
+  --exclude=data/definitions-fr*.bak* ^
+  --exclude=data/definitions-fr*.report.json ^
   --exclude=server/data/*.sqlite ^
   --exclude=server/data/*.sqlite-* ^
   --exclude=server/data/*.db ^
@@ -72,7 +84,7 @@ if errorlevel 1 goto :upload_error
 
 del /q "%ARCHIVE%" >nul 2>&1
 
-echo === 3) Build + bascule + verification ===
+echo === 3) Build + optimisation avatars + activation roue + bascule + verification ===
 ssh -o BatchMode=yes -o ConnectTimeout=20 -o ServerAliveInterval=10 -o ServerAliveCountMax=12 %VM_USER%@%VM_HOST% "chmod +x %REMOTE_HOME%/deploy_gobble.sh %REMOTE_HOME%/gobble_vm_build.sh && %REMOTE_HOME%/deploy_gobble.sh" > "%VM_LOG%" 2>&1
 set "VM_EXIT=!errorlevel!"
 

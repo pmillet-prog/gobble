@@ -1,0 +1,66 @@
+.infortune-game .infortune-finale { height: 100%; min-height: 0; display: grid; grid-template-columns: minmax(0,1fr) minmax(300px,360px); gap: 12px; padding: 12px; overflow: hidden; font-family: system-ui,sans-serif; }
+.infortune-game .infortune-finale-board { height: 100%; min-width: 0; min-height: 0; padding: 0; display: grid; grid-template-rows: minmax(0,1fr) 34px; }
+.infortune-game .infortune-finale-board__stage { min-height: 0; display: grid; align-items: center; justify-items: center; padding: 24px 10px 16px; border-radius: 12px; }
+.infortune-game .infortune-finale-board__kind { top: 8px; }
+.infortune-game .infortune-finale-board__frame { width: var(--finale-board-width); max-width: 100%; padding: 4px; }
+.infortune-game .infortune-finale-board__screen { padding: 3px; }
+.infortune-game .infortune-finale-board__rows { gap: 2px; padding: 2px; }
+.infortune-game .infortune-finale-board__row { gap: 2px; }
+.infortune-game .infortune-finale-board__theme { align-self: center; margin: -8px auto 0; padding: 4px 18px; min-width: 130px; max-width: 96%; }
+.infortune-game .infortune-finale-board__theme > span { display: none; }
+.infortune-game .infortune-finale-board__theme h2 { margin: 0; font-size: 13px; }
+.infortune-game .infortune-finale-board[data-dense="true"] { grid-template-rows: minmax(0,1fr) 26px; }
+.infortune-game .infortune-finale-board[data-dense="true"] .infortune-finale-board__stage { padding: 18px 8px 8px; }
+.infortune-game .infortune-finale-board[data-dense="true"] .infortune-finale-board__kind { top: 5px; font-size: 8px; }
+.infortune-game .infortune-finale-board[data-dense="true"] .infortune-finale-board__frame,
+.infortune-game .infortune-finale-board[data-dense="true"] .infortune-finale-board__screen { padding: 2px; }
+.infortune-game .infortune-finale-board[data-dense="true"] .infortune-finale-board__rows { padding: 1px; }
+.infortune-game .infortune-finale-board[data-dense="true"] .infortune-finale-tile { aspect-ratio: 1; }
+.infortune-game .infortune-finale-board[data-dense="true"] .infortune-finale-tile__face { font-size: 92cqi; }
+.infortune-game .infortune-finale-board[data-dense="true"] .infortune-finale-board__theme { padding: 3px 14px; margin-top: -3px; }
+.infortune-finale__commands { min-height: 0; display: flex; flex-direction: column; justify-content: center; gap: 10px; padding: 16px; border: 1px solid #334155; border-radius: 10px; background: #152237; }
+.infortune-finale__tabs { display: flex; gap: 5px; }
+.infortune-finale__tabs button { flex: 1; min-height: 40px; padding: 6px; border: 1px solid #475569; border-radius: 7px; background: #1e293b; color: #dbeafe; font-size: 12px; font-weight: 700; }
+.infortune-finale__tabs button[aria-pressed="true"] { border-color: #7dd3fc; background: #075985; color: #fff; }
+.infortune-game .infortune-finale-shop__heading { justify-content: center; }
+.infortune-game .infortune-finale-shop__heading p { margin: 0 0 7px; font-size: 11px; }
+.infortune-game .infortune-finale-shop__keyboard { grid-template-columns: repeat(9,minmax(0,1fr)); gap: 4px; }
+.infortune-game .infortune-finale-shop__keyboard button { min-height: 44px; padding: 2px 0; font: 650 17px/1 system-ui,sans-serif; }
+.infortune-game .infortune-finale-shop__keyboard button small { margin-top: 0; font: 9px/1 system-ui,sans-serif; }
+.infortune-game .infortune-finale-shop__rule { margin: 6px 0; font-size: 10px; line-height: 1.3; text-align: center; }
+.infortune-game .infortune-finale-shop__purchase { min-height: 23px; margin: 4px 0 0; padding: 3px 6px; font-size: 11px; border: 0; justify-content: center; }
+.infortune-game .infortune-finale-answer { padding: 0; border: 0; border-radius: 0; background: none; }
+.infortune-game .infortune-finale-answer input { padding: 8px 10px; height: 40px; font: 18px/1.2 system-ui,sans-serif; }
+.infortune-game .infortune-finale-primary { min-height: 40px; padding: 8px 12px; font-size: 12px; background: #facc55; }
+.infortune-finale__potential { margin: 0; text-align: center; color: #b6c5d8; font-size: 11px; }
+.infortune-finale__potential strong { color: #fde68a; white-space: nowrap; }
+.infortune-finale-answer__confirmation { display: grid; gap: 10px; text-align: center; }
+.infortune-finale-purchase-confirm { text-align: center; }
+.infortune-finale-purchase-confirm__actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 12px; }
+.infortune-finale-purchase-confirm__actions button { padding: 9px 12px; border-radius: 8px; }
+.infortune-game .infortune-finale-result { min-height: 0; align-self: center; padding: 16px; }
+.infortune-game .infortune-finale-result h2 { font-size: clamp(22px,4vw,42px); }
+.infortune-game .infortune-finale-result__rewards { gap: 10px; margin: 16px 0; }
+.infortune-game .infortune-finale-result__rewards > span { padding: 10px; min-width: 120px; }
+.infortune-game .infortune-finale[data-expanded="true"] { grid-template-columns: 1fr; grid-template-rows: minmax(0,1fr); }
+.infortune-finale[data-expanded="true"] > :not(.infortune-finale-board) { display: none; }
+@media(max-width:740px) and (min-height:481px) {
+  .infortune-game .infortune-finale { grid-template-columns: minmax(0,1fr); grid-template-rows: minmax(0,1fr) auto; gap: 4px; padding: 5px; }
+  .infortune-finale__commands { gap: 5px; padding: 6px; }
+  .infortune-finale__tabs button { min-height: 32px; }
+  .infortune-game .infortune-finale-shop__keyboard button { min-height: 38px; }
+  .infortune-game .infortune-finale-shop__heading p { margin-bottom: 4px; }
+  .infortune-game .infortune-finale-shop__rule { margin: 4px 0; font-size: 9px; }
+  .infortune-finale__potential { font-size: 10px; }
+  .infortune-game .infortune-finale-result { padding: 8px; }
+  .infortune-game .infortune-finale-result__rewards { margin: 8px 0; }
+}
+@media(max-height:480px) {
+  .infortune-game .infortune-finale { grid-template-columns: minmax(0,1fr) minmax(280px,42%); gap: 5px; padding: 5px; }
+  .infortune-finale__commands { padding: 6px; gap: 4px; }
+  .infortune-finale__tabs button { min-height: 30px; font-size: 11px; }
+  .infortune-game .infortune-finale-shop__keyboard button { min-height: 33px; }
+  .infortune-game .infortune-finale-answer input { height: 34px; }
+  .infortune-game .infortune-finale-primary { min-height: 34px; padding: 5px; }
+  .infortune-finale__potential { font-size: 10px; }
+}

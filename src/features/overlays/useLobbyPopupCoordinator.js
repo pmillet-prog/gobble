@@ -23,9 +23,10 @@ import {
 } from "../../utils/popupAudience.js";
 import { VIEWPORT_EVENTS } from "../layout/createViewportEventHub.js";
 import { getBroadcastMessageKey } from "../home/homeViewModel.js";
+import { INFORTUNE_CLIENT_ENABLED } from '../infortune/infortuneAvailability.js';
 
-export const PATCH_NOTES_VERSION = "2026-10-23";
-export const PATCH_NOTES_RELEASE_TS = Date.parse("2026-10-23T00:00:00+02:00");
+export const PATCH_NOTES_VERSION = "2026-11-07";
+export const PATCH_NOTES_RELEASE_TS = Date.parse("2026-11-07T00:00:00+01:00");
 export const FACEBOOK_INVITE_VERSION = "facebook-group-v1";
 
 const LOBBY_POPUP_EXCLUDED_VIEWS = new Set([
@@ -92,6 +93,8 @@ export function resolveLobbyPopupAction({
   vaultAttemptedMarkers = new Set(),
   vaultPopupOpen = false,
   wordVault = null,
+  wheelGuideEnabled = false,
+  isWheelGuideOpen = false,
 } = {}) {
   const lobbyView = isLobbyPopupView(phase, appView);
   if (!lobbyView) {
@@ -99,6 +102,16 @@ export function resolveLobbyPopupAction({
   }
   if (duelPopupMode === "objectives" && duelObjectivesAreCompleted(duelStatus)) {
     return { type: "close-duel" };
+  }
+
+  if (isWheelGuideOpen) return null;
+  if (wheelGuideEnabled && !isLoggedIn && appView === 'home' && bootReady && !bootOverlayVisible
+    && isAccountAuthenticated && accountSeenReady && !shouldShowTutorial
+    && !isSettingsOpen && !isAccountMenuOpen && !isAboutOpen && !isSupportOpen
+    && !isPatchNotesOpen && !isFacebookInviteOpen && !duelPopupMode && !definitionModalOpen
+    && !isHomeChatOpen && !isPlayersOverlayOpen && !vaultPopupOpen
+    && !accountSeenMarkers.has(ACCOUNT_SEEN_MARKERS.wheelGuide)) {
+    return { type: 'wheel-guide', marker: ACCOUNT_SEEN_MARKERS.wheelGuide };
   }
 
   if (
@@ -345,8 +358,15 @@ export default function useLobbyPopupCoordinator({
       vaultAttemptedMarkers: vaultAttemptedMarkersRef.current,
       vaultPopupOpen: vault?.popup?.open,
       wordVault: vault?.words,
+      wheelGuideEnabled: INFORTUNE_CLIENT_ENABLED,
+      isWheelGuideOpen: !!overlays?.wheelGuide,
     });
     if (!action) return undefined;
+
+    if (action.type === 'wheel-guide') {
+      overlays?.openWheelGuide?.({ userId: account.userId, onComplete: () => account.markSeen?.(action.marker) });
+      return undefined;
+    }
 
     if (action.type === "close-duel") {
       duel?.setPopupState?.({ mode: null, step: 0, team: null, weekId: null });
@@ -431,6 +451,8 @@ export default function useLobbyPopupCoordinator({
     overlays?.isPlayersOverlayOpen,
     overlays?.isSettingsOpen,
     overlays?.isSupportOpen,
+    overlays?.wheelGuide,
+    overlays?.openWheelGuide,
     overlays?.setIsFacebookInviteOpen,
     overlays?.setIsPatchNotesOpen,
     overlays?.shouldShowTutorial,

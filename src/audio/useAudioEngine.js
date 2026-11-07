@@ -1,4 +1,6 @@
 import React from "react";
+import { gameAudioFocus } from '../features/audio/gameAudioFocus.js';
+import { isAudioPageHidden } from './foregroundAudio.js';
 
 import AssetManager from "../assets/assetManager";
 import { SFX_KEYS } from "../assets/assetKeys";
@@ -53,6 +55,7 @@ export default function useAudioEngine({
 
   const getAudioSystem = React.useCallback(
     ({ force = false } = {}) => {
+      if (isAudioPageHidden()) return null;
       if (!force && !audioUnlockedRef.current) return null;
       const AudioCtx =
         typeof window !== "undefined" ? window.AudioContext || window.webkitAudioContext : null;
@@ -70,7 +73,7 @@ export default function useAudioEngine({
         const busIn = ctx.createGain();
         const masterGain = ctx.createGain();
         masterGain.gain.value =
-          AUDIO_MASTER_GAIN *
+          (gameAudioFocus.store.getState().effects ? 0 : AUDIO_MASTER_GAIN) *
           normalizeSoundMasterVolume(
             soundMasterVolumeRef?.current,
             SOUND_MASTER_VOLUME_DEFAULT
@@ -229,7 +232,7 @@ export default function useAudioEngine({
         allowQueue = true,
       } = {}
     ) => {
-      if (isSfxMuted) return null;
+      if (isAudioPageHidden() || isSfxMuted || gameAudioFocus.store.getState().effects) return null;
       const key = cooldownKey || eqKey || assetKey;
       const overrides = {};
       if (Number.isFinite(volume)) overrides.volume = volume;
@@ -263,7 +266,7 @@ export default function useAudioEngine({
 
   const playSfxHandle = React.useCallback(
     (assetKey, { eqKey, gain, rate, voiceKey, allowQueue = true } = {}) => {
-      if (isSfxMuted) return null;
+      if (isAudioPageHidden() || isSfxMuted || gameAudioFocus.store.getState().effects) return null;
       const key = voiceKey || eqKey || assetKey;
       const settings = resolveSoundSettings(eqKey || key, {
         volume: Number.isFinite(gain) ? gain : undefined,
@@ -425,6 +428,7 @@ export default function useAudioEngine({
 
   const requestAudioUnlock = React.useCallback(
     (event) => {
+      if (isAudioPageHidden()) return false;
       if (event && event.isTrusted === false) return false;
       const hasGesture = !!event;
       if (!hasGesture && !audioUnlockedRef.current) return false;
@@ -451,9 +455,21 @@ export default function useAudioEngine({
     }
     AssetManager.setMasterVolume(safeMasterVolume);
     if (audioSystemRef.current?.masterGain) {
-      audioSystemRef.current.masterGain.gain.value = AUDIO_MASTER_GAIN * safeMasterVolume;
+      audioSystemRef.current.masterGain.gain.value = isAudioPageHidden() || gameAudioFocus.store.getState().effects ? 0 : AUDIO_MASTER_GAIN * safeMasterVolume;
     }
   }, [soundMasterVolume, soundMasterVolumeRef]);
+
+  React.useEffect(() => {
+    const sync = () => {
+      if (isAudioPageHidden()) AssetManager.stopAllSfx();
+      const gain = audioSystemRef.current?.masterGain;
+      if (gain) gain.gain.value = isAudioPageHidden() || gameAudioFocus.store.getState().effects ? 0 : AUDIO_MASTER_GAIN *
+        normalizeSoundMasterVolume(soundMasterVolumeRef?.current, SOUND_MASTER_VOLUME_DEFAULT);
+    };
+    const release = gameAudioFocus.store.subscribe(sync);
+    document.addEventListener('visibilitychange', sync);
+    return () => { release(); document.removeEventListener('visibilitychange', sync); };
+  }, [soundMasterVolumeRef]);
 
   React.useEffect(
     () => () => {

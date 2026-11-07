@@ -1,5 +1,6 @@
 import React from "react";
 import PlayerProfileLink from "../profile/PlayerProfileLink.jsx";
+import GameBalances from "../../features/gobblars/GameBalances.jsx";
 import IntermissionReturnLabel from "../../features/intermission/IntermissionReturnLabel.jsx";
 import { useChatDraft } from "../../features/chat/useChatDraft.js";
 import { useChatPresentation } from "../../features/chat/useChatPresentation.js";
@@ -13,7 +14,7 @@ import {
 } from "../chat/chatPresentationConfig.js";
 import PresenterChatAvatar from "../chat/PresenterChatAvatar.jsx";
 import PlayerChatAvatar from "../chat/PlayerChatAvatar.jsx";
-import RankingWidgetMobile from "../RankingWidgetMobile.jsx";
+import TournamentRankingCard from '../ranking/TournamentRankingCard.jsx';
 import DesktopPresenterActionBar from "../../features/presenters/DesktopPresenterActionBar.jsx";
 import MobilePresenterActionBar from "../../features/presenters/MobilePresenterActionBar.jsx";
 import {
@@ -503,40 +504,13 @@ export default function TournamentFinaleScreen({
     const finaleSlideCardStyle = { height: "100%", minHeight: 0 };
     const finaleCardPaddingClass = isMobileLayout ? "p-3" : "p-4";
     const renderFinaleRankingCard = () => (
-      <div
-        className={`bg-white/90 dark:bg-slate-900/70 border border-slate-200/70 dark:border-white/10 rounded-2xl ${finaleCardPaddingClass} shadow-xl flex flex-col overflow-hidden h-full`}
-        style={finaleSlideCardStyle}
-      >
-        <div className="flex items-baseline justify-between gap-2 mb-1">
-          <div className="font-extrabold">Classement general</div>
-          <div className="text-xs text-slate-500 dark:text-slate-300 whitespace-nowrap">
-            Manche {TOURNAMENT_TOTAL_ROUNDS}/{TOURNAMENT_TOTAL_ROUNDS}
-          </div>
-        </div>
-        <div className="min-h-0 flex-1">
-          <RankingWidgetMobile
-            fullRanking={finaleRanking}
-            selfNick={selfNick}
-            darkMode={darkMode}
-            expanded={true}
-            animateRank={false}
-            showWheel={false}
-            flatStyle={true}
-            fitHeight={true}
-            assetVersion={assetVersion}
-            gobbleWordAwardsByNick={gobbleAwardsForLive}
-            getNickClassName={getLiveNickClassName}
-            nickDecorationKey={nickDecorationKey}
-            onPlayerNickClick={stableOpenPlayerProfile}
-            isPlayerNickClickable={stableCanOpenPlayerProfile}
-            renderNickSuffix={
-              (nick, entry) => renderNickSuffix(nick, entry, tournamentFinaleMedals)
-            }
-            showGobbleWordAwards={true}
-            renderAfterRank={renderRankDelta}
-          />
-        </div>
-      </div>
+      <TournamentRankingCard caption={`Manche ${TOURNAMENT_TOTAL_ROUNDS}/${TOURNAMENT_TOTAL_ROUNDS}`}
+        fullRanking={finaleRanking} selfNick={selfNick} darkMode={darkMode} assetVersion={assetVersion}
+        gobbleWordAwardsByNick={gobbleAwardsForLive} getNickClassName={getLiveNickClassName}
+        nickDecorationKey={nickDecorationKey} onPlayerNickClick={stableOpenPlayerProfile}
+        isPlayerNickClickable={stableCanOpenPlayerProfile}
+        renderNickSuffix={(nick, entry) => renderNickSuffix(nick, entry, tournamentFinaleMedals)}
+        showGobbleWordAwards renderAfterRank={renderRankDelta} />
     );
     const renderFinaleWeeklyCard = (boardMeta) => {
       if (!boardMeta) return null;
@@ -642,7 +616,8 @@ export default function TournamentFinaleScreen({
               ? "bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 text-white"
               : "bg-gradient-to-br from-slate-50 via-white to-slate-100 text-slate-900"
           }`}
-        >          {!isSettingsOpen && (
+        >          <GameBalances className="game-balances--standings" />
+          {!isSettingsOpen && (
             <button
               type="button"
               className={finaleSettingsButtonClass}

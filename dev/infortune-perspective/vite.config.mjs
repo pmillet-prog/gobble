@@ -8,6 +8,7 @@ export default defineConfig({
   root: fileURLToPath(new URL("../../", import.meta.url)),
   resolve: { preserveSymlinks: true }, plugins: [react(), stageAvatarAssets(), cameraTimelineStoragePlugin()],
   cacheDir: ".tmp/infortune-perspective-vite",
+  worker: { format: 'es' },
   css: { postcss: { plugins: [] } },
   optimizeDeps: { entries: ["dev/infortune-perspective/index.html"] },
   server: { host: "127.0.0.1", port: 8777, strictPort: true,

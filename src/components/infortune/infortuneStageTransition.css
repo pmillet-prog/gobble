@@ -1,0 +1,9 @@
+.infortune-stage-transition { position: fixed; inset: 0; z-index: 220000; pointer-events: none; }
+.infortune-stage-transition__view { position: absolute; inset: 0; pointer-events: none; animation: infortune-view-enter 600ms ease both; }
+.infortune-stage-transition__view:not([data-leaving="true"]) > * { pointer-events: auto; }
+.infortune-stage-transition__view[data-leaving="true"] { z-index: 1; pointer-events: none; animation: infortune-view-leave 600ms ease both; }
+@keyframes infortune-view-enter { from { opacity: 0; } to { opacity: 1; } }
+@keyframes infortune-view-leave { from { opacity: 1; } to { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .infortune-stage-transition__view, .infortune-stage-transition__view[data-leaving="true"] { animation-duration: 150ms; }
+}

@@ -27,6 +27,7 @@
 }
 
 .desktop-game-topbar-inner {
+  position: relative;
   min-width: 0;
   flex-wrap: nowrap;
   overflow: hidden;
@@ -49,14 +50,24 @@
 }
 
 .desktop-game-room-wrap {
-  flex: 0 1 auto;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
+  max-width: 32%;
 }
+
+.desktop-game-topbar-inner[data-playing="true"] { min-height: 78px; }
+.desktop-game-clock { font-size: 42px; font-weight: 900; font-variant-numeric: tabular-nums; line-height: 1; color: inherit; }
 
 .desktop-game-room {
   padding: calc(4px * var(--desktop-ui-scale)) calc(8px * var(--desktop-ui-scale));
 }
 
 .desktop-game-top-actions {
+  margin-left: auto;
   gap: calc(8px * var(--desktop-ui-scale));
 }
 

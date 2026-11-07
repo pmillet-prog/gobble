@@ -44,8 +44,19 @@ test("lobby popup coordinator gives patch notes first priority", () => {
   });
 });
 
+test('the new wheel guide takes priority once per account, including new players, and waits for the main tutorial', () => {
+  const config = eligibleConfig({ wheelGuideEnabled: true, isNewPlayerPopupQuiet: true });
+  assert.deepEqual(resolveLobbyPopupAction(config), { type: 'wheel-guide', marker: ACCOUNT_SEEN_MARKERS.wheelGuide });
+  assert.equal(resolveLobbyPopupAction({ ...config, isWheelGuideOpen: true }), null);
+  for (const overrides of [{ accountSeenReady: false }, { isAccountAuthenticated: false }, { shouldShowTutorial: true },
+    { bootReady: false }, { bootOverlayVisible: true }, { isSettingsOpen: true }, { phase: 'playing' }, { isLoggedIn: true }]) {
+    assert.notEqual(resolveLobbyPopupAction({ ...config, ...overrides })?.type, 'wheel-guide');
+  }
+  assert.notEqual(resolveLobbyPopupAction({ ...config, accountSeenMarkers: new Set([ACCOUNT_SEEN_MARKERS.wheelGuide]) })?.type, 'wheel-guide');
+});
+
 test("reading the previous release does not hide the new patch notes from home", () => {
-  const seen = new Set([buildPatchNotesSeenMarker("2026-09-20"), buildPatchNotesSeenMarker("2026-09-23"), buildPatchNotesSeenMarker("2026-09-27"), buildPatchNotesSeenMarker("2026-10-03"), buildPatchNotesSeenMarker("2026-10-06"), buildPatchNotesSeenMarker("2026-10-08"), buildPatchNotesSeenMarker("2026-10-11")]);
+  const seen = new Set([buildPatchNotesSeenMarker("2026-09-20"), buildPatchNotesSeenMarker("2026-09-23"), buildPatchNotesSeenMarker("2026-09-27"), buildPatchNotesSeenMarker("2026-10-03"), buildPatchNotesSeenMarker("2026-10-06"), buildPatchNotesSeenMarker("2026-10-08"), buildPatchNotesSeenMarker("2026-10-11"), buildPatchNotesSeenMarker("2026-10-23")]);
   const action = resolveLobbyPopupAction(eligibleConfig({ accountSeenMarkers: seen }));
   assert.deepEqual(action, {
     marker: buildPatchNotesSeenMarker(PATCH_NOTES_VERSION),
@@ -60,11 +71,11 @@ test("reading the previous release does not hide the new patch notes from home",
   );
 });
 
-test("the October 23 release includes existing accounts and excludes new players", () => {
-  for (const createdAt of [Date.parse("2026-10-11T12:00:00+02:00"), Date.parse("2026-10-22T12:00:00+02:00"), PATCH_NOTES_RELEASE_TS - 1]) {
+test("the November 7 release includes existing accounts and excludes new players", () => {
+  for (const createdAt of [Date.parse("2026-10-23T12:00:00+02:00"), Date.parse("2026-11-06T12:00:00+01:00"), PATCH_NOTES_RELEASE_TS - 1]) {
     assert.equal(resolveLobbyPopupAction(eligibleConfig({ accountCreatedAt: createdAt }))?.type, "patch-notes");
   }
-  for (const createdAt of [PATCH_NOTES_RELEASE_TS, PATCH_NOTES_RELEASE_TS + 1, Date.parse("2026-10-24T12:00:00+02:00")]) {
+  for (const createdAt of [PATCH_NOTES_RELEASE_TS, PATCH_NOTES_RELEASE_TS + 1, Date.parse("2026-11-08T12:00:00+01:00")]) {
     assert.notEqual(resolveLobbyPopupAction(eligibleConfig({ accountCreatedAt: createdAt }))?.type, "patch-notes");
   }
   for (const override of [{ isNewPlayerPopupQuiet: true }, { shouldShowTutorial: true }, { accountSeenReady: false }, { isAccountAuthenticated: false }, { phase: "playing" }]) {

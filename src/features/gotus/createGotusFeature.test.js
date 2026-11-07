@@ -4,6 +4,14 @@ import { createGotusFeature } from "./createGotusFeature.js";
 import { normalizeGotusProgress } from "../../../shared/gotusProgress.js";
 
 const context = { key: "7:live:42", roundId: 42, selfUserId: 7, selfNick: "Tigre" };
+
+test('a late local expiry cannot erase the solution already revealed by the server', () => {
+  const f = fixture();
+  f.feature.capture(42, { started: true, phase: 'expired', attemptsUsed: 2, solution: 'JARDIN' });
+  f.feature.capture(42, { started: true, phase: 'expired', attemptsUsed: 2 });
+  assert.equal(f.feature.store.getState().summary.solution, 'JARDIN');
+  f.dispose();
+});
 const rewardProgression = {
   before: normalizeGotusProgress(9), after: normalizeGotusProgress(10),
   reward: { amount: 500, balance: 800, receipt: "gotus:1" },
@@ -90,4 +98,35 @@ test("recap keeps the six-second outro and releases its timer on navigation", as
   assert.equal(f.pending.size, 0);
   assert.equal(f.feature.store.getState().recap, null);
   f.dispose();
+});
+
+test("a server reveal immediately fills an already visible recap without waiting for round results", async () => {
+  const f = fixture();
+  f.feature.capture(42, { started: true, phase: "expired", attemptsUsed: 2 });
+  const done = f.feature.showRecap(42);
+  f.feature.capture(42, { started: true, phase: "expired", attemptsUsed: 2, solution: "JARDIN" });
+  assert.equal(f.feature.store.getState().recap.solution, "JARDIN");
+  assert.equal(f.pending.size, 1, "the existing outro timer is preserved");
+  f.dispose(); await done;
+});
+
+test("a result without the word cannot erase the solution from the private server reveal", async () => {
+  const f = fixture();
+  f.feature.capture(42, { started: true, phase: "expired", attemptsUsed: 2, solution: "JARDIN" });
+  const done = f.feature.showRecap(42, { roundId: 42, results: [{ userId: 7, gotus: { phase: "expired", attemptsUsed: 2 } }] });
+  assert.equal(f.feature.store.getState().recap.solution, "JARDIN");
+  f.dispose(); await done;
+});
+
+test("a late private reveal can fill a finalized result without replacing its score or word", async () => {
+  const f = fixture();
+  f.feature.capture(42, { started: true, phase: "expired", attemptsUsed: 2 });
+  const done = f.feature.showRecap(42, { roundId: 42, results: [{ userId: 7, gotus: { phase: "expired", attemptsUsed: 2 } }] });
+  f.feature.capture(42, { started: true, phase: "lost", attemptsUsed: 6, solution: "JARDIN" });
+  assert.equal(f.feature.store.getState().recap.solution, "JARDIN");
+  assert.equal(f.feature.store.getState().recap.attemptsUsed, 2);
+  assert.equal(f.feature.store.getState().recap.phase, "expired");
+  f.feature.capture(42, { started: true, phase: "lost", solution: "BANANE" });
+  assert.equal(f.feature.store.getState().recap.solution, "JARDIN");
+  f.dispose(); await done;
 });

@@ -53,7 +53,7 @@ function getSnapshotRoundId(snapshot) {
     snapshot?.currentRound?.roundId ??
       snapshot?.lastRoundResults?.round?.roundId ??
       snapshot?.lastRoundResults?.round?.id ??
-      snapshot?.lastRoundResults?.payload?.roundId
+      snapshot?.lastRoundResults?.payload?.roundId ?? snapshot?.resultsPending?.roundId ?? snapshot?.breakState?.roundId
   );
 }
 
@@ -71,6 +71,7 @@ export function createGameplaySessionFeature({ getKernel, scope }) {
   let config = {};
   let generation = 0;
   let sessionScope = null;
+  let hydratedSnapshot = null;
 
   function disposeSessionResources() {
     sessionScope?.dispose?.();
@@ -94,12 +95,14 @@ export function createGameplaySessionFeature({ getKernel, scope }) {
     roundId = null,
     roundStatus = null,
     startsAt = null,
+    snapshot = null,
   } = {}) {
     const normalizedOrigin = normalizeOrigin(origin);
     if (!normalizedOrigin) {
       return { accepted: false, error: "invalid_origin", state: store.getState() };
     }
     generation += 1;
+    hydratedSnapshot = snapshot;
     disposeSessionResources();
     sessionScope = createResourceScope(`gameplay:${normalizedOrigin}:${generation}`);
     const next = {
@@ -159,7 +162,8 @@ export function createGameplaySessionFeature({ getKernel, scope }) {
     const phase = normalizePhase(snapshot.phase || "lobby");
     const currentRound = snapshot.currentRound || null;
     return openSession({
-      infortune: currentRound?.infortune,
+      infortune: currentRound?.infortune || snapshot.lastRoundResults?.payload?.infortune || snapshot.breakState?.infortune || snapshot.resultsPending?.infortune,
+      snapshot,
       endsAt: currentRound?.endsAt,
       entryKind,
       origin: "live",
@@ -250,6 +254,7 @@ export function createGameplaySessionFeature({ getKernel, scope }) {
     if (!current.sessionId) return false;
     disposeSessionResources();
     refs.sessionId.current = null;
+    hydratedSnapshot = null;
     const next = {
       ...createInitialState(),
       generation,
@@ -285,6 +290,7 @@ export function createGameplaySessionFeature({ getKernel, scope }) {
       disposeSessionResources();
       config = {};
       refs.sessionId.current = null;
+      hydratedSnapshot = null;
       store.replace(createInitialState());
     });
   }
@@ -294,6 +300,7 @@ export function createGameplaySessionFeature({ getKernel, scope }) {
     cancel,
     configure,
     hydrateSnapshot,
+    getHydratedSnapshot: () => hydratedSnapshot,
     isCurrent,
     refs,
     registerResource,

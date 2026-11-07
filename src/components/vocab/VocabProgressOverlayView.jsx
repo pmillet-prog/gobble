@@ -1,10 +1,11 @@
-import React, { useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from "react";
+import React, { useEffect, useImperativeHandle, useLayoutEffect, useReducer, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { getVocabLevelMeta } from "../../vocabRanks";
 import { createVocabWordSequence } from "./vocabWordSequence.js";
 import useVocabOverlayFit from "./useVocabOverlayFit.js";
 import VocabLevelProgress from "./VocabLevelProgress.jsx";
+import { createVocabFramePresenter } from "./createVocabFramePresenter.js";
 
 const VOCAB_OVERLAY_FADE_MS = 1000;
 const VOCAB_OVERLAY_ZERO_DELAY_MS = 2000;
@@ -41,11 +42,13 @@ const VocabProgressOverlayView = React.memo(
   const [isVocabOverlayOpen, setIsVocabOverlayOpen] = useState(false);
   const { viewportRef, panelRef } = useVocabOverlayFit(isVocabOverlayOpen);
   const [vocabOverlayPhase, setVocabOverlayPhase] = useState("idle");
-  const [vocabOverlayFrame, setVocabOverlayFrame] = useState({
+  const [, renderLevelChange] = useReducer(value => value + 1, 0);
+  const vocabOverlayFrameRef = useRef({
     total: 0, delta: 0, weeklyTotal: 0, weeklyDelta: 0,
     word: "", isSeasonNew: false, wordIndex: 0,
   });
-  const vocabOverlayFrameRef = useRef(vocabOverlayFrame);
+  const framePresenter = useRef(null);
+  if (!framePresenter.current) framePresenter.current = createVocabFramePresenter();
   const {
     total: vocabOverlayAnimatedTotal,
     delta: vocabOverlayAnimatedDelta,
@@ -53,8 +56,7 @@ const VocabProgressOverlayView = React.memo(
     weeklyDelta: vocabOverlayWeeklyAnimatedDelta,
     word: vocabOverlayCurrentWord,
     isSeasonNew: vocabOverlayWordIsSeasonNew,
-    wordIndex: vocabOverlayWordIndex,
-  } = vocabOverlayFrame;
+  } = vocabOverlayFrameRef.current;
   const [vocabOverlayBaseCount, setVocabOverlayBaseCount] = useState(0);
   const [vocabOverlayWeeklyBaseCount, setVocabOverlayWeeklyBaseCount] = useState(0);
   const [vocabOverlayWeeklyTargetCount, setVocabOverlayWeeklyTargetCount] = useState(0);
@@ -85,7 +87,16 @@ const VocabProgressOverlayView = React.memo(
     if (Object.keys(patch).every((key) => Object.is(previous[key], patch[key]))) return;
     const next = { ...previous, ...patch };
     vocabOverlayFrameRef.current = next;
-    setVocabOverlayFrame(next);
+    if (framePresenter.current.present(next)) commitVocabWord();
+    if (getVocabLevelMeta(previous.total).key !== getVocabLevelMeta(next.total).key) renderLevelChange();
+  }
+
+  function commitVocabWord() {
+    const { word, wordIndex, isSeasonNew } = vocabOverlayFrameRef.current;
+    if (!word || wordIndex <= vocabOverlayLastTickRef.current) return;
+    vocabOverlayLastTickRef.current = wordIndex;
+    vocabOverlayWordSequenceRef.current?.commit(wordIndex, performance.now());
+    callbacksRef.current.playVocabOverlayTickSound(wordIndex, { isSeasonNew });
   }
 
   function queueVocabOverlayTimer(timerId) {
@@ -227,8 +238,8 @@ const VocabProgressOverlayView = React.memo(
             ? wordFrame.displayed : Math.round(safeWeeklyDeltaCount * eased);
           const currentTotal = baseCount + currentDelta;
           const currentWeeklyTotal = safeWeeklyBaseCount + currentWeeklyDelta;
-          // Only publish a frame when something visible changes. The word clock
-          // keeps running at RAF speed, without re-rendering between discoveries.
+          // Paint counters and the matching word together, without waiting for
+          // the results tree's React render before acknowledging the discovery.
           updateVocabOverlayFrame({
             delta: currentDelta, total: currentTotal,
             weeklyDelta: currentWeeklyDelta, weeklyTotal: currentWeeklyTotal,
@@ -289,16 +300,6 @@ const VocabProgressOverlayView = React.memo(
     start: startVocabOverlayAnimation,
     stop: stopVocabOverlayAnimation,
   }));
-
-  // Play only after React has committed the matching word to the screen.
-  // One weekly discovery = one committed word = one beep, higher for a season discovery.
-  useLayoutEffect(() => {
-    if (!isVocabOverlayOpen || !vocabOverlayCurrentWord ||
-        vocabOverlayWordIndex <= vocabOverlayLastTickRef.current) return;
-    vocabOverlayLastTickRef.current = vocabOverlayWordIndex;
-    vocabOverlayWordSequenceRef.current?.commit(vocabOverlayWordIndex, performance.now());
-    callbacksRef.current.playVocabOverlayTickSound(vocabOverlayWordIndex, { isSeasonNew: vocabOverlayWordIsSeasonNew });
-  }, [isVocabOverlayOpen, vocabOverlayCurrentWord, vocabOverlayWordIndex, vocabOverlayWordIsSeasonNew]);
 
   useEffect(() => {
     const requestId = request?.id;
@@ -417,6 +418,13 @@ const VocabProgressOverlayView = React.memo(
     : "max-w-[96px] text-[11px]";
   const vocabOverlayRaceLabelTopClass = isMobileLayout ? "-top-2" : "-top-3";
   const vocabOverlayRaceLabelBottomClass = isMobileLayout ? "top-8" : "top-14";
+  useLayoutEffect(() => {
+    const presenter = framePresenter.current;
+    presenter.connect(viewportRef.current, { level: vocabOverlayImage, levelUp: vocabOverlayHasLevelUp,
+      settling: vocabOverlayAbsorbing, raceMin: vocabOverlayRaceMin, raceRange: vocabOverlayRaceRange });
+    if (presenter.present(vocabOverlayFrameRef.current)) commitVocabWord();
+    return () => presenter.disconnect();
+  });
   const renderVocabOverlayPanel = () => (
     <div className="flex flex-col items-center gap-3">
       <div className="vocab-progress-heading">
@@ -475,16 +483,17 @@ const VocabProgressOverlayView = React.memo(
               )}
             </div>
           </div>
-          <div className={`text-4xl font-black tabular-nums ${vocabOverlayCountClass}`}>
+          <div data-vocab-frame="weeklyDelta" className={`text-4xl font-black tabular-nums ${vocabOverlayCountClass}`}>
             {vocabOverlayWeeklyDeltaLabel}
           </div>
-          <div className={`text-xs font-semibold opacity-75 -mt-1 ${vocabOverlayCountClass}`}>
+          <div data-vocab-frame="weeklyTotal" className={`text-xs font-semibold opacity-75 -mt-1 ${vocabOverlayCountClass}`}>
             {vocabOverlayWeeklyTotalLabel}
           </div>
           <div className="mt-3">
             <div className={`relative ${vocabOverlayRaceHeightClass}`}>
               <div className={`absolute left-0 right-0 ${vocabOverlayRaceTrackTopClass} h-2 rounded-full bg-slate-500/20 overflow-hidden`}>
                 <div
+                  data-vocab-frame="raceFill"
                   className="absolute inset-0 origin-left bg-emerald-400"
                   style={{
                     transform: `scaleX(${vocabOverlayRaceCurrentPct / 100})`,
@@ -495,6 +504,7 @@ const VocabProgressOverlayView = React.memo(
               </div>
               <div className="absolute top-3 bottom-2 left-0 w-px bg-slate-400/70" />
               <div
+                data-vocab-frame="racePointer"
                 className="absolute top-3 h-0 w-0 border-l-[6px] border-r-[6px] border-t-[8px] border-l-transparent border-r-transparent"
                 style={{
                   left: `${vocabOverlayRaceCurrentPct}%`,
@@ -517,6 +527,7 @@ const VocabProgressOverlayView = React.memo(
                 return (
                   <div
                     key={`${entry.playerKey || entry.nick}-${entry.rank}-${idx}`}
+                    data-vocab-race-count={entry.status === "passed" ? entry.count : undefined}
                     className={`absolute ${vocabOverlayRaceMarkClass}`}
                     style={{
                       left: `${markPct}%`,
@@ -525,6 +536,7 @@ const VocabProgressOverlayView = React.memo(
                     title={`${entry.nick} - ${formatNumber(entry.count)} mots`}
                   >
                     <div
+                      data-vocab-race-line=""
                       className={`mx-auto w-px ${vocabOverlayRaceLineClass} ${
                         isPassed
                           ? "bg-emerald-400 vocab-race-passed"
@@ -534,6 +546,7 @@ const VocabProgressOverlayView = React.memo(
                       }`}
                     />
                     <div
+                      data-vocab-race-label=""
                       className={`absolute left-1/2 -translate-x-1/2 truncate text-center font-black leading-none ${vocabOverlayRaceLabelClass} ${
                         labelTop ? vocabOverlayRaceLabelTopClass : vocabOverlayRaceLabelBottomClass
                       } ${
@@ -562,7 +575,8 @@ const VocabProgressOverlayView = React.memo(
       </div>
       <div className="vocab-word-stage">
         <div
-          className={`truncate text-center ${vocabOverlayWordFading ? "vocab-word-fade-out" : ""} ${vocabOverlayWordIsSeasonNew ? `font-black ${darkMode ? "text-amber-300" : "text-amber-700"}` : ""}`}
+          data-vocab-frame="word"
+          className={`truncate text-center ${vocabOverlayWordFading ? "vocab-word-fade-out" : ""} ${vocabOverlayWordIsSeasonNew ? "vocab-word-season-new" : ""}`}
           title={vocabOverlayCurrentWord ? (vocabOverlayWordIsSeasonNew ? "Nouveau cette semaine et cette saison" : "Nouveau cette semaine") : undefined}
         >
           {vocabOverlayCurrentWord || ""}

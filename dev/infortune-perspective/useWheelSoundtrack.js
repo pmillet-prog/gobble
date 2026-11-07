@@ -3,13 +3,20 @@ import { WHEEL_SOUND_ASSETS } from "./wheelSoundAssets.js";
 import { createWheelSoundtrack } from "./createWheelSoundtrack.js";
 import { deferWheelSetup } from "./wheelScenePreparation.js";
 import { wheelAudioAlreadyAllowed } from "./wheelAudioPreload.js";
+import { useOptionalApplicationKernel } from '../../src/app/react/ApplicationRuntimeProvider.jsx';
+import { readStoredPreferences } from '../../src/features/preferences/createPreferencesFeature.js';
 
 export function useWheelSoundtrack(muted, audioEvents) {
+  const kernel = useOptionalApplicationKernel();
   const player = React.useRef(null), allowedToStart = React.useRef(false);
   const latestMuted = React.useRef(muted); latestMuted.current = muted;
   const [status, setStatus] = React.useState("loading");
   React.useEffect(() => deferWheelSetup(() => {
     const instance = createWheelSoundtrack({ urls: WHEEL_SOUND_ASSETS, onStatus: setStatus });
+    const lease = kernel?.features.acquire('preferences');
+    const applyIntroPreference = () => instance.setIntroMuted((lease?.feature.store.getState() || readStoredPreferences()).soundWheelIntroEnabled === false);
+    applyIntroPreference();
+    const releasePreference = lease?.feature.store.subscribe(applyIntroPreference);
     player.current = instance; audioEvents.current = instance.handleWheel; instance.setMuted(latestMuted.current); instance.prepare();
     // Live players have already clicked/typed during the round. Preserve the
     // automatic intro when the document is activated; a fresh workshop waits.
@@ -19,9 +26,9 @@ export function useWheelSoundtrack(muted, audioEvents) {
     if (document.hidden) visibility();
     return () => {
       document.removeEventListener("visibilitychange", visibility); audioEvents.current = null;
-      instance.dispose(); player.current = null;
+      releasePreference?.(); lease?.release(); instance.dispose(); player.current = null;
     };
-  }), [audioEvents]);
+  }), [audioEvents, kernel]);
   React.useEffect(() => { player.current?.setMuted(muted); }, [muted]);
   React.useEffect(() => {
     if (status !== "blocked" && status !== "loading") return;
@@ -41,5 +48,6 @@ export function useWheelSoundtrack(muted, audioEvents) {
   const previewAudience = React.useCallback(id => {
     void player.current?.unlock().then(() => player.current?.previewAudience(id));
   }, []);
-  return { ready: allowedToStart.current, status, sync, unlock, preview, previewAudience };
+  const exchange = React.useCallback((exchange, selfId, id) => player.current?.handleWheel({ type: "exchange", exchange, selfId, id }), []);
+  return { ready: allowedToStart.current, status, sync, unlock, preview, previewAudience, exchange };
 }

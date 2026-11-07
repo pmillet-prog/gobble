@@ -1,8 +1,22 @@
 # Atelier de la finale de l’infortune
 
 Avec le serveur frontend habituel (`npm run dev`), ouvrir **Menu dev → Ateliers →
-La finale de l’infortune**, ou `/dev/infortune-finale/`. Cet atelier ne se connecte
+La finale de l’infortune**, ou `/dev/infortune-finale/index.html`. Cet atelier ne se connecte
 pas au backend : les essais sont possibles même quand celui-ci est arrêté.
+
+L’ouverture utilise la vraie vue de finale, plein écran et sans défilement.
+Sur ordinateur, les commandes se trouvent à droite du tableau ; sur mobile en
+portrait, elles passent dessous. Le tableau ajuste ses lignes et ses cases à
+la largeur **et** à la hauteur disponibles, sans supprimer de lettres. Le thème
+et la cagnotte restent visibles. Le bouton d’agrandissement permet de lire le
+tableau seul, puis de revenir aux commandes.
+
+Les onglets **Acheter des lettres** et **J’ai la réponse** partagent le même
+clavier intégré ; les touches de réponse ont toutes la même apparence, sans
+distinction des voyelles. Le clavier matériel reste utilisable pour la réponse. Le
+clavier du téléphone n’est pas ouvert automatiquement. Le bouton ⚙ regroupe
+le barème d’essai, le choix d’énigme et le bilan. Les outils éditoriaux restent
+accessibles depuis ce menu, ou avec `/dev/infortune-finale/index.html?edition=1`.
 
 La rubrique **Relire le pool** affiche les énoncés, réponses et variantes en
 clair, par pages de 25. Une recherche par texte, réponse ou identifiant et des
@@ -63,26 +77,40 @@ L’historique de tirage devra être conservé par ce même propriétaire de ses
 
 ## Barème provisoire et présentation
 
-- Cagnotte de test : 2 000 ; consonne : 50 ; voyelle : 150 (Y compris).
+- Cagnotte de test : 2 000 ; consonne : 100 ; voyelle : 150 (Y compris).
 - Un achat paie toutes les occurrences d’une lettre, même si celle-ci est absente.
+- Dès qu’aucune lettre restante n’est achetable avec la cagnotte, le relais en
+  gobblars coûte 50, puis 100, 200, 400… par lettre, voyelle ou consonne.
+  Chaque achat demande confirmation. L’atelier dispose de 5 000 gobblars virtuels
+  par essai ; le jeu normal utilise le portefeuille réel, validé côté serveur.
 - E révèle également É, È, Ê et Ë ; les accents restent visibles sur le tableau.
-- Les occurrences pivotent en ordre de lecture, sans chevauchement : 480 ms de
-  pivot puis 60 ms avant la suivante. Les achats sont verrouillés durant cette
-  séquence. Masquer l’onglet ou demander moins d’animations achève la révélation
+- Le plateau associe des cases bleues et blanches à un cadre lumineux doré et
+  argenté. Le thème reste affiché sous le tableau comme indice dès le départ.
+  Seules les lignes du haut et du bas réservent les coins découpés ; les lignes
+  centrales utilisent toutes les colonnes. Les mots restent entiers, en ajustant
+  la taille des cases à la largeur et à la hauteur disponibles.
+- Les occurrences pivotent en ordre de lecture sur une séquence de 1,5 seconde,
+  quel que soit leur nombre ; les pivots se chevauchent pour les longues phrases.
+  Une lettre seule ne prend que 480 ms. Les achats restent verrouillés jusqu’à
+  la fin. Masquer l’onglet ou demander moins d’animations achève la révélation
   déjà payée sans bloquer les contrôles.
-- Réussite : 1 000 points et 1 gobblar par tranche entière de 10 restant dans la
+  Un bref son accompagne l’apparition des lettres, avec une cadence limitée pour
+  les gros lots ; une tonalité descendante signale une lettre absente. Ces sons
+  locaux ne réactivent pas les ambiances du jeu. Le retour d’arrière-plan et la
+  restauration d’un achat ne rejouent pas les sons.
+- Réussite : 10 points et 1 gobblar par tranche entière de 10 restant dans la
   cagnotte. Échec : aucun gain de finale. Tous ces montants sont des réglages
   d’essai, appliqués seulement en recommençant.
-- Il n’y a pas encore de limite de temps dans l’atelier. Aucune cagnotte ni aucun
-  portefeuille réel n’est modifié, et le tableau n’est pas encore déclenché à la
-  fin du tournoi.
+- Il n’y a pas de limite de temps dans l’atelier. Aucune cagnotte ni aucun
+  portefeuille réel n’y est modifié. Le mini-tournoi normal déclenche cette
+  finale après les résultats de sa dernière manche, avec une limite de 120 secondes.
 
 ## Responsabilités
 
 Le domaine partagé (`shared/createInfortuneFinaleSession.js`) possède les achats,
 la réponse unique et le résultat. Son snapshot public n’expose ni la solution ni
 les lettres non achetées avant la réponse finale. Seul l’atelier importe la base
-complète côté navigateur ; le futur live devra héberger ce domaine côté serveur.
+complète côté navigateur ; le mini-tournoi héberge ce domaine côté serveur.
 
 Le contrôleur `src/features/infortune/finale/createFinaleController.js` possède
 les timers de révélation et leur nettoyage. Les composants consomment son état.

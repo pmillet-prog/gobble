@@ -107,4 +107,8 @@ cd "$REPO_DIR"
 
 echo "=== Definitions databases: conservees telles quelles sur la VM; aucun backfill automatique ==="
 
+echo "=== Avatars: sauvegarde SQLite, migration et generation des portraits existants ==="
+AVATAR_BACKUP="$RUNTIME_DIR/gobble-before-avatar-render-$(date -u +%Y%m%dT%H%M%SZ).db"
+node server/scripts/rebuild-avatar-render-assets.mjs --db="$DB_TARGET" --apply --migrate --backup="$AVATAR_BACKUP"
+
 echo "=== Build OK ==="

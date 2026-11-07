@@ -1,0 +1,30 @@
+.workshop-tournament-finale { margin: 28px 0; color: #edf2f9; }
+.workshop-tournament-finale__heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 18px; margin-bottom: 32px; }
+.workshop-tournament-finale__heading h2 { margin: 6px 0 12px; font-size: clamp(22px, 3vw, 32px); }
+.workshop-tournament-finale__heading p { max-width: 760px; margin: 0; color: #a9b8cb; font-size: 12px; line-height: 1.7; }
+.workshop-tournament-finale__heading p:first-child { color: #dfc286; font-size: 10px; letter-spacing: .15em; }
+.workshop-tournament-finale__layout { display: grid; grid-template-columns: minmax(0, 1fr) 290px; gap: 32px; align-items: start; }
+.workshop-tournament-finale__controls { min-width: 0; padding: 22px; border: 1px solid #354051; border-radius: 14px; background: #101a29; font-size: 12px; }
+.workshop-tournament-finale__controls h3 { margin: 0 0 18px; font-size: 15px; }
+.workshop-tournament-finale__controls p { color: #a4b3c6; font-size: 11px; line-height: 1.7; }
+.workshop-tournament-finale__prices { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 16px 0; }
+.workshop-tournament-finale__prices label { color: #bdc9da; font-size: 11px; line-height: 1.6; }
+.workshop-tournament-finale__prices input { display: block; box-sizing: border-box; width: 100%; min-height: 40px; margin-top: 7px; padding: 8px; border: 1px solid #4c5d73; border-radius: 6px; background: #070f1b; color: #f5e8cc; font: inherit; }
+.workshop-tournament-finale__controls details { margin: 16px 0; }
+.workshop-tournament-finale__controls summary { color: #d8c399; cursor: pointer; line-height: 1.6; }
+.workshop-tournament-finale > button, .workshop-tournament-finale__heading button, .workshop-tournament-finale__controls button { min-height: 42px; padding: 10px 14px; border: 1px solid #8292a6; border-radius: 6px; background: #223249; color: #f4e6c8; font: inherit; font-size: 12px; cursor: pointer; }
+.workshop-tournament-finale__controls button { width: 100%; }
+.workshop-tournament-finale__controls form > button { border-color: #d8b779; background: #3f3524; }
+.workshop-tournament-finale__controls .workshop-tournament-finale__error { color: #ffab9c; }
+.workshop-tournament-finale__controls .workshop-tournament-finale__puzzle { overflow-wrap: anywhere; }
+.workshop-tournament-finale__balance { margin-top: 24px; padding-top: 22px; border-top: 1px solid #344153; }
+.workshop-tournament-finale__balance dl { margin: 0; }
+.workshop-tournament-finale__balance dl > div { display: flex; justify-content: space-between; gap: 16px; margin: 10px 0; }
+.workshop-tournament-finale__balance dt { color: #adbed3; }
+.workshop-tournament-finale__balance dd { flex-shrink: 0; margin: 0; color: #ffe3a6; font-variant-numeric: tabular-nums; }
+.workshop-tournament-finale__answer { padding-top: 18px; border-top: 1px solid #344153; }
+.workshop-tournament-finale__answer blockquote { margin: 12px 0; color: #d6e1f0; line-height: 1.7; }
+@media (max-width: 1050px) {
+  .workshop-tournament-finale__layout { grid-template-columns: 1fr; }
+  .workshop-tournament-finale__controls { max-width: 550px; }
+}

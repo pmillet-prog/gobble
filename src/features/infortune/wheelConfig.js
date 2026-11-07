@@ -17,8 +17,8 @@ export const FIXED_STEP = 1 / 240;
 export const MIN_LAUNCH_SPEED = 6.5;
 export const MAX_LAUNCH_SPEED = 18;
 export const DEFAULT_PHYSICS = Object.freeze({
-  friction: 0.95,
-  drag: 0.14,
+  friction: 1.12,
+  drag: 0.19,
   pegBarrier: 0.026,
   pegLoss: 0.008,
 });

@@ -12,6 +12,8 @@ export default function SoundSettingsPanel({
   soundTileStepEnabled = false,
   soundTimerEnabled = false,
   soundGobbleEnabled = false,
+  soundWheelIntroEnabled = true,
+  onToggleWheelIntro = null,
   onClose = null,
   onToggleAll = null,
   onMasterVolumeChange = null,
@@ -72,7 +74,7 @@ export default function SoundSettingsPanel({
             </button>
             <div className="text-sm font-extrabold tracking-wide">Son</div>
             <span className="inline-flex items-center rounded-full px-2 py-1 text-[10px] font-bold border border-slate-300/40">
-              {enabledSoundCount}/6
+              {enabledSoundCount}/7
             </span>
           </div>
         </div>
@@ -114,6 +116,11 @@ export default function SoundSettingsPanel({
             enabled: ambientOn,
             label: "Son d'ambiance",
             onClick: onToggleAmbient,
+          })}
+          {renderToggle({
+            enabled: soundWheelIntroEnabled,
+            label: "Musique d’intro de la roue",
+            onClick: onToggleWheelIntro,
           })}
           {renderToggle({
             enabled: soundValidationEnabled,

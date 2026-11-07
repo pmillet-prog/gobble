@@ -7,12 +7,12 @@ export function snapshotInfortunePlayers(room, { isBot, isConnected }) {
   }));
 }
 
-export function finalizeInfortunePlateaus({ round, roomId, infortune, players, ranking, now = Date.now, random, ledger, onEconomyChange }) {
+export function finalizeInfortunePlateaus({ round, roomId, infortune, players, ranking, now = Date.now, random, ledger, onEconomyChange, onReward }) {
   if (!infortune) return null;
   if (round.infortune?.groups) return round.infortune;
-  Object.assign(infortune, { openedAt: now(), groups: buildInfortunePlateaus({ roomId, roundId: round.id, players, ranking, random }) });
+  Object.assign(infortune, { openedAt: infortune.afterResults ? infortune.openedAt : now(), groups: buildInfortunePlateaus({ roomId, roundId: round.id, players, ranking, random }) });
   if (ledger) {
-    round.infortuneGame = createInfortuneRoundEconomy({ ledger, policy: infortune, groups: infortune.groups, now, random, onChange: onEconomyChange });
+    round.infortuneGame = createInfortuneRoundEconomy({ ledger, policy: infortune, groups: infortune.groups, now, random, onChange: onEconomyChange, onReward });
     // Reconnection and delayed roundEnded payloads always carry the latest view.
     Object.defineProperty(infortune, "economy", { enumerable: true, get: () => round.infortuneGame.snapshot() });
   }

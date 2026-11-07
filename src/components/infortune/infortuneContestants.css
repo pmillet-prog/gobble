@@ -4,6 +4,8 @@
 .infortune-contestants__player > div { min-width: 0; }
 .infortune-contestants__player strong { display: block; font-size: 13px; overflow-wrap: anywhere; }
 .infortune-contestants__player small { display: block; color: #9eb6c6; font-size: 10px; margin-top: 3px; }
-.infortune-contestants__player b { display: block; margin-top: 6px; color: #ffe291; font-size: 16px; }
+.infortune-contestants__player b { display: block; margin-top: 6px; color: #ffe291; font-size: 16px; font-variant-numeric: tabular-nums; }
 button.infortune-contestants__player { color: inherit; text-align: left; padding: 18px; border: 1px solid #62dce5; border-radius: 16px; background: #12313f; cursor: pointer; }
 button.infortune-contestants__player:hover, button.infortune-contestants__player:focus-visible { box-shadow: 0 0 26px #46c4de70; background: #204956; }
+.infortune-contestants__player.is-selected { outline: 3px solid #ffe09a; outline-offset: 3px; box-shadow: 0 0 26px #ffe09a66; background: #594927; }
+.infortune-contestants__player.is-selected strong::after { content: " ✓"; color: #ffe09a; }

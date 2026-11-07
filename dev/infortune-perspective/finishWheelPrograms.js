@@ -8,6 +8,7 @@ const completedByRenderer = new WeakMap();
 
 export async function finishWheelPrograms(renderer, { isDisposed = () => false,
   onProgress = () => {}, onProgramTiming = () => {}, now = () => performance.now(),
+  allowCheck = async () => true,
   yieldControl = () => new Promise(resolve => setTimeout(resolve, 0)) } = {}) {
   let completed = completedByRenderer.get(renderer);
   if (!completed) { completed = new WeakSet(); completedByRenderer.set(renderer, completed); }
@@ -18,6 +19,7 @@ export async function finishWheelPrograms(renderer, { isDisposed = () => false,
     onProgress(index, programs.length, program);
     const beforeYield = now();
     await yieldControl();
+    if (!await allowCheck()) return false;
     if (isDisposed()) return false;
     const beforeCheck = now();
     const linked = gl.getProgramParameter(program.program, gl.LINK_STATUS);

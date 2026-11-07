@@ -9,7 +9,7 @@ import { CAMERA_SEQUENCE_ENDPOINT, cameraSequenceBackups, loadCameraDraft, resto
   sequenceSnapshot, storeCameraDraft } from "./cameraTimelinePersistence.js";
 const localStore = () => { try { return window.localStorage; } catch { return null; } };
 
-export function useCameraTimeline({ applyCamera, commitCamera, stageReady, spinProgress, setInputLocked, syncIntroAudio }) {
+export function useCameraTimeline({ applyCamera, commitCamera, stageReady, spinProgress, setInputLocked, syncIntroAudio, onResultPresented }) {
   const [initial] = React.useState(() => loadCameraDraft(savedInProject, localStore()));
   const [timeline, setTimeline] = React.useState(initial.timeline);
   const [transport, setTransport] = React.useState({ sequence: "intro", time: 0, playing: false });
@@ -30,7 +30,7 @@ export function useCameraTimeline({ applyCamera, commitCamera, stageReady, spinP
   const availability = React.useRef(null);
   if (!availability.current) availability.current = createCameraAvailabilityGate();
   if (!inputGate.current) inputGate.current = createCameraInputGate(setInputLocked);
-  callbacks.current = { applyCamera, commitCamera, stageReady: ready, automatic, speedThreshold, syncIntroAudio };
+  callbacks.current = { applyCamera, commitCamera, stageReady: ready, automatic, speedThreshold, syncIntroAudio, onResultPresented };
   React.useEffect(() => {
     if (!import.meta.env.DEV) return;
     let disposed = false;
@@ -79,6 +79,7 @@ export function useCameraTimeline({ applyCamera, commitCamera, stageReady, spinP
       },
       onCommit: camera => callbacks.current.commitCamera(camera), onChange(state) {
         setTransport(state); director.current?.onTransportChange();
+        if (state.sequence === 'results' && !state.playing && state.time >= 3) callbacks.current.onResultPresented?.();
       },
     });
     player.current = instance; instance.seek("intro", 0);

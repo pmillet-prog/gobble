@@ -99,6 +99,18 @@ export default function DefinitionOverlays({ runtime }) {
                     : ""
                 }`}
               >
+                {definitionModal.questionContext?.text ? (
+                  <section className={`mb-3 rounded-lg border px-3 py-2 text-left ${
+                    definitionModalDarkMode
+                      ? "border-amber-300/45 bg-amber-300/20 text-amber-50"
+                      : "border-amber-300 bg-amber-100 text-amber-950"
+                  }`}>
+                    <h2 className="mb-1 text-[11px] font-extrabold uppercase tracking-wide">
+                      {definitionModal.questionContext.label}
+                    </h2>
+                    <p className="whitespace-pre-line leading-relaxed">{definitionModal.questionContext.text}</p>
+                  </section>
+                ) : null}
                 {definitionModal.loading ? (
                   <span>Chargement...</span>
                 ) : (definitionModal.ok && definitionModal.definition) || definitionModal.highlightedDefinition ? (

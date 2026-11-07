@@ -54,7 +54,7 @@ test("one accepted proposal freezes the outcome, rewards only the remaining bank
   const session = create(423);
   session.buyLetter("E");
   const result = session.submitAnswer(" bouSsole ");
-  assert.equal(result.snapshot.outcome.points, 1000);
+  assert.equal(result.snapshot.outcome.points, 10);
   assert.equal(result.snapshot.outcome.gobblars, 27);
   assert.equal(result.snapshot.bank, 273);
   assert.ok(result.snapshot.tiles.every(tile => tile.character !== null));

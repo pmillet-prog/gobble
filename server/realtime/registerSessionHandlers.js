@@ -1,6 +1,7 @@
 import { isSessionRoundDisplayable } from "./sessionSnapshotState.js";
 import { getSocketDeviceKind } from "./clientDeviceKind.js";
 import { getPlayerLastActivityAt } from "./createPlayerInactivityController.js";
+import { readTournamentParticipation } from './tournamentParticipation.js';
 
 export function registerSessionHandlers(
   socket,
@@ -42,6 +43,13 @@ export function registerSessionHandlers(
     schedulePlayerAfkTransition,
   }
 ) {
+  socket.on('tournament:participation', (payload, cb) => {
+    if (typeof cb !== 'function') return;
+    const identity = requireSocketPlayerIdentity(socket, cb);
+    if (!identity) return;
+    cb(readTournamentParticipation(getRoom(payload?.roomId), identity));
+  });
+
   socket.on("session:resume", async (payload, cb) => {
     if (typeof payload === "function") {
       cb = payload;

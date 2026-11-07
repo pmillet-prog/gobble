@@ -42,6 +42,37 @@ test("same physical throw yields identical result at 30, 60 and 144 Hz, exactly 
   assert.deepEqual(outcomes[1], outcomes[2]);
 });
 
+test("deadline launches once, cancels held input and never grants a precision bonus", () => {
+  for (const gesture of ["ready", "aiming", "dragging"]) {
+    const app = harness({ launchGame: { gestureMode: "power" } });
+    if (gesture === "aiming") app.controller.clickLaunch();
+    if (gesture === "dragging") app.controller.beginDrag(0);
+    assert.equal(app.controller.autoLaunch(), true);
+    assert.equal(app.view.phase, "spinning");
+    assert.equal(app.controller.autoLaunch(), false);
+    app.finish();
+    assert.equal(app.results.length, 1);
+    assert.equal(app.results[0].launchQuality, undefined);
+    assert.equal(app.controller.autoLaunch(), false);
+  }
+  const locked = harness({ inputLocked: true });
+  assert.equal(locked.controller.autoLaunch(), false);
+  locked.controller.setInputLocked(false); locked.controller.pause();
+  assert.equal(locked.controller.autoLaunch(), false);
+  locked.controller.resume();
+  assert.equal(locked.controller.autoLaunch(), true);
+  locked.controller.dispose();
+});
+
+test("live throws catch up after suspension to the same sector without duplicate results", () => {
+  const foreground = harness({ catchUpElapsed: true }); foreground.controller.autoLaunch(); foreground.finish();
+  const suspended = harness({ catchUpElapsed: true }); suspended.controller.autoLaunch(); suspended.advance(30_000);
+  assert.equal(suspended.view.phase, "finished");
+  assert.deepEqual(suspended.results, foreground.results);
+  assert.equal(suspended.clicks, 0); suspended.advance(60_000); assert.equal(suspended.results.length, 1);
+  suspended.controller.dispose(); foreground.controller.dispose();
+});
+
 test("a custom rod radius survives a complete spin, cancellation and reset", () => {
   const app = harness({ pegRadius: 1.6 });
   assert.equal(app.snapshot.pegRadius, 1.6);

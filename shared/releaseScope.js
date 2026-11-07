@@ -1,9 +1,10 @@
-// This release exposes the Gotus adjustment and the voluntary wheel test only.
-// Keep unfinished integrations in source, but require an explicit code review
-// to ship them. An old server environment variable cannot enable them.
+// Major release: tournament wheel and saved avatar render packs are published.
+// The server wheel still requires its explicit production environment opt-in.
 export const RELEASE_SCOPE = Object.freeze({
-  infortuneTournament: false,
-  avatarRenderAssets: false,
+  infortuneTournament: true,
+  // Paul approved publishing the current bank while retaining editorial statuses.
+  infortuneFinaleDrafts: true,
+  avatarRenderAssets: true,
   roundResultsReadiness: false,
   roundBonusAnnouncements: false,
   targetQuizBranding: false,
@@ -12,5 +13,7 @@ export const RELEASE_SCOPE = Object.freeze({
 export const avatarAssetMigrationEnabled = name =>
   name !== "2026-11-03-avatar-render-assets.sql" || RELEASE_SCOPE.avatarRenderAssets;
 
-export const infortuneTournamentEnabled = environment =>
-  RELEASE_SCOPE.infortuneTournament && environment.GOBBLE_INFORTUNE_ENABLED === "1";
+export const infortuneTournamentEnabled = (environment = {}) =>
+  RELEASE_SCOPE.infortuneTournament && environment.GOBBLE_INFORTUNE_ENABLED === "1"
+  || (environment.NODE_ENV === undefined || environment.NODE_ENV === "development")
+    && environment.GOBBLE_LOCAL_INFORTUNE_ENABLED === "1";

@@ -1,6 +1,7 @@
 import React from "react";
 
 export function LaunchButton({ wheel, className, children }) {
+  if (wheel.gestureOnly) return null;
   return <button className={className} type="button"
     disabled={wheel.inputLocked || Boolean(wheel.renderError) || !["ready", "aiming"].includes(wheel.view.phase)}
     onPointerDown={event => {

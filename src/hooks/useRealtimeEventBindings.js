@@ -7,6 +7,8 @@ import {
 import { DAILY_SPECIAL_MODE } from "../components/daily/dailyModes.js";
 import { FAKE_TWINS_TYPE, OCID_TYPE } from "../components/gameLogic.js";
 import { createRoundEndedHandler } from "../features/round/createRoundEndedHandler.js";
+import { INFORTUNE_CLIENT_ENABLED } from '../features/infortune/infortuneAvailability.js';
+import { GOBBLARS_PER_GOBBLE } from '../../shared/gobbleRewards.js';
 
 export default function useRealtimeEventBindings(runtime) {
   const {
@@ -393,15 +395,20 @@ useEffect(() => {
       const awardKind = String(payload?.kind || "").toLowerCase();
       // The quiz displays this reward when its recap gauge crosses the milestone.
       if (awardKind === "target_quiz_milestone") return;
+      // The finale presents its own conversion and cash-register cue.
+      if (awardKind === 'infortune_finale' && INFORTUNE_CLIENT_ENABLED) return;
       if (awardKind === "live_gobble") {
-        const message =
-          amount >= 2
-            ? `Double gobble ! +${amount} Gobblars`
-            : `Gobble ! +${amount} Gobblar`;
+        const gobbles = Number(payload.gobbles) || amount / GOBBLARS_PER_GOBBLE;
+        const label = gobbles >= 2 ? 'Double gobble !' : 'Gobble !';
+        if (INFORTUNE_CLIENT_ENABLED) {
+          showToastRef.current?.(label, 2200);
+          return; // The two currency gains are presented together in the results.
+        }
+        const message = `${label} +${amount} Gobblars`;
         const timerId = window.setTimeout(() => {
           gobblarToastDelayTimersRef.current.delete(timerId);
           showToastRef.current?.(message, 3000, {
-            gobblarsReward: { amount, balance, label: amount >= 2 ? "Double gobble !" : "Gobble !", receipt: payload.ts ? `live_gobble:${payload.ts}:${balance}` : "" },
+            gobblarsReward: { amount, balance, label, receipt: payload.ts ? `live_gobble:${payload.ts}:${balance}` : "" },
           });
         }, 1000);
         gobblarToastDelayTimersRef.current.add(timerId);

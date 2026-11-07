@@ -13,8 +13,26 @@ const WORDS = ["BALLON", "BANANE", "BALLES", "TABLES", "CHAISE", "MAISON", "MANG
 const catalog = createGotusCatalog({ wordLength: 6, accepted: WORDS, targets: ["BALLON"] });
 const profile = { totalWins: 9, words: 9, cycles: 0, target: 10, rewardAmount: 500 };
 
+test('closing reveals the answer to an unfinished player before another win finishes saving', async () => {
+  let release, started;
+  const saving = new Promise(resolve => { started = resolve; });
+  const barrier = new Promise(resolve => { release = resolve; });
+  const f = await fixture({ recordWin: async () => { started(); await barrier; return { ok: true }; } });
+  const other = f.attach(8);
+  await f.request('gotus:start'); await other.request('gotus:start');
+  const win = f.request('gotus:guess', { requestId: 'pending-win', word: 'BALLON' });
+  await saving;
+  assert.equal(other.progress.at(-1).solution, undefined);
+  const closing = f.service.closeRoomRound(f.room.id, f.round.id);
+  assert.equal(other.progress.at(-1).solution, 'BALLON');
+  assert.equal(other.progress.at(-1).phase, 'expired');
+  release(); await win; await closing;
+});
+
 async function fixture(options = {}) {
   let at = 10000;
+  let timerId = 0;
+  const pendingTimers = new Map();
   const writes = [];
   const activity = [];
   const round = { id: 42, status: "running", endsAt: 150000, special: { type: "target_long" }, targetFoundAt: new Map() };
@@ -30,6 +48,10 @@ async function fixture(options = {}) {
     },
     random: () => 0.75,
     now: () => at,
+    timers: {
+      setTimeout(fn, ms) { const id = ++timerId; pendingTimers.set(id, { fn, at: at + ms }); return id; },
+      clearTimeout(id) { pendingTimers.delete(id); },
+    },
     ...options,
   });
   await service.prepareRound(room.id, round);
@@ -55,8 +77,63 @@ async function fixture(options = {}) {
     const request = (event, payload = {}) => new Promise(resolve => socket.emit(event, { roundId: 42, ...payload }, resolve));
     return { socket, player, request, progress };
   }
-  return { ...attach(), attach, room, round, service, handlers, dependencies, writes, activity, setNow: value => { at = value; } };
+  return { ...attach(), attach, room, round, service, handlers, dependencies, writes, activity, pendingTimers,
+    setNow: value => { at = value; },
+    advanceTo(value) {
+      at = value;
+      for (const [id, task] of [...pendingTimers]) {
+        if (task.at > at) continue;
+        pendingTimers.delete(id); task.fn();
+      }
+    },
+  };
 }
+
+test("the deadline reveals unfinished and dismissed games before the grid's closing grace period", async () => {
+  const f = await fixture();
+  const dismissed = f.attach(8);
+  await f.request("gotus:start"); await dismissed.request("gotus:start");
+  await f.request("gotus:guess", { requestId: "wrong", word: "BANANE" });
+  await dismissed.request("gotus:dismiss");
+  assert.equal(f.pendingTimers.size, 1, "one deadline per round, shared by all players");
+  f.advanceTo(f.round.endsAt - 1);
+  assert.equal(f.progress.at(-1).solution, undefined, "the answer stays private until the deadline");
+  f.advanceTo(f.round.endsAt);
+  for (const player of [f, dismissed]) {
+    assert.equal(player.progress.at(-1).phase, "expired");
+    assert.equal(player.progress.at(-1).solution, "BALLON");
+    assert.equal(getGotusResult(f.round, player.player).solution, "BALLON");
+  }
+  assert.equal(f.round.status, "running", "the grid still has its original closing grace period");
+  assert.equal(f.writes.length, 0);
+  assert.equal(f.pendingTimers.size, 0);
+  assert.equal((await f.request("gotus:guess", { requestId: "late", word: "BALLON" })).error, "round_finished");
+  await f.handlers.closeRoomRound(f.room.id, f.round.id);
+});
+
+test("the deadline reveals the answer while another player's win is still saving", async () => {
+  let release;
+  const f = await fixture({ recordWin: () => new Promise(resolve => { release = resolve; }) });
+  const other = f.attach(8);
+  await f.request("gotus:start"); await other.request("gotus:start");
+  const win = f.request("gotus:guess", { requestId: "pending", word: "BALLON" });
+  await new Promise(resolve => setImmediate(resolve));
+  f.advanceTo(f.round.endsAt);
+  try {
+    assert.equal(other.progress.at(-1).solution, "BALLON");
+    assert.equal(f.progress.at(-1).phase, "won");
+  } finally { release({ ok: true }); await win; await f.handlers.closeRoomRound(f.room.id, f.round.id); }
+});
+
+test("early round closure cancels its pending answer timer", async () => {
+  const f = await fixture();
+  await f.request("gotus:start");
+  await f.handlers.closeRoomRound(f.room.id, f.round.id);
+  assert.equal(f.pendingTimers.size, 0);
+  const count = f.progress.length;
+  f.advanceTo(f.round.endsAt);
+  assert.equal(f.progress.length, count);
+});
 
 test("French normalization and repeated letters use exact matches before yellow occurrences", () => {
   assert.equal(normalizeGotusWord(" brûlée "), "BRULEE");

@@ -1,0 +1,28 @@
+.currency-layer { position: fixed; inset: 0; z-index: 240000; pointer-events: none; }
+.currency-slot { display: block; width: 94px; height: 42px; flex: 0 0 94px; }
+.currency-counter { display: flex; align-items: center; justify-content: center; gap: 1px; width: 94px; height: 42px; flex: 0 0 94px; border: 1px solid #a8c2e144; border-radius: 16px; background: linear-gradient(135deg,#17324cba,#142439a8); box-shadow: inset 0 1px #ffffff20,0 2px 10px #07132520; color: #fff4ce; font: 900 23px/1 system-ui,sans-serif; font-variant-numeric: tabular-nums; box-sizing: border-box; }
+.currency-counter img { flex: 0 0 36px; width: 36px; height: 36px; object-fit: contain; }
+.currency-counter strong { min-width: 3ch; text-align: center; }
+.currency-counter--floating { position: absolute; left: 0; top: 0; transition: transform 480ms cubic-bezier(.22,.75,.25,1),width 480ms,height 480ms; will-change: transform; pointer-events: auto; }
+.currency-counter__gain { position: absolute; right: 0; top: 3px; opacity: 0; color: #a7f3b4; font-size: 17px; text-shadow: 0 2px 4px #001; pointer-events: none; }
+.game-balances { display: flex; align-items: center; justify-content: center; gap: 12px; }
+.game-balances--intro,.game-balances--standings { position: fixed; top: max(8px,env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); }
+.currency-header { display: grid; grid-template-columns: 94px 36px minmax(0,1fr) 36px 94px; align-items: center; gap: 8px; width: 100%; min-width: 0; }
+.currency-header > :is(.currency-slot,.currency-counter):first-child { grid-column: 1; grid-row: 1; }
+.currency-header > :is(.currency-slot,.currency-counter):last-child { grid-column: 5; grid-row: 1; }
+.currency-header__center { grid-column: 3; grid-row: 1; min-width: 0; text-align: center; line-height: 1.15; }
+.currency-header__center small { display: block; font-size: 11px; }
+.currency-header__chat { grid-column: 2; grid-row: 1; width: 36px; height: 36px; }
+.currency-header__chat button > span { min-width: 14px; height: 14px; font-size: 8px; }
+.currency-header__settings { grid-column: 4; grid-row: 1; display: grid; place-items: center; width: 36px; height: 36px; border: 1px solid #94a3b84d; border-radius: 10px; background: #64748b18; color: inherit; }
+@media(max-width:650px) {
+  .currency-slot,.currency-counter { width: 69px; height: 34px; flex-basis: 69px; }
+  .currency-counter { font-size: 18px; border-radius: 12px; }
+  .currency-counter img { width: 28px; height: 28px; flex-basis: 28px; }
+  .currency-header { grid-template-columns: 69px 30px minmax(0,1fr) 30px 69px; gap: 4px; }
+  .currency-header__settings { width: 30px; height: 32px; }
+  .currency-header__chat { width: 30px; height: 32px; }
+  .currency-header__center small { font-size: 9px; }
+  .currency-counter__gain { font-size: 13px; }
+}
+@media(prefers-reduced-motion:reduce) { .currency-counter--floating { transition: none; } }

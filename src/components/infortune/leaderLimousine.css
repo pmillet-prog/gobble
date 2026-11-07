@@ -1,0 +1,23 @@
+.wheel-leaders .wheel-limousine-track { display: block; inset-block: 25% 18%; }
+.wheel-limousine-motion { position: absolute; left: 0; bottom: 0; height: 1px; animation: wheel-limo-drive var(--walk-duration) var(--walk-delay) linear both; }
+.wheel-limousine { position: absolute; bottom: 0; left: 0; display: flex; height: 164px; transform: scale(var(--limo-scale)); transform-origin: bottom left; filter: drop-shadow(0 7px 2px #65502b40); }
+.wheel-limousine__rear,.wheel-limousine__front,.wheel-limousine__door,.wheel-limousine__backrest { position: relative; flex: none; height: 164px; background: var(--limo-image) no-repeat; background-size: 492px 164px; }
+.wheel-limousine__rear { width: 122px; background-position: 0 0; z-index: 2; }
+.wheel-limousine__front { width: 130px; background-position: -362px 0; z-index: 2; }
+.wheel-limousine__seat { position: relative; flex: 0 0 120px; width: 120px; height: 164px; margin: 0; }
+/* Split the repeated sprite at the teal sill: leather behind the passenger,
+   bodywork in front. The one-pixel overlap keeps scaled masks seam-free. */
+.wheel-limousine__backrest { position: absolute; inset: 0; width: 121px; background-position: -122px 0; clip-path: inset(0 0 93px); z-index: 0; }
+.wheel-limousine__door { width: 121px; background-position: -122px 0; clip-path: inset(70px 0 0); z-index: 2; }
+.wheel-limousine__passenger { position: absolute; z-index: 1; width: 160px; height: 160px; left: -20px; top: -75px; transform-origin: center bottom; animation: wheel-limo-passenger 650ms var(--hop-delay) ease-in-out infinite alternate; }
+.wheel-limousine__seat figcaption { position: absolute; z-index: 3; left: -2px; right: -2px; top: -102px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; padding: 2px 4px; border: 1px solid #efd387; border-radius: 5px; color: #fff8dc; background: #173e50e8; font-weight: 800; line-height: 1.2; }
+.wheel-limousine__wheel { position: absolute; width: 44px; height: 44px; left: 55px; top: 93px; border-radius: 50%; background: var(--limo-image) -55px -93px / 492px 164px; animation: wheel-limo-tire 600ms var(--walk-delay) linear infinite; }
+.wheel-limousine__front .wheel-limousine__wheel { left: 38px; background-position: -400px -93px; }
+.wheel-limousine .wheel-leaders__coins { left: 5px; top: 48px; z-index: 4; }
+.wheel-leaders .wheel-leaders__layer--road { --layer-period: 4.6s; }
+.wheel-leaders .wheel-leaders__layer--foreground { --layer-period: 3.5s; }
+.wheel-leaders .wheel-leaders__layer--trees { --layer-period: 22s; }
+@keyframes wheel-limo-drive { from { transform: translateX(var(--limo-from)); } to { transform: translateX(var(--limo-to)); } }
+@keyframes wheel-limo-tire { to { transform: rotate(360deg); } }
+@keyframes wheel-limo-passenger { from { transform: translateY(0) rotate(-1.5deg); } to { transform: translateY(-3px) rotate(1.5deg); } }
+@media(prefers-reduced-motion:reduce) { .wheel-limousine-motion,.wheel-limousine__wheel,.wheel-limousine__passenger { animation: none; }.wheel-limousine-motion { transform: translateX(var(--limo-from)); } }

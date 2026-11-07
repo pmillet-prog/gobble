@@ -1,3 +1,6 @@
+import { gameAudioFocus } from '../features/audio/gameAudioFocus.js';
+const releaseAudioFocus = gameAudioFocus.store.subscribe(() => applyMasterGain());
+if (import.meta.hot) import.meta.hot.dispose(releaseAudioFocus);
 const DEV_MODE = typeof import.meta !== "undefined" && !!import.meta.env?.DEV;
 const DEFAULT_EXT_ORDER = ["m4a", "wav"];
 const SFX_FETCH_TIMEOUT_MS = 8000;
@@ -56,7 +59,7 @@ export function resolveCandidates(pathBase) {
 
 function applyMasterGain() {
   if (!state.masterGain) return;
-  state.masterGain.gain.value = state.muted ? 0 : clamp01(state.masterVolume);
+  state.masterGain.gain.value = state.muted || gameAudioFocus.store.getState().effects ? 0 : clamp01(state.masterVolume);
 }
 
 function disconnectNode(node) {
@@ -328,7 +331,7 @@ export async function preload(manifest = [], onProgress) {
 
 export function play(key, { eqKey, gain = 1, rate = 1 } = {}) {
   if (!key) return { ok: false, reason: "missing" };
-  if (state.muted) return { ok: false, reason: "muted" };
+  if (state.muted || gameAudioFocus.store.getState().effects) return { ok: false, reason: "muted" };
 
   let system = null;
   if (typeof state.getAudioSystem === "function") {

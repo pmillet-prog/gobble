@@ -104,18 +104,26 @@ try {
   await new Promise((resolve, reject) => { socket.once("open", resolve); socket.once("error", reject); });
   cdp = attach(socket); await cdp("Page.enable"); await cdp("Runtime.enable");
   await cdp("Page.addScriptToEvaluateOnNewDocument", { source: `localStorage.setItem('gobble.infortune.performance.v1', JSON.stringify({version:2,preference:${JSON.stringify(profile)},profile:${JSON.stringify(profile)},at:Date.now()}))` });
+  if (profile === "flat") await cdp("Page.addScriptToEvaluateOnNewDocument", { source: `window.__wheelContexts=[];const originalGetContext=HTMLCanvasElement.prototype.getContext;HTMLCanvasElement.prototype.getContext=function(type,...args){window.__wheelContexts.push(type);return originalGetContext.call(this,type,...args);};` });
   await cdp("Emulation.setDeviceMetricsOverride", { width: touch ? 390 : 1280, height: touch ? 844 : 1000, deviceScaleFactor: 1, mobile: touch });
   if (touch) await cdp("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 1 });
-  await cdp("Page.navigate", { url: `${origin}${training ? "/entrainement/roue/index.html" : "/dev/infortune-perspective/"}` });
+  await cdp("Page.navigate", { url: `${origin}${training ? "/entrainement/roue/index.html" : "/dev/infortune-perspective/index.html?edition=1"}` });
   await until(() => evaluate(`!!document.querySelector('${modeSelector}')`), "wheel page");
   await evaluate(`document.querySelector('${sceneSelector}').scrollIntoView({block:'center'})`);
   const start = await until(() => evaluate(`(() => { const b=[...document.querySelectorAll('button')].find(b => b.textContent.startsWith('Entrer sur le plateau')); if(!b) return null; const r=b.getBoundingClientRect(); return {x:r.x+r.width/2,y:r.y+r.height/2}; })()`), "intro button");
   await click(start.x, start.y);
   await until(() => evaluate(`document.querySelector('${sceneSelector}')?.dataset.inputLocked === 'false'`), "intro completion");
+  if (profile === "flat") await capture(`stage-ready-${touch ? "touch" : "mouse"}`);
   await evaluate(`(() => { const s=document.querySelector('${modeSelector}');s.value='trace';s.dispatchEvent(new Event('change',{bubbles:true})); })()`);
   await delay(80);
   const initial = await snapshot(), { scene } = initial;
-  let startPoint = { x: scene.x + scene.width / 2, y: scene.y + scene.height * (334 / 640 + 0.3) };
+  let startPoint;
+  if (profile === "flat") startPoint = await evaluate(`(async () => {
+    const { flatWheelLayout } = await import('/dev/infortune-perspective/flatWheelGeometry.js');
+    const rect = document.querySelector('${sceneSelector}').getBoundingClientRect();
+    const { left, top, side } = flatWheelLayout(rect.width, rect.height);
+    return { x: rect.x + left + side / 2, y: rect.y + top + side * (334 / 640 + 0.3) };
+  })()`);
   if (profile !== "flat") startPoint = await evaluate(`(async () => {
     const { createProjection, projectPoint } = await import('/dev/infortune-perspective/projection.js');
     const { cameraAt, normalizeCameraTimeline } = await import('/dev/infortune-perspective/cameraTimeline.js');
@@ -156,6 +164,14 @@ try {
   assert.equal(report[4].cursor, report[3].cursor, "The actual release point is retained after two seconds");
   assert.equal(report[4].power, report[3].power, "The released gauge does not decay during replay");
   assert.equal(report[5].guide, undefined, "The replay disappears after its reading time");
+  if (profile === "flat" && !training) {
+    await until(() => evaluate(`!!document.querySelector('.flat-wheel-stage[data-sequence="results"] .flat-wheel-stage__result')`), "2D result announcement");
+    await delay(700);
+    await capture(`stage-result-${touch ? "touch" : "mouse"}`);
+    assert.ok(await evaluate(`window.__wheelContexts.every(type=>type==='2d')`), "The 2D stage does not create a WebGL context");
+    assert.equal(await evaluate(`document.documentElement.scrollWidth<=innerWidth`), true, "The 2D stage fits the viewport");
+    console.log("2D stage: result announcement, viewport fit and Canvas-only rendering passed.");
+  }
   if (training) {
     await until(() => evaluate("[...document.querySelectorAll('.wheel-test__actions button')].some(b => b.textContent.includes('Un autre tour') && !b.disabled)"), "return to plateau");
     assert.match(await evaluate("document.querySelector('.wheel-test__summary').textContent"), /1 lancer terminé · 100/);

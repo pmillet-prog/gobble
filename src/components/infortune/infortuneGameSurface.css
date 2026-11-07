@@ -1,0 +1,55 @@
+.infortune-game { position: fixed; inset: 0; z-index: 220010; height: 100dvh; width: 100%; box-sizing: border-box; display: grid; grid-template-rows: auto minmax(0,1fr); gap: 8px; padding: max(8px,env(safe-area-inset-top)) max(8px,env(safe-area-inset-right)) max(8px,env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left)); overflow: hidden; background: #101d32; color: #f1f5f9; font: 14px/1.35 system-ui,sans-serif; }
+.infortune-game *, .infortune-game *::before, .infortune-game *::after, .infortune-game-dialog * { box-sizing: border-box; }
+.infortune-game button, .infortune-game input, .infortune-game select, .infortune-game-dialog button, .infortune-game-dialog input, .infortune-game-dialog select { font: inherit; }
+.infortune-game button, .infortune-game-dialog button { cursor: pointer; }
+.infortune-game button:disabled, .infortune-game-dialog button:disabled { opacity: .45; cursor: default; }
+.infortune-game :focus-visible, .infortune-game-dialog :focus-visible { outline: 2px solid #fde68a; outline-offset: 2px; }
+.infortune-game__header { display: grid; grid-template-columns: 94px 40px minmax(0,1fr) 40px 94px; align-items: center; gap: 8px; min-width: 0; min-height: 48px; padding: 2px 8px; }
+.infortune-game__header > :is(.currency-slot,.currency-counter):first-child { grid-column: 1; grid-row: 1; }
+.infortune-game__header > :is(.currency-slot,.currency-counter):last-child { grid-column: 5; grid-row: 1; }
+.infortune-game__identity { grid-column: 3; grid-row: 1; display: flex; align-items: center; justify-content: center; text-align: center; gap: 18px; min-width: 0; }
+.infortune-game__brand { color: #f8fafc; font-size: 28px; font-weight: 900; letter-spacing: -.07em; }
+.infortune-game__identity h1 { font: 800 17px/1.2 system-ui,sans-serif; margin: 0; }
+.infortune-game__identity p { color: #a7b7ce; font-size: 12px; margin: 3px 0 0; }
+.infortune-game__bank { text-align: right; flex: none; }
+.infortune-game__bank span { display: block; color: #b4c2d5; font-size: 11px; }
+.infortune-game__bank strong { color: #fde68a; font-size: 22px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.infortune-game__actions { grid-column: 4; grid-row: 1; display: flex; flex-direction: column; gap: 6px; align-items: center; }
+.infortune-game__actions--leading { grid-column: 2; }
+.infortune-game__actions button, .infortune-game__actions a, .infortune-game-dialog header button { display: grid; place-items: center; min-width: 40px; min-height: 40px; border: 1px solid #475569; border-radius: 8px; color: #e2e8f0; background: #1e293b; text-decoration: none; padding: 6px 10px; }
+.infortune-game__body { min-width: 0; min-height: 0; overflow: hidden; border: 1px solid #334155; border-radius: 12px; background: #0b172a; }
+.infortune-game-dialog { box-sizing: border-box; width: min(92vw,520px); max-height: calc(100dvh - 24px); padding: 18px; overflow: hidden; color: #f1f5f9; border: 1px solid #64748b; border-radius: 12px; background: #152237; font: 14px/1.4 system-ui,sans-serif; }
+.infortune-game-dialog::backdrop { background: #020617b8; }
+.infortune-game-dialog > header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.infortune-game-dialog h2 { margin: 0; font-size: 18px; }
+.infortune-game-dialog h3 { font-size: 15px; }
+.infortune-game-dialog p { font-size: 12px; color: #cbd5e1; }
+.infortune-game-dialog label { display: grid; gap: 5px; margin: 10px 0; font-size: 12px; }
+.infortune-game-dialog select, .infortune-game-dialog input { width: 100%; min-width: 0; padding: 8px; color: #f8fafc; background: #0f172a; border: 1px solid #64748b; border-radius: 6px; }
+.infortune-game-dialog__tabs { display: flex; gap: 6px; margin-bottom: 14px; }
+.infortune-game-dialog__tabs button, .infortune-game-dialog__content > button, .infortune-game-dialog form > button { border: 1px solid #64748b; border-radius: 6px; background: #24405e; color: #fff; min-height: 40px; padding: 8px 12px; }
+.infortune-game-dialog__tabs button[aria-pressed="true"] { border-color: #7dd3fc; background: #075985; }
+.infortune-game-dialog a { color: #7dd3fc; }
+@media(max-width:650px) {
+  .infortune-game__header { flex-wrap: nowrap; }
+  .infortune-game__header .game-balances--wheel { order: 3; width: 100%; justify-content: center; }
+  .infortune-game__header .game-balances--wheel>div>span:last-child { display: flex; align-items: baseline; gap: 5px; }
+  .infortune-game__header .game-balances--wheel>div { padding-block: 2px; }
+  .infortune-game { gap: 4px; padding: max(4px,env(safe-area-inset-top)) max(4px,env(safe-area-inset-right)) max(4px,env(safe-area-inset-bottom)) max(4px,env(safe-area-inset-left)); }
+  .infortune-game__header { grid-template-columns: 69px 36px minmax(0,1fr) 36px 69px; gap: 4px; padding: 0 4px; }
+  .infortune-game__brand { display: none; }
+  .infortune-game__identity h1 { font-size: 13px; }
+  .infortune-game__identity p { font-size: 10px; margin-top: 2px; }
+  .infortune-game__bank strong { font-size: 17px; }
+  .infortune-game__bank span { font-size: 9px; }
+  .infortune-game__actions { gap: 4px; }
+  .infortune-game__actions button, .infortune-game__actions a { min-width: 36px; min-height: 36px; padding: 5px 7px; }
+}
+@media(max-height:480px) { .infortune-game__header { min-height: 36px; } .infortune-game__identity p { display: none; } .infortune-game-dialog { padding: 10px 14px; } .infortune-game-dialog > header { margin-bottom: 6px; } }
+@media(max-height:480px) {
+  .infortune-game-dialog__tabs { margin-bottom: 6px; }
+  .infortune-game-dialog label { gap: 3px; margin: 5px 0; }
+  .infortune-game-dialog select, .infortune-game-dialog input { padding: 5px 8px; }
+  .infortune-game-dialog p { margin: 6px 0; font-size: 11px; }
+  .infortune-game-dialog__tabs button, .infortune-game-dialog__content > button, .infortune-game-dialog form > button { min-height: 32px; padding: 5px 10px; }
+}

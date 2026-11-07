@@ -3,13 +3,11 @@ import "./mobileGameViewport.css";
 
 import {
   RoundClockProgress,
-  RoundClockSeconds,
 } from "../../features/clock/RoundClockDisplay.jsx";
-import { useChatUnreadState } from "../../features/chat/useChatUnreadState.js";
 import LiveFeedSatellite from "../../features/live/LiveFeedSatellite.jsx";
 import MobileGrid from "../MobileGrid.jsx";
-import MobileConnectionLabel from "../../features/mobile/MobileConnectionLabel.jsx";
-import { UI_IMAGE_KEYS, getUiImageUrl } from "../../assets/uiAssetManifest.js";
+import MobileSpecial3Header from './MobileSpecial3Header.jsx';
+import './mobileSpecial3Layout.css';
 import { useTraceSnapshot } from "../../features/trace/TraceRuntime.jsx";
 
 function MobileSpecial3Playing(props) {
@@ -97,8 +95,6 @@ function MobileSpecial3Playing(props) {
     toggleSoundQuick = null,
     visualScreenShakeEnabled = true,
   } = props;
-  const { mobileChatUnreadCount, mobileChatUnreadIsBotOnly } =
-    useChatUnreadState();
 
   const traceSnapshot = useTraceSnapshot();
   const resolvedTrace =
@@ -119,7 +115,7 @@ function MobileSpecial3Playing(props) {
   return (
     <>
       <div
-        className={`mobile-game-viewport flex flex-col ${
+        className={`mobile-game-viewport special3-game flex flex-col ${
           darkMode ? "bg-slate-900 text-slate-100" : "bg-slate-50 text-slate-900"
         }`}
         style={mobileViewportContainerStyle}
@@ -164,127 +160,8 @@ function MobileSpecial3Playing(props) {
             paddingBottom: `${Math.max(4, special3TopPadPx - 1)}px`,
           }}
         >
-          <div
-            className="grid items-center gap-2"
-            style={{
-              gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr)",
-              fontSize: `${special3MetaFontPx}px`,
-            }}
-          >
-            <span className="min-w-0 truncate font-semibold opacity-80 justify-self-start">
-              <MobileConnectionLabel fallback={`${filledCount}/${DAILY_SPECIAL_WORD_TARGET} mots validés`} />
-            </span>
-            <div
-              className="text-center font-black tabular-nums leading-none justify-self-center"
-              style={{
-                fontSize: `${special3TimerFontPx}px`,
-                marginTop: `${special3TimerTopMarginPx}px`,
-              }}
-            >
-              <RoundClockSeconds />
-            </div>
-            <div className="flex items-center justify-self-end justify-end gap-1.5">
-              <button
-                onClick={toggleSoundQuick}
-                className="inline-flex items-center justify-center rounded-full border bg-slate-100 border-slate-300 text-slate-700 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-200"
-                type="button"
-                title={allSoundOn ? "Couper le son" : "Activer le son"}
-                aria-label={allSoundOn ? "Couper le son" : "Activer le son"}
-                style={{
-                  height: `${special3SettingsButtonSide}px`,
-                  width: `${special3SettingsButtonSide}px`,
-                }}
-              >
-                <span
-                  className="material-symbols-outlined leading-none"
-                  aria-hidden="true"
-                  style={{ fontSize: `${special3SettingsIconPx}px` }}
-                >
-                  {allSoundOn ? "volume_up" : "volume_off"}
-                </span>
-              </button>
-              <button
-                onClick={toggleDarkModeQuick}
-                className="inline-flex items-center justify-center rounded-full border bg-slate-100 border-slate-300 text-slate-700 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-200"
-                type="button"
-                title={darkMode ? "Passer en mode clair" : "Passer en mode sombre"}
-                aria-label={darkMode ? "Passer en mode clair" : "Passer en mode sombre"}
-                style={{
-                  height: `${special3SettingsButtonSide}px`,
-                  width: `${special3SettingsButtonSide}px`,
-                }}
-              >
-                <span
-                  className="material-symbols-outlined leading-none"
-                  aria-hidden="true"
-                  style={{ fontSize: `${special3SettingsIconPx}px` }}
-                >
-                  {darkMode ? "light_mode" : "dark_mode"}
-                </span>
-              </button>
-              {isLoggedIn ? (
-                <button
-                  type="button"
-                  onClick={() => requestOpenChat?.()}
-                  aria-label="Ouvrir le chat"
-                  className="relative inline-flex items-center justify-center"
-                  style={{
-                    height: `${special3ChatButtonSide}px`,
-                    width: `${special3ChatButtonSide}px`,
-                  }}
-                >
-                  <img
-                    src={getUiImageUrl(UI_IMAGE_KEYS.live.chat)}
-                    alt=""
-                    aria-hidden="true"
-                    className="h-full w-full object-contain drop-shadow-md"
-                    draggable="false"
-                  />
-                  {mobileChatUnreadCount > 0 ? (
-                    <span
-                      className={`absolute px-1 rounded-full font-extrabold flex items-center justify-center shadow-md ${
-                        mobileChatUnreadIsBotOnly
-                          ? "bg-amber-400 text-slate-950"
-                          : "bg-red-600 text-white"
-                      }`}
-                      style={{
-                        minWidth: `${special3ChatBadgeSide}px`,
-                        height: `${special3ChatBadgeSide}px`,
-                        fontSize: `${Math.max(9, special3ChatBadgeSide - 8)}px`,
-                        top: "8%",
-                        right: "4%",
-                        transform: "translate(32%, -24%)",
-                      }}
-                    >
-                      {mobileChatUnreadIsBotOnly
-                        ? "?"
-                        : mobileChatUnreadCount >= 10
-                        ? "9+"
-                        : String(mobileChatUnreadCount)}
-                    </span>
-                  ) : null}
-                </button>
-              ) : null}
-              <button
-                onClick={() => onOpenSettings?.()}
-                className="inline-flex items-center justify-center rounded-full border bg-slate-100 border-slate-300 text-slate-700 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-200"
-                type="button"
-                aria-label="Paramètres"
-                style={{
-                  height: `${special3SettingsButtonSide}px`,
-                  width: `${special3SettingsButtonSide}px`,
-                }}
-              >
-                <span
-                  className="material-symbols-outlined leading-none"
-                  aria-hidden="true"
-                  style={{ fontSize: `${special3SettingsIconPx}px` }}
-                >
-                  settings
-                </span>
-              </button>
-            </div>
-          </div>
+          <MobileSpecial3Header filledCount={filledCount} target={DAILY_SPECIAL_WORD_TARGET} timerSize={special3TimerFontPx}
+            isLoggedIn={isLoggedIn} onOpenChat={requestOpenChat} onOpenSettings={onOpenSettings} />
           <div
             className={`rounded-full overflow-hidden ${
               darkMode ? "bg-slate-800" : "bg-slate-200"
@@ -319,7 +196,7 @@ function MobileSpecial3Playing(props) {
 
         <div
           ref={mobileSpecial3TutorialHostRef}
-          className="relative flex-1 min-h-0 flex flex-col overflow-hidden"
+          className="special3-game__body relative flex-1 min-h-0 flex flex-col overflow-hidden"
           style={{
             gap: `${special3SectionGapPx}px`,
             paddingLeft: `${special3SidePadPx}px`,
@@ -328,7 +205,7 @@ function MobileSpecial3Playing(props) {
           }}
         >
           <div
-            className="min-h-0 flex-1 overflow-hidden"
+            className="special3-game__slots min-h-0 flex-1 overflow-hidden"
             style={{ minHeight: `${special3ValidationBlockMinHeightPx}px` }}
           >
             <div
@@ -494,7 +371,7 @@ function MobileSpecial3Playing(props) {
           </div>
 
           <div
-            className="shrink-0 flex flex-col"
+            className="special3-game__play shrink-0 flex flex-col"
             style={{ gap: `${special3SectionGapPx}px` }}
           >
             <div className="shrink-0 flex items-center justify-center">

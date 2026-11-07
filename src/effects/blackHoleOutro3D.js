@@ -1,3 +1,5 @@
+import { finishPresentation } from "../utils/finishPresentation.js";
+
 const DEV_MODE = typeof import.meta !== "undefined" && !!import.meta.env?.DEV;
 
 function prefersReducedMotion() {
@@ -311,10 +313,9 @@ export async function playBlackHoleOutro3D({
           easing: "cubic-bezier(.2,.9,.2,1)",
           fill: "forwards",
         })
-        .finished
     );
   }
 
-  await Promise.allSettled(anims);
+  await finishPresentation(anims);
   return { overlay, fade };
 }

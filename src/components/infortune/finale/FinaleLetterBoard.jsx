@@ -1,38 +1,46 @@
 import React from "react";
-import { layoutFinaleBoard } from "../../../features/infortune/finale/finaleBoardLayout.js";
+import { fitFinaleBoard } from "../../../features/infortune/finale/finaleBoardLayout.js";
+import "./finaleLetterBoard.css";
+import FinaleThemeReveal from './FinaleThemeReveal.jsx';
 
 const KIND_LABELS = { riddle: "Énigme", quiz: "Culture générale", definition: "Définition" };
 
-export default function FinaleLetterBoard({ tiles, category, kind, flippingIndex, reducedMotion }) {
+export default function FinaleLetterBoard({ tiles, category, kind, reveal, reducedMotion }) {
   const container = React.useRef(null);
-  const [columns, setColumns] = React.useState(18);
-  React.useEffect(() => {
+  const [size, setSize] = React.useState({ width: 720, height: 350 });
+  React.useLayoutEffect(() => {
+    const update = ({ width, height }) => setSize(previous => previous.width === width && previous.height === height ? previous : { width, height });
+    update(container.current.getBoundingClientRect());
     const observer = new ResizeObserver(([entry]) => {
-      setColumns(Math.max(8, Math.min(22, Math.floor(entry.contentRect.width / 36))));
+      update(entry.contentRect);
     });
     observer.observe(container.current);
     return () => observer.disconnect();
   }, []);
-  const rows = React.useMemo(() => layoutFinaleBoard(tiles, columns), [tiles, columns]);
+  const dense = size.width < 500 || size.height < 320;
+  const { columns, rows, width } = React.useMemo(() => fitFinaleBoard(tiles, { width: Math.max(1, size.width - (dense ? 28 : 40)),
+    height: Math.max(1, size.height - (dense ? 62 : 92)), aspect: dense ? 1 : .79 }), [tiles, size, dense]);
+  const delays = React.useMemo(() => new Map(reveal?.indices.map((index, order) => [index, order * reveal.stepMs]) || []), [reveal]);
   const accessibleText = tiles.map(tile => tile.character ?? "□").join("");
-  return <section className="infortune-finale-board" aria-label="Le tableau de l’énigme">
-    <header className="infortune-finale-board__heading">
-      <span>{KIND_LABELS[kind]}</span><h2>{category}</h2><span aria-hidden="true">✦</span>
-    </header>
-    <div ref={container} className="infortune-finale-board__screen" style={{ "--finale-columns": columns }}>
-      <p className="infortune-finale-sr-only" aria-live="polite" aria-atomic="true">{accessibleText}</p>
-      <div className="infortune-finale-board__rows" aria-hidden="true">
-        {rows.map((row, rowIndex) => <div className="infortune-finale-board__row" key={rowIndex}>
-          {row.map(tile => <span key={tile.index}
-            className={`infortune-finale-tile infortune-finale-tile--${tile.kind}${tile.character !== null ? " is-revealed" : ""}${tile.index === flippingIndex && !reducedMotion ? " is-flipping" : ""}`}>
-            <span className="infortune-finale-tile__rotor">
-              <span className="infortune-finale-tile__back" />
-              <span className="infortune-finale-tile__face">{tile.character || ""}</span>
-            </span>
-          </span>)}
-        </div>)}
+  return <section ref={container} className="infortune-finale-board" data-dense={dense} aria-label="Le tableau de l’énigme"
+    style={{ "--finale-columns": columns, "--finale-rows": rows.length, "--finale-board-width": `${width + (dense ? 10 : 18)}px`, "--finale-flip-duration": `${reveal?.flipMs || 0}ms` }}>
+    <div className="infortune-finale-board__stage">
+      <p className="infortune-finale-board__kind">{KIND_LABELS[kind]}</p>
+      <div className="infortune-finale-board__frame">
+        <p className="infortune-finale-sr-only" aria-live="polite" aria-atomic="true">{accessibleText}</p>
+        <div className="infortune-finale-board__screen"><div className="infortune-finale-board__rows" aria-hidden="true">
+          {rows.map((row, rowIndex) => <div className="infortune-finale-board__row" key={rowIndex}>
+            {row.map(tile => <span key={tile.index} style={delays.has(tile.index) ? { "--finale-flip-delay": `${delays.get(tile.index)}ms` } : undefined}
+              className={`infortune-finale-tile infortune-finale-tile--${tile.kind}${tile.character !== null ? " is-revealed" : ""}${delays.has(tile.index) && !reducedMotion ? " is-flipping" : ""}`}>
+              <span className="infortune-finale-tile__rotor">
+                <span className="infortune-finale-tile__back" />
+                <span className="infortune-finale-tile__face">{tile.character || ""}</span>
+              </span>
+            </span>)}
+          </div>)}
+        </div></div>
       </div>
     </div>
-    <footer className="infortune-finale-board__signature"><span />gobble<span /></footer>
+    <FinaleThemeReveal category={category} />
   </section>;
 }

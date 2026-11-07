@@ -1,3 +1,11 @@
+/* Equal side columns keep the countdown centred, including with the chat button. */
+.gotus .gotus__header.gotus__header--timed { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); }
+.gotus__header--timed > img { justify-self: start; max-width: 100%; }
+.gotus__header--timed .gotus__heading { text-align: center; gap: 2px; }
+.gotus__header--timed .gotus__clock { font: 900 clamp(34px, 10vw, 50px)/1 system-ui, sans-serif; font-variant-numeric: tabular-nums; }
+.gotus__header--timed .gotus__heading > span { font-size: 10px; line-height: 1.1; }
+.gotus__header--timed .gotus__header-actions { justify-self: end; }
+
 /* The game uses its own viewport surface in training and live modes. */
 .gotus--compact.gotus__playground {
   --gotus-mobile-studio-height: clamp(136px, 20dvh, 188px);

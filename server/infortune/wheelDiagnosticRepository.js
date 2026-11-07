@@ -15,7 +15,8 @@ export function createWheelDiagnosticRepository({ filename, now = Date.now }) {
           CREATE TABLE IF NOT EXISTS wheel_diagnostics (
             seq INTEGER PRIMARY KEY AUTOINCREMENT, session_id TEXT NOT NULL UNIQUE,
             created_at INTEGER NOT NULL, user_id INTEGER, nick TEXT NOT NULL, report TEXT NOT NULL
-          );`);
+          );
+          CREATE INDEX IF NOT EXISTS wheel_diagnostics_user ON wheel_diagnostics(user_id, seq DESC);`);
         return db;
       } catch (error) { await db.close(); throw error; }
     })().catch(error => { pending = null; throw error; });
@@ -37,6 +38,12 @@ export function createWheelDiagnosticRepository({ filename, now = Date.now }) {
       const total = await db.get("SELECT COUNT(*) AS count FROM wheel_diagnostics");
       return { total: total.count, entries: rows.slice(0, 25).map(row => ({ ...row, report: JSON.parse(row.report) })),
         nextBefore: rows.length > 25 ? rows[24].seq : null };
+    },
+    async graphicsHistory(userId) {
+      if (!Number.isSafeInteger(userId) || userId < 1) return [];
+      const db = await database();
+      const rows = await db.all("SELECT created_at AS createdAt, report FROM wheel_diagnostics WHERE user_id = ? ORDER BY seq DESC LIMIT 100", userId);
+      return rows.map(row => ({ createdAt: row.createdAt, report: JSON.parse(row.report) }));
     },
     async close() { if (pending) { const db = await pending; pending = null; await db.close(); } },
   };

@@ -19,15 +19,21 @@ export default function GotusPlayground({ active = true, socket, roundId, endsAt
   mode = "live", darkMode = false, compact = false, onDismiss, onSessionStateChange, onClose, onJoinLive, onNewRound, onOpenDefinition,
 }) {
   const training = mode === "training";
-  const { state, controller } = useGotusSession({ active, socket, roundId, endsAt, getNowServerMs, mode });
-  const intro = useGotusIntro({ active, controller, state });
+  const { state: sessionState, controller } = useGotusSession({ active, socket, roundId, endsAt, getNowServerMs, mode });
+  const ending = !training && (sessionState.phase === "expired" || sessionState.endsAt > 0 && sessionState.remainingSeconds === 0);
+  const lastFrame = React.useRef({ controller, state: sessionState });
+  if (!ending || lastFrame.current.controller !== controller) lastFrame.current = { controller, state: sessionState };
+  // Keep the board and keyboard in place beneath the round recap. The server
+  // summary still updates independently; only this last visual frame is held.
+  const state = ending ? { ...lastFrame.current.state, canAnswer: false, remainingSeconds: 0 } : sessionState;
+  const intro = useGotusIntro({ active, controller, state: sessionState });
   const boardRef = React.useRef(null);
   const boardInput = useGotusBoardInput({ state, controller, boardRef, introPlaying: intro.playing, chat });
   const feedbackId = React.useId();
-  useGotusFeedback({ active, controller, boardRef, enabled: true });
+  useGotusFeedback({ active: active && !ending, controller, boardRef, enabled: true });
   React.useEffect(() => {
-    onSessionStateChange?.({ ...state.summary, started: !!state.firstLetter, phase: state.phase, solution: state.solution, progression: state.progression });
-  }, [onSessionStateChange, state.summary, state.firstLetter, state.phase, state.solution, state.progression]);
+    onSessionStateChange?.({ ...sessionState.summary, started: !!sessionState.firstLetter, phase: sessionState.phase, solution: sessionState.solution, progression: sessionState.progression });
+  }, [onSessionStateChange, sessionState.summary, sessionState.firstLetter, sessionState.phase, sessionState.solution, sessionState.progression]);
   if (!active) return null;
   const finished = TERMINAL.has(state.phase);
   const feedback = state.error || (state.phase === "won" ? training ? "C’est le bon mot ! Bravo !" : "+1 mot trouvé ! Bravo !"
@@ -43,9 +49,10 @@ export default function GotusPlayground({ active = true, socket, roundId, endsAt
   };
   const theme = `gotus${darkMode ? " gotus--dark" : ""}${compact ? " gotus--compact" : ""}`;
   const progress = !training && state.progression ? <GotusProgress progression={state.progression} /> : null;
-  const panel = <section className={`${theme} gotus__playground`} inert={intro.playing ? "" : undefined} aria-label={training ? "Entraînement Gotus" : "Gotus"}>
-    <header className="gotus__header"><img src="/gotus/gotus-logo.webp" alt="Gotus" />
-      <div className="gotus__heading"><strong>Avec Thierry Baccardo</strong><span>{training ? "Entraînement" : `${state.remainingSeconds} s restantes`}</span></div>
+  const panel = <section className={`${theme} gotus__playground`} inert={intro.playing || ending ? "" : undefined} aria-label={training ? "Entraînement Gotus" : "Gotus"}>
+    <header className={`gotus__header${training ? "" : " gotus__header--timed"}`}><img src="/gotus/gotus-logo.webp" alt="Gotus" />
+      <div className="gotus__heading">{training ? <><strong>Avec Thierry Baccardo</strong><span>Entraînement</span></>
+        : <><strong className="gotus__clock" role="timer" aria-label={`${state.remainingSeconds} secondes restantes`}>{state.remainingSeconds}</strong><span>Gotus</span></>}</div>
       <div className="gotus__header-actions">
         {compact && chat ? <GotusChatButton chat={chat} training={training} /> : null}
         {(onClose || onDismiss) ? <button type="button" className="gotus__close" onClick={close} aria-label="Fermer Gotus">×</button> : null}

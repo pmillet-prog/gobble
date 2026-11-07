@@ -1,0 +1,9 @@
+@media (orientation: landscape) and (max-height: 520px) {
+  .special3-game .special3-game__body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+    align-items: stretch;
+  }
+  .special3-game .special3-game__play { justify-content: center; min-height: 0; }
+}

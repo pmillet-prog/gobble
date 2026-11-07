@@ -4,6 +4,7 @@ import "./mobileGameViewport.css";
 import { RoundClockSeconds } from "../../features/clock/RoundClockDisplay.jsx";
 import MobileGrid from "../MobileGrid.jsx";
 import MobileConnectionLabel from "../../features/mobile/MobileConnectionLabel.jsx";
+import { GameBalanceSlot } from "../../features/gobblars/GameBalances.jsx";
 
 function MobileUltraCompactPlaying({
   chatOverlays = null,
@@ -23,10 +24,13 @@ function MobileUltraCompactPlaying({
         }`}
         style={mobileViewportContainerStyle}
       >
-        <div className="px-3 pt-0.5 pb-0 text-[10px] font-semibold flex items-center justify-between gap-2">
-          <span className="truncate">
+        <div className="currency-header px-2 py-1 text-[10px]">
+          <GameBalanceSlot kind="wallet" />
+          <span className="currency-header__center truncate">
+            <strong className="block text-xl"><RoundClockSeconds suffix="s" /></strong>
             <MobileConnectionLabel fallback={compactRankingLabel} />
           </span>
+          <GameBalanceSlot kind="bank" />
           <div className="flex items-center gap-1">
             <button
               type="button"
@@ -39,11 +43,8 @@ function MobileUltraCompactPlaying({
               <span className="sr-only">Parametres</span>
             </button>
           </div>
-          <span className="tabular-nums">
-            <RoundClockSeconds suffix="s" />
-          </span>
         </div>
-        <div className="flex-1 flex items-center justify-center px-2 pb-3">
+        <div className="flex-1 min-h-0 flex items-center justify-center px-2 pb-3">
           <MobileGrid {...mobileGridProps} celebrationOverlay={praiseOverlay} />
         </div>
       </div>

@@ -123,7 +123,7 @@ export default function MobileSpecial3Scene({ state, refs, actions, content, con
         (
           mobileLayoutSizing.gridSide ||
           Math.max(200, Math.min(fallbackViewportWidth - 24, MOBILE_GRID_MAX_WIDTH))
-        ) * 0.9
+        ) * 0.9 - 30 // Reserve the persistent balances line above the play area.
       )
     );
     const special3BodyHeight = Math.max(
@@ -135,7 +135,9 @@ export default function MobileSpecial3Scene({ state, refs, actions, content, con
     );
     const special3BodyRatio =
       mobileGridSide > 0 ? special3BodyHeight / Math.max(1, mobileGridSide) : 1.7;
-    const special3Roominess = clampValue((special3BodyRatio - 1.46) / 0.42, 0, 1);
+    const special3ViewportHeight = lockedGameViewportHeight || mobileLayoutSizing.viewportHeight || (typeof window !== 'undefined' ? window.innerHeight : 700);
+    const special3Roominess = Math.min(clampValue((special3BodyRatio - 1.46) / 0.42, 0, 1),
+      clampValue((special3ViewportHeight - 560) / 200, 0, 1));
     const mixSpecial3Size = (compactValue, roomyValue) =>
       compactValue + (roomyValue - compactValue) * special3Roominess;
     const special3SidePadPx = Math.round(mixSpecial3Size(10, 12));
@@ -191,6 +193,7 @@ export default function MobileSpecial3Scene({ state, refs, actions, content, con
       Math.round(special3MetaFontPx * 2.2)
     );
     const special3HeaderBlockHeightPx =
+      14 +
       special3TopPadPx +
       special3HeaderRowHeightPx +
       special3ProgressTopMarginPx +
@@ -303,7 +306,8 @@ export default function MobileSpecial3Scene({ state, refs, actions, content, con
         54
       )
     );
-    const mobileGapPx = "clamp(6px, 2.4vw, 14px)";
+    // The grid can be narrow in landscape even when the viewport is wide.
+    const mobileGapPx = `${Math.max(4, Math.min(10, Math.round(mobileGridSide * .028)))}px`;
     const mobileTileFontPx = Math.max(
       18,
       Math.min(

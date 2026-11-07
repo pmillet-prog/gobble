@@ -1,0 +1,18 @@
+.tournament-ranking-card { position: relative; isolation: isolate; animation: tournament-card-enter 650ms ease-out both; }
+.tournament-ranking-card > header { position: relative; padding-bottom: 8px; border-bottom: 1px solid #dca94c66; }
+.tournament-ranking-card > header::after { content: ''; position: absolute; height: 2px; bottom: -1px; width: 24%; left: 0; background: linear-gradient(90deg, transparent, #ffc54e, transparent); animation: tournament-ranking-sweep 2.8s ease-in-out 3; pointer-events: none; }
+.tournament-ranking-card__star { display: inline-block; color: #b87c13; text-shadow: 0 0 10px #ffca5b55; animation: tournament-ranking-star 1.6s ease-in-out 3; }
+.dark .tournament-ranking-card__star { color: #ffdf83; }
+.tournament-ranking-card [data-ranking-row] { animation: tournament-row-enter 550ms ease-out both; }
+.tournament-ranking-card [data-ranking-row]:nth-child(2) { animation-delay: 70ms; }
+.tournament-ranking-card [data-ranking-row]:nth-child(3) { animation-delay: 140ms; }
+.tournament-ranking-card [data-ranking-row]:nth-child(4) { animation-delay: 210ms; }
+.tournament-ranking-card [data-ranking-row]:nth-child(n+5) { animation-delay: 280ms; }
+/* Opacity only on rows: the ranking already owns their FLIP transforms. */
+@keyframes tournament-row-enter { from { opacity: 0; } to { opacity: 1; } }
+@keyframes tournament-card-enter { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes tournament-ranking-sweep { from { transform: translateX(0); opacity: 0; } 25%, 75% { opacity: 1; } to { transform: translateX(316%); opacity: 0; } }
+@keyframes tournament-ranking-star { 50% { transform: rotate(30deg) scale(1.3); } }
+@media (prefers-reduced-motion: reduce) {
+  .tournament-ranking-card, .tournament-ranking-card [data-ranking-row], .tournament-ranking-card > header::after, .tournament-ranking-card__star { animation: none; }
+}

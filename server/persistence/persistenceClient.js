@@ -138,6 +138,8 @@ export function createPersistenceClient() {
     addGobblars(payload) {
       return call("addGobblars", payload);
     },
+    payFinaleLetter(payload) { return call('payFinaleLetter', payload); },
+    readFinaleWallet(payload) { return call('readFinaleWallet', payload); },
     getGobblarsHistory(payload) {
       return call("getGobblarsHistory", payload);
     },

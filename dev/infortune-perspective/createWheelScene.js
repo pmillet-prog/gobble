@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { stageContestantPresentation } from "./stageContestantPresentation.js";
 import { createWheelMeshes } from "./wheelMeshes.js";
 import { createStudioEnvironment } from "./studioEnvironment.js";
 import { createStageSet } from "./createStageSet.js";
@@ -20,6 +21,8 @@ import { compileWheelPass } from "./compileWheelPass.js";
 import { createWheelStartupBudget } from "./wheelStartupBudget.js";
 import { finishWheelPrograms } from "./finishWheelPrograms.js";
 import { compactAreaLightShader } from "./compactAreaLightShader.js";
+import { createWheelBackgroundPreparation } from "./wheelBackgroundPreparation.js";
+import { renderVisibility } from './wheelRenderPlatform.js';
 
 export function createWheelScene(canvas, initialProjection, onContextError, onStageChange = () => {}, performanceOptions = {}) {
   const startedAt = performance.now(), abort = new AbortController(), frameGate = createWheelFrameGate();
@@ -28,7 +31,7 @@ export function createWheelScene(canvas, initialProjection, onContextError, onSt
   const renderer = performanceOptions.renderer || new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
   renderer.setRenderTarget(null);
   const parallelShaders = renderer.extensions.has("KHR_parallel_shader_compile");
-  const pixelRatio = () => Math.min(window.devicePixelRatio || 1, WHEEL_PROFILES[qualityId].maxPixelRatio) * WHEEL_PROFILES[qualityId].scale;
+  const pixelRatio = () => Math.min(performanceOptions.pixelRatio || globalThis.devicePixelRatio || 1, WHEEL_PROFILES[qualityId].maxPixelRatio) * WHEEL_PROFILES[qualityId].scale;
   renderer.setPixelRatio(pixelRatio());
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.NeutralToneMapping; renderer.toneMappingExposure = 0.95;
@@ -46,7 +49,7 @@ export function createWheelScene(canvas, initialProjection, onContextError, onSt
   const contestants = placeStageContestants(performanceOptions.contestants);
   const picker = new THREE.Raycaster();
   const stage = createStageSet(contestants, { screenTextureWidth: Math.min(qualityId === "light" ? 2048 : 4096, renderer.capabilities.maxTextureSize) });
-  const actors = createStageActors(lighting.backLights, contestants); scene.add(stage.root, actors.root);
+  const actors = createStageActors(lighting.backLights, contestants, performanceOptions.portraits); scene.add(stage.root, actors.root);
   // Both 256px maps use the same blur shader. Keep its generator alive until
   // scene disposal instead of deleting and compiling that program a second time.
   const ownsEnvironmentGenerator = !performanceOptions.environmentGenerator;
@@ -60,7 +63,7 @@ export function createWheelScene(canvas, initialProjection, onContextError, onSt
   let prepared = false, warming = null, released = false, active = true, disposal = null;
   let pendingDraw = null, renderWidth = 0, renderHeight = 0;
   const resultPresentation = createWheelResultPresentation();
-  let previousPhase = null;
+  let previousPhase = null, selectedContestant = null;
   let sequence = null;
   let preparingStep = "Images et avatars";
   const timings = { assets: 0, graphics: 0, measurement: 0, steps: {}, programChecks: [],
@@ -72,6 +75,9 @@ export function createWheelScene(canvas, initialProjection, onContextError, onSt
     publishTimings(); return performanceOptions.onStartupSlow?.({ ...value, step: preparingStep }) === true;
   } });
   const cancelled = () => disposed || renderer.getContext().isContextLost() || budget.check();
+  const backgroundPreparation = createWheelBackgroundPreparation({
+    canBlock: () => cancelled() || performanceOptions.canBlockGpu?.() !== false,
+  });
   const status = value => { preparingStep = value.message; if (!cancelled()) onStageChange(value); };
   const compile = async (targetScene, camera, include = [], pass = "shaders") => {
     const label = preparingStep;
@@ -81,6 +87,7 @@ export function createWheelScene(canvas, initialProjection, onContextError, onSt
     });
     if (!compiled || cancelled()) return false;
     return finishWheelPrograms(renderer, { isDisposed: cancelled,
+      allowCheck: parallelShaders ? undefined : backgroundPreparation.wait,
       onProgress(done, total, program) {
         const shader = program ? ` · ${program.name || program.type || "shader"} #${program.id ?? done}` : "";
         status({ phase: "loading", message: `Validation graphique par le pilote… ${done}/${total}${shader}` });
@@ -97,7 +104,7 @@ export function createWheelScene(canvas, initialProjection, onContextError, onSt
   reflections.setProjection(projection, reflectionSettings);
   function draw(force = false) {
     if (pendingDraw !== null) { cancelAnimationFrame(pendingDraw); pendingDraw = null; }
-    if (disposed || !active || !prepared || document.hidden) return;
+    if (disposed || !active || !prepared || renderVisibility.hidden) return;
     if (!force && !frameGate.due(performance.now(), WHEEL_PROFILES[qualityId].fps)) { scheduleDraw(); return; }
     renderFrame();
   }
@@ -106,7 +113,7 @@ export function createWheelScene(canvas, initialProjection, onContextError, onSt
     if (shadowResizePending) { captureShadows(); shadowResizePending = false; }
     for (const reflection of actorReflections) reflection.render(camera, reflectionSettings.actors);
     renderer.render(scene, camera);
-    resultPresentation.render(renderer, projection);
+    if (!selectedContestant) resultPresentation.render(renderer, projection);
     if (record) performanceOptions.onFrame?.(time, performance.now() - time,
       sequence?.playing || ["spinning", "dragging"].includes(previousPhase));
   }
@@ -158,13 +165,12 @@ export function createWheelScene(canvas, initialProjection, onContextError, onSt
       if (performanceOptions.onBenchmark) {
         status({ phase: "loading", message: "Réglage de la fluidité du plateau…" });
         for (let attempt = 0; attempt < 3 && !cancelled(); attempt++) {
-          const camera = projection.camera.clone(), rotation = camera.quaternion.clone();
-          const sample = await measureWheelRendering({ signal: abort.signal, draw(index) {
-            camera.quaternion.copy(rotation); camera.rotateY(Math.sin(index / 20) * 0.035); camera.updateMatrixWorld(true);
-            actorReflections.forEach(reflection => reflection.invalidate()); renderFrame(camera, false);
+          const sample = await measureWheelRendering({ signal: abort.signal, draw() {
+            // Exercise the full reflection workload without a visible camera sway.
+            actorReflections.forEach(reflection => reflection.invalidate()); renderFrame(projection.camera, false);
           } });
           if (!sample || cancelled()) return false;
-          const next = performanceOptions.onBenchmark(sample.intervals, sample.costs, qualityId);
+          const next = await performanceOptions.onBenchmark(sample.intervals, sample.costs, qualityId);
           if (next === "flat") return false;
           if (next === qualityId) break;
           applyQuality(next);
@@ -227,7 +233,17 @@ export function createWheelScene(canvas, initialProjection, onContextError, onSt
     },
     setExchangeProgress(progress) { exchange?.update(progress); scheduleDraw(); },
     setBanks(value) { stage.setBanks(value); scheduleDraw(); },
+    setSelectedContestant(id) {
+      selectedContestant = id;
+      actors.setSelected(id); stage.setSelected(id);
+      actorReflections.forEach(reflection => reflection.invalidate()); scheduleDraw();
+    },
+    getContestantPresentation(id) {
+      return stageContestantPresentation(actors.root.children.find(actor => actor.name === `contestant-${id}`),
+        contestants.find(contestant => contestant.id === id), projection);
+    },
     setCameraSequence(state) { sequence = state; resultPresentation.setSequence(state); scheduleDraw(); },
+    takeResultPresentation() { const snapshot = resultPresentation.takePresentation(projection); scheduleDraw(); return snapshot; },
     setQuality(value) { requestedQuality = value; if (prepared) { applyQuality(value); scheduleDraw(); } },
     setActorShade(value) {
       actors.setShading(value);
@@ -251,13 +267,14 @@ export function createWheelScene(canvas, initialProjection, onContextError, onSt
         resultPresentation.setResult(sectorAtPointer(state.angle, state.pawl, state.pawlModel, sectors), state.angle);
       } else if (phase !== "finished" && previousPhase === "finished") resultPresentation.clear();
       previousPhase = phase;
-      canvas.dataset.motion = phase; draw(phase === "finished");
+      if (canvas.dataset) canvas.dataset.motion = phase;
+      draw(phase === "finished");
     },
     draw,
     dispose() {
       if (disposed) return disposal;
       suspend();
-      disposed = true; budget.dispose(); abort.abort();
+      disposed = true; backgroundPreparation.dispose(); budget.dispose(); abort.abort();
       // Let the preparation's cancellation/polling settle before GPU cleanup.
       // Asset-only loading has no GPU work in flight and can release immediately.
       if (warming) disposal = warming.then(releaseResources, releaseResources);

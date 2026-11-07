@@ -40,6 +40,11 @@ test("closes the chat instead of expanding it after keyboard dismissal", () => {
   });
 });
 
+test('keeps an unfinished message open when a phase transition hides the keyboard', () => {
+  assert.deepEqual(computeChatKeyboardSessionTransition({ isChatOpen: true, keyboardOpen: false,
+    keyboardWasOpen: true, hasDraft: true }), { keyboardWasOpen: false, shouldCloseChat: false });
+});
+
 test("reads the visual viewport without mutating the document layout", () => {
   const snapshot = readChatViewportSnapshot(
     {

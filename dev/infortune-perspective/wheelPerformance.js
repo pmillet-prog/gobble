@@ -1,3 +1,6 @@
+import { readWheelGraphics, readWheelGraphicsPreference } from "../../src/features/infortune/graphics/wheelGraphicsStorage.js";
+import { WHEEL_GRAPHICS_LIMITS } from "../../shared/wheelGraphicsRecommendation.js";
+
 export const WHEEL_PROFILES = Object.freeze({
   detailed: { label: "3D détaillée", maxPixelRatio: 2, scale: 1, shadowSize: 1024, reflectionScale: 1, slices: 24, fps: 60 },
   balanced: { label: "3D équilibrée", maxPixelRatio: 1.5, scale: 0.85, shadowSize: 512, reflectionScale: 0.75, slices: 16, fps: 60 },
@@ -11,13 +14,15 @@ const lower = profile => ({ detailed: "balanced", balanced: "light", light: "fla
 export function readWheelPerformance(storage, hints = {}, now = Date.now()) {
   let saved;
   try { saved = JSON.parse(storage?.getItem(WHEEL_PERFORMANCE_KEY)); } catch {}
-  const preference = saved?.preference === "auto" || valid(saved?.preference) ? saved.preference : "auto";
+  const preference = readWheelGraphicsPreference(storage);
   // Version 1 could remember a slow shader startup as a weak GPU. Retry those
   // automatic decisions once; explicit user choices remain authoritative.
   const fresh = saved?.version === 2 && now - saved.at >= 0 && now - saved.at < 14 * 86400000;
   const cautious = (hints.memory > 0 && hints.memory <= 2) || (hints.cores > 0 && hints.cores <= 2);
+  const measured = readWheelGraphics(storage);
   return { preference, profile: preference !== "auto" ? preference
-    : fresh && valid(saved?.profile) ? saved.profile : cautious ? "light" : "balanced" };
+    : fresh && valid(saved?.profile) && (!measured || saved.at >= measured.at) ? saved.profile
+      : measured?.profile || (cautious ? "light" : "balanced") };
 }
 
 export function summarizeWheelFrames(intervals, costs = [], target = 60) {
@@ -29,14 +34,13 @@ export function summarizeWheelFrames(intervals, costs = [], target = 60) {
     renderMs: costs.length ? costs.reduce((a, b) => a + b, 0) / costs.length : 0, samples: values.length };
 }
 export function wheelFramesAreSlow(metrics, profile) {
-  const target = WHEEL_PROFILES[profile].fps;
-  return metrics && (metrics.fps < target * 0.77 || metrics.slowRatio > 0.2);
+  return metrics && (metrics.fps < WHEEL_GRAPHICS_LIMITS.stableFps || metrics.p95 > WHEEL_GRAPHICS_LIMITS.p95Ms);
 }
 
 // No animation loop and no physics ownership. Called only for actual active
 // frames; idle/hidden gaps and the first GPU preparation never become samples.
 export function createWheelPerformance({ initial, onChange = () => {}, storage, now = Date.now }) {
-  let state = { ...initial, metrics: null, timings: null, reason: "Mesure après préparation du plateau.", pending: null };
+  let state = { ...initial, metrics: null, timings: null, reason: "Réglage graphique mémorisé.", pending: null };
   let previous = null, intervals = [], costs = [], badWindows = 0, disposed = false;
   function resetSamples() { previous = null; intervals = []; costs = []; badWindows = 0; }
   function publish(save = false) {
@@ -54,15 +58,14 @@ export function createWheelPerformance({ initial, onChange = () => {}, storage, 
     setPreference(preference) {
       if (preference !== "auto" && !valid(preference)) return;
       state.preference = preference;
-      change(preference === "auto" ? "balanced" : preference, preference === "auto"
-        ? "Mode automatique : la fluidité décide." : "Qualité choisie manuellement.");
+      change(preference === "auto" ? readWheelGraphics(storage)?.profile || "balanced" : preference, preference === "auto"
+        ? "Réglage issu du diagnostic d’accueil." : "Qualité choisie manuellement.");
     },
     benchmark(intervals, costs, sampledProfile = state.profile) {
       // A manual selection during the sample must be measured at its own level.
       if (sampledProfile !== state.profile) return state.profile;
       state.metrics = summarizeWheelFrames(intervals, costs, 60); // Calibration is uncapped.
-      const slow = state.profile === "light" ? state.metrics?.fps < 27 || state.metrics?.p95 > 65
-        : wheelFramesAreSlow(state.metrics, state.profile);
+      const slow = wheelFramesAreSlow(state.metrics, state.profile);
       if (state.preference === "auto" && slow) change(lower(state.profile), "Qualité adaptée à la mesure du plateau.");
       else { state.reason = "Mesure initiale terminée."; publish(true); }
       resetSamples(); return state.profile;

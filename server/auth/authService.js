@@ -26,6 +26,7 @@ import { isAccountUnderMaintenance } from "../admin/accountMaintenance.js";
 import { getWeeklyPlayerSnapshot } from "../stats/weeklyStatsService.js";
 import { createAccountRecoveryService } from "./recovery/accountRecoveryService.js";
 import { insertAuthSession } from "./insertAuthSession.js";
+import { createUserUiSeenRepository } from "./userUiSeenRepository.js";
 import {
   runSerializedSqliteWrite,
   runSqliteImmediateTransaction,
@@ -48,10 +49,6 @@ const PASSWORD_MIN_LEN = 3;
 const SESSION_TOUCH_MIN_MS = 5 * 60 * 1000;
 const SESSION_LOOKUP_CACHE_TTL_MS = 3 * 1000;
 const SESSION_LOOKUP_CACHE_MAX_ENTRIES = 1000;
-const UI_SEEN_MARKER_MAX_LEN = 180;
-const UI_SEEN_MARKERS_MAX_PER_WRITE = 64;
-const UI_SEEN_MARKERS_MAX_PER_USER = 5000;
-const UI_SEEN_TRANSIENT_PREFIXES = ["vocab-overlay:"];
 
 let db = null;
 let initPromise = null;
@@ -62,21 +59,6 @@ let sessionLookupGeneration = 0;
 
 function nowTs() {
   return Date.now();
-}
-
-function normalizeUiSeenMarkers(rawMarkers) {
-  const source = Array.isArray(rawMarkers) ? rawMarkers : [rawMarkers];
-  const seen = new Set();
-  const markers = [];
-  for (const rawMarker of source) {
-    const marker = String(rawMarker || "").trim();
-    if (!marker || marker.length > UI_SEEN_MARKER_MAX_LEN) continue;
-    if (/[\u0000-\u001f\u007f]/u.test(marker) || seen.has(marker)) continue;
-    seen.add(marker);
-    markers.push(marker);
-    if (markers.length >= UI_SEEN_MARKERS_MAX_PER_WRITE) break;
-  }
-  return markers;
 }
 
 function runAuthWrite(task) {
@@ -541,62 +523,9 @@ export const avatarThumbnails = {
   assets: avatarRenders,
 };
 
-export async function listUserUiSeenMarkers(userId) {
-  const safeUserId = Number(userId);
-  if (!Number.isInteger(safeUserId) || safeUserId <= 0) return [];
-  const ready = await ensureDb();
-  const rows = await ready.all(
-    `SELECT marker
-     FROM user_ui_seen
-     WHERE user_id = ?
-     ORDER BY seen_at DESC
-     LIMIT ?`,
-    safeUserId,
-    UI_SEEN_MARKERS_MAX_PER_USER
-  );
-  return normalizeUiSeenMarkers((rows || []).map((row) => row?.marker));
-}
-
-export async function markUserUiSeenMarkers(userId, rawMarkers) {
-  const safeUserId = Number(userId);
-  const markers = normalizeUiSeenMarkers(rawMarkers);
-  if (!Number.isInteger(safeUserId) || safeUserId <= 0 || markers.length === 0) {
-    return [];
-  }
-  const ready = await ensureDb();
-  const timestamp = nowTs();
-  await runAuthWrite(() =>
-    runSqliteImmediateTransaction(
-      ready,
-      async () => {
-        for (const marker of markers) {
-          const transientPrefix = UI_SEEN_TRANSIENT_PREFIXES.find((prefix) =>
-            marker.startsWith(prefix)
-          );
-          if (transientPrefix) {
-            await ready.run(
-              `DELETE FROM user_ui_seen
-               WHERE user_id = ? AND marker LIKE ? AND marker <> ?`,
-              safeUserId,
-              `${transientPrefix}%`,
-              marker
-            );
-          }
-          await ready.run(
-            `INSERT INTO user_ui_seen (user_id, marker, seen_at)
-             VALUES (?, ?, ?)
-             ON CONFLICT(user_id, marker) DO UPDATE SET seen_at = excluded.seen_at`,
-            safeUserId,
-            marker,
-            timestamp
-          );
-        }
-      },
-      { label: "auth-ui-seen" }
-    )
-  );
-  return markers;
-}
+const userUiSeen = createUserUiSeenRepository({ getDb: ensureDb, runWrite: runAuthWrite });
+export const listUserUiSeenMarkers = userUiSeen.list;
+export const markUserUiSeenMarkers = userUiSeen.mark;
 
 export async function findUserById(userId) {
   const ready = await ensureDb();

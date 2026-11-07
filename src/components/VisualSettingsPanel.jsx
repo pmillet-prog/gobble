@@ -1,5 +1,6 @@
 import React from "react";
 import MobileLandscapeSetting from "./settings/MobileLandscapeSetting.jsx";
+import WheelGraphicsSettings from "../features/infortune/graphics/WheelGraphicsSettings.jsx";
 
 export default function VisualSettingsPanel({
   darkMode = false,
@@ -105,6 +106,7 @@ export default function VisualSettingsPanel({
             </span>
           </button>
           <MobileLandscapeSetting darkMode={darkMode} />
+          <WheelGraphicsSettings />
           <button
             type="button"
             onClick={onToggleAll}

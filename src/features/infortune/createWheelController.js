@@ -5,9 +5,10 @@ import { WHEEL_GEOMETRY } from "./wheelGeometry.js";
 import { CLASSIC_PAWL } from "./wheelPawlModels.js";
 import { createWheelLaunchGame } from "./wheelLaunchGame.js";
 import { createGesturePower } from "./wheelGesturePower.js";
+import { createWheelDragMotion } from "./wheelDragMotion.js";
 
 export function createWheelController({
-  render, onChange, onResult, onLaunch, onSpinProgress, audio, launchGame = null, inputLocked = false,
+  render, onChange, onResult, onLaunch, onSpinProgress, audio, launchGame = null, inputLocked = false, catchUpElapsed = false,
   pegRadius = WHEEL_GEOMETRY.pegRadius,
   pawlModel: initialPawlModel = CLASSIC_PAWL,
   readSectors = () => undefined,
@@ -19,6 +20,7 @@ export function createWheelController({
   let state = createWheelState(undefined, 0, 1, pegRadius, pawlModel), physics = DEFAULT_PHYSICS;
   let phase = "ready", frame = null, previousTime = null, accumulator = 0;
   let disposed = false, paused = false, samples = [], dragAngle = 0, gestureStart = null;
+  let dragMotion = null, dragTarget = 0;
   let chargeStart = 0, launchAngle = 0, launchSpeed = 0, spinTime = 0, spinId = 0;
   const aiming = launchGame ? createWheelLaunchGame(launchGame) : null;
   const gesturePower = aiming ? createGesturePower() : null;
@@ -31,7 +33,10 @@ export function createWheelController({
   const power = (time = now()) => phase === "charging" ? Math.min(1, (time - chargeStart) / 1450)
     : phase === "dragging" ? Math.min(1, Math.abs(inputVelocity(time)) / MAX_LAUNCH_SPEED) : 0;
   const draw = (time = now()) => {
-    onSpinProgress?.({ id: spinId, phase, elapsed: spinTime, velocity: state.velocity });
+    const sectors = readSectors();
+    onSpinProgress?.({ id: spinId, phase, elapsed: spinTime, velocity: state.velocity, sectors,
+      sectorIndex: phase === 'spinning' && Math.abs(state.velocity) <= 2.02
+        ? sectorAtPointer(state.angle, state.pawl, pawlModel, sectors).index : null });
     render?.(state, phase, power(time), aiming?.view(time, inputVelocity(time)));
   };
   function setPhase(next, message = "", result = null) {
@@ -47,13 +52,18 @@ export function createWheelController({
   function schedule() {
     if (!disposed && !paused && frame === null && phase !== "finished" && (phase !== "ready" || !state.settled || !state.pawlResting)) frame = requestFrame(update);
   }
+  function followDrag(time) {
+    return dragMotion ? dragWheelTo(state, dragMotion.position(time)) : 0;
+  }
   function update(time) {
     frame = null;
     if (disposed || paused) return;
-    const delta = previousTime === null ? 0 : Math.max(0, Math.min(0.1, (time - previousTime) / 1000));
+    // A suspended live presentation must advance the same fixed-step physics,
+    // not stretch a spin by the time spent in another tab. Bound catch-up work.
+    const delta = previousTime === null ? 0 : Math.max(0, Math.min(catchUpElapsed ? 60 : 0.1, (time - previousTime) / 1000));
     previousTime = time;
     accumulator += delta;
-    let clicks = 0;
+    let clicks = phase === "dragging" ? followDrag(time) : 0;
     while (accumulator + 1e-10 >= FIXED_STEP) {
       if (phase === "spinning" || (phase === "ready" && !state.settled)) {
         clicks += stepWheel(state, FIXED_STEP, physics);
@@ -62,7 +72,7 @@ export function createWheelController({
       } else clicks += stepPawl(state, FIXED_STEP);
       accumulator -= FIXED_STEP;
     }
-    if (clicks) audio?.tick(state.velocity);
+    if (clicks && delta <= 0.1) audio?.tick(phase === "dragging" ? inputVelocity(time) : state.velocity);
     if (phase === "spinning" && state.settled) {
       const result = { ...sectorAtPointer(state.angle, state.pawl, pawlModel, readSectors()), angle: normalizeAngle(state.angle), pawlAngle: state.pawl,
         turns: Math.abs(state.angle - launchAngle) / TAU, duration: spinTime, launchSpeed };
@@ -77,6 +87,7 @@ export function createWheelController({
     schedule();
   }
   function launch(velocity, quality = null) {
+    dragMotion = null;
     stopFrame();
     if (!launchWheel(state, velocity)) {
       // The minimum impulse still gates a scored spin. A hand-released, loaded
@@ -100,6 +111,7 @@ export function createWheelController({
     lastLaunchQuality = quality;
     if (quality) aiming?.commit(quality);
     setPhase("spinning");
+    if (catchUpElapsed) previousTime = now();
     onLaunch?.({ velocity: launchSpeed, quality });
     draw();
     schedule();
@@ -109,6 +121,7 @@ export function createWheelController({
     if (phase !== "dragging" && phase !== "charging" && phase !== "aiming") return;
     stopFrame();
     state = { ...gestureStart };
+    dragMotion = null;
     samples = [];
     aiming?.cancel(); lastLaunchQuality = null;
     setPhase("ready");
@@ -127,6 +140,8 @@ export function createWheelController({
       samples = [{ time, angle: state.angle }];
       gesturePower?.reset(time);
       aiming?.beginDrag(gesturePoint, time);
+      dragTarget = state.angle;
+      dragMotion = aiming?.view(time).gestureMode === "power" ? createWheelDragMotion(state.angle, time) : null;
       lastLaunchQuality = null;
       setPhase("dragging");
       schedule();
@@ -135,8 +150,10 @@ export function createWheelController({
     drag(angle, time = now(), travel, { deferRender = false, gesturePoint } = {}) {
       if (phase !== "dragging" || disposed) return;
       const delta = angularDelta(dragAngle, angle);
-      const releases = dragWheelTo(state, state.angle + delta);
-      gesturePower?.record(Number.isFinite(travel) ? travel : (state.angle - gestureStart.angle) * 0.3, time);
+      dragTarget += delta;
+      dragMotion?.record(dragTarget, time);
+      const releases = dragMotion ? followDrag(time) : dragWheelTo(state, state.angle + delta);
+      gesturePower?.record(Number.isFinite(travel) ? travel : (dragTarget - gestureStart.angle) * 0.3, time);
       aiming?.recordGesture(gesturePoint, time, travel);
       dragAngle = angle;
       samples.push({ time, angle: state.angle });
@@ -148,7 +165,9 @@ export function createWheelController({
     },
     endDrag(time = now()) {
       if (phase !== "dragging" || disposed) return false;
+      const releases = followDrag(time);
       const velocity = inputVelocity(time);
+      if (releases) audio?.tick(velocity);
       return launch(velocity, aiming?.scoreDrag(velocity, time));
     },
     clickLaunch(time = now()) {
@@ -163,6 +182,12 @@ export function createWheelController({
       const action = aiming.click(time);
       if (!action) return false;
       return launch(action.velocity, action.quality);
+    },
+    autoLaunch() {
+      if (disposed || paused || inputLocked || ["spinning", "finished"].includes(phase)) return false;
+      cancelGesture();
+      // Expiry cannot award a precision bonus or inherit a held gesture.
+      return launch((MIN_LAUNCH_SPEED + MAX_LAUNCH_SPEED) / 2);
     },
     setLaunchOptions(value) {
       // Choosing a workshop variant during the intro does not unlock input.

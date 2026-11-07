@@ -1,0 +1,10 @@
+.infortune-game--social { grid-template-rows: auto minmax(0,1fr) auto; }
+.infortune-social-dock { --wheel-dock-button: clamp(40px,15vw,56px); display: grid; grid-template-columns: repeat(6,minmax(0,1fr)); align-items: center; justify-items: center; justify-self: center; width: min(100%,480px); height: 58px; border-radius: 14px; background: linear-gradient(#172d4266,#0c192ae6); }
+@media(max-height:520px) { .infortune-social-dock { --wheel-dock-button: 40px; height: 40px; width: min(100%,340px); } }
+body > [data-chat-panel] { z-index: var(--infortune-social-z,20050); }
+body [data-players-panel] { z-index: var(--infortune-social-z,20160); }
+body [data-chat-overlay] { z-index: calc(var(--infortune-social-z,20050) + 20); }
+body [data-chat-menu] { z-index: calc(var(--infortune-social-z,20110) + 20); }
+body [data-chat-menu="details"] { z-index: calc(var(--infortune-social-z,20110) + 30); }
+body .player-profile-overlay { z-index: calc(var(--infortune-social-z,24960) + 40); }
+body .stats-overlay { z-index: var(--infortune-social-z,12150); }

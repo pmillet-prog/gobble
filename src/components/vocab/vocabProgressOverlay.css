@@ -33,6 +33,8 @@
   text-transform: uppercase;
 }
 .vocab-word-stage > div { max-width: 100%; }
+.vocab-word-season-new { font-weight: 900; color: #b45309; }
+.vocab-progress-dialog[data-theme="dark"] .vocab-word-season-new { color: #fcd34d; }
 
 .vocab-level-card {
   width: 100%;

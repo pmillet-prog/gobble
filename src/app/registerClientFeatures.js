@@ -2,6 +2,7 @@ import { createAdminFeature } from "../features/admin/createAdminFeature.js";
 import { createAccountAdminFeature } from "../features/admin/createAccountAdminFeature.js";
 import { createPlayerActivityFeature } from "../features/activity/createPlayerActivityFeature.js";
 import { createChatFeature } from "../features/chat/createChatFeature.js";
+import { createChatSurfaceFeature } from '../features/chat/createChatSurfaceFeature.js';
 import { createRoundClockFeature } from "../features/clock/createRoundClockFeature.js";
 import { createCelebrationFeature } from "../features/celebration/createCelebrationFeature.js";
 import { createConnectionHealthFeature } from "../features/connection/createConnectionHealthFeature.js";
@@ -36,7 +37,10 @@ import { createTraceFeature } from "../features/trace/createTraceFeature.js";
 import { createTargetQuizFeature } from "../features/targetQuiz/createTargetQuizFeature.js";
 import { createGotusFeature } from "../features/gotus/createGotusFeature.js";
 import { createInfortuneIntermissionFeature } from "../features/infortune/createInfortuneIntermissionFeature.js";
+import { createResultsLoadingFeature } from "../features/round/createResultsLoadingFeature.js";
+import { createTournamentFinaleFeature } from "../features/infortune/finale/createTournamentFinaleFeature.js";
 import { createTrophiesFeature } from "../features/trophies/createTrophiesFeature.js";
+import { createGameBalancesFeature } from "../features/gobblars/createGameBalancesFeature.js";
 
 const FEATURE_FACTORIES = Object.freeze({
   achievements: createTrophiesFeature,
@@ -44,6 +48,7 @@ const FEATURE_FACTORIES = Object.freeze({
   admin: createAdminFeature,
   accountAdmin: createAccountAdminFeature,
   chat: createChatFeature,
+  chatSurface: createChatSurfaceFeature,
   clock: createRoundClockFeature,
   celebration: createCelebrationFeature,
   connection: createConnectionHealthFeature,
@@ -78,6 +83,9 @@ const FEATURE_FACTORIES = Object.freeze({
   targetQuiz: createTargetQuizFeature,
   gotus: createGotusFeature,
   infortune: createInfortuneIntermissionFeature,
+  resultsLoading: createResultsLoadingFeature,
+  infortuneFinale: createTournamentFinaleFeature,
+  gameBalances: createGameBalancesFeature,
 });
 
 export const CLIENT_FEATURE_NAMES = Object.freeze(Object.keys(FEATURE_FACTORIES));
@@ -88,3 +96,8 @@ export function registerClientFeatures(kernel, options = {}) {
   }
   return kernel;
 }
+
+// Stateful services are registered once on the application kernel. React Fast
+// Refresh preserves that kernel, so changing a factory otherwise leaves the old
+// socket handlers/timers running underneath the updated UI in local development.
+if (import.meta.hot) import.meta.hot.accept(() => window.location.reload());

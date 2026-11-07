@@ -1,0 +1,14 @@
+.workshop-tournament__progress p, .workshop-tournament__notice { color: #c5ccd5; font-size: 12px; line-height: 1.6; }
+.workshop-tournament__notice { padding: 10px 20px; text-align: center; }
+.workshop-tournament .perspective-workshop__stage-status button { pointer-events: auto; }
+.workshop-tournament__progress ol { display: flex; list-style: none; gap: 12px; padding: 0; margin: 0 0 18px; }
+.workshop-tournament__progress li { display: grid; place-items: center; width: 36px; height: 36px; border: 1px solid #c4b18c40; border-radius: 50%; color: #91a0b2; }
+.workshop-tournament__progress li[aria-current] { background: #ebc68a; border-color: #ebc68a; color: #17202e; font-weight: 700; }
+.workshop-tournament__progress li[data-done="true"] { color: #8dd4bb; border-color: #8dd4bb; }
+.workshop-tournament__history { margin-top: 24px; padding: 20px; border: 1px solid #c4b18c40; border-radius: 14px; background: #101c2c; font-size: 12px; }
+.workshop-tournament__history summary { cursor: pointer; color: #ebc68a; }
+.workshop-tournament__table { overflow-x: auto; margin-top: 16px; }
+.workshop-tournament__history table { width: 100%; border-collapse: collapse; text-align: left; font-variant-numeric: tabular-nums; }
+.workshop-tournament__history th, .workshop-tournament__history td { padding: 12px; border-bottom: 1px solid #c4b18c23; }
+.workshop-tournament__history td strong, .workshop-tournament__history td small { display: block; }
+.workshop-tournament__history td small { margin-top: 5px; color: #a6b3c4; }

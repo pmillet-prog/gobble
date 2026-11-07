@@ -1,8 +1,13 @@
 import React from "react";
 
 import ChatWidget from "./ChatWidget.jsx";
+import { useFeatureRuntime, useFeatureSelector } from '../../app/react/useFeatureRuntime.js';
 
 function MobileChatLayer(props) {
+  const wheel = useFeatureRuntime('infortune');
+  const wheelVisible = useFeatureSelector(wheel, state => state.visible);
+  const finale = useFeatureRuntime('infortuneFinale');
+  const finaleVisible = useFeatureSelector(finale, state => ['intro', 'loading', 'playing', 'result', 'ranking'].includes(state.phase));
   const {
     appView = "",
     blockedCount = 0,
@@ -55,7 +60,20 @@ function MobileChatLayer(props) {
     submitChat = null,
   } = props;
 
-  const shouldRender = isMobileLayout && (isLoggedIn || (!isLoggedIn && appView === "home"));
+  // The desktop input stays mounted behind the wheel. Restore its ref when
+  // the temporary drawer closes so desktop keyboard commands keep working.
+  const parkedDesktopInput = React.useRef(null);
+  const bindDrawerInput = React.useCallback(node => {
+    if (!chatInputRef) return;
+    if (node) {
+      if (chatInputRef.current !== node) parkedDesktopInput.current = chatInputRef.current;
+      chatInputRef.current = node;
+    } else {
+      chatInputRef.current = parkedDesktopInput.current?.isConnected ? parkedDesktopInput.current : null;
+      parkedDesktopInput.current = null;
+    }
+  }, [chatInputRef]);
+  const shouldRender = (isMobileLayout || wheelVisible || finaleVisible || isChatOpenMobile || isChatClosing) && (isLoggedIn || (!isLoggedIn && appView === "home"));
   if (!shouldRender) return null;
 
   // ChatContent owns the live message subscription. Forwarding the root snapshot
@@ -64,7 +82,7 @@ function MobileChatLayer(props) {
     <ChatWidget
       chatInput={chatInput}
       chatFocusPreserveKey={chatFocusPreserveKey}
-      chatInputRef={chatInputRef}
+      chatInputRef={isMobileLayout ? chatInputRef : bindDrawerInput}
       chatInputType={chatInputType}
       chatInputDisabled={chatInputDisabled}
       chatInputPlaceholder={chatInputPlaceholder}
@@ -105,7 +123,7 @@ function MobileChatLayer(props) {
       setChatInput={setChatInput}
       setIsChatOpenMobile={closeChatPanel}
       submitChat={submitChat}
-      showLauncherButton={showLauncherButton && isLoggedIn && !isSpecial3WordsMode}
+      showLauncherButton={showLauncherButton && !wheelVisible && !finaleVisible && isLoggedIn && !isSpecial3WordsMode}
       reactionEmojis={reactionEmojis}
     />
   );

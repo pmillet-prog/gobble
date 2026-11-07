@@ -52,7 +52,7 @@ try {
   const show = options => evaluate(`roundIntroFixture.show(${JSON.stringify(options)})`);
   await cdp("Runtime.enable"); await cdp("Page.enable"); await cdp("Network.enable");
   await cdp("Network.setBlockedURLs", { urls: ["https://*", "http://gobble*", "wss://*"] });
-  await cdp("Page.navigate", { url: `${origin}/dev/round-intro/` });
+  await cdp("Page.navigate", { url: `${origin}/dev/round-intro/index.html` });
   await until(() => evaluate("!!window.roundIntroFixture"), "fixture mounted");
   for (const [width, height] of [[320, 568], [390, 844], [667, 375], [1440, 900]]) {
     const mobile = width < 700;

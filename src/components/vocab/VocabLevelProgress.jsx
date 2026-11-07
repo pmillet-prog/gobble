@@ -25,14 +25,15 @@ export default React.memo(function VocabLevelProgress({
         <div className="vocab-level-details">
           <div className="vocab-section-label">Mots uniques · saison</div>
           <div className="vocab-level-name">{level?.label || "Votre niveau"}</div>
-          <div className="vocab-level-total"><strong>{number.format(count)}</strong> mots</div>
+          <div className="vocab-level-total"><strong data-vocab-frame="total">{number.format(count)}</strong> mots</div>
         </div>
         <div className={`vocab-level-gain${settling && delta > 0 ? " vocab-level-gain-settle" : ""}`}>
-          <strong>+{number.format(delta)}</strong>
-          <span>{levelUp ? "Niveau gagné !" : delta === 1 ? "nouveau mot" : "nouveaux mots"}</span>
+          <strong data-vocab-frame="delta">+{number.format(delta)}</strong>
+          <span data-vocab-frame="deltaLabel">{levelUp ? "Niveau gagné !" : delta === 1 ? "nouveau mot" : "nouveaux mots"}</span>
         </div>
       </div>
       <div
+        data-vocab-frame="levelTrack"
         className="vocab-level-track"
         role="progressbar"
         aria-label={`Progression du niveau ${level?.label || "vocabulaire"}`}
@@ -41,15 +42,16 @@ export default React.memo(function VocabLevelProgress({
         aria-valuenow={Math.min(max, Math.max(min, count))}
         aria-valuetext={`${number.format(count)} mots uniques`}
       >
-        <div className="vocab-level-fill vocab-level-fill-new" style={{ transform: `scaleX(${progress})` }} />
+        <div data-vocab-frame="levelFill" className="vocab-level-fill vocab-level-fill-new" style={{ transform: `scaleX(${progress})` }} />
         <div
+          data-vocab-frame="levelBase"
           className={`vocab-level-fill vocab-level-fill-base${settling ? " vocab-level-fill-settle" : ""}`}
           style={{ transform: `scaleX(${settling ? progress : baseProgress})` }}
         />
       </div>
       <div className="vocab-level-caption">
         <span>{number.format(min)}</span>
-        <span>{remaining > 0 ? `${number.format(remaining)} mots avant ${number.format(max)}` : "Palier atteint"}</span>
+        <span data-vocab-frame="remaining">{remaining > 0 ? `${number.format(remaining)} mots avant ${number.format(max)}` : "Palier atteint"}</span>
       </div>
     </section>
   );

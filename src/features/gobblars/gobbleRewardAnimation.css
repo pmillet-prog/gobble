@@ -1,0 +1,15 @@
+.gobble-reward { position: absolute; inset: 0; pointer-events: none; --reward-y: clamp(120px,30vh,250px); }
+.gobble-reward__announcement { position: absolute; left: 50%; top: var(--reward-y); transform: translate(-50%,-50%); width: min(300px,90vw); padding: 18px 24px; border-radius: 24px; border: 1px solid #fcd34d; background: linear-gradient(145deg,#fff9e8f5,#ffedb7f5); color: #74451a; text-align: center; box-shadow: 0 8px 36px #38210025; transition: opacity 300ms,transform 400ms; animation: gobble-reward-appear 350ms ease-out; }
+.gobble-reward__announcement small { display: block; font-size: 12px; font-weight: 600; }
+.gobble-reward__announcement strong { display: block; margin-top: 5px; font-size: clamp(27px,6vw,38px); font-weight: 900; }
+.gobble-reward__gain { position: absolute; left: 0; top: 0; display: grid; grid-template-columns: 36px auto; align-items: center; gap: 0 5px; min-width: 112px; padding: 10px 12px; border-radius: 20px; border: 1px solid #ffe39b; background: #fff7e7f5; box-shadow: 0 4px 18px #38210025; color: #74451a; opacity: 0; transform: translate3d(50vw,var(--reward-y),0) translate(-50%,-50%) scale(.6); transition: transform 650ms cubic-bezier(.2,.7,.2,1),opacity 250ms; }
+.gobble-reward__gain img { width: 36px; height: 36px; object-fit: contain; grid-row: span 2; }
+.gobble-reward__gain strong { font-size: 23px; font-weight: 900; font-variant-numeric: tabular-nums; }
+.gobble-reward__gain small { font-size: 10px; }
+.gobble-reward--split .gobble-reward__announcement,.gobble-reward--flying .gobble-reward__announcement,.gobble-reward--landed .gobble-reward__announcement { opacity: 0; transform: translate(-50%,-50%) scale(1.1); }
+.gobble-reward--split .gobble-reward__gain { opacity: 1; transform: translate3d(calc(50vw - 72px),var(--reward-y),0) translate(-50%,-50%) scale(1); }
+.gobble-reward--split .gobble-reward__gain--bank { transform: translate3d(calc(50vw + 72px),var(--reward-y),0) translate(-50%,-50%) scale(1); }
+.gobble-reward--flying .gobble-reward__gain { opacity: 1; transition-duration: 1000ms,250ms; transform: translate3d(var(--target-x),var(--target-y),0) translate(-50%,-50%) scale(.65); }
+.gobble-reward--landed .gobble-reward__gain { opacity: 0; transform: translate3d(var(--target-x),var(--target-y),0) translate(-50%,-50%) scale(.4); }
+@keyframes gobble-reward-appear { from { opacity: 0; transform: translate(-50%,-35%) scale(.8); } to { opacity: 1; transform: translate(-50%,-50%) scale(1); } }
+@media(prefers-reduced-motion:reduce) { .gobble-reward__announcement { animation: none; } .gobble-reward__announcement,.gobble-reward__gain { transition: opacity 150ms; } }

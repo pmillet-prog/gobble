@@ -4,6 +4,7 @@ import { LEPERS_ROUND_ANNOUNCEMENT_MS } from "../../shared/lepersRules.js";
 import AssetManager from "../assets/assetManager.js";
 import { SFX_KEYS } from "../assets/assetKeys.js";
 import { loadQuestions3DOverlay } from "../features/presenters/qpug/loadQuestions3DOverlay.js";
+import { subscribeForegroundClockRefresh } from "../utils/realtimeClock.js";
 
 export function resolveMobileRoundIntroLifecycle({
   introWindow,
@@ -13,6 +14,7 @@ export function resolveMobileRoundIntroLifecycle({
   previousPhase,
   roundId,
   startedRoundId,
+  goHoldMs = 0,
 }) {
   if (phase === "playing" && roundId) {
     const introRoundId = introWindow?.roundId || null;
@@ -20,6 +22,10 @@ export function resolveMobileRoundIntroLifecycle({
       ? Number(introWindow.startsAt)
       : null;
     const introStatus = String(introWindow?.status || "");
+    if (mobileRoundIntroStage && mobileRoundIntroStage !== "idle" && introRoundId === roundId
+      && Number.isFinite(introStartsAt) && nowServerMs >= introStartsAt + goHoldMs) {
+      return { action: "finish", markStartedRoundId: roundId };
+    }
     const hasPendingIntro =
       introRoundId === roundId &&
       introStatus === "intro" &&
@@ -315,27 +321,36 @@ export default function useMobileRoundIntro(
   ]);
 
   React.useEffect(() => {
-    const previousPhase = previousPhaseRef.current;
-    previousPhaseRef.current = phase;
-    const decision = resolveMobileRoundIntroLifecycle({
-      introWindow: roundIntroServerWindowRef.current,
-      mobileRoundIntroStage,
-      nowServerMs: getNowServerMs(),
-      phase,
-      previousPhase,
-      roundId,
-      startedRoundId: roundIntroStartedForRoundRef.current,
-    });
-    if (decision.markStartedRoundId) {
-      roundIntroStartedForRoundRef.current = decision.markStartedRoundId;
-    }
-    if (decision.action === "start") {
-      startMobileRoundIntro();
-      return;
-    }
-    if (decision.action === "stop") {
-      stopMobileRoundIntro({ unlockInput: false });
-    }
+    const reconcile = () => {
+      const previousPhase = previousPhaseRef.current;
+      previousPhaseRef.current = phase;
+      const decision = resolveMobileRoundIntroLifecycle({
+        introWindow: roundIntroServerWindowRef.current,
+        mobileRoundIntroStage,
+        nowServerMs: getNowServerMs(),
+        phase,
+        previousPhase,
+        roundId,
+        startedRoundId: roundIntroStartedForRoundRef.current,
+        goHoldMs: MOBILE_ROUND_INTRO_GO_TOTAL_MS,
+      });
+      if (decision.markStartedRoundId) {
+        roundIntroStartedForRoundRef.current = decision.markStartedRoundId;
+      }
+      if (decision.action === "start") {
+        startMobileRoundIntro();
+        return;
+      }
+      if (decision.action === "stop") {
+        stopMobileRoundIntro({ unlockInput: false });
+      }
+      if (decision.action === "finish") {
+        roundStartSoundRef.current = roundId;
+        stopMobileRoundIntro({ unlockInput: true });
+      }
+    };
+    reconcile();
+    return subscribeForegroundClockRefresh(reconcile);
   }, [
     mobileRoundIntroStage,
     phase,

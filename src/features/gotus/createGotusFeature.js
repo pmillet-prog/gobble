@@ -6,12 +6,15 @@ const terminal = new Set(["won", "lost", "expired", "dismissed"]);
 const initialState = () => ({ key: "", roundId: null, started: false, dismissed: false, finalized: false, summary: null, recap: null });
 const total = progression => Number(progression?.after?.totalWins) || 0;
 
-function preserveProgression(summary, value, previous) {
+function preserveRecapDetails(summary, value, previous) {
   const saved = previous?.progression;
   const incoming = value?.progression;
   const progression = incoming && (!saved || total(incoming) > total(saved) ||
     (total(incoming) === total(saved) && (!saved.reward || incoming.reward))) ? incoming : saved;
-  return progression ? { ...summary, progression } : summary;
+  // Local expiry and public results can omit the word; a private reveal can
+  // also arrive after finalization. Fill missing details without undoing it.
+  const solution = summary.solution || previous?.solution || normalizeGotusSummary(value).solution;
+  return { ...summary, ...(solution ? { solution } : {}), ...(progression ? { progression } : {}) };
 }
 
 export function createGotusFeature({ scope }, { storage = globalThis.sessionStorage, timers = globalThis } = {}) {
@@ -46,7 +49,7 @@ export function createGotusFeature({ scope }, { storage = globalThis.sessionStor
     if (!state.finalized && state.summary && ((state.summary.won && !summary.won) ||
       (terminal.has(state.summary.phase) && !terminal.has(summary.phase)) ||
       summary.attemptsUsed < state.summary.attemptsUsed)) summary = state.summary;
-    summary = preserveProgression(summary, value, state.summary);
+    summary = preserveRecapDetails(summary, value, state.summary);
     if (state.started && Object.keys(summary).every(key => state.summary?.[key] === summary[key]) &&
       Object.keys(state.summary || {}).length === Object.keys(summary).length) return;
     store.patch({ started: true, summary, ...(state.recap ? { recap: summary } : {}) });
@@ -62,7 +65,7 @@ export function createGotusFeature({ scope }, { storage = globalThis.sessionStor
     const own = entries.find(entry => userId != null ? Number(entry.userId) === Number(userId) : entry.nick === nickname);
     if (!own?.gotus) return;
     const state = store.getState();
-    const summary = preserveProgression(normalizeGotusSummary(own.gotus), own.gotus, state.summary);
+    const summary = preserveRecapDetails(normalizeGotusSummary(own.gotus), own.gotus, state.summary);
     store.patch({ finalized: true, summary, ...(state.recap ? { recap: summary } : {}) });
     persist();
   }

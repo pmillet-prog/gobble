@@ -46,10 +46,19 @@ stop_services() {
 start_services() {
   echo "=== Start Gobble services ==="
   if has_service gobble-back.service; then
+    # This deployment-owned drop-in follows the active release, including rollback.
+    local wheel_dropin="/etc/systemd/system/gobble-back.service.d/60-gobble-infortune-release.conf"
+    if [ -f "$LIVE/ops/systemd/gobble-infortune.conf" ]; then
+      sudo install -d -m 0755 "$(dirname "$wheel_dropin")"
+      sudo install -m 0644 "$LIVE/ops/systemd/gobble-infortune.conf" "$wheel_dropin"
+    else
+      sudo rm -f "$wheel_dropin"
+    fi
+    sudo systemctl daemon-reload
     sudo systemctl restart gobble-back.service
   else
     stop_port 4000
-    (cd "$LIVE/server" && NODE_ENV=production nohup npm start > "$HOME/server.log" 2>&1 &)
+    (cd "$LIVE/server" && NODE_ENV=production GOBBLE_INFORTUNE_ENABLED=1 nohup npm start > "$HOME/server.log" 2>&1 &)
   fi
 
   if has_service gobble-front.service; then

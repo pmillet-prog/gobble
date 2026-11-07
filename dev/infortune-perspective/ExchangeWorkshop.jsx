@@ -1,8 +1,9 @@
 import React from "react";
-import InfortuneContestants from "../../src/components/infortune/InfortuneContestants.jsx";
+import StageExchangeChoice from "./StageExchangeChoice.jsx";
 
 export function useExchangeWorkshop(contestants) {
   const [enabled, setEnabled] = React.useState(false), [choosing, setChoosing] = React.useState(false);
+  const [selectedId, select] = React.useState(null);
   const [balance, setBalance] = React.useState(1200), [notice, setNotice] = React.useState("");
   const [opponentBanks, setOpponentBanks] = React.useState([800, 2400]);
   const economy = React.useMemo(() => ({ hidden: enabled,
@@ -13,10 +14,10 @@ export function useExchangeWorkshop(contestants) {
     setBalance(opponentBanks[index]); setOpponentBanks(values => values.map((value, i) => i === index ? balance : value));
     setNotice(`Échange effectué avec ${contestants[index].nick}. Les montants restent masqués.`); setChoosing(false);
   }
-  return { enabled, setEnabled, choosing, economy, balance, notice, choose,
-    simulate() { setChoosing(true); setNotice(""); },
-    result(result) { if (enabled && result.kind === "exchange") setChoosing(true); },
-    reset() { setChoosing(false); setNotice(""); },
+  return { enabled, setEnabled, choosing, economy, balance, notice, choose, selectedId, select,
+    simulate() { select(null); setChoosing(true); setNotice(""); },
+    result(result) { if (enabled && result.kind === "exchange") { select(null); setChoosing(true); } },
+    reset() { select(null); setChoosing(false); setNotice(""); },
   };
 }
 
@@ -30,10 +31,11 @@ export function ExchangeWorkshopControls({ preview, disabled, onChange }) {
   </section>;
 }
 
-export function ExchangeWorkshopChoice({ preview, contestants }) {
+export function ExchangeWorkshopChoice({ preview, contestants, wheel }) {
   if (!preview.choosing && !preview.notice) return null;
-  return <section className="infortune-exchange">
-    <strong>{preview.notice || "Choisis l’avatar avec lequel échanger"}</strong>
-    {preview.choosing && <InfortuneContestants contestants={contestants} economy={preview.economy} onChoose={preview.choose} />}
+  if (preview.choosing) return <StageExchangeChoice wheel={wheel} contestants={contestants} selectedId={preview.selectedId}
+    onSelect={preview.select} onConfirm={() => preview.choose(preview.selectedId)} bank={preview.balance} />;
+  return <section className="stage-exchange-choice" role="status">
+    <p>{preview.notice}</p>
   </section>;
 }

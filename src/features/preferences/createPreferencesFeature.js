@@ -1,6 +1,7 @@
 import AssetManager from "../../assets/assetManager.js";
 import {
   SOUND_MASTER_VOLUME_DEFAULT,
+  SOUND_ENABLED_FIELDS,
   normalizeSoundMasterVolume,
 } from "../../audio/audioPreferences.js";
 import {
@@ -34,6 +35,7 @@ const PERSISTED_PREFERENCE_FIELDS = Object.freeze([
   "soundTileStepEnabled",
   "soundTimerEnabled",
   "soundValidationEnabled",
+  "soundWheelIntroEnabled",
   "themeApplied",
   "themeUnlocks",
   "tilePointsVisible",
@@ -179,6 +181,7 @@ export function createInitialPreferencesState(options = {}) {
     soundTileStepEnabled,
     soundTimerEnabled,
     soundValidationEnabled,
+    soundWheelIntroEnabled: settings.soundWheelIntroEnabled !== false,
     themeApplied: theme.preset,
     themeApplying: false,
     themeDraft: theme.preset,
@@ -254,6 +257,7 @@ function getPersistedPreferences(state) {
     soundTileStepEnabled: state.soundTileStepEnabled,
     soundTimerEnabled: state.soundTimerEnabled,
     soundValidationEnabled: state.soundValidationEnabled,
+    soundWheelIntroEnabled: state.soundWheelIntroEnabled,
     specialIndicator: theme.specialIndicator,
     theme,
     themeUnlocks: state.themeUnlocks,
@@ -388,6 +392,10 @@ export function createPreferencesFeature({ scope }, options = {}) {
 
   return Object.freeze({
     applyTheme,
+    setAllSoundEnabled(enabled) {
+      const next = !!enabled;
+      patch({ isAmbientMuted: !next, ...Object.fromEntries(SOUND_ENABLED_FIELDS.map(field => [field, next])) });
+    },
     patch,
     previewTheme,
     refs,

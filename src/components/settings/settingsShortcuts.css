@@ -3,8 +3,8 @@
   --shortcut-rim: #b98a41;
   --shortcut-ink: #284a72;
   --shortcut-shadow: #26395520;
-  --shortcut-tip-bg: #14243d;
-  --shortcut-tip-ink: #fff4d7;
+  display: grid;
+  gap: 12px;
 }
 .settings-shortcuts.is-dark {
   --shortcut-face: linear-gradient(155deg, #284d7e, #112844);
@@ -12,22 +12,23 @@
   --shortcut-ink: #ffe1a1;
   --shortcut-shadow: #0005;
 }
-.settings-shortcuts-main {
+.settings-shortcuts-main, .settings-shortcuts-quick {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 13px;
-  padding: 5px 0 4px;
+  gap: 10px 13px;
 }
+.settings-shortcuts-quick { padding-bottom: 12px; border-bottom: 1px solid #b9905145; }
+.settings-shortcut-item { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 0; }
+.settings-shortcut-label { width: 100%; text-align: center; font-size: 11px; font-weight: 750; line-height: 1.3; }
 .settings-shortcut {
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
   width: 100%;
-  max-height: 92px;
+  height: 62px;
   min-width: 44px;
   min-height: 44px;
-  aspect-ratio: 1;
   padding: 10px;
   border: 1px solid var(--shortcut-rim);
   border-radius: 20px;
@@ -38,6 +39,9 @@
   transition: transform 140ms ease, filter 140ms ease;
 }
 .settings-shortcut > .material-symbols-outlined { font-size: 33px; line-height: 1; }
+.settings-shortcuts-quick .settings-shortcut { height: 44px; gap: 8px; border-radius: 14px; }
+.settings-shortcuts-quick .material-symbols-outlined { font-size: 25px; }
+.settings-shortcut-value { font-size: 12px; font-weight: 750; }
 .settings-shortcut.is-sound { color: #edfff7; background: linear-gradient(150deg, #278b6b, #135541); border-color: #8fd9b7; }
 .settings-shortcut.is-visual { color: #fff0ff; background: linear-gradient(150deg, #9761bf, #58357c); border-color: #d4a7ec; }
 .settings-shortcut.is-keyboard { color: #edfdff; background: linear-gradient(150deg, #268caa, #175068); border-color: #93d6e5; }
@@ -54,35 +58,13 @@
 .settings-shortcut:focus-visible { outline: 3px solid #68bfff; outline-offset: 3px; z-index: 2; }
 .settings-shortcut:active:not(:disabled) { transform: translateY(2px); }
 .settings-shortcut-status { position: absolute; top: 9px; right: 9px; width: 7px; height: 7px; border-radius: 50%; background: #6ee7a1; box-shadow: 0 0 0 2px #102c48; }
-.settings-shortcut-tooltip {
-  position: absolute;
-  top: calc(100% + 7px);
-  left: 50%;
-  z-index: 5;
-  width: max-content;
-  max-width: 160px;
-  padding: 6px 9px;
-  border-radius: 8px;
-  background: var(--shortcut-tip-bg);
-  color: var(--shortcut-tip-ink);
-  font-size: 12px;
-  font-weight: 650;
-  line-height: 1.3;
-  text-align: center;
-  box-shadow: 0 4px 12px #0004;
-  transform: translateX(-50%);
-  visibility: hidden;
-  pointer-events: none;
-}
-.settings-shortcuts-main > :nth-child(2n + 1) .settings-shortcut-tooltip { left: 0; transform: none; }
-.settings-shortcuts-main > :nth-child(2n) .settings-shortcut-tooltip { left: auto; right: 0; transform: none; }
-.settings-shortcut:focus-visible .settings-shortcut-tooltip { visibility: visible; }
-.settings-shortcuts-admin { display: flex; gap: 12px; margin-top: 15px; padding-top: 15px; border-top: 1px solid #b9905145; }
-.settings-shortcuts-admin .settings-shortcut { width: 54px; border-radius: 16px; }
+.settings-shortcuts-footer { display: flex; justify-content: center; align-items: flex-end; gap: 12px; padding-top: 12px; border-top: 1px solid #b9905160; }
+.settings-shortcuts-admin { display: flex; flex: 1; gap: 12px; }
+.settings-shortcuts-admin .settings-shortcut-item { flex: 1; }
+.settings-shortcuts-admin .settings-shortcut { height: 44px; border-radius: 14px; }
 .settings-shortcuts-admin .material-symbols-outlined { font-size: 26px; }
-.settings-shortcuts-home { display: flex; justify-content: center; margin-top: 22px; padding-top: 18px; border-top: 1px solid #b9905160; }
-.settings-shortcuts-home .settings-shortcut { width: 58px; height: 58px; border-radius: 17px; }
-.settings-shortcuts-home .settings-shortcut-tooltip { top: auto; bottom: calc(100% + 7px); }
+.settings-shortcuts-home { width: 64px; }
+.settings-shortcuts-home .settings-shortcut { height: 44px; border-radius: 14px; }
 .settings-choices { display: grid; gap: 10px; }
 .settings-choice { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 64px; padding: 10px; border: 1px solid #b9905160; border-radius: 14px; background: #ffffffb0; color: #1e3554; text-align: left; }
 .settings-choices.is-dark .settings-choice { background: #0b1a36c9; color: #fff0cb; }
@@ -100,11 +82,15 @@
 .settings-choice-copy small { font-size: 11px; line-height: 1.35; opacity: .8; }
 @media (hover: hover) {
   .settings-shortcut:hover:not(:disabled) { filter: brightness(1.12); transform: translateY(-2px); z-index: 3; }
-  .settings-shortcut:hover .settings-shortcut-tooltip { visibility: visible; }
 }
-@media (max-height: 500px) {
-  .settings-shortcuts-main { gap: 9px; }
-  .settings-shortcut { aspect-ratio: auto; height: 52px; border-radius: 15px; }
-  .settings-shortcuts-admin { margin-top: 10px; padding-top: 10px; }
+@media (max-height: 520px) {
+  .settings-menu-frame[data-layout="mobile"] .settings-shortcuts { grid-template-columns: 1fr 1fr; gap: 8px 16px; }
+  .settings-menu-frame[data-layout="mobile"] .settings-shortcuts-main { grid-column: 1 / -1; grid-row: 1; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 9px; }
+  .settings-menu-frame[data-layout="mobile"] .settings-shortcuts-quick { align-self: end; padding: 0; border: 0; gap: 9px; }
+  .settings-menu-frame[data-layout="mobile"] .settings-shortcuts-footer { padding: 0; border: 0; gap: 9px; }
+  .settings-menu-frame[data-layout="mobile"] .settings-shortcuts-admin { gap: 9px; }
+  .settings-menu-frame[data-layout="mobile"] .settings-shortcuts-home { width: 54px; }
+  .settings-menu-frame[data-layout="mobile"] .settings-shortcut { height: 48px; border-radius: 15px; }
+  .settings-menu-frame[data-layout="mobile"] .settings-shortcut-label { font-size: 10px; }
 }
 @media (prefers-reduced-motion: reduce) { .settings-shortcut { transition: none; } }

@@ -15,6 +15,7 @@ export default function ChatStyleSlide(props) {
     chatTopInsetPx = 0,
     onCloseSound,
     setIsChatOpenMobile,
+    chatInput = '',
   } = props;
 
   const isChatVisible = isChatOpenMobile || isChatClosing;
@@ -56,12 +57,13 @@ export default function ChatStyleSlide(props) {
       keyboardWasOpen: keyboardSessionSeenRef.current,
       keyboardVisible,
       viewportSettled,
+      hasDraft: String(chatInput).trim().length > 0,
     });
     keyboardSessionSeenRef.current = transition.keyboardWasOpen;
     if (!transition.shouldCloseChat) return;
     setIsRenderedOpen(false);
     closeChat();
-  }, [closeChat, isOpen, keyboardOpen, keyboardVisible, viewportSettled]);
+  }, [closeChat, isOpen, keyboardOpen, keyboardVisible, viewportSettled, chatInput]);
 
   React.useEffect(() => {
     if (!isChatVisible) {

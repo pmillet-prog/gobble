@@ -57,6 +57,7 @@ export const SFX_KEYS = {
   lepersBonusBienSur: "sfx_lepers_bonus_bien_sur",
   lepersBonusAhOui: "sfx_lepers_bonus_ah_oui",
   lepersBonusOuiOui: "sfx_lepers_bonus_oui_oui",
+  lepersBonusCestFou: "sfx_lepers_bonus_cest_fou",
   presenterPunch1: "sfx_presenter_punch_1",
   presenterPunch2: "sfx_presenter_punch_2",
   presenterPunch3: "sfx_presenter_punch_3",
@@ -71,6 +72,7 @@ export const LEPERS_BONUS_SFX_KEYS = Object.freeze([
   SFX_KEYS.lepersBonusBienSur,
   SFX_KEYS.lepersBonusAhOui,
   SFX_KEYS.lepersBonusOuiOui,
+  SFX_KEYS.lepersBonusCestFou,
 ]);
 
 export function makeIncrementalSfxKey(label) {

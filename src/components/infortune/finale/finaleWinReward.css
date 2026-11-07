@@ -1,0 +1,16 @@
+.finale-win-reward { margin: 14px 0; animation: finale-payout-appear 450ms cubic-bezier(.2,1.4,.4,1) both; }
+.finale-win-reward__points { margin: 0 0 12px; color: #ffe3a0; font-size: 22px; font-weight: 900; }
+.finale-win-reward__conversion { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 14px 8px; border: 1px solid var(--game-accent,#e8c57288); border-radius: 14px; background: linear-gradient(135deg,var(--game-selected,#efbb4533),var(--game-panel,#0f1f30)); }
+.finale-win-reward__conversion > span { display: grid; justify-items: center; gap: 3px; min-width: 0; flex: 1; }
+.finale-win-reward__conversion img { width: 38px; height: 38px; object-fit: contain; }
+.finale-win-reward__conversion strong { font-size: clamp(22px,3vw,30px); color: var(--game-selected-text,#ffe9b0); white-space: nowrap; }
+.finale-win-reward__conversion small { color: var(--game-muted,#c1d2de); font-size: 11px; }
+.finale-win-reward__conversion > b { color: var(--game-accent,#e5c57f); font-size: 26px; animation: finale-payout-arrow 600ms ease-in-out 2 alternate; }
+.finale-win-reward__caption { font-size: 12px; color: #cad7df; margin: 10px 0; }
+.finale-win-reward__flight { position: fixed; z-index: 260100; display: flex; align-items: center; gap: 8px; pointer-events: none; padding: 9px 16px; border: 2px solid #fff0b0; border-radius: 30px; background: #173e50; box-shadow: 0 0 26px #ffd85b88; color: #ffe9a5; font: 900 28px/1.2 system-ui,sans-serif; animation: finale-payout-flight 1570ms cubic-bezier(.45,0,.2,1) both; }
+.finale-win-reward__flight img { width: 44px; height: 44px; object-fit: contain; }
+@keyframes finale-payout-appear { from { opacity: 0; transform: scale(.85); } to { opacity: 1; transform: none; } }
+@keyframes finale-payout-arrow { to { transform: translateX(5px); } }
+@keyframes finale-payout-flight { 0% { opacity: 0; transform: translate(-50%,-50%) scale(.7); } 15%,35% { opacity: 1; transform: translate(-50%,-50%) scale(1); } 90% { opacity: 1; } 100% { opacity: 0; transform: translate(calc(-50% + var(--payout-dx)),calc(-50% + var(--payout-dy))) scale(.4); } }
+@media (max-height:480px) { .finale-win-reward { margin: 6px 0; }.finale-win-reward__conversion { padding: 6px; }.finale-win-reward__conversion img { width: 25px; height: 25px; }.finale-win-reward__points { margin-bottom: 5px; font-size: 18px; }.finale-win-reward__caption { margin: 5px 0; font-size: 10px; } }
+@media (prefers-reduced-motion:reduce) { .finale-win-reward, .finale-win-reward__conversion > b { animation: none; }.finale-win-reward__flight { display: none; } }

@@ -13,17 +13,17 @@ export const WHEEL_SECTORS = Object.freeze([
   label: value === "bankrupt" ? "Banqueroute" : value === "bonus" ? "Bonus" : value === "pass" ? "Passe" : `${value} €`, color,
 })));
 
-// Three 100s, eight sectors apart: every one becomes an exchange tile.
-// The special pairs stay opposite; other amounts are spread around them.
-export const EXCHANGE_SECTOR_INDICES = Object.freeze(WHEEL_SECTORS.flatMap((sector, index) =>
-  sector.kind === "amount" && sector.amount === 100 ? [index] : []));
+// Five small amounts replaced, spaced by 4–5 sectors around the wheel.
+export const EXCHANGE_SECTOR_INDICES = Object.freeze([1, 5, 10, 15, 20]);
 export const EXCHANGE_SECTORS = Object.freeze(WHEEL_SECTORS.map((sector, index) =>
   EXCHANGE_SECTOR_INDICES.includes(index) ? Object.freeze({ ...sector, kind: "exchange", amount: null, label: "Échange", color: "#56d9e9" }) : sector));
 export const infortuneSectors = exchange => exchange ? EXCHANGE_SECTORS : WHEEL_SECTORS;
 export const INFORTUNE_REWARDS = Object.freeze({ gobble: 100, bonus: 1000, good: 50, perfect: 100 });
+export const INFORTUNE_BONUS_GOBBLARS = 100;
+export const infortuneLaunchBonus = quality => quality === 'perfect' ? INFORTUNE_REWARDS.perfect : quality === 'good' ? INFORTUNE_REWARDS.good : 0;
 
 export function applyInfortuneResult(bank, sector, quality) {
-  const launchBonus = quality === "perfect" ? INFORTUNE_REWARDS.perfect : quality === "good" ? INFORTUNE_REWARDS.good : 0;
+  const launchBonus = infortuneLaunchBonus(quality);
   if (sector.kind === "bankrupt") return 0;
   return bank + launchBonus + (sector.kind === "amount" ? sector.amount : sector.kind === "bonus" ? INFORTUNE_REWARDS.bonus : 0);
 }

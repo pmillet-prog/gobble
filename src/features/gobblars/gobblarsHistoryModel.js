@@ -5,6 +5,10 @@ const dateTime = new Intl.DateTimeFormat("fr-FR", {
 });
 const number = new Intl.NumberFormat("fr-FR");
 const labels = {
+  infortune_letter: "Finale de la roue · achat d’une lettre",
+  infortune_letter_refund: "Finale de la roue · achat annulé",
+  infortune_finale: "Finale de la roue · cagnotte convertie",
+  infortune_bonus: "Roue de l’infortune · Bonus",
   avatar_starter: "Cadeau de bienvenue · avatars",
   avatar_face_gift: "Cadeau · visages gratuits",
   avatar_unlock: "Achat d’éléments d’avatar",
@@ -53,7 +57,7 @@ export function presentGobblarsMovement(entry) {
     const week = /^(\d{4})-W(\d{2})$/.exec(entry.weekId || "");
     if (week) details.push(`Semaine ${Number(week[2])} de ${week[1]}`);
   }
-  if (entry.gobbles > 0) details.push(`${number.format(entry.gobbles)} gobble${entry.gobbles > 1 ? "s" : ""} : +${number.format(entry.gobbles)}`);
+  if (entry.gobbles > 0) details.push(`${number.format(entry.gobbles)} gobble${entry.gobbles > 1 ? "s" : ""} : +${number.format(entry.gobbleAmount ?? entry.gobbles)}`);
   if (entry.medalAmount > 0) {
     const medals = [["gold", "or"], ["silver", "argent"], ["bronze", "bronze"]]
       .filter(([key]) => entry.medals?.[key] > 0)

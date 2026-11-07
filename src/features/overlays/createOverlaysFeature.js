@@ -48,6 +48,7 @@ export function createInitialOverlaysState() {
     keyboardMenuOpen: false,
     mobileExitConfirmOpen: false,
     patchNotesOpen: false,
+    wheelGuide: null,
     playerProfileModal: {
       error: "",
       loading: false,
@@ -121,6 +122,7 @@ export function createOverlaysFeature(
   let broadcastRequest = null;
   let feature = null;
   let profileRequest = null;
+  let definitionOpener = null;
 
   function cancelBroadcastRequest(request = broadcastRequest) {
     if (!request || request.cancelled) return;
@@ -356,10 +358,16 @@ export function createOverlaysFeature(
 
   return Object.freeze({
     ...feature,
+    openWheelGuide(value) { feature.set('wheelGuide', value); },
     cancelBroadcastRequest,
     cancelPlayerProfileRequest,
     closePlayerProfile,
     fetchBroadcastNotice,
     openPlayerProfile,
+    registerDefinitionOpener(handler) {
+      definitionOpener = handler;
+      return () => { if (definitionOpener === handler) definitionOpener = null; };
+    },
+    openDefinition(...args) { return definitionOpener?.(...args); },
   });
 }

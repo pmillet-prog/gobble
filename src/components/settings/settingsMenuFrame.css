@@ -1,0 +1,28 @@
+.settings-menu-frame { position: fixed; inset: 0; z-index: var(--infortune-social-z, 20090); }
+/* Default placement is also used by the account menu. */
+.settings-menu-layout { position: absolute; top: max(76px, calc(env(safe-area-inset-top) + 64px)); right: max(12px, env(safe-area-inset-right)); bottom: max(12px, env(safe-area-inset-bottom)); left: max(12px, env(safe-area-inset-left)); display: flex; align-items: flex-start; justify-content: flex-end; pointer-events: none; }
+.settings-menu-layout > :not(.pointer-events-none) { pointer-events: auto; }
+.settings-menu-frame[data-layout] .settings-menu-layout > .translate-x-full {
+  visibility: hidden;
+  transition-property: transform, visibility;
+  transition-duration: 300ms, 0s;
+  transition-delay: 0s, 300ms;
+}
+/* Drawers slide beyond the screen edge, without leaving a visible strip. */
+.settings-menu-frame[data-layout] { overflow: hidden; }
+.settings-menu-frame[data-layout="desktop"] .settings-menu-layout { inset: 0; padding: 16px; }
+/* Desktop drawers cover the game header, including its floating counters. */
+body:has(> .settings-menu-frame[data-layout="desktop"]) > .currency-layer { z-index: 20080; }
+/* Reserve the mobile counters' space; only the main card needs side margins. */
+.settings-menu-frame[data-layout="mobile"] .settings-menu-layout {
+  left: 0;
+  right: 0;
+  padding-left: max(12px, env(safe-area-inset-left));
+  padding-right: max(12px, env(safe-area-inset-right));
+}
+.settings-menu-card { padding: 16px; }
+.settings-menu-close { width: 40px; height: 40px; flex: 0 0 40px; }
+@media (max-height: 520px) {
+  .settings-menu-frame[data-layout="mobile"] .settings-menu-card { max-width: 620px; padding: 10px 14px; }
+  .settings-menu-frame[data-layout="mobile"] .settings-menu-card > :first-child { margin-bottom: 4px; }
+}

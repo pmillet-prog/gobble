@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { createResourceScope } from "../../app/core/createResourceScope.js";
+import { soundSettingsSummary } from '../../audio/audioPreferences.js';
 import {
   SETTINGS_STORAGE_KEY,
   createInitialPreferencesState,
@@ -24,6 +25,7 @@ test("preferences preserve legacy defaults and deliberate stored choices", () =>
 
   assert.equal(state.isSfxMuted, true);
   assert.equal(state.isAmbientMuted, false);
+  assert.equal(state.soundWheelIntroEnabled, true);
   assert.equal(state.tilePointsVisible, false);
   assert.equal(state.isVibrationEnabled, false);
   assert.equal(state.visualPresenterAnimationsEnabled, true);
@@ -76,6 +78,18 @@ test("preferences feature owns persistence and derived mute state", () => {
   assert.equal(writes.at(-1)[1].mobileLandscapeDesktopEnabled, true);
   const restored = createInitialPreferencesState({ settings: writes.at(-1)[1] });
   assert.equal(restored.mobileLandscapeDesktopEnabled, true);
+  feature.set('soundWheelIntroEnabled',false);
+  assert.equal(writes.at(-1)[1].soundWheelIntroEnabled,false);
+  assert.equal(createInitialPreferencesState({settings:writes.at(-1)[1]}).soundWheelIntroEnabled,false);
+  feature.setAllSoundEnabled(true);
+  assert.equal(soundSettingsSummary(feature.store.getState()).enabledSoundCount,7);
+  assert.equal(feature.store.getState().isSfxMuted,false);
+  feature.set('soundWheelIntroEnabled',false);
+  assert.equal(soundSettingsSummary(feature.store.getState()).enabledSoundCount,6);
+  assert.equal(feature.store.getState().isSfxMuted,false,'intro music does not mute game effects');
+  feature.setAllSoundEnabled(false);
+  assert.equal(soundSettingsSummary(feature.store.getState()).enabledSoundCount,0);
+  assert.equal(feature.store.getState().soundWheelIntroEnabled,false);
   assert.equal(createInitialPreferencesState({ settings: { mobileLandscapeDesktopEnabled: "true" } }).mobileLandscapeDesktopEnabled, false);
   scope.dispose();
 });

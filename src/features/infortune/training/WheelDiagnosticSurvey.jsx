@@ -2,6 +2,7 @@ import React from "react";
 import { WHEEL_SURVEY, WHEEL_DIAGNOSTIC_STEPS, WHEEL_FLUIDITY, wheelSurveyComplete } from "../../../../shared/wheelDiagnostic.js";
 import WheelDiagnosticSummary from "./WheelDiagnosticSummary.jsx";
 import { WHEEL_DIAGNOSTIC_DRAFT_KEY, saveWheelDiagnosticDraft } from "./wheelDiagnosticDraft.js";
+import { rememberWheelDiagnostic, wheelGraphicsDevice } from "../graphics/wheelGraphicsStorage.js";
 
 export default function WheelDiagnosticSurvey({ session, runs, initialSurvey, onReplay }) {
   const [survey, setSurvey] = React.useState(() => initialSurvey || ({ fluidity: Object.fromEntries(WHEEL_DIAGNOSTIC_STEPS.filter(step => !runs.some(run => run.profile === step.profile && run.loadingMs !== null)).map(step => [step.profile, "unseen"])), comment: "" }));
@@ -21,6 +22,8 @@ export default function WheelDiagnosticSurvey({ session, runs, initialSurvey, on
         headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...session, runs, survey }) });
       const body = await response.json();
       if (!response.ok || !body.ok) throw new Error(response.status === 429 ? "rate" : "send");
+      // Only measurements made by this browser may become its local default.
+      if (session.environment.deviceId === wheelGraphicsDevice()) rememberWheelDiagnostic({ ...session, runs, survey });
       setStatus("sent"); setMessage("Merci ! Ton diagnostic et tes réponses ont bien été enregistrés dans Gobble.");
       try { sessionStorage.removeItem(WHEEL_DIAGNOSTIC_DRAFT_KEY); } catch {}
     } catch (error) {

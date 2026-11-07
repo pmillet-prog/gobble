@@ -1,168 +1,33 @@
-import React from "react";
-import { RoundClockSeconds } from "../features/clock/RoundClockDisplay.jsx";
-import MobileConnectionLabel from "../features/mobile/MobileConnectionLabel.jsx";
+import React from 'react';
+import { RoundClockSeconds } from '../features/clock/RoundClockDisplay.jsx';
+import MobileConnectionLabel from '../features/mobile/MobileConnectionLabel.jsx';
+import { GameBalanceSlot } from '../features/gobblars/GameBalances.jsx';
+import InfortuneScheduleLabel from '../features/infortune/InfortuneScheduleLabel.jsx';
 
-function MobileHeader({
-  activeRoom,
-  countdownLines,
-  darkMode,
-  gridSize,
-  headerRef,
-  isFinaleBanner = false,
-  isTargetRound,
-  onOpenSettings,
-  onToggleSound,
-  onToggleDarkMode,
-  playingSeconds,
-  playerTeam = null,
-  phase,
-  roundTypeLabel = "",
-  roundStatsText,
-  roomLabelSeparator = " ",
-  soundEnabled = true,
-  showThemeToggle = true,
-  showRoundStats = false,
-  setShowHelp,
-  showHelpButton = false,
-  tournament,
-}) {
-  const headerStyle = {
-    position: "sticky",
-    // Le conteneur mobile réserve déjà la zone sûre iOS. La réappliquer ici
-    // décale le bandeau deux fois en mode « écran d’accueil ».
-    top: 0,
-    zIndex: 30,
-  };
-  const teamHeaderClass =
-    playerTeam === "red"
-      ? darkMode
-        ? "bg-red-900 border-red-700"
-        : "bg-red-200 border-red-300"
-      : playerTeam === "blue"
-      ? darkMode
-        ? "bg-blue-900 border-blue-700"
-        : "bg-blue-200 border-blue-300"
-      : "border-slate-200/70 dark:border-slate-700/70";
-  const metaTextClass = playerTeam
-    ? darkMode
-      ? "text-slate-200"
-      : "text-slate-700"
-    : "text-slate-500 dark:text-slate-400";
-  const hasPlayingCountdown = phase === "playing";
-  return (
-    <div
-      ref={headerRef}
-      className={`relative px-3 pt-2 pb-1 border-b ${teamHeaderClass}`}
-      style={headerStyle}
-    >
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex flex-col">
-          <div className="h-5 text-lg font-extrabold tracking-tight leading-none"><MobileConnectionLabel /></div>
-          <div className={`text-[0.7rem] leading-tight ${metaTextClass}`}>
-            {roundTypeLabel ? (
-              <>{roundTypeLabel}</>
-            ) : tournament?.round && tournament?.totalRounds ? (
-              <>
-                {isFinaleBanner || tournament.round === tournament.totalRounds ? (
-                  <>Manche finale</>
-                ) : (
-                  <>
-                    Manche {tournament.round}/{tournament.totalRounds}
-                  </>
-                )}
-              </>
-            ) : isFinaleBanner ? (
-              <>Manche finale</>
-            ) : (
-              <>
-                {activeRoom?.label || "Salon"}{roomLabelSeparator}{gridSize}x{gridSize}
-              </>
-            )}
-          </div>
-          {phase === "playing" &&
-            showRoundStats &&
-            roundStatsText &&
-            !isTargetRound && (
-            <div className={`text-[0.65rem] leading-tight mt-0.5 ${metaTextClass}`}>
-              {roundStatsText}
-            </div>
-            )}
-        </div>
-        <div className="flex items-center gap-2">
-          {!hasPlayingCountdown ? (
-            <div className="text-right leading-tight text-xs font-bold">
-              {countdownLines.map((line, idx) => (
-                <span
-                  key={`${line}-${idx}`}
-                  className={`block ${
-                    /^\d+$/.test(line)
-                      ? "text-xl font-black leading-none"
-                      : String(line).startsWith("MANCHE SPECIALE")
-                      ? "text-[0.65rem] font-extrabold tracking-widest text-orange-600 dark:text-orange-300"
-                      : ""
-                  }`}
-                >
-                  {line}
-                </span>
-              ))}
-            </div>
-          ) : null}
-          <div className="flex items-center gap-1 relative z-[2]">
-            {showThemeToggle && (
-              <button
-                onClick={() => onToggleDarkMode?.()}
-                className="px-2 py-1 rounded-lg border text-[10px] bg-slate-100 border-slate-300 text-slate-700 flex items-center justify-center dark:bg-slate-800 dark:border-slate-600 dark:text-slate-200"
-                type="button"
-                title={darkMode ? "Passer en mode clair" : "Passer en mode sombre"}
-                aria-label={darkMode ? "Passer en mode clair" : "Passer en mode sombre"}
-              >
-                <span className="material-icons-outlined text-[16px] leading-none" aria-hidden="true">
-                  {darkMode ? "light_mode" : "dark_mode"}
-                </span>
-              </button>
-            )}
-            <button
-              onClick={(e) => onToggleSound?.(e)}
-              className="px-2 py-1 rounded-lg border text-[10px] bg-slate-100 border-slate-300 text-slate-700 flex items-center justify-center dark:bg-slate-800 dark:border-slate-600 dark:text-slate-200"
-              type="button"
-              title={soundEnabled ? "Couper le son" : "Activer le son"}
-              aria-label={soundEnabled ? "Couper le son" : "Activer le son"}
-            >
-              <span className="material-icons-outlined text-[16px] leading-none" aria-hidden="true">
-                {soundEnabled ? "volume_up" : "volume_off"}
-              </span>
-            </button>
-            <button
-              onClick={() => onOpenSettings?.()}
-              className="px-2 py-1 rounded-lg border text-[10px] bg-slate-100 border-slate-300 text-slate-700 flex items-center justify-center dark:bg-slate-800 dark:border-slate-600 dark:text-slate-200"
-              type="button"
-            >
-              <span className="material-icons-outlined text-[16px] leading-none" aria-hidden="true">
-                settings
-              </span>
-              <span className="sr-only">Parametres</span>
-            </button>
-            {showHelpButton && (
-              <button
-                onClick={() => setShowHelp((v) => !v)}
-                className="px-2 py-1 rounded-lg border text-[10px] bg-slate-100 border-slate-300 text-slate-700 flex items-center justify-center dark:bg-slate-800 dark:border-slate-600 dark:text-slate-200"
-                type="button"
-              >
-                ?
-              </button>
-            )}
-          </div>
-        </div>
+function MobileHeader({ activeRoom, countdownLines = [], darkMode, gridSize, headerRef, isFinaleBanner,
+  isTargetRound, onOpenSettings, playingSeconds, playerTeam, phase, roundTypeLabel = '', roundStatsText,
+  showRoundStats, tournament }) {
+  const roundLabel = roundTypeLabel || (isFinaleBanner || tournament?.round === tournament?.totalRounds && tournament?.round
+    ? 'Manche finale' : tournament?.round ? `Manche ${tournament.round}/${tournament.totalRounds}` : `${activeRoom?.label || 'Salon'} ${gridSize}×${gridSize}`);
+  const team = playerTeam === 'red' ? (darkMode ? 'bg-red-900 border-red-700' : 'bg-red-200 border-red-300')
+    : playerTeam === 'blue' ? (darkMode ? 'bg-blue-900 border-blue-700' : 'bg-blue-200 border-blue-300')
+    : 'border-slate-200/70 dark:border-slate-700/70';
+  return <header ref={headerRef} className={`px-2 py-1 border-b ${team}`} style={{ position: 'sticky', top: 0, zIndex: 30 }}>
+    <div className="currency-header">
+      <GameBalanceSlot kind="wallet" />
+      <div className="currency-header__center">
+        {phase === 'playing' ? <strong className="block text-[clamp(34px,10vw,50px)] leading-none tabular-nums"><RoundClockSeconds overrideSeconds={playingSeconds} /></strong>
+          : <strong className="block text-[11px]"><InfortuneScheduleLabel>{countdownLines.map((line, i) => <span key={i} className="block">{line}</span>)}</InfortuneScheduleLabel></strong>}
+        <small>{roundLabel}</small>
       </div>
-      {hasPlayingCountdown ? (
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden">
-          <span className="block text-[clamp(44px,13vw,68px)] font-black tracking-tight tabular-nums leading-none">
-            <RoundClockSeconds overrideSeconds={playingSeconds} />
-          </span>
-        </div>
-      ) : null}
+      <button type="button" className="currency-header__settings" onClick={() => onOpenSettings?.()} aria-label="Paramètres">
+        <span className="material-icons-outlined text-[20px]" aria-hidden="true">settings</span>
+      </button>
+      <GameBalanceSlot kind="bank" />
     </div>
-  );
+    <div className="text-center text-[9px] leading-tight opacity-70"><MobileConnectionLabel />
+      {phase === 'playing' && showRoundStats && roundStatsText && !isTargetRound && <> · {roundStatsText}</>}
+    </div>
+  </header>;
 }
-
 export default React.memo(MobileHeader);

@@ -6,6 +6,7 @@ import { PEG_RADIUS } from "./wheelDimensions.js";
 import { sectorLetteringLayout, measureSectorGlyph, drawSectorGlyph } from "./sectorLetteringLayout.js";
 import { infortuneSectors, EXCHANGE_SECTOR_INDICES } from "../../shared/infortuneWheel.js";
 import { exchangeTilePose } from "./exchangeArrival.js";
+import { flatWheelLayout } from "./flatWheelGeometry.js";
 
 const slice = TAU / WHEEL_SECTORS.length;
 function circle(ctx, x, y, r, fill) { ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fillStyle = fill; ctx.fill(); }
@@ -16,7 +17,11 @@ function wedge(ctx, start, end) {
 function wheelArtwork(sectors = WHEEL_SECTORS, onlyIndex = null) {
   const canvas = Object.assign(document.createElement("canvas"), { width: 768, height: 768 });
   const ctx = canvas.getContext("2d"); ctx.scale(1.2, 1.2); ctx.translate(320, 320);
-  if (onlyIndex === null) { circle(ctx, 0, 0, 280, "#9c793e"); circle(ctx, 0, 0, 276, "#182635"); }
+  if (onlyIndex === null) {
+    const rim = ctx.createLinearGradient(-220, -280, 220, 280);
+    rim.addColorStop(0, "#fff3bc"); rim.addColorStop(.24, "#9e6a2d"); rim.addColorStop(.5, "#f4cd7b"); rim.addColorStop(.76, "#6d451f"); rim.addColorStop(1, "#ffe8ad");
+    circle(ctx, 0, 0, 283, "#091422"); circle(ctx, 0, 0, 280, rim); circle(ctx, 0, 0, 273, "#182635");
+  }
   sectors.forEach((sector, index) => {
     if (onlyIndex !== null && index !== onlyIndex) return;
     const golden = sector.kind === "bonus" || sector.amount === 1000;
@@ -79,9 +84,8 @@ export function createFlatWheelScene(canvas, initialProjection, onStageChange, e
       canvas.width = Math.round(width * ratio); canvas.height = Math.round(height * ratio);
     }
     ctx.setTransform(ratio, 0, 0, ratio, 0, 0); ctx.clearRect(0, 0, width, height);
-    ctx.fillStyle = "#080f19"; ctx.fillRect(0, 0, width, height);
-    const side = Math.min(width, height), scale = side / 640;
-    ctx.translate((width - side) / 2, (height - side) / 2); ctx.scale(scale, scale);
+    const { side, left, top } = flatWheelLayout(width, height), scale = side / 640;
+    ctx.translate(left, top); ctx.scale(scale, scale);
     ctx.save(); ctx.translate(WHEEL_GEOMETRY.centerX, WHEEL_GEOMETRY.centerY); ctx.rotate(state.angle);
     ctx.drawImage(artwork, -320, -320, 640, 640);
     overlays.forEach((image, index) => {
@@ -94,16 +98,13 @@ export function createFlatWheelScene(canvas, initialProjection, onStageChange, e
       ctx.strokeStyle = "#fff2a4"; ctx.lineWidth = 3; ctx.shadowColor = "#ffcf51"; ctx.shadowBlur = 14; ctx.stroke(); ctx.shadowBlur = 0;
     }
     ctx.restore();
-    circle(ctx, 320, 334, 74, "#ba904b"); circle(ctx, 320, 334, 68, "#112837");
+    const hub = ctx.createLinearGradient(280, 270, 370, 390);
+    hub.addColorStop(0, "#3f6172"); hub.addColorStop(.5, "#10283a"); hub.addColorStop(1, "#040e1d");
+    circle(ctx, 320, 334, 74, "#e1b76d"); circle(ctx, 320, 334, 69, hub);
     ctx.textAlign = "center"; ctx.fillStyle = "#f0d498"; ctx.font = "bold 14px Georgia";
     ctx.fillText("ROUE DE", 320, 313); ctx.fillText("L’INFORTUNE", 320, 334);
     ctx.fillStyle = "#f8ecd4"; ctx.font = "bold 16px Georgia"; ctx.fillText("GOBBLE", 320, 362);
     drawPawl(ctx, state.pawl, state.pawlModel || NEEDLE_PAWL);
-    if (result && sequence?.sequence === "results") {
-      ctx.globalAlpha = Math.min(1, sequence.time * 2);
-      ctx.fillStyle = "#07111fee"; ctx.fillRect(130, 290, 380, 88);
-      ctx.fillStyle = "#ffdf8a"; ctx.font = "bold 28px Georgia"; ctx.fillText(result.label, 320, 344, 350); ctx.globalAlpha = 1;
-    }
     onFrame?.(frameStart, performance.now() - frameStart, sequence?.playing || ["spinning", "dragging"].includes(phase));
   }
   return {

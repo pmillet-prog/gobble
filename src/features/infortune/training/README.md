@@ -16,10 +16,11 @@ au premier plan est enregistrée comme interrompue. Aucun score réel n’est mo
 Le geste est fixé au lancer par puissance ; le lancer au clic reste disponible.
 Les gestes alternatifs sont réservés à l’atelier.
 
-Le diagnostic ne lit ni n’écrit la préférence automatique de qualité du joueur.
+Les passages du diagnostic ne lisent ni n’écrivent la préférence de qualité du joueur.
 Une erreur 3D est enregistrée explicitement : elle ne devient pas silencieusement
-une mesure de la 2D. Le comportement automatique de l’atelier ordinaire et du jeu
-reste inchangé.
+une mesure de la 2D. Après l’envoi réussi d’un nouveau bilan identifié par appareil,
+une recommandation calculée depuis les mesures est conservée séparément ; elle
+ne remplace pas un choix manuel. Voir le [réglage par appareil](../graphics/README.md).
 
 ## Mesures
 

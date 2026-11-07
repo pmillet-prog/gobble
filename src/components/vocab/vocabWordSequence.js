@@ -22,8 +22,8 @@ export function createVocabWordSequence(words, seasonWords = []) {
     advance(progress, now) {
       const due = Math.round(orderedWords.length * Math.max(0, Math.min(1, progress)));
       // A delayed frame must never skip words or emit several verdicts at once.
-      // RAF can run again while React is still rendering a previous update.
-      // Wait for its DOM commit so pending words cannot overwrite each other.
+      // Wait for the presentation to acknowledge its DOM update so pending
+      // words cannot overwrite each other, even when mounting is delayed.
       const changed = displayed === committed && displayed < due && now - lastDisplayAt >= 80;
       if (changed) {
         displayed += 1;

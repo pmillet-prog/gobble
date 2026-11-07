@@ -1,4 +1,5 @@
 import { CanvasTexture, MathUtils, Mesh, PlaneGeometry } from "three";
+import { createRenderCanvas } from './wheelRenderPlatform.js';
 import { createDynamicActorHalo } from "./dynamicActorHalo.js";
 import { MAX_CONTOUR_DISTANCE } from "./actorShadeSettings.js";
 
@@ -35,8 +36,8 @@ function distanceField(alpha, width, height, toOpaque) {
 function contourTextures(source) {
   const scale = Math.min(1, 512 / Math.max(source.width, source.height));
   const width = Math.round(source.width * scale), height = Math.round(source.height * scale), padding = 48;
-  const glowCanvas = Object.assign(document.createElement("canvas"), { width: width + padding * 2, height: height + padding * 2 });
-  const shadeCanvas = Object.assign(document.createElement("canvas"), { width, height });
+  const glowCanvas = createRenderCanvas(width + padding * 2, height + padding * 2);
+  const shadeCanvas = createRenderCanvas(width, height);
   const context = glowCanvas.getContext("2d", { willReadFrequently: true });
   context.drawImage(source, padding, padding, width, height);
   const mask = context.getImageData(0, 0, glowCanvas.width, glowCanvas.height);
@@ -101,5 +102,5 @@ export function addActorContourEffects(actor, source, lights, shadeUniform) {
   };
   actor.material.customProgramCacheKey = () => "stage-actor-inner-contour-adjustable-v1";
   actor.material.needsUpdate = true;
-  return textures.dispose;
+  return { dispose: textures.dispose, setSelected: lighting.setSelected };
 }

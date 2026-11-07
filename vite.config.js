@@ -6,6 +6,7 @@ import { cameraTimelineStoragePlugin } from "./dev/infortune-perspective/cameraT
 
 export default defineConfig({
   plugins: [react(), nativeMediaManifestPlugin(), cameraTimelineStoragePlugin()],
+  worker: { format: 'es' },
   optimizeDeps: {
     entries: ["index.html"],
     include: ["@react-three/fiber", "three"],

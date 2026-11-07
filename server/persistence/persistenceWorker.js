@@ -15,6 +15,8 @@ import {
 } from "../stats/vocabularyService.js";
 import {
   addGobblars,
+  payFinaleLetter,
+  getGobblarProfileReadOnly,
   getGobblarsHistory,
   applyThemeSelection,
   grantWeeklyWinnerGobblars,
@@ -70,6 +72,8 @@ async function handleJob(type, payload) {
   if (type === "addGobblars") {
     return addGobblars(payload || {});
   }
+  if (type === 'payFinaleLetter') return payFinaleLetter(payload);
+  if (type === 'readFinaleWallet') return getGobblarProfileReadOnly(payload?.installId);
   if (type === "getGobblarsHistory") return getGobblarsHistory(payload || {});
   if (type === "grantWeeklyWinnerGobblars") {
     return grantWeeklyWinnerGobblars(payload || {});

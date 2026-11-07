@@ -1,10 +1,20 @@
 {
   "spin.mp3": { "source": ".tmp/infortune/Bonus_Wheel_Music.mp3", "providedBy": "Paul", "usage": "Rotation physique, fondu entrant 0,4 s et sortant 0,65 s à l’arrêt." },
-  "suspense-drums.mp3": { "source": ".tmp/infortune/suspense-drums.mp3", "providedBy": "Paul", "usage": "Ralentissement final sous 0,18 tour/s, maintien jusqu’à l’arrêt physique avec fondus courts, indépendant de la séquence caméra." },
+  "suspense-drums.mp3": { "source": ".tmp/infortune/suspense-drums.mp3", "providedBy": "Paul", "usage": "Ralentissement final à 0,10 tour/s ou moins, maintien jusqu’à l’arrêt physique avec fondus courts, indépendant de la séquence caméra." },
   "result-*.mp3": { "source": "../generateResultSounds.py", "method": "Synthèse procédurale originale : sinusoïdes, partiels métalliques et souffle filtré stéréo. Aucun générateur IA audio.", "variants": ["small", "good", "jackpot", "bonus", "bankrupt", "exchange"] },
   "audience-low-1.mp3": { "source": ".tmp/infortune/pas ouf 1.mp3", "providedBy": "Paul", "results": [100, 150], "selection": "Aléatoire 50/50 avec pas ouf 2, une fois à l’arrêt réel." },
   "audience-low-2.mp3": { "source": ".tmp/infortune/pas ouf 2.mp3", "providedBy": "Paul", "results": [100, 150], "selection": "Aléatoire 50/50 avec pas ouf 1, une fois à l’arrêt réel." },
   "audience-honorable.mp3": { "source": ".tmp/infortune/honorable.mp3", "providedBy": "Paul", "results": [200, 250, 300] },
   "audience-500.mp3": { "source": ".tmp/infortune/500.mp3", "providedBy": "Paul", "results": [400, 500] },
-  "audience-top.mp3": { "source": ".tmp/infortune/top prix.mp3", "providedBy": "Paul", "results": [1000, "bonus"] }
+  "audience-top.mp3": { "source": ".tmp/infortune/top prix.mp3", "providedBy": "Paul", "results": [1000, "bonus", "échange : fort gain"] },
+  "audience-500-2.mp3": { "source": ".tmp/infortune/500 2.mp3", "providedBy": "Paul", "results": [400, 500], "selection": "Aléatoire 50/50 avec audience-500." },
+  "bankrupt.mp3": { "source": ".tmp/infortune/Banqueroute.mp3", "providedBy": "Paul", "results": ["bankrupt", "pass"] },
+  "audience-bankrupt.mp3": { "source": ".tmp/infortune/public decu banqueroute.mp3", "providedBy": "Paul" },
+  "audience-pass.mp3": { "source": ".tmp/infortune/public decu passe.mp3", "providedBy": "Paul" },
+  "audience-gasp.mp3": { "source": ".tmp/infortune/audience-gasp.mp3", "providedBy": "Paul", "usage": "Suspense pendant le ralentissement, au plus une fois par lancer, aléatoire avec surprised." },
+  "audience-surprised.mp3": { "source": ".tmp/infortune/audience-surprised.mp3", "providedBy": "Paul" },
+  "audience-laughter.mp3": { "source": ".tmp/infortune/rires.mp3", "providedBy": "Paul", "usage": "Échange : forte perte." },
+  "../../../src/assets/infortune/finale-theme.mp3": { "source": ".tmp/infortune/indice finale.mp3", "providedBy": "Paul", "usage": "Apparition du thème après 1,8 s." },
+  "exchange-drop-1.wav": { "source": ".tmp/infortune/chute echange 1.wav", "providedBy": "Paul", "usage": "Impact de chaque secteur échange à son premier contact avec la roue, variante mélangée avec la seconde, hauteur ±0,7 demi-ton.", "impactSeconds": 0.12348 },
+  "exchange-drop-2.wav": { "source": ".tmp/infortune/chute echange 2.wav", "providedBy": "Paul", "usage": "Seconde variante de chute, même horloge que les secteurs en 2D et 3D.", "impactSeconds": 0.09081 }
 }

@@ -5,10 +5,12 @@ export default function WorkshopLinks({ className = "" }) {
       <summary className="cursor-pointer font-semibold">Ateliers et simulations</summary>
       <nav className="mt-3 grid gap-2 text-xs" aria-label="Ateliers de développement">
         {[
-          ["/dev/infortune-perspective/", "Roue · atelier 3D, caméra et échanges"],
-          ["/dev/infortune/", "Roue · maquette 2D et physique"],
-          ["/dev/infortune-finale/", "Finale · atelier et relecture des énigmes"],
-          ["/dev/round-intro/", "Annonces des manches · aperçu"],
+          // Explicit documents bypass the production serve -s SPA fallback.
+          ["/dev/infortune-perspective/index.html", "Roue · atelier 3D, caméra et échanges"],
+          ...(import.meta.env.DEV ? [["/entrainement/roue/index.html?reglage=1", "Roue · réglage automatique de l’affichage"]] : []),
+          ["/dev/infortune/index.html", "Roue · maquette 2D et physique"],
+          ["/dev/infortune-finale/index.html", "Finale · atelier et relecture des énigmes"],
+          ["/dev/round-intro/index.html", "Annonces des manches · aperçu"],
           ["/entrainement/roue/index.html", "Roue · test proposé aux joueurs"],
           ["/entrainement/roue/index.html?diagnostics=1", "Roue · diagnostics et retours des joueurs"],
         ].map(([href, label]) => <a key={href} href={href} target="_blank" rel="noopener"

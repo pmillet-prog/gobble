@@ -186,6 +186,7 @@ export function computeChatKeyboardSessionTransition({
   keyboardWasOpen,
   keyboardVisible = keyboardOpen,
   viewportSettled = true,
+  hasDraft = false,
 }) {
   if (!isChatOpen) {
     return { keyboardWasOpen: false, shouldCloseChat: false };
@@ -198,7 +199,7 @@ export function computeChatKeyboardSessionTransition({
   }
   return {
     keyboardWasOpen: false,
-    shouldCloseChat: !!keyboardWasOpen,
+    shouldCloseChat: !!keyboardWasOpen && !hasDraft,
   };
 }
 

@@ -8,6 +8,11 @@ le rayon par défaut de la maquette d’origine reste inchangé.
 
 L’atelier est accessible depuis l’accueil du jeu, dans **Ateliers · Temporaire →
 La roue de l’infortune · 3D**, avec le démarrage habituel `npm run dev`.
+L’ouverture affiche la vue de jeu plein écran, partagée avec l’intermède du
+tournoi : plateau, cagnotte et commandes tiennent dans le viewport sans défilement.
+Le bouton ⚙ regroupe les graphismes et le lancement du mini-tournoi. Son lien
+**Ouvrir les outils de réalisation** ouvre l’éditeur historique (`?edition=1`),
+où restent disponibles les caméras, candidats et paramètres techniques.
 Depuis un téléphone sur le même réseau, ouvrir l’adresse **Network** affichée
 par Vite (normalement `http://IP-DU-PC:3000/`), puis ce menu. Aucun serveur
 supplémentaire sur le port 8777 n’est nécessaire. Le lien **Accueil du jeu**
@@ -23,10 +28,92 @@ Le menu est temporaire et fait partie du client ; aucun déploiement n’est eff
 Le panneau **Candidats du plateau** permet de choisir, pour chacune des deux
 places, un avatar de test ou l'un des cinq présentateurs déjà présents dans Gobble.
 Bernard Pinot et Julien Lechéper sont affichés initialement. Les noms suivent sur
-le meuble en 3D et sous la roue en mode 2D. Les portraits conservent leur proportion,
+le meuble en 3D et les pupitres en mode 2D. Les portraits conservent leur proportion,
 leur éclairage et leurs reflets. Le choix se fait hors animation et ne modifie
 aucun joueur ni groupe réel. En partie, le serveur fournit les deux autres membres
 du groupe de la manche : voir `server/infortune/README.md` à la racine du projet.
+
+## Mini-tournoi local et équilibrage de la finale
+
+Avec le serveur de développement, **Simuler un mini-tournoi complet** lance un
+parcours séparé avec les deux candidats choisis dans l’atelier. Un lien est aussi
+disponible dans l’atelier de finale ; accès direct :
+`/dev/infortune-perspective/index.html?tournoi=1`.
+
+Les trois cagnottes partent de zéro. Le joueur effectue quatre vrais lancers,
+avec les mêmes secteurs, bonus de qualité et banqueroutes que le jeu. Les deux
+adversaires tirent leurs résultats séparément ; leur cagnotte et leur état de
+lancer s’actualisent sur les pupitres. Ce parcours simule les roues,
+sans crédit de Gobbles issu des manches de grille.
+
+Chaque lancer laisse 10 secondes après la préparation et l’introduction pour
+lancer la roue. À expiration, le contrôleur annule une éventuelle préparation
+et lance automatiquement, sans bonus de précision.
+
+Au quatrième lancer, seules les cagnottes adverses sont masquées ; la sienne
+reste visible. Les cinq secteurs Échange arrivent avec l’introduction habituelle.
+Les choix s’ouvrent après réception des trois résultats. Un joueur qui obtient
+Échange dispose de 10 secondes pour sélectionner directement un avatar du plateau,
+le voir entouré d’un halo doré, puis confirmer. Son nom sur le pupitre se déploie
+vers le bandeau de confirmation ; sélectionner l’autre avatar transfère le halo
+et change le nom. Il n’y a plus de liste de portraits sous le plateau. Le bouton
+« Ne pas échanger » refuse l'échange ; à expiration sans confirmation, le même
+refus s'applique. Un adversaire peut toujours choisir cette cagnotte.
+
+Le halo 3D réutilise le masque et le shader du contour existant : seul un paramètre
+change à la sélection. Le texte du pupitre conserve sa texture et les montants
+masqués. Le déplacement du nom utilise les coordonnées projetées de ce texte,
+avec une animation DOM de 620 ms, désactivée si la réduction des animations est
+demandée. Les zones clavier se superposent aux avatars du plateau et sont recalées
+au redimensionnement ; en 2D, le bouton est le portrait du pupitre lui-même.
+
+L’ordre des échanges est tiré au début du tour et annoncé avant les choix.
+Chaque échange utilise les cagnottes courantes et est animé séparément avec les
+trois têtes du plateau : les montants se croisent entre les portraits, qui restent
+identifiés. L’écart pour soi est indiqué dessous. Un échange entre les deux
+adversaires reste visible même s’il ne touche pas sa propre cagnotte ; aucun
+échange d’un autre plateau n’est affiché. Les réactions du public existantes
+accompagnent gain ou perte ; l’égalité reste neutre. Deux choix mutuels produisent
+deux échanges et rendent les montants initiaux. Deux joueurs visant le même
+candidat échangent chacun avec lui dans l’ordre annoncé, sans duplication d’argent.
+
+Le réglage **Scénario du quatrième lancer** permet de forcer le résultat
+comptabilisé à Échange pour soi ou pour les trois candidats ; le mode d’essai
+signale explicitement que ce résultat remplace celui de la roue physique.
+La finale reste verrouillée jusqu’à la fin des transferts. Le tournoi normal local
+utilise les mêmes règles avec des échéances et cagnottes conservées par le serveur.
+
+Après chacun des trois premiers lancers, les avatars en tête voyagent dans
+une limousine décapotable, sur un décor rétro qui défile, en perdant des pièces
+sans afficher leurs montants. La carrosserie ImageGen assemble un arrière, autant
+de places que nécessaire et un avant. Les grandes voitures traversent le cadre
+pour garder les portraits lisibles, en paysage comme en portrait.
+Cette scène de 5,2 secondes, commune aux rendus 2D et 3D, montre tous les ex æquo
+humains de la simulation puis passe automatiquement au lancer suivant.
+Les avatars sont reconstruits depuis leur configuration et leurs éléments sources,
+avec sourire et clignements, sans corps ni jambes ajoutés ni miniature de chat agrandie.
+La préparation des portraits appartient à la scène et libère ses canvases à la sortie.
+Les apparences publiques sont récupérées par lots de 24 comptes maximum.
+Cinq calques détourés ImageGen forment le décor : nuages fixes, montagnes très lentes,
+arbres, route et premier plan rapide. Leur composition s’adapte aux deux orientations.
+Les WebP de `src/assets/infortune/retro-*-v3.webp` et `limousine-v1.webp` sont
+préchargés pendant la roue. Les PNG sources, `retro-prompts.json` et
+`limousine-prompt.json` sont conservés
+dans `dev/infortune-perspective/assets/leaders/`. Le défilement respecte le réglage
+de réduction des animations, et reprend l’horloge partagée après un retour d’onglet.
+Après le quatrième et ses échanges, la finale s’ouvre directement, sans limousine,
+avec exactement la cagnotte
+obtenue après les échanges, même si elle vaut zéro. Le prix des consonnes et des
+voyelles peut être ajusté, puis la même énigme rejouée avec la même cagnotte de
+départ. Les réglages de la finale donnent accès au barème, au choix d’énigme et
+au bilan des dépenses. L’onglet **Lancers** détaille chaque tour et chaque échange
+avec les cagnottes avant/après. Il est aussi possible de changer d’énigme ou de recommencer
+les quatre lancers en conservant le barème d’essai.
+
+Ce bouton est réservé au développement local. Les comptes, le portefeuille et
+le barème du jeu ne sont pas modifiés ; les réglages d’essai durent le temps de
+la page. Le retour à l’atelier et les changements de lancer nettoient les
+timers, l’audio et le contrôleur de la scène précédente.
 
 Le lancement indépendant reste disponible :
 
@@ -92,7 +179,7 @@ jusqu’à la fin de l’intro. Aucun lecteur SoundCloud n’est chargé à l’
 
 `Bonus_Wheel_Music.mp3`, fourni par Paul, accompagne la rotation physique avec
 un fondu entrant de 0,4 s et sortant de 0,65 s à l’arrêt. Les `suspense-drums`
-démarrent sous 0,18 tour/s et continuent jusqu’à l’arrêt réel, y compris pendant
+démarrent à 0,10 tour/s ou moins et continuent jusqu’à l’arrêt réel, y compris pendant
 les rebonds ; ils sont indépendants des trois secondes de caméra. La musique
 baisse sous les tambours. Tous ces sons suivent le bouton Son et la visibilité.
 
@@ -358,29 +445,56 @@ nécessaire pour cet atelier. Les réglages de caméra ne modifient pas la physi
 
 Le mini-jeu de **qualité du lancer** partage son contrôleur avec l’intermanche,
 avec son état dans `wheelLaunchGame.js` et son interface dans `LaunchControls.jsx`.
-Le premier bloc **Le lancer → Mini-jeu au geste** permet d’essayer trois modes
-dans l’atelier, en 3D comme en 2D. L’intermanche conserve pour l’instant **Puissance**.
+Dans l’atelier, **⚙ Réglages de la roue → Lancer → Mini-jeu au geste** permet
+d’essayer trois modes, en 3D comme en 2D, avec les consignes du geste sélectionné.
+Les outils de réalisation conservent également ce choix dans **Le lancer**.
+L’intermanche conserve pour l’instant **Puissance**.
+Le jeu normal local utilise ce même lancer entre ses quatre premières manches
+avec le client Vite et `npm run start:local` dans `server/`. Après les résultats
+de la cinquième manche, il propose la finale de la roue pendant 120 secondes :
+une réussite rapporte 10 points au tournoi. Le classement provisoire évolue
+jusqu'à l'échéance, puis le classement final précède le podium. La simulation
+de l’atelier reste un outil d'équilibrage indépendant, sans manches de grille ni
+récompenses sur les comptes. Le verrou de publication reste fermé en production.
 Une seule jauge affiche la puissance de 0 à 100 %, avec un repère minimum à
-environ 36 % (6,5 rad/s sur un maximum de 18). La roue suit directement la main
-dans les deux sens ; aucune préparation d’élan ni préférence de sens n’est requise.
+environ 36 % (6,5 rad/s sur un maximum de 18). En mode **Puissance**, la roue
+prend progressivement son élan sous la main dans les deux sens :
+`wheelDragMotion.js` amortit le suivi angulaire sur 75 ms, sans saut de position
+au lâcher. Le calcul analytique ne dépend ni des images affichées ni du nombre
+d’événements tactiles. Aucune préparation d’élan ni préférence de sens n’est requise.
 En mode **Puissance**, `wheelScreenGesture.js` mesure la composante tangentielle du glissement
-en pixels CSS, rapportée à la largeur de la vue. La vitesse est ainsi indépendante
+en pixels CSS, rapportée au diamètre de la roue aux taquets, fixé à la prise
+(projection 3D ou diamètre 2D). La place occupée par le décor ne réduit plus
+la puissance. La vitesse est ainsi indépendante
 de l’amplification des angles par la perspective et de la densité de pixels.
-`wheelGesturePower.js` la filtre avec une constante de temps de 100 ms, puis
-calcule `puissance = 1 − exp(−abs(vitesse) / 1,8)`, en largeurs de vue par seconde.
-Cette saturation progressive laisse une plage de dosage aux gestes ordinaires.
+`wheelGesturePower.js` la filtre avec une constante de temps de 75 ms, puis
+calcule `puissance = min(1, abs(vitesse) / 4,5)`, en diamètres de roue par seconde.
+La montée progressive réserve la pleine puissance à un geste énergique :
+un glissement de 40 % du diamètre en 100 ms donne environ 65 %, contre 100 %
+pour 70 % du diamètre sur la même durée. Les gestes modérés conservent une plage
+de dosage linéaire. La vitesse mesurée
+reste celle du doigt, indépendamment de l’amortissement visuel de la roue.
 Le calcul tient compte de la durée réelle entre événements ; une pause laisse
 redescendre la jauge progressivement, même sans nouvel événement. La puissance
 au lâcher fournit directement la vitesse initiale de la roue, avec son signe.
+Le freinage utilise `friction: 1.12` et `drag: 0.19`, entre les deux réglages
+précédents. À 18 rad/s, la simulation donne environ 7,8 tours en 9,7 secondes ;
+le calibrage du geste et les vitesses minimale/maximale restent identiques.
 
-Au clic, Espace ou Entrée : une première activation démarre la jauge de puissance,
+Sur téléphone, le lancer manuel se fait uniquement au geste, en portrait comme
+en paysage : aucun bouton ni consigne de lancer au clic n’est proposé. Le délai
+de lancement automatique et les boutons de passage au tour suivant sont conservés.
+Sur ordinateur, au clic, Espace ou Entrée : une première activation démarre la jauge de puissance,
 la suivante la bloque et lance la roue si le minimum est atteint. Un aller de
-0 à 100 % prend entre 0,44 et 0,56 seconde. La cible et cette durée changent entre
-les essais, mais restent fixes pendant chaque tentative. Cette variation est
-déterministe, sans hasard injecté dans le résultat de la roue.
+0 à 100 % prend entre 0,44 et 0,60 seconde. La cible (entre 48 et 88 %) et cette durée
+sont tirées au sort à chaque nouveau lancer, y compris au montage d’une nouvelle
+manche de tournoi, pour ne pas répéter un rythme mémorisé. Elles restent fixes
+pendant la tentative, même après une annulation ou un lancer trop faible.
+Le tirage définit uniquement le défi affiché : la puissance choisie reste
+transmise telle quelle à la simulation physique.
 
-Le geste **Puissance** et le clic visent la même zone : au plus 2,8 points de pourcentage
-du centre doré pour **Lancer parfait**, au plus 11 pour **Beau lancer**, sinon
+Le geste **Puissance** et le clic visent la même zone : au plus 2,2 points de pourcentage
+du centre doré pour **Lancer parfait**, au plus 5,5 pour **Beau lancer**, sinon
 aucun bonus. Seule la puissance compte ; un geste dans l’un ou l’autre sens
 peut obtenir le même bonus. La valeur de la jauge correspond à la vitesse
 effectivement transmise au simulateur.
@@ -471,10 +585,32 @@ Une préparation interrompue ou un contexte perdu sont détruits ; le choix de l
 2D libère également la mémoire graphique. L’expiration, la navigation et le
 remplacement à chaud invalident la réserve. Le canvas est inséré dans un hôte
 React (`WheelCanvas`) pour que sa durée de vie soit indépendante de celle de la
-vue. La calibration de 1,2 seconde reste exécutée à chaque plateau. Le panneau
-de performances précise si le contexte a été réutilisé. Ce cache ne survit pas
+vue. Les lancers réutilisent le réglage enregistré sans calibration ni collecte
+FPS. Le diagnostic précise si le contexte a été réutilisé. Ce cache ne survit pas
 à F5 ; le diagnostic conserve des contextes indépendants pour mesurer les
 chargements complets, sans consommer ni remplacer la réserve du jeu.
+
+La roue 3D utilise un `OffscreenCanvas` dans `wheelRender.worker.js` lorsque le
+navigateur accepte son transfert. Le worker possède le renderer, les textures du
+plateau, la compilation, les ombres, les reflets et le dessin. Il prépare toutes
+les passes pendant les résultats, y compris les validations bloquantes de Firefox.
+Le fil principal conserve les entrées, la simulation partagée avec la 2D, la caméra,
+le son et les interfaces. Il compose les deux portraits avec le moteur d’avatars
+existant, puis transfère leurs bitmaps ; ils ne sont pas retransmis par image.
+
+Les commandes graphiques sont regroupées par image avec au plus un lot en vol ;
+les états intermédiaires sont remplacés, sans file qui grossit si le pilote bloque.
+Les coordonnées de sélection et la capture du gain sont des requêtes asynchrones.
+Les anciennes réponses sont ignorées après un démontage. Le cache conserve le
+worker, son canvas et ses programmes entre les manches, avec la même expiration
+de cinq minutes. Le passage en 2D détruit ces ressources. Les diagnostics utilisent
+leur propre worker, avec de vrais temps de rendu mesurés dans celui-ci. Une panne
+du worker déclenche le repli 2D habituel ; un diagnostic signale l’échec.
+
+Sans transfert OffscreenCanvas, le chemin 3D principal reste disponible. Son
+`wheelBackgroundPreparation` conserve l’attente avant les requêtes `LINK_STATUS`
+sur les contextes sans compilation parallèle, afin de ne pas figer les résultats.
+Une simple pause entre les validations ne limite pas la durée d’un appel au pilote.
 
 Après huit secondes visibles de préparation, le rapport signale une attente
 longue mais ne classe plus l’appareil en 2D : le temps de compilation ne mesure
@@ -485,40 +621,49 @@ Un bouton de passage immédiat en 2D reste accessible pendant la préparation.
 Le benchmark renonce à attendre huit échantillons lorsqu'il dépasse quatre
 secondes sur un appareil extrêmement lent.
 
-Le son précharge les octets compressés de l'intro sans AudioContext. Le contexte
+Le son précharge les octets de l’intro et des deux chutes de secteurs sans AudioContext. Le contexte
 est créé sur un geste, ou si le document autorise déjà l'audio après les actions
 de jeu. Les autres sons sont décodés progressivement après l'intro. Le montage
 de contrôle React est annulé avant de créer ses ressources audio.
 
+Les cinq secteurs échange ont chacun un impact, synchronisé sur leur premier
+contact via l’horloge partagée de `exchangeArrival` en 2D et 3D. Les deux WAV
+fournis sont mélangés par paires, avec une hauteur aléatoire de ±0,7 demi-ton.
+Le décalage du pic sonore dans chaque fichier et la vitesse de lecture sont
+compensés ; les résonances peuvent se chevaucher sans se couper. Les effets sont
+préparés en parallèle de l’intro et respectent le son coupé, les pauses et la
+libération du plateau. Un impact manqué pendant un chargement n’est pas rejoué.
+
 **Affichage et fluidité**, en haut des réglages, propose Automatique, 3D détaillée,
 3D équilibrée, 3D légère et 2D. Les choix sont mémorisés dans le stockage local
 de cette origine ; ils sont également utilisés par la roue d’intermanche.
-L’automatique commence en 3D équilibrée (légère si les indices matériels disponibles
-le suggèrent). Après préparation, un mouvement de caméra de 1,2 seconde mesure
-la cadence réelle ; les deux premières images sont écartées. En cas de difficulté,
-la mesure recommence en légère, puis choisit la 2D si elle ne tient pas environ
-30 images/s. Aucun téléphone n’est classé en 2D sur son nom ou sa mémoire seule.
+L’automatique réutilise la recommandation du diagnostic d’accueil. Sans mesure
+connue, l’atelier utilise la 3D équilibrée (légère si les indices matériels le
+suggèrent). La calibration et les relevés FPS ne sont activés que dans un
+diagnostic explicite. Aucun téléphone n’est classé en 2D sur son nom ou sa mémoire seule.
 
 Les niveaux réduisent la définition interne, les cartes d’ombres, les captures
 des reflets des avatars et les couches de brume, en conservant les vraies lumières.
 Le rendu vise 60 images/s, ou 30 en légère. La physique garde son contrôleur et
-son pas de simulation ; seule la fréquence des dessins change. Pendant une
-animation, deux fenêtres consécutives de ralentissement entraînent une baisse
-de niveau. Un geste tenu se termine avant ce changement. Les périodes immobiles,
-le chargement et les onglets masqués ne pénalisent pas la mesure. La qualité ne
-remonte pas continuellement, pour éviter les oscillations.
+son pas de simulation ; seule la fréquence des dessins change. Le niveau reste
+stable pendant les lancers. Le diagnostic exclut les périodes immobiles, le
+chargement et les onglets masqués de ses mesures.
 
 La 2D utilise Canvas, les mêmes secteurs, les trois modèles de curseur, le même
 mini-jeu de puissance et le même contrôleur. Changer d’affichage ne réinitialise
-ni le lancer, ni le résultat, ni la cagnotte. Le décor, ses images et le moteur
+ni le lancer, ni le résultat, ni la cagnotte. Le décor 3D, ses images et le moteur
 d’avatars ne sont pas chargés quand le choix initial est 2D ; la scène WebGL
 est importée à la demande. Une erreur de préparation 3D ou une perte du contexte
-passe également en 2D. Le rendu du résultat est simplifié : secteur lumineux et
-libellé horizontal. Les chronologies de l’intro, du son et du retour sont conservées.
+passe également en 2D. Le plateau 2D possède son décor fixe en CSS, deux pupitres
+avec portraits et cagnottes, une couronne dorée et une annonce animée du résultat.
+Les avatars des pupitres deviennent sélectionnables pendant un choix d’échange. Sur mobile,
+ils passent au-dessus de la roue ; le dessin et les coordonnées de lancer partagent
+le même calcul de disposition. Les portraits utilisent les miniatures existantes.
+Les effets sont courts, sans déplacement de caméra, et respectent la réduction
+des animations. Les chronologies de l’intro, du son et du retour sont conservées.
 
-Un choix manuel reste prioritaire. Une recommandation automatique est valable
-14 jours, puis réévaluée ; en 2D, **Réessayer la 3D en automatique** relance la
-préparation et la mesure. Le panneau expose cadence, 95e percentile et temps
+Un choix manuel reste prioritaire. Le résultat du diagnostic d’accueil est
+conservé ; revenir en automatique le réutilise. Le diagnostic expose cadence, 95e percentile et temps
 séparés « images et avatars », « préparation graphique », « mesure ». Le premier
 temps inclut téléchargement, décodage et composition, pas seulement le réseau.
 La préparation graphique détaille désormais environnement, textures, shaders,

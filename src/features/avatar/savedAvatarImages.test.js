@@ -70,11 +70,11 @@ test("account synchronization preserves the saved image descriptor but editable 
   } finally { stop(); }
 });
 
-test("the public release does not adopt experimental rendered assets from a server response", async () => {
+test("the major release adopts the saved render descriptor from the authenticated account", async () => {
   const sync = createAccountAvatarSync({ request: async () => ({ userId: 7,
     avatar: { ...normalizeAvatar({}), renderedAssets: { version: 1, revision: 4, userId: 7 } }, revision: 4 }),
     readLocal: () => null, cacheLocal: () => {} });
   const stop = sync.connect(7);
-  try { await sync.refresh(); assert.equal(sync.getSnapshot().avatar.renderedAssets, undefined); }
+  try { await sync.refresh(); assert.deepEqual(sync.getSnapshot().avatar.renderedAssets, { version: 1, revision: 4, userId: 7 }); }
   finally { stop(); }
 });

@@ -1,0 +1,15 @@
+.finale-trial-prices { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 0 12px; }
+.finale-trial-balance { margin: 20px 0; }
+.finale-trial-balance > div { display: flex; justify-content: space-between; margin: 12px 0; gap: 16px; }
+.finale-trial-balance dd { margin: 0; color: #fde68a; font-weight: 800; }
+@media(max-height:480px) { .finale-trial-prices { grid-template-columns: repeat(4,minmax(0,1fr)); gap: 6px; } }
+.finale-trial-history table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.finale-trial-history th, .finale-trial-history td { text-align: left; padding: 6px 3px; border-bottom: 1px solid #334155; }
+.finale-trial-history td { white-space: nowrap; }
+.finale-trial-history small { display: block; color: #b4c2d5; font-weight: 400; }
+.infortune-game-dialog__tabs button { min-width: 0; flex: 1; padding-inline: 6px; }
+@media(max-height:480px) {
+  .finale-trial-history table { font-size: 11px; line-height: 1.2; }
+  .finale-trial-history th, .finale-trial-history td { padding: 3px; }
+  .finale-trial-history small { font-size: 9px; }
+}

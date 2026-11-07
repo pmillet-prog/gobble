@@ -66,3 +66,11 @@ test("leaving playing stops an active intro but leaves idle state untouched", ()
     { action: null, markStartedRoundId: null }
   );
 });
+
+test("a suspended intro releases input at the shared start, preserving the authored GO hold", () => {
+  const input = { introWindow: { roundId: "r", startsAt: 10_000, status: "intro" }, roundId: "r",
+    startedRoundId: "r", phase: "playing", mobileRoundIntroStage: "title", goHoldMs: 800 };
+  assert.equal(resolveMobileRoundIntroLifecycle({ ...input, nowServerMs: 10_500 }).action, null);
+  assert.deepEqual(resolveMobileRoundIntroLifecycle({ ...input, nowServerMs: 40_000 }), { action: "finish", markStartedRoundId: "r" });
+  assert.equal(resolveMobileRoundIntroLifecycle({ ...input, roundId: "other", nowServerMs: 40_000 }).action, null);
+});

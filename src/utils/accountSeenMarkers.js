@@ -9,6 +9,7 @@ export const ACCOUNT_SEEN_MARKERS = Object.freeze({
   legacyDuelWeekConsumed: "migration:account-ui-seen-baseline:duel-week:v1",
   mainTutorial: "tutorial:main:v1",
   guidedResultsTutorial: "tutorial:guided-results:v3",
+  wheelGuide: "tutorial:wheel:v1",
 });
 
 export function buildSpecialTutorialSeenMarker(type) {

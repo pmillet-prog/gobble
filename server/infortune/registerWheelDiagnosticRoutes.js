@@ -1,6 +1,8 @@
 import { normalizeWheelDiagnostic } from "../../shared/wheelDiagnostic.js";
+import { registerWheelGraphicsRoutes } from "./registerWheelGraphicsRoutes.js";
 
 export function registerWheelDiagnosticRoutes(app, { readAccount, isAllowed, repository, now = Date.now }) {
+  registerWheelGraphicsRoutes(app, { readAccount, repository });
   const attempts = new Map();
   app.post("/api/infortune/diagnostics", async (request, response) => {
     response.setHeader("Cache-Control", "no-store");

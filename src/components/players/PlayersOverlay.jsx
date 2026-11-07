@@ -157,6 +157,7 @@ export default function PlayersOverlay({ actions, appearance, directory, rendere
   return createPortal(
     <div
       className="fixed inset-0 z-[20160] bg-black/60 backdrop-blur-sm flex items-center justify-center px-3 py-6"
+      data-players-panel="true"
       onClick={actions.onClose}
     >
       <FantasyPanelShell

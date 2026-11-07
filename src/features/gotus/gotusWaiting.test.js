@@ -5,13 +5,14 @@ import { GOTUS_WAITING_INVITATIONS, shouldOfferGotus } from "./gotusWaitingPolic
 
 function harness() {
   const sent = [], listeners = new Map(), timers = new Map(), joined = [], entries = [], notices = [];
-  let id = 0, presenceResponse = { ok: true };
+  let id = 0, presenceResponse = { ok: true }, participationResponse = { ok: true, participated: false };
   const socket = { connected: true,
     on: (name, callback) => listeners.set(name, callback),
     off: (name, callback) => { if (listeners.get(name) === callback) listeners.delete(name); },
     emit: (event, payload, ack) => {
       sent.push({ event, payload, ack });
       if (event === "training:standalone:presence" && presenceResponse) ack?.(presenceResponse);
+      if (event === 'tournament:participation' && participationResponse) ack?.(participationResponse);
     },
   };
   const controller = createGotusWaitingController({ now: () => 100, random: () => .5,
@@ -28,7 +29,8 @@ function harness() {
     liveStatus: { tournamentRound: round }, tournamentLobby: { phase, countdownEndsAt: phase === "countdown" ? countdownEndsAt : null } }] });
   const expire = delay => { for (const [key, timer] of [...timers]) if (timer.delay === delay) { timers.delete(key); timer.callback(); } };
   return { controller, state: () => controller.store.getState(), socket, sent, listeners, timers, joined, entries, notices, setRoom, expire,
-    setPresenceResponse: response => { presenceResponse = response; } };
+    setPresenceResponse: response => { presenceResponse = response; },
+    setParticipationResponse: response => { participationResponse = response; } };
 }
 
 test("Gotus offer begins at round three, including intermission, never the next lobby", () => {
@@ -41,14 +43,14 @@ test("Gotus offer begins at round three, including intermission, never the next 
   assert.equal(shouldOfferGotus(null), false);
 });
 
-test("offering Gotus never joins a room; direct entry remains available exactly once", () => {
+test("offering Gotus never joins a room; direct entry remains available exactly once", async () => {
   const h = harness(); h.setRoom();
-  h.controller.requestEntry(() => h.entries.push("live"));
+  await h.controller.requestEntry(() => h.entries.push("live"));
   assert.equal(h.state().dialog.kind, "offer");
-  assert.equal(h.sent.length, 0);
+  assert.deepEqual(h.sent.map(item => item.event), ['tournament:participation']);
   h.controller.enterAnyway(); h.controller.enterAnyway();
   assert.deepEqual(h.entries, ["live"]);
-  h.setRoom(2); h.controller.requestEntry(() => h.entries.push("round2"));
+  h.setRoom(2); await h.controller.requestEntry(() => h.entries.push("round2"));
   assert.deepEqual(h.entries, ["live", "round2"]);
   h.controller.dispose();
 });
@@ -64,6 +66,30 @@ test("training sends only dedicated presence; stop cannot join live implicitly",
   assert.equal(h.sent[1].payload.joinLive, false);
   assert.equal(h.state().session, null);
   h.controller.dispose();
+});
+
+test('returning participants bypass the invitation; a fresh tournament still offers Gotus', async () => {
+  const h = harness(); h.setRoom(4); h.setParticipationResponse({ ok: true, participated: true });
+  assert.equal(await h.controller.requestEntry(() => h.entries.push('resume')), false);
+  assert.deepEqual(h.entries, ['resume']); assert.equal(h.state().dialog, null);
+  h.setParticipationResponse({ ok: true, participated: false });
+  assert.equal(await h.controller.requestEntry(() => h.entries.push('new')), true);
+  assert.equal(h.state().dialog.kind, 'offer'); h.controller.dispose();
+});
+
+test('a delayed participation reply cannot open an invitation after cancelling entry', async () => {
+  const h = harness(); h.setRoom(); h.setParticipationResponse(null);
+  const entry = h.controller.requestEntry(() => h.entries.push('live')); await Promise.resolve();
+  const ack = h.sent.at(-1).ack;
+  h.controller.close(); ack({ ok: true, participated: false }); await entry;
+  assert.deepEqual(h.entries, []); assert.equal(h.state().dialog, null); h.controller.dispose();
+});
+
+test('an unavailable participation check continues normal entry instead of giving the wrong invitation', async () => {
+  const h = harness(); h.setRoom(); h.setParticipationResponse(null);
+  const entry = h.controller.requestEntry(() => h.entries.push('live')); await Promise.resolve();
+  h.expire(2500); await entry;
+  assert.deepEqual(h.entries, ['live']); assert.equal(h.state().dialog, null); h.controller.dispose();
 });
 
 test("countdown reminder is not repeated at intro and mute lasts across training sessions", async () => {
@@ -167,12 +193,12 @@ test("reconnect presence cannot race with a slow successful join ACK", async () 
 
 test("authentication prompt closes the offer and never announces training", async () => {
   const h = harness(); h.setRoom();
-  h.controller.requestEntry(() => {});
+  await h.controller.requestEntry(() => {});
   h.controller.configure({ ensureAuthenticated: () => false });
   assert.equal(await h.controller.startTraining(), false);
   assert.equal(h.state().dialog, null);
   assert.equal(h.state().session, null);
-  assert.equal(h.sent.length, 0);
+  assert.deepEqual(h.sent.map(item => item.event), ['tournament:participation']);
   h.controller.dispose();
 });
 
@@ -180,10 +206,10 @@ test("exhausted time prevents Gotus from both the home menu and the waiting offe
   const h = harness(); h.setRoom();
   h.controller.configure({ ensureTrainingAllowed: () => false });
   assert.equal(await h.controller.startTraining(), false);
-  h.controller.requestEntry(() => {});
+  await h.controller.requestEntry(() => {});
   assert.equal(await h.controller.startTraining(), false);
   assert.equal(h.state().session, null);
-  assert.equal(h.sent.length, 0);
+  assert.deepEqual(h.sent.map(item => item.event), ['tournament:participation']);
   h.controller.dispose();
 });
 

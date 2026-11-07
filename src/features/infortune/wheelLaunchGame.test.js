@@ -6,10 +6,14 @@ import { GESTURE_REFERENCE_SPEED, GESTURE_SMOOTHING_MS } from "./wheelGesturePow
 import { createWheelLaunchGame, launchChallenge, launchQuality, gaugePosition, GOOD_WINDOW, PERFECT_WINDOW } from "./wheelLaunchGame.js";
 import { skillCurvePoint } from "./wheelSkillShot.js";
 
+function seededRandom(seed = 123) {
+  return () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 2 ** 32; };
+}
+
 function harness(launchGame = {}) {
   let time = 0, sequence = 0, snapshot, view, meter;
   const frames = new Map(), launches = [], results = [];
-  const controller = createWheelController({ launchGame, pegRadius: 1.3,
+  const controller = createWheelController({ launchGame: { random: seededRandom(), ...launchGame }, pegRadius: 1.3,
     now: () => time,
     requestFrame(callback) { const id = ++sequence; frames.set(id, callback); return id; },
     cancelFrame(id) { frames.delete(id); },
@@ -33,7 +37,7 @@ function perfectClicks(app) {
 
 function perfectGesture(app, direction, { release = true, angularSpeed = 3 } = {}) {
   const target = app.view.launchGame.targets.power, duration = 400;
-  const speed = -GESTURE_REFERENCE_SPEED * Math.log1p(-target) / -Math.expm1(-duration / GESTURE_SMOOTHING_MS);
+  const speed = GESTURE_REFERENCE_SPEED * target / -Math.expm1(-duration / GESTURE_SMOOTHING_MS);
   app.controller.beginDrag(0);
   for (let i = 1; i <= 20; i++) {
     app.advance(20);
@@ -50,13 +54,14 @@ test("only power determines the bonus, with symmetric good/perfect zones and a r
     assert.equal(launchQuality(target.power + sign * (GOOD_WINDOW + 0.001), target).bonus, 0);
   }
   assert.equal(launchQuality(target.power, target).bonus, 100);
-  assert.equal(launchQuality(target.power + 0.06, target).bonus, 50);
+  assert.equal(launchQuality(target.power + 0.05, target).bonus, 50);
+  assert.equal(launchQuality(target.power + 0.06, target).bonus, 0);
   assert.equal(launchQuality(0.1, target).bonus, 0);
   assert.equal(launchQuality(NaN, target).bonus, 0);
 });
 
 test("one visible target stays fixed during preparation and changes only after a completed launch", () => {
-  const game = createWheelLaunchGame(), target = game.view(0).targets;
+  const game = createWheelLaunchGame({ random: seededRandom() }), target = game.view(0).targets;
   game.beginClick(0);
   for (const time of [0, 500, 3000]) assert.equal(game.view(time).targets, target);
   assert.equal(game.view(0).stage, "power");
@@ -67,9 +72,32 @@ test("one visible target stays fixed during preparation and changes only after a
   assert.notDeepEqual(game.view(0).targets, target);
 });
 
+test("fresh tournament rounds draw distinct challenges instead of resetting a memorized rhythm", () => {
+  const draws = [0, 0, 0.999, 0.999], random = () => draws.shift();
+  const first = createWheelLaunchGame({ random }), second = createWheelLaunchGame({ random });
+  const target = first.view(0).targets, pressedAt = target.power * target.powerDuration;
+  first.beginClick(0); second.beginClick(0);
+  assert.equal(first.click(pressedAt).quality.kind, "perfect");
+  assert.equal(second.click(pressedAt).quality.kind, "miss");
+  assert.equal(draws.length, 0, "Drawing occurs only at setup, never during aiming or scoring");
+});
+
+test("every drawn bonus zone fits above minimum power and below full power", () => {
+  for (const draw of [0, 0.25, 0.5, 0.75, 0.999999]) {
+    const target = launchChallenge(() => draw);
+    assert.ok(target.power - GOOD_WINDOW > MIN_LAUNCH_SPEED / MAX_LAUNCH_SPEED);
+    assert.ok(target.power + GOOD_WINDOW < 1);
+    const game = createWheelLaunchGame({ random: () => draw });
+    game.beginClick(0);
+    for (const time of [target.power * target.powerDuration, (2 - target.power) * target.powerDuration]) {
+      assert.equal(game.click(time).quality.kind, "perfect", "Both directions of the gauge can earn the bonus");
+    }
+  }
+});
+
 test("the fast click gauge scores the press timestamp, not delayed input handling", () => {
   const app = harness(), target = app.view.launchGame.targets;
-  assert.ok(target.powerDuration >= 440 && target.powerDuration <= 560);
+  assert.ok(target.powerDuration >= 440 && target.powerDuration <= 600);
   app.controller.clickLaunch(0);
   const pressedAt = target.power * target.powerDuration;
   app.advance(pressedAt + 90);
@@ -126,15 +154,41 @@ test("the release replay freezes successful and rejected traces and clears on a 
   }
 });
 
-test("the wheel follows the hand equally in both directions, including a complete back-and-forth", () => {
+test("the power gesture gathers momentum in both directions and catches up when the hand stops", () => {
   for (const direction of [-1, 1]) for (const steps of [1, 30]) {
     const app = harness(), initial = app.snapshot.angle;
     app.controller.beginDrag(0);
-    for (let i = 1; i <= steps; i++) app.controller.drag(direction * i / steps);
-    assert.ok(Math.abs(app.snapshot.angle - initial - direction) < 1e-10);
+    for (let i = 1; i <= steps; i++) { app.advance(200 / steps); app.controller.drag(direction * i / steps); }
+    assert.ok((app.snapshot.angle - initial) * direction > 0);
+    assert.ok((app.snapshot.angle - initial) * direction < 0.8, "The wheel no longer snaps to the finger");
+    app.advance(600);
+    assert.ok(Math.abs(app.snapshot.angle - initial - direction) < 0.001);
     app.controller.drag(0);
-    assert.ok(Math.abs(app.snapshot.angle - initial) < 1e-10);
+    app.advance(600);
+    assert.ok(Math.abs(app.snapshot.angle - initial) < 0.001);
     app.controller.cancelGesture(); app.controller.dispose();
+  }
+});
+
+test("touch launches retain intermediate power or full power according to the gesture, without a release snap", () => {
+  for (const distance of [0.4, 0.7]) for (const fps of [30, 60, 120]) {
+    const app = harness(), initial = app.snapshot.angle;
+    app.controller.beginDrag(0);
+    for (let i = 1; i <= fps / 10; i++) {
+      app.advance(1000 / fps);
+      app.controller.drag(i / (fps / 10), app.time, distance * i / (fps / 10));
+    }
+    const releasedAt = app.snapshot.angle;
+    assert.ok(releasedAt > initial && releasedAt < initial + 0.5);
+    assert.equal(app.controller.endDrag(), true);
+    const power = app.view.launchQuality.power;
+    if (distance === 0.7) assert.equal(power, 1);
+    else assert.ok(power > 0.6 && power < 0.7);
+    assert.equal(app.snapshot.velocity, power * MAX_LAUNCH_SPEED);
+    assert.equal(app.snapshot.angle, releasedAt);
+    assert.equal(app.controller.endDrag(), false);
+    app.controller.dispose();
+    assert.equal(app.frames.size, 0);
   }
 });
 

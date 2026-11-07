@@ -1,0 +1,7 @@
+.infortune-wheel-loading { position: relative; display: grid; justify-items: center; gap: 16px; color: #e9f1ff; text-align: center; }
+.infortune-wheel-loading__wheel { display: grid; place-items: center; width: 86px; height: 86px; border: 4px solid #e8c37b; border-radius: 50%; background: repeating-conic-gradient(#48b5c9 0deg 45deg,#ecba72 45deg 90deg,#96addc 90deg 135deg,#e97768 135deg 180deg); box-shadow: 0 0 25px #facc5533; animation: infortune-loading-turn 2.4s cubic-bezier(.35,.1,.65,.9) infinite; }
+.infortune-wheel-loading__wheel i { display: grid; place-items: center; width: 30px; height: 30px; border: 2px solid #e8c37b; border-radius: 50%; background: #14263e; color: #ffe2a4; font-size: 20px; font-style: normal; }
+.infortune-wheel-loading__pointer { position: absolute; top: -7px; z-index: 1; width: 14px; height: 18px; background: #fff1c0; clip-path: polygon(0 0,100% 0,50% 100%); }
+.infortune-wheel-loading p { margin: 0; font: 600 14px/1.4 system-ui,sans-serif; }
+@keyframes infortune-loading-turn { to { transform: rotate(360deg); } }
+@media(prefers-reduced-motion: reduce) { .infortune-wheel-loading__wheel { animation: none; } }

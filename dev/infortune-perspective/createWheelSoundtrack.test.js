@@ -3,12 +3,12 @@ import assert from "node:assert/strict";
 import { createWheelSoundtrack } from "./createWheelSoundtrack.js";
 import { resultSoundVariant } from "./wheelSoundPlan.js";
 
-function harness(random = () => 0) {
+function harness(random = () => 0, { context, introMuted = false } = {}) {
   const tracks = new Map();
   const engine = createWheelSoundtrack({ urls: { intro: "intro", spin: "music", drums: "drums",
     results: Object.fromEntries(["small", "good", "jackpot", "bonus", "bankrupt", "exchange"].map(id => [id, id])),
-    audience: { low1: "audience-low1", low2: "audience-low2", honorable: "audience-honorable", fiveHundred: "audience-500", top: "audience-top" } }, random,
-    createContext: () => ({ state: "running", decodeAudioData: async () => ({ duration: 5 }), close: async () => {} }),
+    audience: { low1: "audience-low1", low2: "audience-low2", honorable: "audience-honorable", fiveHundred: "audience-500", fiveHundred2: 'audience-500-2', laughter: 'audience-laughter', top: "audience-top" } }, random,
+    createContext: () => context || ({ state: "running", decodeAudioData: async () => ({ duration: 5 }), close: async () => {} }),
     fetchAudio: async () => ({ ok: true, arrayBuffer: async () => new ArrayBuffer(1) }),
     makeTrack(options) {
       const track = { options, calls: [], prepare() {}, sync(value) { this.calls.push(value); },
@@ -16,7 +16,7 @@ function harness(random = () => 0) {
       tracks.set(options.url, track); return track;
     },
   });
-  void engine.unlock();
+  engine.setIntroMuted(introMuted); void engine.unlock();
   return { engine, tracks, last: id => tracks.get(id).calls.at(-1),
     spin(elapsed, speed, id = 1) { engine.handleWheel({ type: "spin", progress: { phase: "spinning", id, elapsed, velocity: speed * Math.PI * 2 } }); },
     phase(phase, result = null) { engine.handleWheel({ type: "phase", view: { phase, result } }); },
@@ -24,14 +24,49 @@ function harness(random = () => 0) {
   };
 }
 
+test('intro preference mutes only the opening music, survives unlock and never overrides global mute', async () => {
+  const voices=[];
+  const context={state:'running',currentTime:0,destination:{},decodeAudioData:async()=>({duration:5}),close:async()=>{},
+    createBufferSource(){const voice={stops:0,connect:node=>node,disconnect(){},start(...args){this.started=args;},stop(){this.stops++;}};voices.push(voice);return voice;},
+    createGain(){return {connect(){},disconnect(){},gain:{setValueAtTime(){},linearRampToValueAtTime(){}}};},
+  };
+  const app=harness(()=>0,{context,introMuted:true});
+  app.camera('intro',0); await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(voices.length,0);
+  app.spin(0,2); assert.equal(app.last('music').active,true);
+  assert.ok([...app.tracks.values()].every(track=>track.muted===false));
+  app.engine.setIntroMuted(false); assert.deepEqual(voices[0].started,[0,0,5]);
+  app.engine.setIntroMuted(true); assert.equal(voices[0].stops,1);
+  app.camera('intro',2);app.engine.setIntroMuted(false);
+  assert.deepEqual(voices[1].started,[0,2,3],'reenabling follows the camera instead of restarting the intro');
+  app.engine.setMuted(true);app.engine.setIntroMuted(false);assert.equal(voices.length,2);
+  app.engine.setMuted(false);assert.equal(voices.length,3);
+  app.engine.setIntroMuted(true);app.engine.setMuted(true);app.engine.setMuted(false);
+  assert.equal(voices.length,3,'global unmute must preserve the dedicated preference');
+  app.engine.dispose();
+});
+
+test("each exchange plays the local player's reaction once, including when targeted by somebody else", () => {
+  const app = harness();
+  const event = { type: "exchange", id: "4:0", selfId: "self",
+    exchange: { from: "opponent", to: "self", sourceBank: 900, targetBank: 100 } };
+  app.engine.handleWheel(event); app.engine.handleWheel(event);
+  assert.equal(app.tracks.get("audience-top").calls.filter(call => call.active).length, 1);
+  app.engine.handleWheel({ ...event, id: "4:1", exchange: { from: "self", to: "opponent", sourceBank: 900, targetBank: 100 } });
+  assert.equal(app.last("audience-laughter").active, true);
+  app.engine.dispose();
+});
+
 test("drums start during the physical slowdown and outlive the camera's three seconds until actual rest", () => {
   const app = harness(); app.phase("aiming"); assert.equal(app.tracks.get("music").calls.length, 0);
   app.spin(0, 2); assert.equal(app.last("music").active, true); assert.equal(app.last("drums").active, false);
   app.camera("launch", 0); app.camera("launch", 3, false);
   assert.equal(app.last("drums").active, false, "Camera time alone cannot start the roll.");
-  app.spin(8, 0.15); assert.equal(app.last("drums").active, true); assert.equal(app.last("drums").time, 0);
+  app.spin(8, 0.15); assert.equal(app.last("drums").active, false, "Wait for the last part of the slowdown.");
+  assert.equal(app.last("music").level, 1);
+  app.spin(8.5, 0.1); assert.equal(app.last("drums").active, true); assert.equal(app.last("drums").time, 0);
   assert.equal(app.last("music").level, 0.28);
-  app.spin(14, -0.4); assert.equal(app.last("drums").active, true); assert.equal(app.last("drums").time, 6);
+  app.spin(14.5, -0.4); assert.equal(app.last("drums").active, true); assert.equal(app.last("drums").time, 6);
   assert.equal(app.tracks.get("drums").options.loop, true);
   app.phase("finished", { kind: "bonus" });
   assert.equal(app.last("music").active, false); assert.equal(app.last("drums").active, false);
@@ -51,7 +86,7 @@ test("a new throw resets the suspense latch, and result playback follows scrubbi
 
 test("result sounds distinguish modest gains, stronger gains, jackpot and special outcomes", () => {
   assert.equal(resultSoundVariant(null), null);
-  assert.equal(resultSoundVariant({ kind: "pass", amount: 0 }), null);
+  assert.equal(resultSoundVariant({ kind: "pass", amount: 0 }), 'bankrupt');
   assert.equal(resultSoundVariant({ kind: "amount", amount: 100 }), "small");
   assert.equal(resultSoundVariant({ kind: "amount", amount: 500 }), "good");
   assert.equal(resultSoundVariant({ kind: "amount", amount: 1000 }), "jackpot");
@@ -86,6 +121,6 @@ test("the audience reacts at actual rest even while the camera launch shot is st
   assert.equal(app.tracks.get("audience-low2").calls.filter(call => call.active).length, 1);
   app.phase("ready"); assert.equal(app.last("audience-low2").active, false);
   app.spin(0, 2, 2); app.phase("finished", { kind: "amount", amount: 400 });
-  assert.equal(app.last("audience-500").active, true);
+  assert.equal(app.last("audience-500-2").active, true);
   app.engine.dispose();
 });

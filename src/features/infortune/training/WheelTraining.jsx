@@ -5,6 +5,7 @@ import WheelDiagnosticDialog from "./WheelDiagnosticDialog.jsx";
 import WheelDiagnosticSummary from "./WheelDiagnosticSummary.jsx";
 import WheelDiagnosticSurvey from "./WheelDiagnosticSurvey.jsx";
 import { WHEEL_DIAGNOSTIC_DRAFT_KEY, readWheelDiagnosticDraft, saveWheelDiagnosticDraft } from "./wheelDiagnosticDraft.js";
+import { wheelGraphicsDevice } from "../graphics/wheelGraphicsStorage.js";
 
 const Stage = React.lazy(() => import("./WheelDiagnosticStage.jsx"));
 class StageBoundary extends React.Component {
@@ -15,7 +16,7 @@ class StageBoundary extends React.Component {
 }
 function createSession() {
   return { version: WHEEL_DIAGNOSTIC_VERSION, id: globalThis.crypto?.randomUUID?.() || `wheel-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-    startedAt: new Date().toISOString(), environment: { userAgent: navigator.userAgent, platform: navigator.platform,
+    startedAt: new Date().toISOString(), environment: { deviceId: wheelGraphicsDevice(), userAgent: navigator.userAgent, platform: navigator.platform,
       width: window.innerWidth, height: window.innerHeight, pixelRatio: window.devicePixelRatio || 1,
       cores: navigator.hardwareConcurrency || null, memory: navigator.deviceMemory || null, touchPoints: navigator.maxTouchPoints || 0 } };
 }

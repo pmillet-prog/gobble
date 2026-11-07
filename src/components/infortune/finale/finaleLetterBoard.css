@@ -1,0 +1,86 @@
+.infortune-finale-board {
+  --finale-step-x: calc(100% / var(--finale-columns));
+  --finale-step-y: calc(100% / var(--finale-rows));
+  --finale-outline: polygon(var(--finale-step-x) 0, calc(100% - var(--finale-step-x)) 0,
+    calc(100% - var(--finale-step-x)) var(--finale-step-y), 100% var(--finale-step-y),
+    100% calc(100% - var(--finale-step-y)), calc(100% - var(--finale-step-x)) calc(100% - var(--finale-step-y)),
+    calc(100% - var(--finale-step-x)) 100%, var(--finale-step-x) 100%,
+    var(--finale-step-x) calc(100% - var(--finale-step-y)), 0 calc(100% - var(--finale-step-y)),
+    0 var(--finale-step-y), var(--finale-step-x) var(--finale-step-y));
+  position: relative;
+  isolation: isolate;
+  padding-bottom: 4px;
+}
+.infortune-finale-board__stage {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  padding: 42px clamp(12px, 3%, 32px) 50px;
+  border-radius: 28px;
+  background: radial-gradient(ellipse at 50% 55%, #113d61 0, #030b17 65%, #01050d);
+  box-shadow: inset 0 0 0 1px #6489b329, 0 18px 35px #0005;
+}
+/* Static stage lighting: no canvas, assets or continuously running animation. */
+.infortune-finale-board__stage::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: -8% -8%;
+  border: clamp(8px, 1.5vw, 18px) solid #bf7725;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 2px #fff1b2, inset 0 0 16px #ffb62f, 0 0 0 2px #ffe5a2, 0 0 25px #fbb02e88;
+  background: radial-gradient(ellipse, transparent 58%, #ffb73b1a 68%, transparent 73%);
+  pointer-events: none;
+}
+.infortune-finale-board__stage::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 45px 8px;
+  background: radial-gradient(circle, #fff9d6 0 2px, #ffd074 3px, #ffab2733 7px, transparent 13px) left center / 18px 48px repeat-y,
+    radial-gradient(circle, #fff9d6 0 2px, #ffd074 3px, #ffab2733 7px, transparent 13px) right center / 18px 48px repeat-y;
+  pointer-events: none;
+}
+.infortune-finale-board__kind { position: absolute; inset: 16px 0 auto; margin: 0; text-align: center; color: #e5c58b; font-size: 9px; font-weight: 650; text-transform: uppercase; letter-spacing: .25em; }
+.infortune-finale-board__frame { position: relative; padding: 7px; background: linear-gradient(135deg, #fffdf2, #acc5df 24%, #fff 46%, #6e879e 74%, #e1f5ff); clip-path: var(--finale-outline); }
+.infortune-finale-board__screen { padding: 5px; background: linear-gradient(160deg, #573113, #ffdf95 25%, #a8672d 50%, #fee3a2 80%, #855021); clip-path: var(--finale-outline); }
+.infortune-finale-board__rows { display: flex; flex-direction: column; gap: 3px; padding: 3px; background: #04152b; clip-path: var(--finale-outline); }
+.infortune-finale-board__row { display: grid; grid-template-columns: repeat(var(--finale-columns), minmax(0, 1fr)); gap: 3px; }
+.infortune-finale-tile { display: block; position: relative; aspect-ratio: .79; perspective: 420px; container-type: inline-size; }
+.infortune-finale-tile__rotor { display: block; position: absolute; inset: 0; transform-style: preserve-3d; }
+.infortune-finale-tile__back, .infortune-finale-tile__face {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  border: 1px solid #9fb7cb; border-radius: 1px; backface-visibility: hidden;
+  background: linear-gradient(135deg, #fffef8 0, #f8faf5 52%, #d8e6e7);
+  box-shadow: inset 0 0 0 1px #fff9, inset 0 -3px 5px #586b7920;
+}
+.infortune-finale-tile__face { transform: rotateY(180deg); color: #101e2e; font-family: "Arial", sans-serif; font-size: clamp(15px, 2.5vw, 32px); font-size: 82cqi; line-height: 1; font-weight: 800; }
+.infortune-finale-tile--padding .infortune-finale-tile__back,
+.infortune-finale-tile--space .infortune-finale-tile__back,
+.infortune-finale-tile--space .infortune-finale-tile__face {
+  border-color: #267fbb;
+  background: linear-gradient(165deg, #89eaff99, transparent 38%, #076cb233 55%, #063b86aa),
+    repeating-linear-gradient(0deg, #51d5ff18 0 1px, transparent 1px 5px), linear-gradient(110deg, #087ec7, #27c5ef 46%, #137dc3);
+  box-shadow: inset 0 1px 0 #b0f5ff99, inset 0 0 8px #046cae, inset 0 -2px 0 #00326e88;
+}
+.infortune-finale-tile.is-revealed .infortune-finale-tile__rotor { transform: rotateY(180deg); }
+.infortune-finale-tile.is-flipping .infortune-finale-tile__rotor { animation: finale-letter-flip var(--finale-flip-duration) cubic-bezier(.32, .02, .25, 1) var(--finale-flip-delay) both; }
+.infortune-finale-board__theme { position: relative; width: fit-content; min-width: min(220px, 70%); max-width: 88%; margin: -29px auto 0; padding: 9px 30px 12px; border: 1px solid #b4cfeb; border-radius: 9px;
+  background: linear-gradient(180deg, #395b87, #183658 48%, #102b4b 49%, #21486c);
+  box-shadow: inset 0 0 0 3px #1b3453, inset 0 4px 0 #e8f8ff55, 0 4px 0 #010918, 0 0 16px #76caff33; text-align: center; }
+.infortune-finale-board__theme > span { color: #b8d7ee; font-size: 8px; font-weight: 600; text-transform: uppercase; letter-spacing: .2em; }
+.infortune-finale-board__theme h2 { margin: 3px 0 0; color: #fff; font-size: clamp(15px, 2vw, 22px); line-height: 1.25; font-weight: 750; text-transform: uppercase; letter-spacing: .035em; overflow-wrap: anywhere; text-shadow: 0 2px 4px #071525; }
+@keyframes finale-letter-flip { from { transform: rotateY(0); } to { transform: rotateY(180deg); } }
+@media (max-width: 650px) {
+  .infortune-finale-board__stage { padding: 36px 8px 44px; border-radius: 16px; }
+  .infortune-finale-board__kind { top: 13px; font-size: 8px; }
+  .infortune-finale-board__frame { padding: 4px; }
+  .infortune-finale-board__screen { padding: 3px; }
+  .infortune-finale-board__rows { padding: 2px; gap: 2px; }
+  .infortune-finale-board__row { gap: 2px; }
+  .infortune-finale-board__stage::after { display: none; }
+  .infortune-finale-board__theme { padding: 7px 20px 10px; margin-top: -25px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .infortune-finale-tile.is-flipping .infortune-finale-tile__rotor { animation: none; }
+}

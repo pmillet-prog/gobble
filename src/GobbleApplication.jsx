@@ -81,6 +81,7 @@ import {
   purgeRuntimeMediaCache,
 } from "./audio/audioAssets";
 import useAudioEngine from "./audio/useAudioEngine";
+import { soundSettingsSummary } from './audio/audioPreferences.js';
 import useAmbientMusic from "./audio/useAmbientMusic";
 import useGameSounds from "./audio/useGameSounds";
 import useElementSize from "./hooks/useElementSize.js";
@@ -157,7 +158,7 @@ import {
 import {
   LIVE_CONNECTION_INTERRUPTED_MESSAGE,
 } from "./network/liveSubmissionRecovery.js";
-import MobileChatLayer from "./components/chat/MobileChatLayer.jsx";
+import { useChatSurface } from './features/chat/ChatSurfaceSatellite.jsx';
 import ChatReactionToastSatellite from "./features/chat/ChatReactionToastSatellite.jsx";
 import {
   CHAT_REACTION_EMOJIS,
@@ -1445,6 +1446,7 @@ export default function GobbleApplication() {
     keyboardMenuOpen: isKeyboardMenuOpen,
     mobileExitConfirmOpen,
     patchNotesOpen: isPatchNotesOpen,
+    wheelGuide,
     playerProfileModal,
     playersOverlayMode,
     playersOverlayOpen: isPlayersOverlayOpen,
@@ -2300,7 +2302,7 @@ export default function GobbleApplication() {
     setFoundTargetThisRound(false);
     setFoundTargetWord("");
     stopRoundEndTickSound({ fadeMs: 0 });
-    stopAllActiveAudio({ suspendContext: false, immediate: true });
+    stopAllActiveAudio({ immediate: true });
     resetDailySession();
     setDailyResult(null);
     resumeProbeRef.current = { inFlight: false, lastAt: 0 };
@@ -2412,7 +2414,7 @@ export default function GobbleApplication() {
   useEffect(() => {
     if (isLoggedIn && phase !== "lobby") return;
     clearCelebrationFx();
-    stopAllActiveAudio({ suspendContext: false, immediate: true });
+    stopAllActiveAudio({ immediate: true });
   }, [isLoggedIn, phase]);
   useEffect(() => {
     const currentView = appViewRef.current;
@@ -3083,25 +3085,24 @@ export default function GobbleApplication() {
     stopRoundStartSound,
   });
   const stopAllActiveAudio = React.useCallback(
-    ({ suspendContext = false, immediate = false } = {}) => {
+    ({ immediate = false } = {}) => {
+      AssetManager.stopAllSfx();
+      stopIntroCountdownSound({ fadeMs: immediate ? 0 : 120 });
+      stopRoundStartSound({ fadeMs: immediate ? 0 : 120 });
       stopRoundEndTickSound({ fadeMs: immediate ? 0 : 120 });
       stopBlackHoleAudio({ fadeMs: immediate ? 0 : 220 });
       stopAmbientMusic({ fadeMs: immediate ? 0 : 700, keepAlive: false, immediate });
       ambientStartPendingRef.current = false;
       ambientRetryRef.current = false;
-      if (!suspendContext) return;
-      const ctx = audioCtxRef.current;
-      if (ctx && ctx.state === "running") {
-        ctx.suspend().catch(() => {});
-      }
     },
     [
       ambientRetryRef,
       ambientStartPendingRef,
-      audioCtxRef,
       stopAmbientMusic,
       stopBlackHoleAudio,
       stopRoundEndTickSound,
+      stopIntroCountdownSound,
+      stopRoundStartSound,
     ]
   );
 
@@ -4353,7 +4354,7 @@ export default function GobbleApplication() {
   useEffect(() => {
     if (typeof window === "undefined" || typeof document === "undefined") return;
     const stopAudioForBackground = () => {
-      stopAllActiveAudio({ suspendContext: true, immediate: true });
+      stopAllActiveAudio({ immediate: true });
       clearCelebrationEffects();
     };
     const onVisibility = () => {
@@ -5390,6 +5391,8 @@ export default function GobbleApplication() {
       setIsFacebookInviteOpen,
       setIsPatchNotesOpen,
       shouldShowTutorial,
+      wheelGuide,
+      openWheelGuide: overlaysFeature.openWheelGuide,
     },
     vault: {
       popup: vaultWordOfDayPopup,
@@ -6402,7 +6405,7 @@ export default function GobbleApplication() {
 
   function openDefinition(
     term,
-    { fromWordInfo = false, preferLongDefinition = true, fromVault = false, highlightedDefinition = "" } = {}
+    { fromWordInfo = false, preferLongDefinition = true, fromVault = false, highlightedDefinition = "", questionContext = null } = {}
   ) {
     const clean = String(term || "").trim();
     if (!clean) return;
@@ -6448,6 +6451,7 @@ export default function GobbleApplication() {
       fromVault: !!fromVault,
       preferLongDefinition: useLongDefinition,
       highlightedDefinition: selectedDefinition,
+      questionContext,
     });
 
     const tried = new Set();
@@ -6509,6 +6513,7 @@ export default function GobbleApplication() {
             fromVault: !!fromVault,
             preferLongDefinition: useLongDefinition,
             highlightedDefinition: selectedDefinition,
+            questionContext,
           });
         })
         .catch(() => {
@@ -6992,6 +6997,7 @@ function handleTouchEnd() {
   const handleDesktopWordAnalyze = React.useCallback((word) => {
     analyzeWordActionRef.current?.(word);
   }, []);
+  useEffect(() => overlaysFeature.registerDefinitionOpener((...args) => openDefinitionActionRef.current?.(...args)), [overlaysFeature]);
 
   const handleDesktopWordAnalysisClear = React.useCallback(() => {
     clearResultsWordAnalysisRef.current?.();
@@ -10344,22 +10350,7 @@ function handleTouchEnd() {
       onModeChange={(mode) => openAuthDialog(mode)}
     />
   );
-  const ambientOn = !isAmbientMuted;
-  const allSoundOn =
-    ambientOn &&
-    soundValidationEnabled &&
-    soundTileStepEnabled &&
-    soundTimerEnabled &&
-    soundGobbleEnabled &&
-    soundInvalidErrorEnabled;
-  const enabledSoundCount = [
-    ambientOn,
-    soundValidationEnabled,
-    soundTileStepEnabled,
-    soundTimerEnabled,
-    soundGobbleEnabled,
-    soundInvalidErrorEnabled,
-  ].filter(Boolean).length;
+  const { ambientOn, allSoundOn, enabledSoundCount } = soundSettingsSummary(preferencesState);
   const allVisualOn =
     visualGobbleEnabled &&
     visualPraiseEnabled &&
@@ -10380,15 +10371,7 @@ function handleTouchEnd() {
     visualGoldNickFxEnabled,
   ].filter(Boolean).length;
   const vibrationOn = isVibrationEnabled && canVibrate;
-  const setAllSoundEnabled = React.useCallback((enabled) => {
-    const next = !!enabled;
-    setIsAmbientMuted(!next);
-    setSoundValidationEnabled(next);
-    setSoundTileStepEnabled(next);
-    setSoundTimerEnabled(next);
-    setSoundGobbleEnabled(next);
-    setSoundInvalidErrorEnabled(next);
-  }, []);
+  const setAllSoundEnabled = preferencesFeature.setAllSoundEnabled;
   const setAllVisualEnabled = React.useCallback((enabled) => {
     const next = !!enabled;
     setVisualGobbleEnabled(next);
@@ -11541,6 +11524,8 @@ function handleTouchEnd() {
       TILE_LETTER_SCALE_MAX={TILE_LETTER_SCALE_MAX}
       TILE_LETTER_SCALE_MIN={TILE_LETTER_SCALE_MIN}
       allSoundOn={allSoundOn}
+      toggleSoundQuick={toggleSoundQuick}
+      toggleDarkModeQuick={toggleDarkModeQuick}
       allVisualOn={allVisualOn}
       ambientOn={ambientOn}
       applyModerationAction={applyModerationAction}
@@ -11683,6 +11668,8 @@ function handleTouchEnd() {
       soundTileStepEnabled={soundTileStepEnabled}
       soundTimerEnabled={soundTimerEnabled}
       soundValidationEnabled={soundValidationEnabled}
+      soundWheelIntroEnabled={preferencesState.soundWheelIntroEnabled}
+      onToggleWheelIntro={() => preferencesFeature.set('soundWheelIntroEnabled', value => !value)}
       themeApplying={themeApplying}
       themeCategoryLabel={themeCategoryLabel}
       themeControlButtons={themeControlButtons}
@@ -11908,9 +11895,9 @@ function handleTouchEnd() {
       onCancel={() => setMobileExitConfirmOpen(false)}
       onConfirm={() => { setMobileExitConfirmOpen(false); returnToLobby(); }} />
   );
+  useChatSurface({ ...mobileChatProps, onOpenPlayers: openPlayersOverlayAlpha });
   const globalChatLayer = (
     <React.Fragment key="global-chat-layer">
-      <MobileChatLayer {...mobileChatProps} />
       {mobileExitConfirmLayer}
     </React.Fragment>
   );
@@ -12171,7 +12158,7 @@ function handleTouchEnd() {
       ) : null}
       {aboutModalView}
       <TargetQuizRecapSatellite />
-      <InfortuneIntermissionSatellite muted={isSfxMuted} />
+      <InfortuneIntermissionSatellite muted={isSfxMuted} onOpenChat={requestOpenChat} onOpenPlayers={openPlayersOverlayAlpha} />
       <GotusRecapSatellite onOpenDefinition={openDefinition} />
       <ChatReactionToastSatellite />
       <NotificationToastLayer darkMode={darkMode} />
@@ -12407,7 +12394,7 @@ function handleTouchEnd() {
               isTutorialOpen,
               message: broadcastNotice?.message,
               onClose: dismissBroadcastNotice,
-              shouldShowTutorial,
+              shouldShowTutorial: shouldShowTutorial || !!wheelGuide,
             },
             vault: {
               onClose: closeVaultWordOfDayPopup,
@@ -13292,6 +13279,7 @@ function handleTouchEnd() {
             WORDS_SCROLL_MAX_HEIGHT,
         }}
       />
+      {globalChatLayer}
     </Suspense>
   );
 }

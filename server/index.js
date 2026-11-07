@@ -8,11 +8,18 @@ import { Server } from "socket.io";
 import cors from "cors";
 import { mkdirSync, readFileSync, writeFileSync } from "fs";
 import { randomUUID } from "crypto";
-import { infortuneRoundPolicy, infortuneBreakDuration } from "../shared/infortuneIntermission.js";
+import { infortuneRoundPolicy, infortuneBreakDuration, scheduleInfortuneAfterResults } from "../shared/infortuneIntermission.js";
+import { scheduleWheelClosing } from "./infortune/scheduleWheelClosing.js";
 import { INFORTUNE_PLATEAU_VERSION } from "../shared/infortunePlateaus.js";
 import { snapshotInfortunePlayers, finalizeInfortunePlateaus } from "./infortune/roundPlateaus.js";
 import { createInfortuneLedger, creditInfortuneGobbles } from "./infortune/roundEconomy.js";
 import { registerInfortuneHandlers } from "./infortune/registerInfortuneHandlers.js";
+import { createTournamentWheelFinale } from "./infortune/tournamentFinale.js";
+import { createFinaleWallet } from './infortune/finaleWallet.js';
+import { GOBBLARS_PER_GOBBLE } from '../shared/gobbleRewards.js';
+import { createWheelBonusReward } from './infortune/wheelBonusReward.js';
+import { chooseTournamentFinalePuzzle } from "./infortune/finalePuzzle.js";
+import { INFORTUNE_FINALE_INTRO_MS, INFORTUNE_FINALE_DURATION_MS, INFORTUNE_FINAL_RANKING_MS } from "../shared/infortuneTournamentFinale.js";
 import { infortuneTournamentEnabled } from "../shared/releaseScope.js";
 import { registerWorkshopAccess } from "./realtime/registerWorkshopAccess.js";
 import { registerWheelDiagnosticRoutes } from "./infortune/registerWheelDiagnosticRoutes.js";
@@ -1104,9 +1111,9 @@ async function runDailySubmitFlow({
   if (dailyGobbles > 0) {
     await persistenceClient.addGobblars({
       installId,
-      amount: dailyGobbles,
+      amount: dailyGobbles * GOBBLARS_PER_GOBBLE,
       reason: "daily_gobbles",
-      meta: { dateId: result?.dateId || null },
+      meta: { dateId: result?.dateId || null, gobbles: dailyGobbles },
     }).catch(() => {});
   }
 
@@ -1923,7 +1930,7 @@ const MONSTROUS_QUALITY_ATTEMPTS = 320;
 const TOURNAMENT_TOTAL_ROUNDS = 5;
 const TOURNAMENT_SPECIAL_ROUNDS = [2, 4];
 const TOURNAMENT_MASSIVE_BOGGLE_ROUND = 3;
-const TOURNAMENT_RESULTS_BREAK_MS = 40 * 1000;
+const TOURNAMENT_RESULTS_BREAK_MS = 20 * 1000;
 const TOURNAMENT_FINAL_BREAK_MS = 35 * 1000;
 const TOURNAMENT_END_TOTAL_BREAK_MS = TOURNAMENT_RESULTS_BREAK_MS + TOURNAMENT_FINAL_BREAK_MS;
 const INTER_TOURNAMENT_COUNTDOWN_MS = 5 * 1000;
@@ -4491,6 +4498,8 @@ function emitTournamentLobby(room) {
 
 function enterInterTournamentLobby(room) {
   if (!room) return;
+  room.infortuneFinale?.dispose();
+  room.infortuneFinale = null;
   void targetQuizHandlers.closeRoomRound(room.id, room.currentRound?.id)
     .catch(error => console.warn("[target-quiz] lobby save failed", error.message));
   void gotusHandlers.closeRoomRound(room.id, room.currentRound?.id)
@@ -5120,12 +5129,15 @@ function buildBreakSnapshot(room) {
   return {
     roomId: room.id,
     roundId: room.breakState.roundId || null,
+    infortune: room.breakState.infortune || null,
+    wheelClosing: room.breakState.wheelClosing || null,
     nextStartAt: room.breakState.nextStartAt || null,
     breakKind: room.breakState.breakKind || null,
     tournament: room.breakState.tournament || null,
     nextSpecial: room.breakState.nextSpecial || null,
     tournamentSummary: room.breakState.tournamentSummary || null,
     tournamentSummaryAt: room.breakState.tournamentSummaryAt || null,
+    infortuneFinale: room.infortuneFinale?.publicSnapshot() || null,
     targetSummary: room.breakState.targetSummary || null,
   };
 }
@@ -5330,7 +5342,8 @@ function buildSessionSnapshot(room, player) {
     specialHint: hasSessionRound ? buildCurrentSpecialHint(room) : null,
     breakState: buildBreakSnapshot(room),
     tournamentLobby: buildTournamentLobbyPayload(room),
-    lastRoundResults: room.breakState ? room.lastRoundResults || null : null,
+    resultsPending: room.resultsPending || null,
+    lastRoundResults: room.breakState && !room.resultsPending ? room.lastRoundResults || null : null,
   };
 }
 
@@ -9201,14 +9214,16 @@ function submitWordForNick(
     }
   }
 
-  const liveGobblarsNow =
+  const liveGobblesNow =
     (scoreGobbleAllowed && isMaxPossiblePts ? 1 : 0) + (isMaxPossibleLen ? 1 : 0);
+  const liveGobblarsNow = liveGobblesNow * GOBBLARS_PER_GOBBLE;
   if (persistentProgressAllowed && !isBotPlayer && playerInstallId && liveGobblarsNow > 0) {
     void persistenceClient.addGobblars({
       installId: playerInstallId,
       amount: liveGobblarsNow,
       reason: "live_gobble",
       meta: {
+        gobbles: liveGobblesNow,
         roomId: room.id,
         tournamentId: room.currentRound?.tournamentId || null,
         tournamentStartedAt: room.tournament?.startedAt || null,
@@ -9224,6 +9239,9 @@ function submitWordForNick(
         clearThemeProfileResponseCache(playerInstallId);
         emitToInstallId(room, playerInstallId, "gobblarsAwarded", {
           kind: "live_gobble",
+          gobbles: liveGobblesNow,
+          roomId: room.id,
+          roundId,
           amount: liveGobblarsNow,
           balance: Number(result.balance) || 0,
           nick: resolvedNick,
@@ -10943,14 +10961,19 @@ async function endRoundForRoom(room) {
 
   room.currentRound.status = "finished";
   const wheelPolicy = getInfortunePolicy(room);
-  const infortune = wheelPolicy ? { ...wheelPolicy, openedAt: endRoundStartedAt } : null;
+  room.resultsPending = { roomId: room.id, roundId: room.currentRound.id, startedAt: endRoundStartedAt, infortune: wheelPolicy,
+    skipOutro: room.currentRound.special?.type === OCID_TYPE };
+  io.to(room.id).emit("roundResolving", room.resultsPending);
+  let infortune = wheelPolicy ? { ...wheelPolicy } : null;
   const infortunePlayers = infortune ? snapshotInfortunePlayers(room, {
     isBot: player => isBotToken(player.token), isConnected: isPlayerConnected,
   }) : [];
-  await targetQuizHandlers.closeRoomRound(room.id, room.currentRound.id)
-    .catch(error => console.warn("[target-quiz] round save failed", error.message));
-  await gotusHandlers.closeRoomRound(room.id, room.currentRound.id)
-    .catch(error => console.warn("[gotus] round save failed", error.message));
+  await Promise.all([
+    gotusHandlers.closeRoomRound(room.id, room.currentRound.id)
+      .catch(error => console.warn("[gotus] round save failed", error.message)),
+    targetQuizHandlers.closeRoomRound(room.id, room.currentRound.id)
+      .catch(error => console.warn("[target-quiz] round save failed", error.message)),
+  ]);
   flushPendingDuelWordAcceptedQueues(room.currentRound, room);
   const pendingDuelWordTasks =
     room.currentRound.duelWordTasks instanceof Set
@@ -11579,20 +11602,11 @@ async function endRoundForRoom(room) {
     creditInfortuneGobbles(t.infortune, room.currentRound.id,
       [...room.players.values()].filter(player => !isBotToken(player.token)).concat(totalRanking), roundGobbles);
   }
-  if (infortune) {
-    const wheelRound = room.currentRound;
-    finalizeInfortunePlateaus({ round: wheelRound, roomId: room.id, infortune, players: infortunePlayers, ranking: totalRanking,
-      ledger: t?.infortune, onEconomyChange: economy => {
-        if (room.currentRound === wheelRound) io.to(room.id).emit("infortuneEconomy", { roomId: room.id, roundId: wheelRound.id, economy });
-      } });
-    // Publish the small seating payload before the heavy result presentation.
-    io.to(room.id).emit("infortunePlateau", { roomId: room.id, roundId: room.currentRound.id, infortune });
-  }
-
   let breakMs = room.config.breakMs;
   let breakKind = "between_rounds";
   let tournamentSummary = null;
   let tournamentSummaryAt = null;
+  let openTournamentFinale = null;
 
   if (isTargetRound) {
     breakMs = Math.min(breakMs, TARGET_BREAK_DURATION_MS);
@@ -11607,84 +11621,141 @@ async function endRoundForRoom(room) {
     breakMs = TOURNAMENT_END_TOTAL_BREAK_MS;
     breakKind = "tournament_end";
     tournamentSummaryAt = Date.now() + TOURNAMENT_RESULTS_BREAK_MS;
-
-    const podium = selectTournamentPodium(totalRanking);
-    const winnerNick = podium[0]?.nick || null;
-    const medalAwards = getTournamentPodiumMedalAwards(podium);
-    const presenterScopeId = `tournament:${t.id}:celebration`;
-    const presenterInterventions = buildTournamentCelebrationPresenterLines({
-      records: t.records,
-      totals: t.totals,
-    })
-      .map((entry) =>
-        buildPresenterInterventionMessage(room, entry.botKey, entry.text, {
-          highlights: entry.highlights,
-          roundId: presenterScopeId,
-        })
-      )
-      .filter(Boolean);
-    tournamentSummary = {
-      id: t.id,
-      winnerNick,
-      ranking: totalRanking,
-      podium,
-      records: t.records,
-      presenterScopeId,
-      presenterInterventions,
-    };
-
-    try {
-      const now = Date.now();
-      const participants = totalRanking
-        .map((entry, idx) => {
-          const rank = Number.isFinite(entry?.pos) ? entry.pos : idx + 1;
-          const isBot = entry?.isBot || isBotNick(room, entry?.nick);
-          if (isBot) {
-            const strength = getBotStrengthForNick(entry?.nick);
-            return {
-              nick: entry?.nick || "",
-              isBot: true,
-              botId: entry?.nick || "",
-              rank,
-              rating: getBotRatingFromStrength(strength),
-            };
-          }
-          const installId = getInstallIdForNick(room, entry?.nick);
-          if (!installId) return null;
-          return {
-            nick: entry?.nick || "",
-            installId,
-            isBot: false,
-            rank,
-          };
-        })
-        .filter(Boolean);
-      const trophyUpdates = await updateTrophiesForTournament({
-        tournamentId: t.id,
-        participants,
-        now,
-        kBase: TROPHY_K_BASE,
-      });
-      if (trophyUpdates.length) {
-        io.to(room.id).emit("trophiesUpdated", {
-          tournamentId: t.id,
-          updates: trophyUpdates,
-        });
-      }
-    } catch (err) {
-      console.warn(`[${room.id}] Trophy update failed:`, err);
+    const puzzle = infortuneTournamentEnabled(process.env)
+      ? chooseTournamentFinalePuzzle({ local: process.env.NODE_ENV !== "production" && process.env.GOBBLE_LOCAL_INFORTUNE_ENABLED === "1",
+        recentIds: room.infortuneRecentPuzzles || [] }) : null;
+    if (puzzle) {
+      breakMs += INFORTUNE_FINALE_INTRO_MS + INFORTUNE_FINALE_DURATION_MS + INFORTUNE_FINAL_RANKING_MS;
+      tournamentSummaryAt += INFORTUNE_FINALE_INTRO_MS + INFORTUNE_FINALE_DURATION_MS + INFORTUNE_FINAL_RANKING_MS;
     }
 
-    const medalDelay = Math.max(0, tournamentSummaryAt - Date.now());
-    setTimeout(() => {
-      if (room.breakState?.breakKind !== "tournament_end") return;
-      for (const award of medalAwards) {
-        addMedal(room, award.nick, award.type, `${room.id}:${t.id}`, t);
-      }
-      emitMedals(room);
-    }, medalDelay);
+    const settleTournament = async (totalRanking) => {
 
-    resetTournament(room);
+      const podium = selectTournamentPodium(totalRanking);
+      const winnerNick = podium[0]?.nick || null;
+      const medalAwards = getTournamentPodiumMedalAwards(podium);
+      const presenterScopeId = `tournament:${t.id}:celebration`;
+      const presenterInterventions = buildTournamentCelebrationPresenterLines({
+        records: t.records,
+        totals: t.totals,
+      })
+        .map((entry) =>
+          buildPresenterInterventionMessage(room, entry.botKey, entry.text, {
+            highlights: entry.highlights,
+            roundId: presenterScopeId,
+          })
+        )
+        .filter(Boolean);
+      tournamentSummary = {
+        id: t.id,
+        winnerNick,
+        ranking: totalRanking,
+        podium,
+        records: t.records,
+        presenterScopeId,
+        presenterInterventions,
+      };
+
+      if (puzzle) {
+        // Publish the authoritative final standings before the ceremony gate opens.
+        // Keep reconnect snapshots in step with the original round result payload.
+        const finalTotals = Object.fromEntries(t.totals);
+        Object.assign(room.lastRoundResults.payload, { tournamentSummary });
+        Object.assign(room.lastRoundResults.payload.tournament, { ranking: totalRanking, totals: finalTotals });
+        room.breakState.tournamentSummary = tournamentSummary;
+        io.to(room.id).emit("breakStarted", { roomId: room.id, ...room.breakState,
+          infortuneFinale: room.infortuneFinale.publicSnapshot() });
+      }
+
+      try {
+        const now = Date.now();
+        const participants = totalRanking
+          .map((entry, idx) => {
+            const rank = Number.isFinite(entry?.pos) ? entry.pos : idx + 1;
+            const isBot = entry?.isBot || isBotNick(room, entry?.nick);
+            if (isBot) {
+              const strength = getBotStrengthForNick(entry?.nick);
+              return {
+                nick: entry?.nick || "",
+                isBot: true,
+                botId: entry?.nick || "",
+                rank,
+                rating: getBotRatingFromStrength(strength),
+              };
+            }
+            const installId = getInstallIdForNick(room, entry?.nick);
+            if (!installId) return null;
+            return {
+              nick: entry?.nick || "",
+              installId,
+              isBot: false,
+              rank,
+            };
+          })
+          .filter(Boolean);
+        const trophyUpdates = await updateTrophiesForTournament({
+          tournamentId: t.id,
+          participants,
+          now,
+          kBase: TROPHY_K_BASE,
+        });
+        if (trophyUpdates.length) {
+          io.to(room.id).emit("trophiesUpdated", {
+            tournamentId: t.id,
+            updates: trophyUpdates,
+          });
+        }
+      } catch (err) {
+        console.warn(`[${room.id}] Trophy update failed:`, err);
+      }
+
+      const medalDelay = Math.max(0, tournamentSummaryAt - Date.now());
+      setTimeout(() => {
+        if (room.breakState?.breakKind !== "tournament_end") return;
+        for (const award of medalAwards) {
+          addMedal(room, award.nick, award.type, `${room.id}:${t.id}`, t);
+        }
+        emitMedals(room);
+      }, medalDelay);
+
+      resetTournament(room);
+    };
+
+    if (puzzle) {
+      room.infortuneRecentPuzzles = [...(room.infortuneRecentPuzzles || []).slice(-30), puzzle.id];
+      room.infortuneFinale?.dispose();
+      openTournamentFinale = introStartsAt => {
+        room.infortuneFinale = createTournamentWheelFinale({ roomId: room.id, tournamentId: t.id,
+        introStartsAt, startsAt: introStartsAt + INFORTUNE_FINALE_INTRO_MS, puzzle, ranking: totalRanking, ledger: t.infortune,
+        wallet: createFinaleWallet({ persistence: persistenceClient, roomId: room.id, tournamentId: t.id,
+          onBalance: (entry, balance) => {
+            clearThemeProfileResponseCache(entry.installId);
+            emitToInstallId(room, entry.installId, 'gobblarsBalanceUpdated', { balance });
+          } }),
+        onChange: finale => io.to(room.id).emit("infortuneFinale", finale),
+        onWin: (entry, outcome) => {
+          const total = t.totals.get(entry.nick);
+          if (total) t.totals.set(entry.nick, { ...total, points: (total.points || 0) + outcome.points });
+          if (entry.installId && outcome.gobblars > 0) {
+            void persistenceClient.addGobblars({ installId: entry.installId, amount: outcome.gobblars,
+              reason: "infortune_finale", meta: { roomId: room.id, tournamentId: t.id, nick: entry.nick } })
+              .then(result => {
+                if (!result || result.ok === false) return;
+                clearThemeProfileResponseCache(entry.installId);
+                emitToInstallId(room, entry.installId, "gobblarsAwarded", { kind: "infortune_finale",
+                  amount: outcome.gobblars, balance: Number(result.balance) || 0, nick: entry.nick, ts: Date.now() });
+              }).catch(error => console.warn(`[${room.id}] wheel finale reward failed`, error));
+          }
+        },
+        onFinish: finale => {
+          if (room.tournament !== t) return;
+          void settleTournament(finale.ranking).catch(error => console.warn(`[${room.id}] wheel finale settlement failed`, error));
+        },
+        });
+      };
+      // Prevent the avatar cache and ceremony from freezing a provisional podium.
+      tournamentSummary = { id: t.id, ranking: totalRanking, records: t.records, pendingWheel: true };
+    } else await settleTournament(totalRanking);
   }
 
   const nextRoundNumber = (room.roundCounter || 0) + 1;
@@ -11703,10 +11774,35 @@ async function endRoundForRoom(room) {
     await avatarObjectiveProgress.flush();
     await achievementRuntime.settleRound(room, results).catch(error => console.warn("Achievement round settlement failed", error));
   }
+  if (openTournamentFinale) {
+    const schedule = scheduleInfortuneAfterResults({ enabled: true }, Date.now(), endRoundStartedAt, room.resultsPending?.skipOutro ? 0 : undefined);
+    openTournamentFinale(schedule.openedAt);
+    tournamentSummaryAt = room.infortuneFinale.publicSnapshot().podiumAt;
+    breakMs = tournamentSummaryAt + TOURNAMENT_FINAL_BREAK_MS - Date.now();
+  }
+  let advanceWheelClosing;
+  if (infortune) {
+    const wheelRound = room.currentRound;
+    infortune = scheduleInfortuneAfterResults(infortune, Date.now(), endRoundStartedAt, room.resultsPending?.skipOutro ? 0 : undefined);
+    finalizeInfortunePlateaus({ round: wheelRound, roomId: room.id, infortune, players: infortunePlayers, ranking: totalRanking,
+      onReward: createWheelBonusReward({ players: infortunePlayers, persistence: persistenceClient,
+        roomId: room.id, roundId: wheelRound.id, tournamentId,
+        onAward(player, reward) {
+          clearThemeProfileResponseCache(player.installId);
+          emitToInstallId(room, player.installId, 'gobblarsAwarded', reward);
+        } }),
+      ledger: t?.infortune, onEconomyChange: economy => {
+        if (room.currentRound !== wheelRound) return;
+        io.to(room.id).emit("infortuneEconomy", { roomId: room.id, roundId: wheelRound.id, economy });
+        advanceWheelClosing?.(economy);
+      } });
+  }
+  room.resultsPending = null;
   const roundEndedPayload = {
     roomId: room.id,
     roundId: room.currentRound.id,
     infortune,
+    infortuneFinale: room.infortuneFinale?.publicSnapshot() || null,
     training: isTrainingRound,
     targetMiniGame: getTargetMiniGameMetadata(room.currentRound),
     results,
@@ -11763,6 +11859,7 @@ async function endRoundForRoom(room) {
   io.to(room.id).emit("breakStarted", {
     roomId: room.id,
     roundId: room.currentRound.id,
+    infortune,
     nextStartAt,
     breakKind,
     tournament: {
@@ -11774,10 +11871,12 @@ async function endRoundForRoom(room) {
     nextSpecial: nextSpecialForBreak,
     tournamentSummary,
     tournamentSummaryAt,
+    infortuneFinale: room.infortuneFinale?.publicSnapshot() || null,
     targetSummary,
   });
   room.breakState = {
     roundId: room.currentRound.id,
+    infortune,
     nextStartAt,
     breakKind,
     tournament: {
@@ -11789,9 +11888,13 @@ async function endRoundForRoom(room) {
     nextSpecial: nextSpecialForBreak,
     tournamentSummary,
     tournamentSummaryAt,
+    infortuneFinale: room.infortuneFinale?.publicSnapshot() || null,
     targetSummary,
     lastRoundResults: room.lastRoundResults || null,
   };
+  if (infortune) advanceWheelClosing = scheduleWheelClosing({ room, round: room.currentRound,
+    publish: value => io.to(room.id).emit('breakStarted', value), startNext: startRoundForRoom,
+    onError: error => console.warn('startRoundForRoom failed', error) });
   emitRoomsStats();
 
   scheduleLepersResultIntervention(room, lepersResult);
@@ -11823,7 +11926,9 @@ async function endRoundForRoom(room) {
       emitRoundPreparing(room, nextPlan, nextRoundNumber, nextTournamentRoundForBreak);
     }, preparingNoticeDelayMs);
   }
-  setTimeout(() => {
+  // Wheel rounds advance through their collective closing scene. Do not leave a
+  // second next-round timer at the same deadline when the ceiling is reached.
+  if (!infortune) setTimeout(() => {
     if (room.breakState?.nextStartAt !== nextStartAt) return;
     if (breakKind === "tournament_end" || breakKind === "training_end") {
       enterInterTournamentLobby(room);

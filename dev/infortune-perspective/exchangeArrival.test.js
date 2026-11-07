@@ -17,7 +17,9 @@ test("overlays retain real slot geometry and preserve the four special sectors",
   assert.deepEqual([sectors[6].kind, sectors[12].kind, sectors[0].kind, sectors[18].amount], ["bonus", "bankrupt", "pass", 1000]);
   const hundreds = WHEEL_SECTORS.flatMap((sector, index) => sector.amount === 100 ? [index] : []);
   assert.equal(hundreds.length, 3);
-  assert.deepEqual(EXCHANGE_SECTOR_INDICES, hundreds, "Every 100 is covered in round four");
+  assert.equal(EXCHANGE_SECTOR_INDICES.length, 5);
+  assert.ok(EXCHANGE_SECTOR_INDICES.every(index => WHEEL_SECTORS[index].amount <= 200));
+  assert.deepEqual(EXCHANGE_SECTOR_INDICES.map((index, i) => (EXCHANGE_SECTOR_INDICES[(i + 1) % 5] - index + 24) % 24), [4, 5, 5, 5, 5]);
   assert.deepEqual(hundreds.map((index, i) => (hundreds[(i + 1) % 3] - index + 24) % 24), [8, 8, 8]);
 });
 
@@ -74,7 +76,7 @@ test("all overlays land before input is released; a hidden tab pauses and a rese
   assert.equal(progress, before); assert.equal(done, 0);
   hidden = false; for (let i = 0; i < 20; i++) tick();
   assert.equal(done, 1); assert.equal(progress, 1);
-  for (let i = 0; i < 3; i++) assert.ok(Math.abs(exchangeTilePose(progress, i).height) < 1e-9);
+  for (let i = 0; i < EXCHANGE_SECTOR_INDICES.length; i++) assert.ok(Math.abs(exchangeTilePose(progress, i).height) < 1e-9);
   arrival.reset(); arrival.start(); tick(); arrival.dispose();
   assert.equal(frames.size, 0); assert.equal(done, 1);
 });

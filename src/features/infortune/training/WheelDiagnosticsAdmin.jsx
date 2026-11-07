@@ -1,6 +1,14 @@
 import React from "react";
 import { WHEEL_SURVEY, WHEEL_DIAGNOSTIC_STEPS, WHEEL_FLUIDITY } from "../../../../shared/wheelDiagnostic.js";
 import WheelDiagnosticSummary from "./WheelDiagnosticSummary.jsx";
+import { recommendWheelGraphics, wheelGraphicsReason } from "../../../../shared/wheelGraphicsRecommendation.js";
+import { diagnosticProfileLabel } from "../../../../shared/wheelDiagnostic.js";
+
+function Recommendation({ report }) {
+  const recommendation = recommendWheelGraphics(report);
+  return <p><strong>Réglage conseillé par les mesures : {recommendation.profile ? diagnosticProfileLabel(recommendation.profile) : "à mesurer"}.</strong>{" "}
+    {wheelGraphicsReason(recommendation)} {!report.environment.deviceId && "Ancien rapport : appareil non identifié de façon persistante."}</p>;
+}
 
 export default function WheelDiagnosticsAdmin() {
   const [data, setData] = React.useState({ entries: [], total: 0 }), [busy, setBusy] = React.useState(true), [error, setError] = React.useState("");
@@ -29,6 +37,7 @@ export default function WheelDiagnosticsAdmin() {
       <summary><strong>{entry.nick}</strong> · {new Date(entry.createdAt).toLocaleString("fr-FR")} ·
         {WHEEL_SURVEY.find(q => q.id === "preferred").options[entry.report.survey.preferred]} · {entry.report.runs.length} passage(s)</summary>
       <p>{entry.report.environment.userAgent}</p>
+      <Recommendation report={entry.report} />
       <p>Écran : {entry.report.environment.width} × {entry.report.environment.height}, densité {entry.report.environment.pixelRatio} ·
         cœurs annoncés : {entry.report.environment.cores ?? "—"} · mémoire annoncée : {entry.report.environment.memory ?? "—"} Go · compte : {entry.userId ?? "invité"}</p>
       <h2>Ressenti</h2><dl className="wheel-diagnostic__answers">

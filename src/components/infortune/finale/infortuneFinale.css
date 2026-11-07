@@ -11,28 +11,6 @@
 .infortune-finale__bank { min-width: 136px; text-align: right; padding: 10px 20px; border-right: 3px solid #f8cd78; background: linear-gradient(90deg, transparent, #e4b95712); }
 .infortune-finale__bank > span { display: block; text-transform: uppercase; letter-spacing: .12em; color: #bdc9d9; font-size: 10px; }
 .infortune-finale__bank > strong { color: #ffe6aa; font-size: 34px; font-variant-numeric: tabular-nums; }
-.infortune-finale-board { position: relative; padding: 18px clamp(10px, 2vw, 24px) 10px; border: 2px solid #bda16b; border-radius: 26px;
-  background: linear-gradient(155deg, #213b52, #061626 55%, #142534); box-shadow: 0 3px 0 #f4dfaa77 inset, 0 -5px 0 #02081288 inset, 0 14px 0 -4px #02070f, 0 24px 45px #0009, 0 0 65px #319fe716; }
-.infortune-finale-board::before { content: ""; position: absolute; inset: 7px; border: 1px solid #bc99594a; border-radius: 19px; pointer-events: none; }
-.infortune-finale-board__heading { position: relative; display: flex; gap: 12px; align-items: center; justify-content: space-between; padding: 0 8px 14px; }
-.infortune-finale-board__heading > span { color: #ebcc8b; font-size: 10px; text-transform: uppercase; letter-spacing: .12em; }
-.infortune-finale-board__heading h2 { font-size: 16px; font-weight: 600; margin: 0; text-align: center; }
-.infortune-finale-board__screen { position: relative; padding: 20px 8px; border: 1px solid #1e668b; border-radius: 12px; background: radial-gradient(ellipse at 50% 80%, #0b3049, #010c19); box-shadow: inset 0 0 20px #000a, 0 0 12px #38bdf81c; }
-.infortune-finale-board__rows { display: flex; flex-direction: column; justify-content: center; gap: 5px; min-height: 160px; }
-.infortune-finale-board__row { display: grid; grid-template-columns: repeat(var(--finale-columns), minmax(0, 1fr)); gap: 4px; }
-.infortune-finale-tile { display: block; position: relative; aspect-ratio: .76; perspective: 420px; }
-.infortune-finale-tile__rotor { display: block; position: absolute; inset: 0; transform-style: preserve-3d; }
-.infortune-finale-tile__back, .infortune-finale-tile__face { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; border-radius: 3px; backface-visibility: hidden; }
-.infortune-finale-tile__back { border: 1px solid #337fa2; background: linear-gradient(145deg, #20536f, #082c43 75%); box-shadow: inset 0 1px 0 #7be2ff55, 0 2px 1px #000b; }
-.infortune-finale-tile__face { transform: rotateY(180deg); border: 1px solid #d2dacd; background: linear-gradient(140deg, #fffef1, #cee0df); color: #0b2238;
-  box-shadow: inset 0 1px 0 #fff, 0 2px 1px #000b; font-size: clamp(14px, 2.3vw, 28px); line-height: 1; font-weight: 800; }
-.infortune-finale-tile.is-revealed .infortune-finale-tile__rotor { transform: rotateY(180deg); }
-.infortune-finale-tile.is-flipping .infortune-finale-tile__rotor { animation: finale-letter-flip 480ms cubic-bezier(.32, .02, .25, 1) both; }
-.infortune-finale-tile.is-flipping .infortune-finale-tile__face { box-shadow: 0 0 18px #ffe49baa, inset 0 0 7px #fff7d4; }
-.infortune-finale-tile--space .infortune-finale-tile__back, .infortune-finale-tile--space .infortune-finale-tile__face { border: 0; background: transparent; box-shadow: none; }
-.infortune-finale-tile--punctuation .infortune-finale-tile__face { background: transparent; border-color: transparent; color: #f8e1ad; box-shadow: none; }
-.infortune-finale-board__signature { display: flex; align-items: center; justify-content: center; gap: 18px; padding-top: 14px; color: #e9cc8f; font-size: 20px; font-weight: 900; letter-spacing: -.08em; }
-.infortune-finale-board__signature span { height: 2px; width: 24%; background: linear-gradient(90deg, transparent, #5ccbff, transparent); box-shadow: 0 0 7px #38bdf8; }
 .infortune-finale__play { display: grid; grid-template-columns: 1.3fr 1fr; gap: 28px; margin-top: 38px; }
 .infortune-finale-shop, .infortune-finale-answer { min-width: 0; }
 .infortune-finale-shop h2, .infortune-finale-answer h2 { font-size: 19px; margin: 0 0 9px; font-weight: 650; letter-spacing: -.025em; }
@@ -76,7 +54,6 @@
 .infortune-finale-result__rewards { display: flex; flex-wrap: wrap; justify-content: center; gap: 16px; margin: 25px 0; }
 .infortune-finale-result__rewards > span { min-width: 160px; padding: 18px 24px; border: 1px solid #dfbe7655; border-radius: 12px; background: #e6bf6e09; color: #d9c9a8; font-size: 12px; }
 .infortune-finale-result__rewards strong { display: block; font-size: 30px; color: #ffde95; font-variant-numeric: tabular-nums; }
-@keyframes finale-letter-flip { from { transform: rotateY(0); } to { transform: rotateY(180deg); } }
 @keyframes finale-answer-appear { from { opacity: 0; transform: translateY(12px) scale(.94); } to { opacity: 1; transform: none; } }
 @media (max-width: 650px) {
   .infortune-finale__play { grid-template-columns: 1fr; gap: 18px; margin-top: 30px; }
@@ -84,14 +61,6 @@
   .infortune-finale__topline > p { font-size: 8px; letter-spacing: .08em; }
   .infortune-finale__bank { min-width: 100px; padding: 8px 10px; }
   .infortune-finale__bank > strong { font-size: 27px; }
-  .infortune-finale-board { border-radius: 17px; }
-  .infortune-finale-board::before { border-radius: 10px; }
-  .infortune-finale-board__heading { padding-inline: 2px; }
-  .infortune-finale-board__heading > span { font-size: 8px; letter-spacing: 0; }
-  .infortune-finale-board__heading h2 { font-size: 13px; }
-  .infortune-finale-board__screen { padding: 12px 5px; }
-  .infortune-finale-board__row { gap: 3px; }
-  .infortune-finale-tile__face { font-size: clamp(15px, 4vw, 24px); }
   .infortune-finale-shop__keyboard { grid-template-columns: repeat(7, minmax(0, 1fr)); }
   .infortune-finale-shop__keyboard button { min-height: 47px; }
 }

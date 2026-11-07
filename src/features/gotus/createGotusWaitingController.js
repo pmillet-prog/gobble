@@ -25,7 +25,7 @@ export function createGotusWaitingController({ now = Date.now, random = Math.ran
     if (!store.getState().remindersMuted) store.set("dialog", { kind: "reminder" });
   }
 
-  function request(event, payload) {
+  function request(event, payload, timeoutMs = 8000) {
     return new Promise(resolve => {
       let complete = false;
       const finish = response => {
@@ -35,7 +35,7 @@ export function createGotusWaitingController({ now = Date.now, random = Math.ran
         pendingRequests.delete(finish);
         resolve(response || { ok: false });
       };
-      const timer = schedule(() => finish({ ok: false, error: "timeout" }), 8000);
+      const timer = schedule(() => finish({ ok: false, error: "timeout" }), timeoutMs);
       pendingRequests.add(finish);
       config.socket?.emit(event, payload, finish);
     });
@@ -113,8 +113,22 @@ export function createGotusWaitingController({ now = Date.now, random = Math.ran
     return true;
   }
 
-  function requestEntry(enter) {
+  async function requestEntry(enter) {
+    if (store.getState().busy) return false;
     if (!shouldOfferGotus(room())) { enter?.(); return false; }
+    const version = ++generation, roomId = identity().roomId;
+    store.patch({ busy: true, dialog: null });
+    const connected = await ensureConnected();
+    if (!mounted || version !== generation) return false;
+    const participation = connected ? await request('tournament:participation', { roomId }, 2500) : null;
+    if (!mounted || version !== generation) return false;
+    store.set('busy', false);
+    if (identity().roomId !== roomId) return false;
+    // This is an optional invitation. An unavailable check must not obstruct
+    // a returning player's normal login or trigger a misleading invitation.
+    if (!participation?.ok || participation.participated || !shouldOfferGotus(room())) {
+      enter?.(); return false;
+    }
     pendingEntry = enter;
     const index = Math.min(GOTUS_WAITING_INVITATIONS.length - 1, Math.floor(random() * GOTUS_WAITING_INVITATIONS.length));
     store.set("dialog", { kind: "offer", message: GOTUS_WAITING_INVITATIONS[index] });

@@ -1,4 +1,5 @@
 import { CanvasTexture, SRGBColorSpace } from "three";
+import { createRenderCanvas } from './wheelRenderPlatform.js';
 import { sectorLetteringLayout, measureSectorGlyph, drawSectorGlyph } from "./sectorLetteringLayout.js";
 
 function textureFrom(canvas) {
@@ -8,7 +9,7 @@ function textureFrom(canvas) {
 }
 
 export function createSectorLettering(sector) {
-  const canvas = document.createElement("canvas");
+  const canvas = createRenderCanvas();
   canvas.width = 256; canvas.height = 640;
   const context = canvas.getContext("2d");
   context.scale(256 / 72, 640 / 178); context.textAlign = "center";

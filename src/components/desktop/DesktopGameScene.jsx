@@ -48,6 +48,8 @@ import OcidVoteOptionsGrid from "../ocid/OcidVoteOptionsGrid.jsx";
 import DesktopOcidPanel from "../ocid/DesktopOcidPanel.jsx";
 import TrainingPlayerBadge, { GotusTrainingBadge } from "../training/TrainingPlayerBadge.jsx";
 import useDesktopSceneLayout from "./useDesktopSceneLayout.js";
+import { GameBalanceSlot } from "../../features/gobblars/GameBalances.jsx";
+import InfortuneScheduleLabel from "../../features/infortune/InfortuneScheduleLabel.jsx";
 
 export default function DesktopGameScene({ runtime }) {
   const targetSourceRef = useTargetQuizTargetSource(runtime.targetWaitDevActive);
@@ -430,13 +432,15 @@ export default function DesktopGameScene({ runtime }) {
         className="desktop-game-shell w-full"
         style={{ "--desktop-ui-scale": desktopUiScale }}
       >      <div className="desktop-game-topbar">
-        <div className="desktop-game-topbar-inner flex items-center bg-white border shadow-sm">
+        <div className="desktop-game-topbar-inner flex items-center bg-white border shadow-sm" data-playing={phase === 'playing'}>
+          <GameBalanceSlot kind="wallet" />
           <div className="desktop-game-brand flex min-w-0 items-center shrink-0">
             <div className="desktop-game-brand-title font-extrabold tracking-tight leading-none">GOBBLE</div>
-            <div className="desktop-game-brand-subtitle min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-gray-500 leading-none">Boggle en ligne</div>
+            <div className="desktop-game-brand-subtitle min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-gray-500 leading-none"><InfortuneScheduleLabel>Boggle en ligne</InfortuneScheduleLabel></div>
           </div>
 
           <div className="desktop-game-room-wrap flex min-w-0 items-center text-gray-700">
+            {phase === 'playing' && <strong className="desktop-game-clock" aria-label="Temps restant"><RoundClockSeconds /></strong>}
             <span className="desktop-game-room max-w-full overflow-hidden text-ellipsis whitespace-nowrap rounded-full bg-gray-100 border border-gray-200">
               {standaloneTrainingSession?.label ? (
                 <>{standaloneTrainingSession.label}</>
@@ -460,29 +464,7 @@ export default function DesktopGameScene({ runtime }) {
             </span>
           </div>
 
-          <div className="flex-1" />
-
           <div className="desktop-game-top-actions flex shrink-0 items-center">
-            <button
-              onClick={toggleDarkModeQuick}
-              className="desktop-game-top-button font-semibold rounded-lg border bg-gray-100 hover:bg-gray-200 flex items-center justify-center"
-              title={darkMode ? "Passer en mode clair" : "Passer en mode sombre"}
-              aria-label={darkMode ? "Passer en mode clair" : "Passer en mode sombre"}
-            >
-              <span className="desktop-game-top-icon material-icons-outlined leading-none" aria-hidden="true">
-                {darkMode ? "light_mode" : "dark_mode"}
-              </span>
-            </button>
-            <button
-              onClick={toggleSoundQuick}
-              className="desktop-game-top-button font-semibold rounded-lg border bg-gray-100 hover:bg-gray-200 flex items-center justify-center"
-              title={allSoundOn ? "Couper le son" : "Activer le son"}
-              aria-label={allSoundOn ? "Couper le son" : "Activer le son"}
-            >
-              <span className="desktop-game-top-icon material-icons-outlined leading-none" aria-hidden="true">
-                {allSoundOn ? "volume_up" : "volume_off"}
-              </span>
-            </button>
             <button
               onClick={() => setIsSettingsOpen(true)}
               className="desktop-game-top-button font-semibold rounded-lg border bg-gray-100 hover:bg-gray-200 flex items-center justify-center"
@@ -493,6 +475,7 @@ export default function DesktopGameScene({ runtime }) {
               <span className="sr-only">Parametres</span>
             </button>
           </div>
+          <GameBalanceSlot kind="bank" />
         </div>
       </div>
 
@@ -926,7 +909,7 @@ export default function DesktopGameScene({ runtime }) {
                 }
           }
         >
-          {!isMobileLayout && (
+          {!isMobileLayout && phase !== 'playing' && (
             <div
               className="w-full shrink-0 flex justify-center overflow-hidden"
               style={{
@@ -945,24 +928,6 @@ export default function DesktopGameScene({ runtime }) {
                     : undefined
                 }
               >
-                {phase === "playing" ? (
-                  <div className="flex items-center justify-center">
-                    <div
-                      className={`font-black tabular-nums leading-none ${
-                        darkMode ? "text-slate-50" : "text-slate-800"
-                      }`}
-                      aria-label="Temps restant"
-                      style={{
-                        fontSize: `${Math.max(
-                          18,
-                          Math.round(52 * desktopGridUiScale)
-                        )}px`,
-                      }}
-                    >
-                      <RoundClockSeconds />
-                    </div>
-                  </div>
-                ) : (
                   <AutoScaleInline minScale={0.5} measurePaddingPx={2}>
                     <div
                       className="inline-flex items-center gap-2 whitespace-nowrap"
@@ -973,12 +938,11 @@ export default function DesktopGameScene({ runtime }) {
                         )}px`,
                       }}
                     >
-                      {countdownLines.map((line, idx) => (
+                      <InfortuneScheduleLabel>{countdownLines.map((line, idx) => (
                         <span key={`${line}-${idx}`}>{line}</span>
-                      ))}
+                      ))}</InfortuneScheduleLabel>
                     </div>
                   </AutoScaleInline>
-                )}
               </div>
             </div>
           )}

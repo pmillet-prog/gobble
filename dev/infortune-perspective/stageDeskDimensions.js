@@ -11,8 +11,8 @@ export const DESK_TOP_SURFACE_Y = DESK.topBaseY + DESK.topDepth + DESK.bevel;
 export const DESK_FRONT_TOP_SURFACE_Y = DESK.frontTopBaseY + DESK.topDepth + DESK.bevel;
 export const DESK_TRIM_Y = DESK.topBaseY + DESK.topDepth;
 export const DESK_SCREEN_TEXT = Object.freeze({
-  arcWidth: 0.66, topY: 96, bottomY: 40,
-  nameY: 87, amountY: 66, captionY: 44,
+  arcWidth: 0.82, topY: 103, bottomY: 12,
+  nameY: 87, amountY: 52, captionY: 20,
 });
 
 export function deskTopBaseAt(angle) {

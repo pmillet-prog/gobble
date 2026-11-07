@@ -1,17 +1,16 @@
 import { MAX_LAUNCH_SPEED, MIN_LAUNCH_SPEED } from "./wheelConfig.js";
 import { createWheelSkillShot, GESTURE_MODES } from "./wheelSkillShot.js";
 export const MINIMUM_LAUNCH_POWER = MIN_LAUNCH_SPEED / MAX_LAUNCH_SPEED;
-export const PERFECT_WINDOW = 0.028;
-export const GOOD_WINDOW = 0.11;
+export const PERFECT_WINDOW = 0.022;
+export const GOOD_WINDOW = 0.055;
 export const DEFAULT_LAUNCH_REWARDS = Object.freeze({ good: 50, perfect: 100 });
-const fraction = value => value - Math.floor(value);
 
 // The one visible power target stays fixed during an attempt. It never chooses
 // a sector or modifies the velocity supplied to the physical simulation.
-export function launchChallenge(attempt = 0) {
+export function launchChallenge(random = Math.random) {
   return Object.freeze({
-    power: 0.55 + 0.22 * fraction((attempt + 1) * 0.41421356237),
-    powerDuration: 440 + 120 * fraction((attempt + 1) * 0.2360679775),
+    power: 0.48 + 0.40 * random(),
+    powerDuration: 440 + 160 * random(),
   });
 }
 
@@ -34,7 +33,10 @@ export function launchQuality(power, challenge, rewards = DEFAULT_LAUNCH_REWARDS
 // measured gesture (or chosen click power) supplies the physical impulse;
 // the reward calculation never changes it.
 export function createWheelLaunchGame(options = {}) {
-  let attempt = 0, challenge = launchChallenge(attempt);
+  // Tournament rounds mount a fresh controller. Drawing here prevents every
+  // round from repeating the same target and the same first-click rhythm.
+  const random = options.random ?? Math.random;
+  let attempt = 0, challenge = launchChallenge(random);
   let rewards = { ...DEFAULT_LAUNCH_REWARDS }, stage = "idle", startTime = 0, chosenPower = 0;
   let gestureMode = "power", skill = null, skillResult = null;
   function configure(value = {}) {
@@ -56,7 +58,7 @@ export function createWheelLaunchGame(options = {}) {
   }
   return {
     view, configure, cancel,
-    next() { if (stage === "launched") challenge = launchChallenge(++attempt); cancel(); },
+    next() { if (stage === "launched") { attempt++; challenge = launchChallenge(random); } cancel(); },
     beginDrag(point, time) { cancel(); stage = "drag"; skill = createWheelSkillShot(gestureMode, point, time, attempt); },
     recordGesture(point, time, travel) { skill?.record(point, time, travel); },
     gestureVelocity(time, fallback) { return skill ? skill.velocity(time) : fallback; },

@@ -15,6 +15,7 @@ function ChatRulesDialog({ appearance, rules }) {
   const { darkMode } = appearance;
   return (
     <div
+      data-chat-overlay="true"
       className="fixed inset-0 z-[20060] flex items-center justify-center bg-black/50 px-4"
       onClick={rules.onCancel}
     >
@@ -71,7 +72,7 @@ function UserMenu({ appearance, menu }) {
   if (!state.open || typeof document === "undefined") return null;
   const { darkMode } = appearance;
   return createPortal(
-    <div className="fixed inset-0 z-[20060]" onClick={menu.onClose}>
+    <div data-chat-overlay="true" className="fixed inset-0 z-[20060]" onClick={menu.onClose}>
       <div
         role="dialog" aria-label={`Actions pour ${state.nick}`}
         className={`fixed w-[280px] max-w-[calc(100vw-24px)] max-h-[calc(100dvh-24px)] overflow-y-auto rounded-2xl border p-3 text-base shadow-2xl ${
@@ -157,7 +158,7 @@ function ReactionPicker({ appearance, reactions }) {
   if (!picker.open || typeof document === "undefined") return null;
   const { darkMode } = appearance;
   return createPortal(
-    <div className="fixed inset-0 z-[20060]" onClick={reactions.onClosePicker}>
+    <div data-chat-overlay="true" className="fixed inset-0 z-[20060]" onClick={reactions.onClosePicker}>
       <div
         className={`fixed rounded-2xl border px-2 py-2 shadow-lg ${
           darkMode
@@ -197,6 +198,7 @@ function ReactionDetails({ appearance, reactions }) {
   const { darkMode } = appearance;
   return createPortal(
     <div
+      data-chat-overlay="true"
       className={`fixed z-[20065] w-[230px] rounded-xl border p-2 shadow-xl ${
         darkMode
           ? "bg-slate-900 border-slate-700 text-slate-100"
@@ -244,6 +246,7 @@ function ReportDialog({ appearance, report }) {
   const { darkMode } = appearance;
   return (
     <div
+      data-chat-overlay="true"
       className="fixed inset-0 z-[20061] flex items-center justify-center bg-black/50 px-4"
       onClick={report.onClose}
     >
@@ -323,13 +326,14 @@ function ReportDialog({ appearance, report }) {
 }
 
 export default function ChatInteractionOverlays({ appearance, reactions, report, rules, userMenu }) {
-  return (
+  if (typeof document === 'undefined') return null;
+  return createPortal(
     <>
       <ChatRulesDialog appearance={appearance} rules={rules} />
       <UserMenu appearance={appearance} menu={userMenu} />
       <ReactionPicker appearance={appearance} reactions={reactions} />
       <ReactionDetails appearance={appearance} reactions={reactions} />
       <ReportDialog appearance={appearance} report={report} />
-    </>
+    </>, document.body
   );
 }

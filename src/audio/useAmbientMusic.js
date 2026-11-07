@@ -1,6 +1,7 @@
 import React from "react";
 
 import { resolveSoundSettings } from "./equalizer";
+import { gameAudioFocus } from '../features/audio/gameAudioFocus.js';
 import {
   SOUND_MASTER_VOLUME_DEFAULT,
   normalizeSoundMasterVolume,
@@ -244,7 +245,7 @@ export default function useAmbientMusic({
 
   const startAmbientMusic = React.useCallback(
     ({ silent = false, fadeMs = null } = {}) => {
-      if (isAmbientMutedRef?.current) return;
+      if (isAmbientMutedRef?.current || gameAudioFocus.store.getState().ambient) return;
       const tracks = ambientTracksRef?.current || [];
       if (!tracks.length) return;
       const audio = ensureAmbientAudio();
@@ -370,6 +371,11 @@ export default function useAmbientMusic({
       stopAmbientMusic,
     ]
   );
+
+  React.useEffect(() => {
+    const sync = () => { if (gameAudioFocus.store.getState().ambient) stopAmbientMusic({ immediate: true, keepAlive: false }); };
+    sync(); return gameAudioFocus.store.subscribe(sync);
+  }, [stopAmbientMusic]);
 
   return {
     ambientMusicRef,

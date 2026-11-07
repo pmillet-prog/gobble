@@ -2,6 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { getTournamentPodiumEntries, getTournamentPodiumMedals, resolveTournamentPodiumSummary } from "./tournamentPodiumModel.js";
 
+test("the wheel's provisional ranking cannot freeze podium avatars or start the ceremony", () => {
+  assert.equal(resolveTournamentPodiumSummary({ id: "t1", pendingWheel: true, ranking: [{ nick: "Alice", points: 30 }] }), null);
+});
+
 const ranking = Object.freeze([
   Object.freeze({ nick: "Bernard Pinot", isBot: true, points: 90, pos: 1 }),
   Object.freeze({ nick: "Laurent Bafouille", isBot: true, points: 85, pos: 2 }),

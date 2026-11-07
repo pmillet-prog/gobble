@@ -1,5 +1,6 @@
 import React from "react";
 import { getVocabTickFrequency } from "./vocabTickSound.js";
+import { isAudioPageHidden } from './foregroundAudio.js';
 
 import AssetManager from "../assets/assetManager";
 import { SFX_KEYS } from "../assets/assetKeys";
@@ -61,6 +62,9 @@ export default function useGameSounds({
   const introCountdownPlayedRoundRef = React.useRef(null);
   const roundStartPendingRef = React.useRef(null);
   const roundStartRetryRef = React.useRef(false);
+  const roundStartRetryCleanupRef = React.useRef(null);
+
+  React.useEffect(() => () => roundStartRetryCleanupRef.current?.(), []);
 
   function isPlayingContext() {
     return phaseRef?.current === "playing";
@@ -116,6 +120,8 @@ export default function useGameSounds({
   }
 
   function stopRoundEndTickSound({ fadeMs = 120 } = {}) {
+    AssetManager.cancelQueuedSfx(SFX_KEYS.tictac10);
+    AssetManager.cancelQueuedSfx(SFX_KEYS.coeur);
     const handle = roundEndTickHandleRef.current;
     if (!handle) return;
     if (fadeMs > 0) handle.fadeOut?.(fadeMs);
@@ -124,6 +130,9 @@ export default function useGameSounds({
   }
 
   function stopRoundStartSound({ fadeMs = 120 } = {}) {
+    AssetManager.cancelQueuedSfx(SFX_KEYS.roundStart);
+    roundStartPendingRef.current = null;
+    roundStartRetryCleanupRef.current?.();
     if (roundStartStopTimerRef.current) {
       clearTimeout(roundStartStopTimerRef.current);
       roundStartStopTimerRef.current = null;
@@ -153,6 +162,7 @@ export default function useGameSounds({
   }
 
   function playTickSound({ isTargetRound } = {}) {
+    if (isAudioPageHidden()) return;
     if (!soundTimerEnabled) return;
     if (isSfxMuted) return;
     if (!isPlayingContext()) return;
@@ -163,6 +173,7 @@ export default function useGameSounds({
     roundEndTickHandleRef.current = playOneShotAudio?.(assetKey, {
       cooldownKey: "tick",
       eqKey: soundKey,
+      allowQueue: false,
     });
   }
 
@@ -235,12 +246,21 @@ export default function useGameSounds({
   function scheduleRoundStartRetry(roundKey) {
     if (roundStartRetryRef.current) return;
     roundStartRetryRef.current = true;
-    const retry = () => {
+    const clear = () => {
+      window.removeEventListener('pointerdown', retry);
+      window.removeEventListener('touchstart', retry);
+      window.removeEventListener('keydown', retry);
       roundStartRetryRef.current = false;
+      roundStartRetryCleanupRef.current = null;
+    };
+    const retry = () => {
+      clear();
+      if (isAudioPageHidden()) return;
       if (!isPlayingContext()) return;
       if (roundKey && roundIdRef?.current && roundIdRef.current !== roundKey) return;
       playRoundStartSound();
     };
+    roundStartRetryCleanupRef.current = clear;
     window.addEventListener("pointerdown", retry, { once: true });
     window.addEventListener("touchstart", retry, { once: true });
     window.addEventListener("keydown", retry, { once: true });
@@ -263,6 +283,7 @@ export default function useGameSounds({
   }
 
   function playRoundStartSound() {
+    if (isAudioPageHidden()) return;
     if (!soundTimerEnabled) return;
     if (isSfxMuted) return;
     if (!isPlayingContext()) return;
@@ -456,7 +477,7 @@ export default function useGameSounds({
     if (!system) return;
     const { ctx } = system;
     const start = () => {
-      if (ctx.state !== "running") return;
+      if (isAudioPageHidden() || ctx.state !== "running") return;
       const now = ctx.currentTime + 0.01;
       const master = ctx.createGain();
       master.gain.setValueAtTime(humanizeGain(0.9, 1.0), now);
@@ -553,7 +574,7 @@ export default function useGameSounds({
     if (!system) return;
     const { ctx } = system;
     const start = () => {
-      if (ctx.state !== "running") return;
+      if (isAudioPageHidden() || ctx.state !== "running") return;
       const now = ctx.currentTime + 0.008;
       const master = ctx.createGain();
       master.gain.setValueAtTime(humanizeGain(0.95, 0.8), now);

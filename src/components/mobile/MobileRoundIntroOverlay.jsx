@@ -7,6 +7,7 @@ import { createPortal } from "react-dom";
 import { getRoundBonusPresentation } from "../../features/round/roundBonusPresentation.js";
 import RoundBonusAnnouncement from "../round/RoundBonusAnnouncement.jsx";
 import { RELEASE_SCOPE } from "../../../shared/releaseScope.js";
+import GameBalances from "../../features/gobblars/GameBalances.jsx";
 
 function clampValue(value, min, max) {
   return Math.max(min, Math.min(max, value));
@@ -151,6 +152,7 @@ function MobileRoundIntroOverlay({
       style={{ zIndex: overlayZIndex }}
     >
       {showsBackdrop ? <div className={`absolute inset-0 bg-black ${backdropClass}`} /> : null}
+      {isMobileLayout && showsBackdrop ? <GameBalances className="game-balances--intro" /> : null}
       {showsTitle && styleForRender ? (
         <div
           className={`fixed flex flex-col items-center justify-center rounded-2xl border-2 px-4 py-5 text-center ${bonusPreview ? "round-intro-title bg-black/[0.82]" : "bg-black/82"}${bonus ? " round-intro-title--bonus" : ""}`}

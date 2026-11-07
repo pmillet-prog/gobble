@@ -1269,6 +1269,7 @@ export default function ChatContent({
       {ownMessageMenu && !isSystemTab && typeof document !== "undefined"
         ? createPortal(
             <div
+              data-chat-menu="actions"
               className={`chat-reaction-portal fixed inset-0 z-[20130] ${
                 isNotebookVariant ? "chat-reaction-portal-notebook" : ""
               }`}
@@ -1362,6 +1363,7 @@ export default function ChatContent({
       {reactionPicker && !isSystemTab && typeof document !== "undefined"
         ? createPortal(
             <div
+              data-chat-menu="reactions"
               className={`fixed inset-0 z-[20130] ${
                 isNotebookVariant ? "chat-reaction-portal-notebook" : ""
               }`}
@@ -1444,6 +1446,7 @@ export default function ChatContent({
       {reactionDetails && typeof document !== "undefined"
         ? createPortal(
             <div
+              data-chat-menu="details"
               className={`chat-reaction-details-portal fixed inset-0 z-[20140] bg-black/45 flex items-center justify-center px-4 ${
                 isNotebookVariant ? "chat-reaction-portal-notebook" : ""
               }`}

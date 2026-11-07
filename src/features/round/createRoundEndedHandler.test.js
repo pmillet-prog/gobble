@@ -50,3 +50,13 @@ test("this release ignores an unfinished wheel even if an older server advertise
   const value = { roomId: "room", roundId: "round", targetSummary: { ocid: true }, infortune: { enabled: true } };
   handler(value); assert.equal(received, value);
 });
+
+test("OCID displays results directly before the independently scheduled wheel", () => {
+  const calls = [];
+  const handler = createRoundEndedHandler({ infortuneEnabled: true, shouldHandleLiveRoundSocketEvents: () => true,
+    phaseRef: { current: "playing" }, processRoundEndedRef: { current: () => calls.push("results") },
+    playOutroThenResultsRef: { current: () => calls.push("wheel") } });
+  handler({ targetSummary: { ocid: true }, infortune: { enabled: true } });
+  handler({ targetSummary: { ocid: true } });
+  assert.deepEqual(calls, ["results", "results"]);
+});

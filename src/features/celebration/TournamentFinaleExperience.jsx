@@ -7,6 +7,7 @@ import TournamentPodium from "./TournamentPodium.jsx";
 import { loadTournamentFinaleRanking } from "./loadTournamentFinale.js";
 import { PODIUM_RANKING_DELAY_MS } from "./celebrationTimeline.js";
 import "./tournamentFinaleExperience.css";
+import GameBalances from "../gobblars/GameBalances.jsx";
 
 const TournamentFinaleScreen = React.lazy(loadTournamentFinaleRanking);
 
@@ -56,13 +57,14 @@ export default function TournamentFinaleExperience(props) {
     const timer = setTimeout(dismiss, PODIUM_RANKING_DELAY_MS);
     return () => clearTimeout(timer);
   }, [completedKey, dismissed, dismiss, resources, tournamentKey]);
-  React.useEffect(() => { if (!dismissed) closeRef.current?.focus({ preventScroll: true }); }, [dismissed]);
+  React.useEffect(() => { if (!dismissed && !document.querySelector('[data-chat-panel]')) closeRef.current?.focus({ preventScroll: true }); }, [dismissed]);
   if (dismissed) return <Suspense fallback={null}><TournamentFinaleScreen {...props} /></Suspense>;
   return <>
     <main className="tournament-celebration-screen" onKeyDown={event => {
       if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); dismiss(); }
     }}>
       <div className="tournament-celebration-toolbar"><span>Mini-tournoi terminé</span>
+        <GameBalances />
         <button ref={closeRef} type="button" onClick={dismiss} aria-label="Fermer la célébration et voir le classement complet">
           Voir le classement complet <span aria-hidden="true">×</span>
         </button>

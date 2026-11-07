@@ -3,10 +3,12 @@ import { createBufferedTrack } from "./createBufferedTrack.js";
 import { DRUMS_START_SPEED, resultSoundVariant } from "./wheelSoundPlan.js";
 import { createWheelAudience } from "./wheelAudienceReactions.js";
 import { createWheelAudioPreload } from "./wheelAudioPreload.js";
+import { exchangeImpact } from "../../shared/infortuneExchangePlan.js";
+import { createExchangeArrivalSound } from "./createExchangeArrivalSound.js";
 
 export function createWheelSoundtrack(options) {
   const preload = createWheelAudioPreload(options.fetchAudio);
-  let player = null, disposed = false, muted = false, hidden = false, prepared = false;
+  let player = null, disposed = false, muted = false, introMuted = false, hidden = false, prepared = false;
   let camera = { sequence: "intro", time: 0, playing: false };
   const status = value => { if (!disposed) options.onStatus?.(value); };
   return {
@@ -14,6 +16,7 @@ export function createWheelSoundtrack(options) {
       if (disposed || prepared) return;
       prepared = true; status("blocked");
       void preload.prime(options.urls.intro).catch(() => { if (!player) status("error"); });
+      for (const clip of options.urls.exchangeArrival || []) void preload.prime(clip.url).catch(() => {});
     },
     syncCamera(value) { camera = value; player?.syncCamera(value); },
     handleWheel(value) { player?.handleWheel(value); },
@@ -23,11 +26,12 @@ export function createWheelSoundtrack(options) {
       // that this document already permits audio. Never create on a cold mount.
       if (!player) {
         player = createActiveWheelSoundtrack({ ...options, fetchAudio: preload.fetch, onStatus: status });
-        player.setMuted(muted); player.setHidden(hidden); player.syncCamera(camera); player.prepare();
+        player.setIntroMuted(introMuted); player.setMuted(muted); player.setHidden(hidden); player.syncCamera(camera); player.prepare();
       }
       await player.unlock();
     },
     setMuted(value) { muted = value; player?.setMuted(value); },
+    setIntroMuted(value) { introMuted = !!value; player?.setIntroMuted(introMuted); },
     setHidden(value) { hidden = value; player?.setHidden(value); },
     preview: id => player?.preview(id), previewAudience: id => player?.previewAudience(id),
     dispose() { disposed = true; player?.dispose(); preload.dispose(); },
@@ -40,6 +44,7 @@ function createActiveWheelSoundtrack({ urls, onStatus, fetchAudio = globalThis.f
   let context;
   try { context = createContext(); } catch { context = null; }
   const intro = createIntroAudio({ url: urls.intro, onStatus, fetchAudio, createContext: () => context });
+  const arrival = createExchangeArrivalSound({ context, clips: urls.exchangeArrival, random, fetchAudio });
   const tracks = [];
   const track = options => {
     if (!context) return null;
@@ -51,7 +56,7 @@ function createActiveWheelSoundtrack({ urls, onStatus, fetchAudio = globalThis.f
     [id, track({ url, volume: 0.9, duration: 3, fadeIn: 0.01, fadeOut: 0.12 })]));
   const audience = createWheelAudience({ urls: urls.audience, track, random });
   let spin = { phase: "ready", id: 0, elapsed: 0 }, result = null, drumsStartedAt = null;
-  let hidden = false, interrupted = false;
+  let hidden = false, interrupted = false, muted = false, introMuted = false;
   let camera = { sequence: "intro", time: 0, playing: false }, generation = 0, preview = 0;
   let preparation = null, disposed = false;
   function syncMusic() {
@@ -82,22 +87,29 @@ function createActiveWheelSoundtrack({ urls, onStatus, fetchAudio = globalThis.f
     } else if (event.type === "spin") {
       if (event.progress.id !== spin.id) drumsStartedAt = null;
       spin = event.progress;
+      audience.spinning(spin);
       // Latch once: reversals and spring rebounds cannot restart / interrupt
       // the roll. Its endpoint is the physical rest event, never camera time.
       if (spin.phase === "spinning" && drumsStartedAt === null && Math.abs(spin.velocity) / (Math.PI * 2) <= DRUMS_START_SPEED) {
         drumsStartedAt = spin.elapsed;
       }
       syncMusic();
+    } else if (event.type === "exchange") {
+      const impact = exchangeImpact(event.exchange, event.selfId);
+      if (impact) audience.exchange(impact, event.id);
+    } else if (event.type === "exchange-arrival") {
+      arrival.sync(event.progress);
     } else if (event.type === "suspend") {
       interrupted = true;
       for (const player of tracks) player.setSuspended(true);
+      arrival.setSuspended(true);
       intro.sync({ ...camera, playing: false });
     }
   }
   return {
     prepare() {
       preparation ||= (async () => {
-        await intro.prepare();
+        await Promise.all([intro.prepare(), arrival.prepare()]);
         for (const player of tracks) {
           if (disposed) return;
           await player.prepare();
@@ -107,11 +119,13 @@ function createActiveWheelSoundtrack({ urls, onStatus, fetchAudio = globalThis.f
       return preparation;
     },
     syncCamera, handleWheel,
-    async unlock() { await intro.unlock(); if (!hidden && !interrupted) for (const player of tracks) player.setSuspended(false); },
-    setMuted(value) { intro.setMuted(value); for (const player of tracks) player.setMuted(value); },
+    async unlock() { await intro.unlock(); if (!hidden && !interrupted) { for (const player of tracks) player.setSuspended(false); arrival.setSuspended(false); } },
+    setMuted(value) { muted = !!value; intro.setMuted(muted || introMuted); for (const player of tracks) player.setMuted(muted); arrival.setMuted(muted); },
+    setIntroMuted(value) { introMuted = !!value; intro.setMuted(muted || introMuted); },
     setHidden(value) {
       hidden = value;
       for (const player of tracks) player.setSuspended(value || interrupted);
+      arrival.setSuspended(value || interrupted);
       if (value) intro.sync({ ...camera, playing: false });
     },
     preview(id) {
@@ -125,6 +139,6 @@ function createActiveWheelSoundtrack({ urls, onStatus, fetchAudio = globalThis.f
       for (const player of Object.values(results)) player?.sync({ active: false });
       audience.preview(id);
     },
-    dispose() { disposed = true; for (const player of tracks) player.dispose(); intro.dispose(); },
+    dispose() { disposed = true; for (const player of tracks) player.dispose(); arrival.dispose(); intro.dispose(); },
   };
 }

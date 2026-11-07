@@ -41,7 +41,7 @@ export function createStageSet(contestants = STAGE_CONTESTANTS, { screenTextureW
 
   // No lit wall, slats or title board behind the portraits: only the lights
   // and their atmospheric glow will be visible against the black background.
-  return { root, setBanks: screen.setBanks, reflectiveMaterials: [top, frontMaterial, shoulderMaterial, trim], reflectionSurfaces: [
+  return { root, setBanks: screen.setBanks, setSelected: screen.setSelected, reflectiveMaterials: [top, frontMaterial, shoulderMaterial, trim], reflectionSurfaces: [
     { surface: frontSurface, height: DESK_FRONT_TOP_SURFACE_Y, resolution: 512 },
     { surface: rearSurface, height: DESK_TOP_SURFACE_Y, resolution: 256 },
   ] };

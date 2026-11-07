@@ -1,0 +1,45 @@
+.wheel-guide { margin: auto; padding: 0; width: min(1100px, calc(100vw - 32px)); max-width: none; max-height: min(850px, calc(100dvh - 32px)); border: 1px solid #d6b46f; border-radius: 24px; color: #193047; background: #fffaf0; box-shadow: 0 28px 100px #020b25a8; font: 16px/1.5 system-ui,sans-serif; overflow: hidden; }
+.wheel-guide[open] { display: flex; flex-direction: column; }
+.wheel-guide::backdrop { background: #061426ce; backdrop-filter: blur(5px); }
+.wheel-guide * { box-sizing: border-box; }
+.wheel-guide button { font: inherit; cursor: pointer; border: 1px solid #d6c69f; border-radius: 11px; background: #fff; color: #1b354d; min-height: 44px; padding: 8px 16px; font-weight: 750; }
+.wheel-guide :focus-visible { outline: 3px solid #078090; outline-offset: 3px; }
+.wheel-guide__header { display: flex; align-items: center; justify-content: space-between; min-height: 56px; padding: 10px 24px; background: #122b43; color: #ffe6a5; font-size: 12px; font-weight: 800; letter-spacing: .12em; flex-shrink: 0; }
+.wheel-guide__header button { min-height: 32px; padding: 3px 10px; border-color: #f5d48b55; color: #fff; background: transparent; }
+.wheel-guide__steps { display: flex; gap: 24px; padding: 18px 26px 8px; flex-shrink: 0; }
+.wheel-guide__steps span { display: flex; align-items: center; gap: 9px; font-size: 13px; color: #69737b; font-weight: 650; }
+.wheel-guide__steps b { border: 1px solid #d9cfb5; border-radius: 50%; width: 28px; height: 28px; display: grid; place-items: center; }
+.wheel-guide__steps [aria-current] { color: #087584; }
+.wheel-guide__steps [aria-current] b { background: #087584; border-color: #087584; color: #fff; }
+.wheel-guide__scroll { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.wheel-guide__page { display: grid; grid-template-columns: minmax(0,1.04fr) minmax(0,1fr); gap: 26px; padding: 18px 26px 24px; align-items: center; animation: wheel-guide-in 240ms ease-out; }
+.wheel-guide figure { margin: 0; min-width: 0; }
+.wheel-guide img { display: block; width: 100%; height: auto; border-radius: 14px; border: 1px solid #c4d0da; box-shadow: 0 10px 30px #15334a1a; }
+.wheel-guide figcaption { color: #566673; font-size: 12px; margin-top: 8px; text-align: center; }
+.wheel-guide h2 { font-size: clamp(24px, 2.6vw, 32px); font-weight: 800; line-height: 1.12; letter-spacing: -.035em; margin: 0 0 16px; }
+.wheel-guide h2:focus { outline: none; }
+.wheel-guide p { margin: 0 0 13px; }
+.wheel-guide ol { list-style: decimal; padding-left: 22px; margin: 0 0 16px; }
+.wheel-guide li::marker { color: #087584; font-weight: 800; }
+.wheel-guide li { padding-left: 3px; margin-bottom: 10px; }
+.wheel-guide aside { border-left: 4px solid #13818b; border-radius: 0 10px 10px 0; padding: 12px 14px; background: #e5f1ec; font-size: 14px; }
+.wheel-guide .wheel-guide__small { font-size: 12px; color: #586570; margin: 12px 0 0; }
+.wheel-guide footer { flex-shrink: 0; display: flex; justify-content: space-between; align-items: center; padding: 14px 26px; border-top: 1px solid #e5dabc; background: #fffdf7; gap: 10px; }
+.wheel-guide footer > span { color: #61717d; font-size: 13px; white-space: nowrap; }
+.wheel-guide footer > div { display: flex; gap: 10px; }
+.wheel-guide .wheel-guide__next { color: #fff; border-color: #086875; background: #087b89; }
+@keyframes wheel-guide-in { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: none; } }
+@media (max-width: 700px) {
+  .wheel-guide { width: calc(100vw - 16px); max-height: calc(100dvh - 16px); border-radius: 18px; font-size: 14px; }
+  .wheel-guide__header { padding: 10px 16px; min-height: 46px; font-size: 10px; letter-spacing: .08em; }
+  .wheel-guide__steps { gap: 12px; padding: 13px 16px 4px; justify-content: space-between; }
+  .wheel-guide__steps span { font-size: 11px; gap: 5px; }
+  .wheel-guide__steps b { width: 23px; height: 23px; }
+  .wheel-guide__page { grid-template-columns: 1fr; gap: 18px; padding: 14px 16px 20px; }
+  .wheel-guide img { max-height: 210px; object-fit: contain; background: #102033; }
+  .wheel-guide figcaption { font-size: 11px; }
+  .wheel-guide footer { padding: 12px; }
+  .wheel-guide footer button { font-size: 12px; padding: 8px 10px; }
+  .wheel-guide footer > div { gap: 6px; }
+}
+@media (prefers-reduced-motion: reduce) { .wheel-guide__page { animation: none; } }

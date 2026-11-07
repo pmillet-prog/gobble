@@ -38,6 +38,7 @@ function areRankingListsEquivalent(left, right) {
     if ((a.roundLepersBonus || 0) !== (b.roundLepersBonus || 0)) return false;
     if ((a.roundPoints || 0) !== (b.roundPoints || 0)) return false;
     if (a.scorePrefix !== b.scorePrefix) return false;
+    if (a.rightLabel !== b.rightLabel || a.wheelStatus !== b.wheelStatus || a.wheelPoints !== b.wheelPoints) return false;
     if ((a.fakeTwinsCompletionBonus || 0) !== (b.fakeTwinsCompletionBonus || 0)) return false;
     if (!!a.inTraining !== !!b.inTraining) return false;
     if ((a.trainingMode || "") !== (b.trainingMode || "")) return false;
@@ -365,6 +366,9 @@ function RankingWidgetMobile({
   darkMode,
   expanded,
   fitHeight = true,
+  constrainHeight = false,
+  scrollable = false,
+  rankOffset = 0,
   animateRank = true,
   animateReorderTick = 0,
   showWheel = true,
@@ -411,7 +415,8 @@ function RankingWidgetMobile({
   const getPlayerRankForEntry = (entry, fallbackIndex = 0) => {
     if (!entry || isPalierEntry(entry)) return null;
     const key = getRankingEntryKey(entry, fallbackIndex);
-    return playerRankByKey.get(key) || null;
+    const rank = playerRankByKey.get(key);
+    return rank ? rank + rankOffset : null;
   };
   const [displayRank, setDisplayRank] = React.useState(null);
   const [targetRank, setTargetRank] = React.useState(null);
@@ -549,7 +554,11 @@ function RankingWidgetMobile({
       node.style.transition = "";
       node.style.transform = "";
       node.style.willChange = "";
-      nextPositions.set(key, node.getBoundingClientRect());
+      const rect = node.getBoundingClientRect();
+      // Keep reorder measurements in the list's coordinates: scrolling between
+      // server updates must not be mistaken for a change of rank.
+      const scrollTop = scrollable ? node.parentElement?.scrollTop || 0 : 0;
+      nextPositions.set(key, { left: rect.left, top: rect.top + scrollTop });
     });
 
     const prevPositions = prevRowPositionsRef.current;
@@ -597,7 +606,7 @@ function RankingWidgetMobile({
     return () => {
       clearPendingReorderArtifacts();
     };
-  }, [animateReorderTick, expanded, flatStyle, rankingOrderKey]);
+  }, [animateReorderTick, expanded, flatStyle, rankingOrderKey, scrollable]);
 
 
   // Met à jour le rang cible quand le classement bouge
@@ -836,12 +845,14 @@ function RankingWidgetMobile({
     <div
       onMouseLeave={() => onPlayerNickHover?.(null)}
       className={
-        "text-[11px] rounded-xl border h-full min-h-0 overflow-y-auto pr-1 " +
+        "text-[11px] rounded-xl border h-full min-h-0 pr-1 " + (constrainHeight && !scrollable ? 'overflow-hidden ' : 'overflow-y-auto ') +
         extendedBg +
         " " +
         extendedBorder
       }
-      style={flatTextStyle}
+      style={scrollable ? { ...flatTextStyle, overscrollBehavior: 'contain', overflowAnchor: 'none' } : flatTextStyle}
+      tabIndex={scrollable ? 0 : undefined}
+      aria-label={scrollable ? 'Classement défilant' : undefined}
     >
       {safeRanking.map((entry, index) => {
         const rowKey = getRankingEntryKey(entry, index);
@@ -987,6 +998,7 @@ function RankingWidgetMobile({
         return (
           <div
             key={rowKey}
+            data-ranking-row={entry.nick}
             ref={(el) => {
               if (el) rowRefs.current.set(rowKey, el);
               else rowRefs.current.delete(rowKey);
@@ -1338,7 +1350,7 @@ function RankingWidgetMobile({
       className={containerClass}
       ref={containerRef}
       style={
-        expanded
+        constrainHeight ? { height: '100%', minHeight: 0 } : expanded
           ? { minHeight: "220px" }
           : fitHeight
           ? { height: "100%", minHeight: 0 }
@@ -1805,6 +1817,8 @@ function areRankingWidgetPropsEqual(prev, next) {
   if (!!prev.darkMode !== !!next.darkMode) return false;
   if (!!prev.expanded !== !!next.expanded) return false;
   if ((prev.fitHeight ?? true) !== (next.fitHeight ?? true)) return false;
+  if (!!prev.constrainHeight !== !!next.constrainHeight || (prev.rankOffset || 0) !== (next.rankOffset || 0)) return false;
+  if (!!prev.scrollable !== !!next.scrollable) return false;
   if ((prev.animateRank ?? true) !== (next.animateRank ?? true)) return false;
   if ((prev.animateReorderTick || 0) !== (next.animateReorderTick || 0)) return false;
   if ((prev.showWheel ?? true) !== (next.showWheel ?? true)) return false;

@@ -1,7 +1,8 @@
 import { CanvasTexture, SRGBColorSpace } from "three";
+import { createRenderCanvas } from './wheelRenderPlatform.js';
 
 export function stageTextTexture(lines, { width = 1024, height = 256, color = "#f7e2b6", background = null } = {}) {
-  const canvas = document.createElement("canvas"); canvas.width = width; canvas.height = height;
+  const canvas = createRenderCanvas(width, height);
   const context = canvas.getContext("2d");
   if (background) { context.fillStyle = background; context.fillRect(0, 0, width, height); }
   context.fillStyle = color; context.textAlign = "center"; context.textBaseline = "middle";

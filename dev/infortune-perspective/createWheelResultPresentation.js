@@ -1,10 +1,11 @@
 import * as THREE from "three";
+import { createRenderCanvas, renderCanvasDataUrl } from './wheelRenderPlatform.js';
 import { createTileShape } from "./tileGeometry.js";
 import { sectorLetteringLayout, measureSectorGlyph } from "./sectorLetteringLayout.js";
 import { horizontalResultLayout, resultMotion, resultTilePose, RESULT_TILE_CENTER } from "./wheelResultMotion.js";
 
 function canvasTexture(width, height, paint) {
-  const canvas = document.createElement("canvas"); canvas.width = width; canvas.height = height;
+  const canvas = createRenderCanvas(width, height);
   paint(canvas.getContext("2d"));
   const texture = new THREE.CanvasTexture(canvas); texture.colorSpace = THREE.SRGBColorSpace;
   return texture;
@@ -49,13 +50,14 @@ function disposeGroup(root) {
 // camera timeline's clock: pausing/scrubbing the return also pauses/scrubs this.
 export function createWheelResultPresentation() {
   const scene = new THREE.Scene(), root = new THREE.Group(); scene.add(root);
-  const measuring = document.createElement("canvas").getContext("2d");
+  const measuring = createRenderCanvas().getContext("2d");
   const sourceProjected = new THREE.Vector3(), target = new THREE.Vector3(), neighbor = new THREE.Vector3();
   let result = null, pose = null, time = null, glyphs = [], letters = [], layout = null, outlines = [], sparks = [];
-  let wash, caption, backdrop, contour;
+  let wash, caption, backdrop, contour, taken = false;
 
   function clear() {
     disposeGroup(root); result = null; pose = null; glyphs = []; letters = []; outlines = []; sparks = [];
+    taken = false;
   }
   function setResult(value, wheelAngle) {
     clear(); result = value; pose = resultTilePose(value, wheelAngle);
@@ -117,7 +119,7 @@ export function createWheelResultPresentation() {
   }
 
   function render(renderer, projection) {
-    if (!result || time === null) return;
+    if (!result || time === null || taken) return;
     const { camera, width, height } = projection, motion = resultMotion(time);
     sourceProjected.copy(pose.position).project(camera);
     const depth = Math.max(-0.9, Math.min(0.98, sourceProjected.z));
@@ -155,7 +157,29 @@ export function createWheelResultPresentation() {
     try { renderer.autoClear = false; renderer.clearDepth(); renderer.render(scene, camera); }
     finally { renderer.autoClear = autoClear; }
   }
-  return { setResult, clear, render,
+  async function takePresentation({ width, height }) {
+    if (!result || !layout) return null;
+    const pixelScale = Math.min(height * 0.46 / 174, width * 0.78 / Math.max(layout.width, 160));
+    const bounds = letters.map((mesh, index) => ({ x: layout.letters[index].x,
+      width: mesh.geometry.parameters.width * layout.letters[index].scale,
+      height: mesh.geometry.parameters.height * layout.letters[index].scale }));
+    const left = Math.min(...bounds.map(b => b.x - b.width / 2)), right = Math.max(...bounds.map(b => b.x + b.width / 2));
+    const tall = Math.max(...bounds.map(b => b.height));
+    const canvas = createRenderCanvas();
+    canvas.width = Math.ceil((right - left) * 3); canvas.height = Math.ceil(tall * 3);
+    const context = canvas.getContext('2d'); context.scale(3, 3);
+    letters.forEach((mesh, index) => { const b = bounds[index];
+      context.drawImage(mesh.material.map.image, b.x - b.width / 2 - left, (tall - b.height) / 2, b.width, b.height);
+    });
+    taken = true;
+    const haloWidth = (layout.width + 100) * pixelScale;
+    const [image, halo, captionImage] = await Promise.all([canvas, backdrop.material.map.image, caption.material.map.image].map(renderCanvasDataUrl));
+    return { x: width / 2, y: height * .62, width: (right - left) * pixelScale, height: tall * pixelScale, fontSize: 44 * pixelScale,
+      image,
+      halo: { width: haloWidth, height: 130 * pixelScale, image: halo },
+      caption: { image: captionImage, width: 160 * pixelScale, height: 16 * pixelScale, y: -40 * pixelScale } };
+  }
+  return { setResult, clear, render, takePresentation,
     setSequence(state) { time = state.sequence === "results" ? Math.max(0, Math.min(3, state.time)) : null; },
     dispose: clear,
   };

@@ -1,4 +1,5 @@
 import React from "react";
+import { isAudioPageHidden } from '../../audio/foregroundAudio.js';
 
 export function shouldStartRoundAudio({
   lastStartedRoundId,
@@ -48,6 +49,7 @@ export default function useRoundAudioLifecycle(config) {
       return;
     }
     roundStartSoundRef.current = current.roundId;
+    if (isAudioPageHidden()) return;
     if (!current.audioUnlockedRef?.current) {
       if (current.roundStartPendingRef) {
         current.roundStartPendingRef.current = current.roundId;

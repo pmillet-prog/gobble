@@ -18,19 +18,21 @@ import { useWheelSoundtrack } from "./useWheelSoundtrack.js";
 import { ResultSoundControls } from "./ResultSoundControls.jsx";
 import { PerformanceControls } from "./PerformanceControls.jsx";
 import { StageContestantControls, useStageContestants } from "./StageContestantControls.jsx";
-import InfortuneContestants from "../../src/components/infortune/InfortuneContestants.jsx";
 import { useExchangeWorkshop, ExchangeWorkshopControls, ExchangeWorkshopChoice } from "./ExchangeWorkshop.jsx";
 import "./preview.css";
 
-function PerspectiveWorkshop() {
+const WorkshopTournament = import.meta.env.DEV ? React.lazy(() => import("./WorkshopTournament.jsx")) : null;
+const WheelPlayPreview = React.lazy(() => import("./WheelPlayPreview.jsx"));
+
+function PerspectiveWorkshop({ casting, onStartTournament }) {
   const [camera, setCamera] = React.useState(STAGE_CAMERA);
   const [gestureMode, setGestureMode] = React.useState("power");
   const [reflections, setReflections] = React.useState(DEFAULT_REFLECTIONS);
   const [size, setSize] = React.useState({ width: 720, height: 554 });
-  const casting = useStageContestants();
   const exchange = useExchangeWorkshop(casting.contestants);
   const wheel = usePerspectiveWheel(size, reflections, { contestants: casting.contestants, exchangeEnabled: exchange.enabled, gestureMode,
-    banks: exchange.economy, onResult: exchange.result, onChoose: exchange.choosing ? exchange.choose : null });
+    banks: exchange.economy, onResult: exchange.result, selectedContestant: exchange.selectedId,
+    onChoose: exchange.choosing ? exchange.select : null });
   const introAudio = useWheelSoundtrack(wheel.muted, wheel.audioEvents);
   const stageReady = wheel.stageStatus.phase === "ready" && !wheel.renderError;
   const timeline = useCameraTimeline({ applyCamera: wheel.setCamera, commitCamera: setCamera,
@@ -47,14 +49,15 @@ function PerspectiveWorkshop() {
     <nav className="perspective-workshop__nav"><span className="perspective-workshop__brand">gobble<span>✳</span></span>
       <span>ATELIER {wheel.flat ? "2D" : "3D"}</span><button className="perspective-workshop__again perspective-workshop__again--top" type="button"
         disabled={Boolean(wheel.renderError) || busy || !wheel.view.result} onClick={() => { exchange.reset(); wheel.reset(); timeline.beginRound(); }}>Un autre tour ↻</button>
-      <div className="perspective-workshop__nav-links"><a href="/">← Accueil du jeu</a><a href="/dev/infortune/">Maquette d’origine ↗</a></div></nav>
+      <div className="perspective-workshop__nav-links"><a href="/">← Accueil du jeu</a><a href="/dev/infortune/index.html">Maquette d’origine ↗</a></div></nav>
     <header className="perspective-workshop__heading"><p>LA ROUE DE L’INFORTUNE</p><h1>Bienvenue <em>sur le plateau.</em></h1>
       <p>{wheel.flat ? "La roue en vue légère, avec les mêmes lancers et bonus." : "Un présentateur, deux candidats et une roue qui n’en fait qu’à sa tête."}</p></header>
     <div className="perspective-workshop__layout">
       <section className="perspective-workshop__viewport" aria-label="Vue en perspective de la roue">
         <div className="perspective-workshop__view-label"><span>{wheel.flat ? "LA ROUE · 2D" : "LE PLATEAU"}</span><span>{casting.contestants.map(player => player.nick).join(" · ")}</span></div>
-        <div ref={wheel.scene} className="perspective-workshop__scene" data-input-locked={wheel.inputLocked} {...wheel.wheelEvents}>
-          <WheelCanvas wheel={wheel} label="Roue de l’infortune. Faites glisser la roue pour lancer, ou utilisez le bouton de lancer." />
+        <div ref={wheel.scene} className="perspective-workshop__scene" data-input-locked={wheel.inputLocked} data-exchanging={exchange.choosing} {...wheel.wheelEvents}>
+          <WheelCanvas wheel={wheel} label={wheel.gestureOnly ? "Roue de l’infortune. Faites glisser la roue pour lancer."
+            : "Roue de l’infortune. Faites glisser la roue pour lancer, ou utilisez le bouton de lancer."} />
           <LaunchFeedback view={wheel.view} gauges={wheel.gauges} />
           <SkillShotOverlay wheel={wheel} />
           {wheel.inputLocked && stageReady && introAudio.ready && phase === "ready"
@@ -67,13 +70,17 @@ function PerspectiveWorkshop() {
           {!wheel.renderError && wheel.stageStatus.phase !== "ready" && <div className="perspective-workshop__stage-status" role="status"><p>{wheel.stageStatus.message}</p>
             {!wheel.flat && <button type="button" onClick={() => wheel.performance.choose("flat")}>Passer en 2D maintenant</button>}</div>}
           {wheel.renderError && <div className="perspective-workshop__error" role="alert"><p>{wheel.renderError}</p><button type="button" onClick={() => window.location.reload()}>Recharger l’atelier</button></div>}
+          <ExchangeWorkshopChoice preview={exchange} contestants={casting.contestants} wheel={wheel} />
         </div>
-        <InfortuneContestants contestants={casting.contestants} economy={exchange.economy} />
-        <ExchangeWorkshopChoice preview={exchange} contestants={casting.contestants} />
         <div className="perspective-workshop__foreground"><span />CURSEUR AU PREMIER PLAN<span /></div>
         <p className="perspective-workshop__gesture"><strong>{GESTURE_MODES[gestureMode].label}.</strong> {GESTURE_MODES[gestureMode].instructions}</p>
       </section>
       <aside className="perspective-workshop__controls">
+        {onStartTournament && <section className="perspective-workshop__camera">
+          <h2>Mini-tournoi complet</h2><p className="perspective-workshop__camera-note">Quatre lancers, les cagnottes des trois candidats, les échanges au quatrième tour, puis la finale.</p>
+          <button className="perspective-workshop__launch" type="button" disabled={busy || timeline.transport.playing}
+            onClick={onStartTournament}>Simuler un mini-tournoi complet</button>
+        </section>}
         <LaunchControls wheel={wheel} gestureMode={gestureMode} onGestureModeChange={setGestureMode} />
         <ExchangeWorkshopControls preview={exchange} disabled={busy || timeline.transport.playing || !stageReady}
           onChange={enabled => { exchange.reset(); exchange.setEnabled(enabled); wheel.reset(); timeline.beginRound(); }} />
@@ -91,4 +98,18 @@ function PerspectiveWorkshop() {
   </main>;
 }
 
-createRoot(document.getElementById("root")).render(<React.StrictMode><PerspectiveWorkshop /></React.StrictMode>);
+function WorkshopEntry() {
+  const casting = useStageContestants();
+  const [tournament, setTournament] = React.useState(() => import.meta.env.DEV && new URLSearchParams(location.search).get("tournoi") === "1");
+  const [rules, setRules] = React.useState();
+  return tournament && WorkshopTournament
+    ? <React.Suspense fallback={<main className="perspective-workshop"><p role="status">Préparation du mini-tournoi…</p></main>}>
+      <WorkshopTournament contestants={casting.contestants} rules={rules} onRulesChange={setRules} onClose={() => setTournament(false)} />
+    </React.Suspense>
+    : new URLSearchParams(location.search).get("edition") === "1"
+      ? <PerspectiveWorkshop casting={casting} onStartTournament={import.meta.env.DEV ? () => setTournament(true) : null} />
+      : <React.Suspense fallback={<p role="status">Préparation du plateau…</p>}><WheelPlayPreview casting={casting}
+        onStartTournament={import.meta.env.DEV ? () => setTournament(true) : null} /></React.Suspense>;
+}
+
+createRoot(document.getElementById("root")).render(<React.StrictMode><WorkshopEntry /></React.StrictMode>);

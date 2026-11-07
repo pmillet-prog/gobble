@@ -1,0 +1,50 @@
+.infortune-exchange-animation { position: absolute; z-index: 8; inset: 0; display: flex; flex-direction: column; justify-content: center; padding: 18px 12px; color: #ecf3ff; background: radial-gradient(ellipse at 50% 45%,#15374a,#061120 80%); text-align: center; font-family: system-ui,sans-serif; pointer-events: auto; overflow: hidden; }
+.infortune-exchange-animation header > p { margin: 0 0 8px; font-size: 11px; font-weight: 750; letter-spacing: .18em; color: #eacb8d; }
+.infortune-exchange-animation h2 { margin: 0; font-size: clamp(17px,3vw,26px); line-height: 1.2; }
+.infortune-exchange-animation h2 > span { display: inline-block; margin: 0 8px; color: #84dfe7; }
+.infortune-swap { --head-size: 112px; position: relative; width: min(100%,720px); height: 246px; flex: none; margin: 26px auto 12px; }
+.infortune-swap__players { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); }
+.infortune-swap__player { display: flex; align-items: center; flex-direction: column; gap: 10px; min-width: 0; padding: 0 5px; }
+.infortune-swap__head { display: block; flex: none; width: var(--head-size); height: var(--head-size); border: 3px solid #567080; border-radius: 50%; background: #193044; overflow: hidden; }
+.infortune-swap__head > img, .infortune-swap__head .avatar-thumbnail, .infortune-swap__head .avatar-thumbnail img { display: block; width: 100% !important; height: 100% !important; object-fit: contain; }
+.infortune-swap__player[data-involved="true"] .infortune-swap__head { border-color: #ffd789; box-shadow: 0 0 0 4px #ffd78918,0 0 22px #ffc54a55; animation: infortune-swap-head var(--swap-duration) ease-in-out; }
+.infortune-swap__player > strong { font-size: clamp(12px,2vw,16px); line-height: 1.2; overflow-wrap: anywhere; }
+.infortune-swap__player[data-involved="false"] { opacity: .65; }
+.infortune-swap__amounts { position: absolute; top: 176px; width: 100%; height: 42px; }
+.infortune-swap__money { position: absolute; left: 0; top: 0; width: calc(100% / 3); transform: translateX(calc(var(--from) * 100%)); }
+.infortune-swap__money strong { display: inline-block; padding: 7px 10px; border-radius: 9px; border: 1px solid #d7b56c88; color: #ffe5a2; background: #091a2d; font-size: clamp(19px,3vw,28px); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.infortune-swap__money[data-moving="true"] { z-index: 2; animation: infortune-swap-money var(--swap-duration) cubic-bezier(.35,0,.3,1) both; }
+.infortune-exchange-animation > footer { display: grid; gap: 6px; font-size: 13px; }
+.infortune-exchange-animation > footer b { font-size: 23px; color: #ffe5a2; }
+.infortune-exchange-animation > footer[data-gain="1"] b { color: #8be2ba; }
+.infortune-exchange-animation > footer[data-gain="-1"] b { color: #ffb29a; }
+.infortune-swap__accessible { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+@keyframes infortune-swap-money {
+  0%,18% { transform: translateX(calc(var(--from) * 100%)); }
+  44% { transform: translateX(calc(var(--middle) * 100%)) translateY(var(--bend)); }
+  73%,100% { transform: translateX(calc(var(--to) * 100%)); }
+}
+@keyframes infortune-swap-head { 18%,73% { scale: 1; } 44% { scale: 1.07; } }
+@media(max-width:650px) {
+  .infortune-exchange-animation { padding: 12px 5px; }
+  .infortune-swap { --head-size: 70px; height: 196px; margin: 22px auto 8px; }
+  .infortune-swap__amounts { top: 130px; }
+  .infortune-swap__money strong { padding: 6px 5px; font-size: 19px; }
+  .infortune-exchange-animation > footer { font-size: 12px; }
+}
+@media(max-height:480px) {
+  .infortune-exchange-animation { padding: 6px; }
+  .infortune-exchange-animation header > p { font-size: 9px; margin-bottom: 3px; }
+  .infortune-exchange-animation h2 { font-size: 16px; }
+  .infortune-swap { --head-size: 52px; height: 125px; max-width: 520px; margin: 8px auto 2px; }
+  .infortune-swap__player { gap: 4px; }
+  .infortune-swap__player > strong { font-size: 11px; }
+  .infortune-swap__amounts { top: 87px; }
+  .infortune-swap__money strong { font-size: 18px; padding: 4px 8px; }
+  .infortune-exchange-animation > footer { display: flex; justify-content: center; align-items: center; gap: 12px; font-size: 11px; }
+  .infortune-exchange-animation > footer b { font-size: 17px; }
+}
+@media(prefers-reduced-motion:reduce) {
+  .infortune-swap__money[data-moving="true"] { animation: none; transform: translateX(calc(var(--to) * 100%)); }
+  .infortune-swap__player[data-involved="true"] .infortune-swap__head { animation: none; }
+}

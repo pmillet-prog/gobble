@@ -98,3 +98,14 @@ test("gesture velocity handles wraparound and discards stale or held-still movem
   assert.equal(gestureVelocity([{ time: 0, angle: 0 }, { time: 50, angle: 0.5 }], 180), 0);
   assert.equal(gestureVelocity([{ time: 0, angle: 0 }, { time: 50, angle: 0.5 }, { time: 180, angle: 0.5 }], 180), 0);
 });
+
+test('the intermediate braking stays between the former light and heavy wheels for the same impulse', () => {
+  const light = { ...DEFAULT_PHYSICS, friction: .95, drag: .14 };
+  const heavy = { ...DEFAULT_PHYSICS, friction: 1.3, drag: .24 };
+  for (const speed of [6.5, 9, 12, 15, 18, -18]) {
+    const before = simulate(speed, light), middle = simulate(speed), after = simulate(speed, heavy);
+    assert.ok(middle.turns < before.turns && middle.turns > after.turns);
+    const state = createWheelState(); launchWheel(state, speed);
+    assert.equal(state.velocity, speed);
+  }
+});

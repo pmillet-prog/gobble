@@ -1,0 +1,24 @@
+.infortune-game.infortune-game--native { --game-bg:#f8fafc; --game-panel:#fff; --game-soft:#f1f5f9; --game-border:#cbd5e1; --game-text:#0f172a; --game-muted:#64748b; --game-accent:#d97706; --game-selected:#fef3c7; --game-selected-text:#92400e; background:linear-gradient(135deg,var(--game-bg),var(--game-panel),var(--game-soft)); color:var(--game-text); font-family:inherit; }
+.infortune-game.infortune-game--native.dark { --game-bg:#020617; --game-panel:#0f172a; --game-soft:#1e293b; --game-border:#334155; --game-text:#f1f5f9; --game-muted:#94a3b8; --game-accent:#fbbf24; --game-selected:#78350f; --game-selected-text:#fde68a; }
+.infortune-game.infortune-game--native .infortune-game__header { border:1px solid var(--game-border); border-radius:16px; background:var(--game-panel); box-shadow:0 1px 3px #0f172a12; }
+.infortune-game.infortune-game--native .infortune-game__identity h1 { font-family:inherit; }
+.infortune-game.infortune-game--native .infortune-game__identity p { color:var(--game-muted); }
+.infortune-game.infortune-game--native .infortune-game__body { border-color:var(--game-border); border-radius:16px; background:transparent; }
+.infortune-game.infortune-game--native .infortune-game__actions button { border-color:var(--game-border); color:var(--game-text); background:var(--game-soft); }
+.infortune-game.infortune-game--native .infortune-finale { font-family:inherit; }
+.infortune-game.infortune-game--native .infortune-finale__commands { background:var(--game-panel); border-color:var(--game-border); border-radius:16px; box-shadow:0 8px 24px #0f172a0a; }
+.infortune-game.infortune-game--native .infortune-finale__tabs button { font-family:inherit; color:var(--game-text); background:var(--game-soft); border-color:var(--game-border); border-radius:10px; }
+.infortune-game.infortune-game--native .infortune-finale__tabs button[aria-pressed=true] { background:var(--game-selected); color:var(--game-selected-text); border-color:var(--game-accent); }
+.infortune-game.infortune-game--native .infortune-finale-shop__keyboard button { font-family:inherit; background:var(--game-soft); color:var(--game-text); border-color:var(--game-border); border-radius:8px; box-shadow:0 2px 0 var(--game-border); }
+.infortune-game.infortune-game--native .infortune-finale-shop__keyboard button.is-vowel { background:var(--game-selected); color:var(--game-selected-text); border-color:var(--game-accent); }
+.infortune-game.infortune-game--native .infortune-finale-shop__keyboard button.is-purchased { opacity:.5; box-shadow:none; }
+.infortune-game.infortune-game--native .infortune-finale-shop__keyboard button:not(:disabled):hover { background:var(--game-selected); border-color:var(--game-accent); }
+.infortune-game.infortune-game--native .infortune-finale-shop__heading p,.infortune-game.infortune-game--native .infortune-finale-shop__rule,.infortune-game.infortune-game--native .infortune-finale-shop__keyboard button small,.infortune-game.infortune-game--native .infortune-finale__potential,.infortune-game.infortune-game--native .infortune-finale-shop__purchase { color:var(--game-muted); font-family:inherit; }
+.infortune-game.infortune-game--native .infortune-finale-shop__heading p strong,.infortune-game.infortune-game--native .infortune-finale__potential strong,.infortune-game.infortune-game--native .infortune-finale-shop__purchase b { color:var(--game-selected-text); }
+.infortune-game.infortune-game--native .infortune-finale-primary { background:#fbbf24; color:#451a03; border-color:#f59e0b; border-radius:10px; font-family:inherit; box-shadow:0 2px 0 #b45309; }
+.infortune-game.infortune-game--native .infortune-finale-secondary { color:var(--game-muted); font-family:inherit; }
+.infortune-game.infortune-game--native .infortune-finale-answer input { background:var(--game-panel); border-color:var(--game-border); color:var(--game-text); font-family:inherit; border-radius:10px; }
+.infortune-game.infortune-game--native .infortune-finale-result p,.infortune-game.infortune-game--native .infortune-finale-result h2,.infortune-game.infortune-game--native .infortune-finale-result__rewards strong { color:var(--game-text); }
+.infortune-game.infortune-game--native .infortune-finale-result__rewards > span { color:var(--game-selected-text); background:var(--game-selected); border-color:var(--game-accent); }
+.infortune-game.infortune-game--native .wheel-finale-clock { color:var(--game-selected-text); }
+.infortune-game.infortune-game--native .infortune-finale-answer__error { color:#dc2626; }

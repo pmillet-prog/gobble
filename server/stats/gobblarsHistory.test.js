@@ -8,6 +8,16 @@ import { registerGobblarsHistoryRoute } from "./registerGobblarsHistoryRoute.js"
 import { presentGobblarsGain } from "../../src/features/gobblars/gobblarsHistoryModel.js";
 
 const now = Date.parse("2026-10-06T12:00:00Z");
+
+test('new five-gobblar rewards retain the gobble count alongside older one-gobblar rewards', async t => {
+  const { add, read } = await fixture(t);
+  const meta = { tournamentId: 'mixed', roomId: 'main' };
+  await add(1, 'live_gobble', meta);
+  await add(10, 'live_gobble', { ...meta, gobbles: 2 });
+  const entry = (await read()).entries[0];
+  assert.equal(entry.gobbles, 3); assert.equal(entry.gobbleAmount, 11);
+  assert.match(presentGobblarsGain(entry).detail, /3 gobbles : \+11/);
+});
 async function fixture(t) {
   const db = await open({ filename: ":memory:", driver: sqlite3.Database });
   t.after(() => db.close());

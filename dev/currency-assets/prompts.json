@@ -1,0 +1,22 @@
+{
+  "mode": "built-in imagegen",
+  "assets": [
+    {
+      "source": "gobblar-cartoon-v2.png",
+      "runtime": "../../public/ui/currency/gobblar-cartoon-v2.webp",
+      "editTarget": "gobblar-cartoon-v1.png",
+      "prompt": "Use case: precise-object-edit. Asset type: small game HUD gobblar currency emblem. Image 1 is the edit target. Edit this exact chunky uppercase gold G by adding exactly TWO clearly separated parallel vertical currency strokes through its center, like the double vertical bars of a dollar sign, while retaining the letter G (do not turn it into an S). The two bars should extend a little above the top and below the bottom of the G and be visible through its open interior, integrated into the same gold 3D emblem. Preserve the original G's rounded cartoon shape, bright yellow-gold front, amber-orange bevel and short extrusion, thick deep navy outline, glossy upper-left highlights, slight perspective, and polished casual-game style. The bars must match this material and outline and remain distinguishable at 28–36 pixels. Keep a square centered composition with enough transparent padding to avoid cropping the strokes. Real transparent alpha background. Change only the addition of the two vertical bars and the minimal framing necessary to fit them. No coin disc, no badge, no additional letters, no literal dollar S, no text, no objects, no external cast shadow, no watermark."
+    },
+    {
+      "source": "gobblar-cartoon-v1.png",
+      "runtime": "../../public/ui/currency/gobblar-cartoon-v1.webp",
+      "prompt": "Use case: logo-brand. Asset type: small game HUD currency emblem for the French word game Gobble. Create one standalone uppercase letter G, exact glyph \"G\", chunky playful cartoon 3D lettering, rounded inflated edges, warm yellow gold face, amber orange bevel and short shaded extrusion, thick deep navy outline for excellent readability at 28 pixels. Friendly polished casual game aesthetic, simple bold silhouette, front-facing with a very slight three-quarter depth, crisp bright upper-left highlight. Centered square composition, the letter fills 85 percent of the canvas with safe padding. Real transparent alpha background. No coin disc, no badge, no additional letters or numbers, no slogans, no decorative objects, no cast shadow outside the icon, no watermark. This is a production icon, not a mockup."
+    },
+    {
+      "source": "euro-cartoon-v1.png",
+      "runtime": "../../public/ui/currency/euro-cartoon-v1.webp",
+      "prompt": "Use case: logo-brand. Create the companion currency icon for the provided reference G. The reference is a STYLE REFERENCE only. Output ONE standalone euro currency symbol, exact glyph \"€\" with two clearly separated horizontal bars and an open right side, replacing the G completely. Match the reference's chunky playful cartoon 3D lettering, rounded inflated edges, bright warm yellow gold face, amber orange bevel and short shaded extrusion, thick deep navy outline, crisp upper-left highlights. Front-facing with the same slight three-quarter depth, simple readable silhouette at 28 pixels. Centered square composition, fills 85 percent of the canvas with safe padding. Real transparent alpha background. No coin disc, no badge, no G, no numerals, no other text, no decorative objects, no cast shadow outside the symbol, no watermark. This is a production game HUD icon, not a mockup."
+    }
+  ],
+  "conversion": "128 × 128 WebP, quality 92, original transparency preserved"
+}

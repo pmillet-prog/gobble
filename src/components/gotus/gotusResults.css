@@ -1,8 +1,12 @@
 .gotus-bonus { display: inline-flex; align-items: center; gap: 4px; color: #bc681f; white-space: nowrap; font-size: 11px; }
 .gotus-bonus img { object-fit: contain; }
-.gotus-recap { position: fixed; inset: 0; z-index: 16000; display: grid; place-items: center; padding: 20px; pointer-events: none; background: #020b2375; }
-.gotus-recap__card { width: min(430px, 100%); border-radius: 22px; padding: 24px; color: #fff6e2; background: radial-gradient(ellipse at top, #245f85, #082f50 75%); border: 2px solid #e5b96a; box-shadow: 0 12px 70px #0007; text-align: center; }
+.gotus-recap { position: fixed; inset: 0; z-index: 16000; display: grid; place-items: center; padding: 20px; pointer-events: none; background: #020b2375; opacity: 1; visibility: visible; transition: opacity 240ms ease-out, visibility 0s; }
+.gotus-recap[data-open="false"] { opacity: 0; visibility: hidden; transition: opacity 240ms ease-out, visibility 0s 240ms; }
+.gotus-recap__card { width: min(430px, 100%); border-radius: 22px; padding: 24px; color: #fff6e2; background: radial-gradient(ellipse at top, #245f85, #082f50 75%); border: 2px solid #e5b96a; box-shadow: 0 12px 70px #0007; text-align: center; transform: none; transition: transform 300ms cubic-bezier(.2,.7,.2,1); }
+.gotus-recap[data-open="false"] .gotus-recap__card { transform: translateY(10px) scale(.98); }
 .gotus-recap__logo { width: 175px; height: 90px; object-fit: contain; margin: 0 auto 10px; }
 .gotus-recap h2 { font-size: 24px; font-weight: 900; margin: 10px 0; }
 .gotus-recap p { font-size: 13px; margin: 14px 0; }
 .gotus-recap .gotus-solution { --gotus-solution-size: 30px; color: #ffe077; margin: 15px 0; }
+.gotus-recap .gotus-recap__pending { display: grid; place-items: center; min-height: 44px; margin: 15px 0; color: #ffe077; }
+@media (prefers-reduced-motion: reduce) { .gotus-recap, .gotus-recap__card { transition: none; } }

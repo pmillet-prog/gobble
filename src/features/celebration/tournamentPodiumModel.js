@@ -11,6 +11,7 @@ function getPodium(summary) {
 }
 
 export function resolveTournamentPodiumSummary(summary) {
+  if (summary?.pendingWheel) return null;
   if (!summary || Array.isArray(summary.podium)) return summary;
   const podium = selectTournamentPodium(getRanking(summary));
   return { ...summary, podium, winnerNick: podium[0]?.nick || null };

@@ -3,7 +3,7 @@ import { GOTUS_MAX_ATTEMPTS, GOTUS_WORD_LENGTH, evaluateGotusGuess, normalizeGot
 const roundKey = (roomId, roundId) => `${roomId}#${roundId}`;
 const copy = value => structuredClone(value);
 
-export function createGotusService({ loadCatalog, loadProfile = async () => null, recordWin, now = Date.now, random = Math.random }) {
+export function createGotusService({ loadCatalog, loadProfile = async () => null, recordWin, now = Date.now, random = Math.random, timers = globalThis }) {
   const rounds = new Map();
   const queues = new Map();
   const preparations = new WeakMap();
@@ -62,6 +62,25 @@ export function createGotusService({ loadCatalog, loadProfile = async () => null
     return result;
   }
 
+  function revealRound(state) {
+    if (state.revealTimer !== null) timers.clearTimeout(state.revealTimer);
+    state.revealTimer = null;
+    state.closed = true;
+    for (const session of state.sessions.values()) publish(state, session);
+  }
+
+  function scheduleReveal(state) {
+    if (state.closed || state.revealTimer !== null) return;
+    // The grid closes after a grace period, but Gotus accepts no guesses past
+    // endsAt. Reveal at that deadline, independently of scoring/persistence.
+    state.revealTimer = timers.setTimeout(() => {
+      state.revealTimer = null;
+      if (now() < state.round.endsAt) { scheduleReveal(state); return; }
+      revealRound(state);
+    }, Math.max(0, state.round.endsAt - now()));
+    state.revealTimer?.unref?.();
+  }
+
   async function settleWin(state, session) {
     if (session.phase !== "won" || session.persisted || session.context.devPreview) return;
     const context = session.context;
@@ -95,6 +114,7 @@ export function createGotusService({ loadCatalog, loadProfile = async () => null
     }
     session.context = context;
     if (onSummary) session.onSummary = onSummary;
+    scheduleReveal(state);
     await settleWin(state, session);
     return { state, session };
   }
@@ -110,7 +130,9 @@ export function createGotusService({ loadCatalog, loadProfile = async () => null
           round.targetMiniGame = kind === "gotus"
             ? { kind, wordLength: GOTUS_WORD_LENGTH, maxAttempts: GOTUS_MAX_ATTEMPTS }
             : { kind };
-          if (catalog) rounds.set(roundKey(roomId, round.id), { round, catalog, word: catalog.choose(random), sessions: new Map(), closed: false });
+          if (catalog) rounds.set(roundKey(roomId, round.id), {
+            round, catalog, word: catalog.choose(random), sessions: new Map(), closed: false, revealTimer: null,
+          });
           return round.targetMiniGame;
         };
         preparations.set(round, prepare());
@@ -173,7 +195,9 @@ export function createGotusService({ loadCatalog, loadProfile = async () => null
       const key = roundKey(roomId, publicRoundId);
       const state = rounds.get(key);
       if (!state) return;
-      state.closed = true;
+      // The answer is already in memory. Reveal it before pending persistence
+      // work; a later publish enriches the recap with the saved progression.
+      revealRound(state);
       await Promise.all([...queues.values()].filter(entry => entry.roundId === key).map(entry => entry.promise));
       const results = await Promise.allSettled([...state.sessions.values()].map(async session => {
         await settleWin(state, session);

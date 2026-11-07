@@ -1,0 +1,13 @@
+.wheel-graphics-setup { box-sizing:border-box; width:min(960px,96vw); max-height:94dvh; overflow:auto; padding:24px; border:1px solid #c4a465; border-radius:20px; background:#112137; color:#f8ecd4; box-shadow:0 24px 80px #0008; font:16px/1.55 system-ui,sans-serif; }
+.wheel-graphics-setup::backdrop { background:#030913ed; }
+.wheel-graphics-setup h1 { margin-top:0; font:700 26px/1.2 system-ui,sans-serif; color:#ffe2a7; }
+.wheel-graphics-setup button { padding:12px 20px; border:1px solid #e8cb86; border-radius:12px; background:#f3d99b; color:#162236; font:700 15px system-ui,sans-serif; cursor:pointer; }
+.wheel-graphics-setup button:focus-visible { outline:3px solid white; outline-offset:3px; }
+.wheel-graphics-setup__stage { position:relative; width:100%; aspect-ratio:720/554; overflow:hidden; background:#0b1421; border-radius:12px; }
+.wheel-graphics-setup__loading { position:absolute; inset:40% 10% auto; text-align:center; background:#112137ed; padding:16px; }
+.wheel-graphics-setup__stage .perspective-workshop__canvas { display:block; width:100%; height:100%; }
+.wheel-graphics-setup__manual,.wheel-graphics-setup__previous { margin-top:20px; border-top:1px solid #63748b; padding-top:16px; }
+.wheel-graphics-setup summary { cursor:pointer; }
+.wheel-graphics-setup select { color:#f8ecd4; background:#192e47; border:1px solid #8295ad; padding:10px; border-radius:8px; font:inherit; }
+.wheel-graphics-setup small { overflow-wrap:anywhere; }
+@media(max-width:600px) { .wheel-graphics-setup { padding:16px; } .wheel-graphics-setup h1 { font-size:22px; } }

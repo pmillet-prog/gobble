@@ -43,7 +43,8 @@ export function createWheelSkillShot(mode, origin, startTime, attempt = 0) {
   // The visible quadratic ends exactly at the release target, instead of
   // inviting the player to continue beyond it along the rest of the curve.
   const guide = [anchor, mix(curve[0], curve[1], targetProgress), skillCurvePoint(curve, targetProgress)];
-  const speed = createGesturePower({ referenceSpeed: TRACE_REFERENCE_SPEED, idleGraceMs: TRACE_RELEASE_GRACE_MS }); speed.reset(startTime);
+  const speed = createGesturePower({ referenceSpeed: TRACE_REFERENCE_SPEED, idleGraceMs: TRACE_RELEASE_GRACE_MS,
+    smoothingMs: 100, response: "soft" }); speed.reset(startTime);
   let trail = [anchor];
   let cursor = anchor, progress = 0, length = 0, errorIntegral = 0, backwards = 0, direction = 1;
   function target(time) {

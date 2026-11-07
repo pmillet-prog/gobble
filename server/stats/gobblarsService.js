@@ -1,5 +1,6 @@
 import path from "path";
 import { initGobblarsHistory, readGobblarsHistory } from "./gobblarsHistory.js";
+import { FINALE_PAYMENT_SCHEMA, applyFinaleLetterPayment } from './finaleLetterPayment.js';
 import { fileURLToPath } from "url";
 import fs from "fs/promises";
 import sqlite3 from "sqlite3";
@@ -466,6 +467,7 @@ export async function initGobblarsService({ applyGlobalGrant = true } = {}) {
           );
         `);
       });
+      await openedDb.exec(FINALE_PAYMENT_SCHEMA);
       await initGobblarsHistory(openedDb);
       db = openedDb;
       console.log(`gobblars DB ready path=${DB_PATH}`);
@@ -555,6 +557,13 @@ export async function getGobblarProfile(installId) {
 export async function getGobblarsHistory(options) {
   await ensureGobblarsServiceReady();
   return runSerializedWrite(() => readGobblarsHistory(db, options));
+}
+
+export async function payFinaleLetter(options) {
+  await ensureGobblarsServiceReady();
+  return runSerializedWrite(() => runInImmediateTransaction(() => applyFinaleLetterPayment({
+    db, readProfile: getProfileParsed, updateProfile: updateProfileRow, ledger: insertLedgerEntry,
+  }, options)));
 }
 
 export async function addGobblars({

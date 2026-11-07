@@ -2,8 +2,13 @@ import React from "react";
 
 import { RoundClockSeconds } from "../clock/RoundClockDisplay.jsx";
 import { useIntermissionCountdown } from "./useIntermissionCountdown.js";
+import InfortuneScheduleLabel from "../infortune/InfortuneScheduleLabel.jsx";
 
-export default function IntermissionCountdownLabel({
+export default function IntermissionCountdownLabel(props) {
+  return <InfortuneScheduleLabel><RoundIntermissionCountdown {...props} /></InfortuneScheduleLabel>;
+}
+
+function RoundIntermissionCountdown({
   breakKind,
   phase,
   roundPreparing,
@@ -33,7 +38,7 @@ export default function IntermissionCountdownLabel({
     if (breakKind === "tournament_end") {
       return `Retour au salon dans : ${seconds}s`;
     }
-    return `Départ dans : ${seconds}s`;
+    return `Prochaine manche dans ${seconds} s`;
   }
   if (roundPreparing || roundStartDelayed) {
     return "Grille en préparation, démarrage imminent...";
@@ -45,7 +50,7 @@ export default function IntermissionCountdownLabel({
     if (breakKind === "tournament_end") {
       return `Retour au salon dans : ${seconds}s`;
     }
-    return `Départ dans : ${seconds}s`;
+    return `Prochaine manche dans ${seconds} s`;
   }
   if (serverStatus === "break" || phase === "results") {
     return "Manche terminée, attente de la prochaine manche...";

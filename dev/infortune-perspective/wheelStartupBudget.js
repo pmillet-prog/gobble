@@ -1,6 +1,7 @@
 // A timer cannot interrupt a synchronous driver call. Check again between GPU
 // jobs, so an overrun stops the remaining work instead of starting more passes.
-export function createWheelStartupBudget({ onSlow, limit = 8000, now = () => performance.now(), timers = globalThis, visibility = document }) {
+import { renderVisibility } from './wheelRenderPlatform.js';
+export function createWheelStartupBudget({ onSlow, limit = 8000, now = () => performance.now(), timers = globalThis, visibility = renderVisibility }) {
   let elapsed = 0, since = visibility.hidden ? null : now(), timer = null, reported = false, stopped = false, disposed = false;
   const duration = () => elapsed + (since === null ? 0 : now() - since);
   function check() {

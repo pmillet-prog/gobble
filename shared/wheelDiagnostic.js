@@ -59,7 +59,8 @@ export function normalizeWheelDiagnostic(value) {
   });
   if (WHEEL_DIAGNOSTIC_STEPS.some(step => runs.filter(run => run.profile === step.profile).length > 2)) invalid();
   return { version: value.version, id: value.id, startedAt: text(value.startedAt, 40),
-    environment: { userAgent: text(value.environment?.userAgent, 600), platform: text(value.environment?.platform, 100),
+    environment: { deviceId: /^[\w-]{16,80}$/.test(value.environment?.deviceId || "") ? value.environment.deviceId : null,
+      userAgent: text(value.environment?.userAgent, 600), platform: text(value.environment?.platform, 100),
       width: number(value.environment?.width, 20000), height: number(value.environment?.height, 20000),
       pixelRatio: number(value.environment?.pixelRatio, 20), cores: number(value.environment?.cores, 1024),
       memory: number(value.environment?.memory, 1024), touchPoints: number(value.environment?.touchPoints, 100) },

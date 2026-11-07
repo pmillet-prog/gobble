@@ -37,7 +37,7 @@
       "Météo": 29,
       "Jardinage": 42,
       "Jeux et jouets": 94,
-      "Langue française": 182,
+      "Langue française": 162,
       "Géographie": 66,
       "Presse": 24,
       "Arts": 105,
@@ -108,7 +108,8 @@
       "Gestes du quotidien": 40,
       "Positions et mouvements": 40,
       "Liens entre les mots": 20,
-      "Calcul mental": 20
+      "Calcul mental": 20,
+      "Langues du monde": 20
     },
     "withReference": 141,
     "characters": {
@@ -67740,7 +67741,7 @@
     {
       "id": "if-q2582",
       "kind": "quiz",
-      "category": "Langue française",
+      "category": "Langues du monde",
       "difficulty": 1,
       "characters": 57,
       "wordCount": 9,
@@ -67752,7 +67753,7 @@
     {
       "id": "if-q2583",
       "kind": "quiz",
-      "category": "Langue française",
+      "category": "Langues du monde",
       "difficulty": 1,
       "characters": 59,
       "wordCount": 10,
@@ -67764,7 +67765,7 @@
     {
       "id": "if-q2584",
       "kind": "quiz",
-      "category": "Langue française",
+      "category": "Langues du monde",
       "difficulty": 1,
       "characters": 50,
       "wordCount": 9,
@@ -67776,7 +67777,7 @@
     {
       "id": "if-q2585",
       "kind": "quiz",
-      "category": "Langue française",
+      "category": "Langues du monde",
       "difficulty": 1,
       "characters": 56,
       "wordCount": 10,
@@ -67788,7 +67789,7 @@
     {
       "id": "if-q2586",
       "kind": "quiz",
-      "category": "Langue française",
+      "category": "Langues du monde",
       "difficulty": 1,
       "characters": 67,
       "wordCount": 11,
@@ -67800,7 +67801,7 @@
     {
       "id": "if-q2587",
       "kind": "quiz",
-      "category": "Langue française",
+      "category": "Langues du monde",
       "difficulty": 2,
       "characters": 70,
       "wordCount": 11,
@@ -67812,7 +67813,7 @@
     {
       "id": "if-q2588",
       "kind": "quiz",
-      "category": "Langue française",
+      "category": "Langues du monde",
       "difficulty": 1,
       "characters": 65,
       "wordCount": 11,
@@ -67824,7 +67825,7 @@
     {
       "id": "if-q2589",
       "kind": "quiz",
-      "category": "Langue française",
+      "category": "Langues du monde",
       "difficulty": 2,
       "characters": 81,
       "wordCount": 13,
@@ -67836,7 +67837,7 @@
     {
       "id": "if-q2590",
       "kind": "quiz",
-      "category": "Langue française",
+      "category": "Langues du monde",
       "difficulty": 2,
       "characters": 85,
       "wordCount": 12,
@@ -67848,7 +67849,7 @@
     {
       "id": "if-q2591",
       "kind": "quiz",
-      "category": "Langue française",
+      "category": "Langues du monde",
       "difficulty": 2,
       "characters": 75,
       "wordCount": 12,
@@ -67860,7 +67861,7 @@
     {
       "id": "if-q2592",
       "kind": "quiz",
-      "category": "Langue française",
+      "category": "Langues du monde",
       "difficulty": 2,
       "characters": 93,
       "wordCount": 14,
@@ -67872,7 +67873,7 @@
     {
       "id": "if-q2593",
       "kind": "quiz",
-      "category": "Langue française",
+      "category": "Langues du monde",
       "difficulty": 1,
       "characters": 56,
       "wordCount": 9,
@@ -67884,7 +67885,7 @@
     {
       "id": "if-q2594",
       "kind": "quiz",
-      "category": "Langue française",
+      "category": "Langues du monde",
       "difficulty": 2,
       "characters": 75,
       "wordCount": 13,
@@ -67896,7 +67897,7 @@
     {
       "id": "if-q2595",
       "kind": "quiz",
-      "category": "Langue française",
+      "category": "Langues du monde",
       "difficulty": 2,
       "characters": 63,
       "wordCount": 12,
@@ -67908,7 +67909,7 @@
     {
       "id": "if-q2596",
       "kind": "quiz",
-      "category": "Langue française",
+      "category": "Langues du monde",
       "difficulty": 1,
       "characters": 74,
       "wordCount": 11,
@@ -67920,7 +67921,7 @@
     {
       "id": "if-q2597",
       "kind": "quiz",
-      "category": "Langue française",
+      "category": "Langues du monde",
       "difficulty": 1,
       "characters": 50,
       "wordCount": 8,
@@ -67932,7 +67933,7 @@
     {
       "id": "if-q2598",
       "kind": "quiz",
-      "category": "Langue française",
+      "category": "Langues du monde",
       "difficulty": 1,
       "characters": 48,
       "wordCount": 9,
@@ -67944,7 +67945,7 @@
     {
       "id": "if-q2599",
       "kind": "quiz",
-      "category": "Langue française",
+      "category": "Langues du monde",
       "difficulty": 1,
       "characters": 83,
       "wordCount": 15,
@@ -67956,7 +67957,7 @@
     {
       "id": "if-q2600",
       "kind": "quiz",
-      "category": "Langue française",
+      "category": "Langues du monde",
       "difficulty": 2,
       "characters": 86,
       "wordCount": 15,
@@ -67968,7 +67969,7 @@
     {
       "id": "if-q2601",
       "kind": "quiz",
-      "category": "Langue française",
+      "category": "Langues du monde",
       "difficulty": 2,
       "characters": 75,
       "wordCount": 12,

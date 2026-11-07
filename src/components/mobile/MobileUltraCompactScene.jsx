@@ -67,7 +67,7 @@ export default function MobileUltraCompactScene({ state, refs, actions, content,
     const minViewportDim = Math.max(0, Math.min(viewportWidth, viewportHeight));
     const gridMaxFromViewport = Math.max(
       200,
-      Math.min(minViewportDim - 8, MOBILE_GRID_MAX_WIDTH)
+      Math.min(minViewportDim - 8, viewportHeight - 76, MOBILE_GRID_MAX_WIDTH)
     );
     const mobileGridSide = Math.round(gridMaxFromViewport);
     const mobileGapPx = "clamp(4px, 1.8vw, 10px)";

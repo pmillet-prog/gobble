@@ -1,11 +1,9 @@
 # Avatars joueurs — première intégration
 
-La livraison Gotus + test volontaire de la roue conserve le comportement public
-précédent des avatars. `RELEASE_SCOPE.avatarRenderAssets` est verrouillé à `false` :
-miniature habituelle uniquement à la sauvegarde, aucun lot de portraits généré,
-aucune nouvelle route d'assets et migration SQL du lot ignorée. Le cache global
-et la consommation de ces portraits dans les profils/podiums restent désactivés.
-Le travail décrit ci-dessous est conservé pour une livraison ultérieure.
+La mise à jour majeure active `RELEASE_SCOPE.avatarRenderAssets` : les sauvegardes
+génèrent les portraits et poses utilisés par les profils, podiums et la roue.
+Les anciens comptes sont rattrapés pendant le déploiement majeur, après une
+sauvegarde SQLite cohérente et l'application de la migration dédiée.
 
 ## Images générées à l'enregistrement
 
@@ -37,6 +35,10 @@ Sans `--apply`, la commande compte seulement les lots manquants. Avec `--apply`,
 elle les génère un par un, sans modifier les tenues ni les révisions, et vérifie
 de nouveau chaque révision avant d'écrire. Elle est reprenable et n'est jamais
 lancée automatiquement au démarrage ni pendant une lecture de classement.
+`deploy-major.bat` l'exécute pendant la maintenance avec `--apply --migrate`
+et `--backup=…` : la sauvegarde inclut les pages WAL et précède la migration.
+Sur la VM actuelle, la base est `~/gobble_runtime/gobble.db` ; les sauvegardes
+`gobble-before-avatar-render-*.db` restent dans ce même répertoire.
 
 ## Réutilisation des miniatures
 

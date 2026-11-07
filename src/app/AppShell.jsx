@@ -2,6 +2,7 @@ import React from "react";
 
 import GobbleApplication from "../GobbleApplication.jsx";
 import StatsOverlaySatellite from "../features/stats/StatsOverlaySatellite.jsx";
+import ChatSurfaceSatellite from '../features/chat/ChatSurfaceSatellite.jsx';
 import MobileRoundBackdropSatellite from "../features/round/MobileRoundBackdropSatellite.jsx";
 import NativePullToRefreshSatellite from "../features/mobile/NativePullToRefreshSatellite.jsx";
 import ScreenOrientationSatellite from "../features/layout/ScreenOrientationSatellite.jsx";
@@ -10,6 +11,11 @@ import TargetRoundReminderSatellite from "../features/submission/TargetRoundRemi
 import TournamentAvatarsProvider from "../features/avatar/TournamentAvatarsProvider.jsx";
 import { AMBIENT_MUSIC_TRACKS_DEFAULT } from "../audio/audioAssets.js";
 import AppBootOverlay from "../components/boot/AppBootOverlay.jsx";
+import WheelGraphicsGate from "../features/infortune/graphics/WheelGraphicsGate.jsx";
+import WheelGuideSatellite from '../features/infortune/guide/WheelGuideSatellite.jsx';
+import TournamentWheelFinaleSatellite from "../features/infortune/finale/TournamentWheelFinaleSatellite.jsx";
+import { GameBalancesRuntime } from "../features/gobblars/GameBalances.jsx";
+import ResultsLoadingSatellite from "../features/round/ResultsLoadingSatellite.jsx";
 import socketClient from "../socket.js";
 import { readBrowserSessionSnapshot } from "./adapters/browserSessionSnapshot.js";
 import { createRealtimeGateway } from "./adapters/createRealtimeGateway.js";
@@ -43,11 +49,16 @@ function ApplicationRuntime() {
     <>
       <ScreenOrientationSatellite />
       <MaintenanceRecoverySatellite />
-      {bootReady ? <GobbleApplication /> : null}
+      {bootReady ? <WheelGraphicsGate><GobbleApplication /></WheelGraphicsGate> : null}
       {bootReady ? <TargetRoundReminderSatellite /> : null}
+      {bootReady ? <TournamentWheelFinaleSatellite /> : null}
+      {bootReady ? <GameBalancesRuntime /> : null}
+      {bootReady ? <ResultsLoadingSatellite /> : null}
       {bootReady ? <MobileRoundBackdropSatellite /> : null}
       {bootReady ? <NativePullToRefreshSatellite /> : null}
       {bootReady ? <StatsOverlaySatellite /> : null}
+      {bootReady ? <ChatSurfaceSatellite /> : null}
+      {bootReady ? <WheelGuideSatellite /> : null}
       <AppBootOverlay
         onAmbientTracksResolved={handleAmbientTracksResolved}
         onOverlayVisibleChange={handleOverlayVisibleChange}

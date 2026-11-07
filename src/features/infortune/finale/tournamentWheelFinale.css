@@ -1,0 +1,21 @@
+.tournament-wheel-finale { position: fixed; inset: 0; z-index: 220000; overflow: hidden; background: #071522; outline: none; }
+.wheel-finale-clock { font-variant-numeric: tabular-nums; color: #ffe39b; font-size: clamp(18px, 3vw, 28px); padding: 0 8px; }
+.wheel-final-standings { width: min(100%, 900px); height: 100%; min-height: 0; margin: auto; padding: clamp(8px, 2vh, 24px); box-sizing: border-box; display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 10px; color: var(--game-text); }
+.wheel-final-standings > header { text-align: center; }
+.wheel-final-standings[data-closed="true"] > header { padding: 8px; border-radius: 18px; background: radial-gradient(ellipse at top, #efba452b, transparent 75%); animation: wheel-final-header 700ms ease-out both; }
+.wheel-final-standings__trophy { display: inline-block; animation: wheel-final-trophy 850ms cubic-bezier(.2, 1.5, .4, 1) both; }
+@keyframes wheel-final-header { from { opacity: 0; } to { opacity: 1; } }
+@keyframes wheel-final-trophy { from { transform: scale(.25) rotate(-18deg); } to { transform: scale(1) rotate(0); } }
+@media (prefers-reduced-motion: reduce) { .wheel-final-standings[data-closed="true"] > header, .wheel-final-standings__trophy { animation: none; } }
+.wheel-final-standings h1 { margin: 0; font-size: clamp(21px, 4vw, 34px); color: var(--game-text); font-weight: 900; letter-spacing: -.025em; }
+.wheel-final-standings p { margin: 7px 0 0; font-size: clamp(12px, 2vw, 16px); }
+.wheel-final-standings__self { color: var(--game-muted); }
+.wheel-final-standings__answer button { font: inherit; font-weight: 900; text-transform: uppercase; color: var(--game-text); border: 0; border-bottom: 2px dotted currentColor; background: transparent; padding: 2px 4px; cursor: pointer; }
+.wheel-final-standings__list { min-height: 0; overflow: hidden; }
+.wheel-final-standings small { font-weight: 400; }
+.wheel-finale-connection button { border: 1px solid var(--game-border); border-radius: 8px; background: var(--game-panel); color: var(--game-text); padding: 7px 16px; cursor: pointer; }
+.wheel-final-standings [data-ranking-row] { height: 44px; min-height: 44px; align-items: center; box-sizing: border-box; }
+.wheel-final-standings__list .ranking-self-row { background: var(--game-selected); }
+.wheel-final-standings button:disabled { opacity: .4; cursor: default; }
+.wheel-finale-connection { position: absolute; bottom: 12px; left: 5%; right: 5%; padding: 10px; background: #592b23; color: white; text-align: center; border-radius: 9px; }
+@media (max-height: 480px) { .wheel-final-standings { gap: 5px; padding: 5px 16px; } .wheel-final-standings p { margin-top: 3px; } .wheel-final-standings h1 { font-size: 20px; } }

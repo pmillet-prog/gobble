@@ -7,7 +7,8 @@ export function createDynamicActorHalo(texture, lights) {
   const cones = Array.from({ length: 3 }, () => new Vector4());
   const material = new ShaderMaterial({
     uniforms: { contourMap: { value: texture }, haloSources: { value: sources },
-      haloDirections: { value: directions }, haloColors: { value: colors }, haloCones: { value: cones } },
+      haloDirections: { value: directions }, haloColors: { value: colors }, haloCones: { value: cones },
+      selectedHalo: { value: 0 }, selectedHaloColor: { value: new Color("#ffd36b") } },
     vertexShader: /* glsl */`
       varying vec2 contourUv;
       varying vec3 contourPosition;
@@ -27,6 +28,8 @@ export function createDynamicActorHalo(texture, lights) {
       uniform vec3 haloDirections[3];
       uniform vec3 haloColors[3];
       uniform vec4 haloCones[3];
+      uniform float selectedHalo;
+      uniform vec3 selectedHaloColor;
       varying vec2 contourUv;
       varying vec3 contourPosition;
       varying vec3 contourAxisX;
@@ -48,13 +51,13 @@ export function createDynamicActorHalo(texture, lights) {
           float towardCamera = 0.25 + 0.75 * pow(max(dot(-lightDirection, viewDirection), 0.0), 4.0);
           radiance += haloColors[i] * haloCones[i].x / distanceSquared * cone * rangeFade * edgeLight * towardCamera;
         }
-        gl_FragColor = vec4(radiance * 3.2, mask.a * 0.9);
+        gl_FragColor = vec4(mix(radiance * 3.2, selectedHaloColor * 2.4, selectedHalo), mask.a * mix(0.9, 1.0, selectedHalo));
         #include <colorspace_fragment>
       }`,
     transparent: true, depthWrite: false, side: DoubleSide, forceSinglePass: true,
     blending: AdditiveBlending, toneMapped: false,
   });
-  return { material, update() {
+  return { material, setSelected(selected) { material.uniforms.selectedHalo.value = selected ? 1 : 0; }, update() {
     for (let i = 0; i < 3; i++) {
       const light = lights[i];
       if (!light || !light.visible) { cones[i].set(0, 1, -1, 1); colors[i].setRGB(0, 0, 0); continue; }

@@ -1,8 +1,10 @@
-// Values for the workshop. Live economics will be supplied by the tournament.
+import { INFORTUNE_FINALE_VICTORY_POINTS } from './infortuneTournamentFinale.js';
+
+// Shared defaults for the tournament and its workshop.
 export const INFORTUNE_FINALE_DEFAULTS = Object.freeze({
   consonantCost: 50,
   vowelCost: 150,
-  victoryPoints: 1000,
+  victoryPoints: INFORTUNE_FINALE_VICTORY_POINTS,
   bankPerGobblar: 10,
 });
 

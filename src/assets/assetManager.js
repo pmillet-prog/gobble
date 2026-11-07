@@ -1,3 +1,7 @@
+import { gameAudioFocus } from '../features/audio/gameAudioFocus.js';
+import { isAudioPageHidden } from '../audio/foregroundAudio.js';
+const releaseAudioFocus = gameAudioFocus.store.subscribe(() => applyMasterGain());
+if (import.meta.hot) import.meta.hot.dispose(releaseAudioFocus);
 const DEV_MODE = typeof import.meta !== "undefined" && !!import.meta.env?.DEV;
 const DEV_LOG_SFX = DEV_MODE && false;
 const DEV_LOG_SFX_MISSES = DEV_MODE && false;
@@ -25,6 +29,7 @@ const state = {
   loadingSfx: new Map(),
   pendingPlaysByKey: new Map(),
   playQueue: [],
+  activeSfx: new Set(),
   flushScheduled: false,
   pendingDecode: false,
   files: new Map(),
@@ -258,7 +263,7 @@ function selectByPriority(entries, priority) {
 
 function applyMasterGain() {
   if (!state.masterGain) return;
-  state.masterGain.gain.value = state.muted ? 0 : clamp01(state.masterVolume);
+  state.masterGain.gain.value = state.muted || gameAudioFocus.store.getState().effects ? 0 : clamp01(state.masterVolume);
 }
 
 function disconnectNode(node) {
@@ -277,6 +282,7 @@ function revokeTrackedObjectUrl(url) {
 }
 
 function resetAudioForNewContext() {
+  stopAllSfx();
   state.sfxBuffers.clear();
   state.resolvedUrls.forEach((value, key) => {
     if (state.manifest.get(key)?.type === "sfx") {
@@ -804,6 +810,7 @@ function getAudioDebugStats() {
     loadingBuffers: state.loadingSfx.size,
     pendingPlays,
     playQueue: Array.isArray(state.playQueue) ? state.playQueue.length : 0,
+    activeVoices: state.activeSfx.size,
     cooldownKeys: state.lastPlayed.size,
     missKeys: state.sfxMisses.size,
   };
@@ -820,6 +827,18 @@ export function cancelQueuedSfx(key) {
   if (Array.isArray(state.playQueue) && state.playQueue.length > 0) {
     state.playQueue = state.playQueue.filter((item) => item?.key !== key);
   }
+}
+
+// Playback requests are transient; keep decoded assets, discard old events.
+export function stopAllSfx() {
+  state.playQueue = [];
+  state.pendingPlaysByKey.clear();
+  state.nextStartTime.clear();
+  for (const handle of state.activeSfx) {
+    handle.stop();
+    disconnectNode(handle.source); disconnectNode(handle.gainNode);
+  }
+  state.activeSfx.clear();
 }
 
 function queuePendingPlay(key, options) {
@@ -1143,6 +1162,7 @@ export function release(key) {
 }
 
 export async function unlockAudio() {
+  if (isAudioPageHidden()) return null;
   state.audioUnlocked = true;
   const ctx = ensureAudioContext({ force: true });
   if (!ctx) return null;
@@ -1179,7 +1199,8 @@ export function playSfx(
   } = {}
 ) {
   if (!key) return null;
-  if (state.muted) {
+  if (isAudioPageHidden()) return null;
+  if (state.muted || gameAudioFocus.store.getState().effects) {
     recordSfxMiss(key, "muted");
     return null;
   }
@@ -1326,16 +1347,19 @@ export function playSfx(
     },
   };
   source.onended = () => {
+    state.activeSfx.delete(handle);
     disconnectNode(source);
     disconnectNode(gainNode);
   };
   try {
+    state.activeSfx.add(handle);
     source.start(startAt);
     if (DEV_LOG_SFX && isVocabTick) {
       const delayMs = Math.max(0, (startAt - now) * 1000);
       console.debug(`[asset] sfx start ${key} eq=${targetEq} +${delayMs.toFixed(2)}ms`);
     }
   } catch (_) {
+    state.activeSfx.delete(handle);
     recordSfxMiss(key, "startError");
     disconnectNode(source);
     disconnectNode(gainNode);
@@ -1355,6 +1379,7 @@ export function setMasterVolume(volume) {
 }
 
 export function dispose() {
+  stopAllSfx();
   state.images.forEach((entry) => {
     if (entry?.url) revokeTrackedObjectUrl(entry.url);
   });
@@ -1414,6 +1439,7 @@ const AssetManager = {
   setAudioSystemProvider,
   releaseAudioSystem,
   cancelQueuedSfx,
+  stopAllSfx,
   compactAudioState,
   getAudioDebugStats,
   dispose,
