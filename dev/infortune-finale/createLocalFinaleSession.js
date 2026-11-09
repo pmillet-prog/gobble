@@ -1,9 +1,10 @@
 import { createInfortuneFinaleSession } from '../../shared/createInfortuneFinaleSession.js';
 import { finalePurchaseQuote } from '../../shared/infortuneFinalePurchases.js';
+import { drawFinaleGiftLetters } from '../../shared/finaleGiftLetters.js';
 
 // Virtual test wallet only. Workshop purchases never call the account API.
 export function createLocalFinaleSession(options) {
-  const session = createInfortuneFinaleSession(options);
+  const session = createInfortuneFinaleSession({ ...options, freeLetters: options.freeLetters ?? drawFinaleGiftLetters(options.puzzle.clue, options.random) });
   let gobblarsBalance = 5000;
   const snapshot = () => ({ ...session.snapshot(), gobblarsBalance, virtualWallet: true });
   return { snapshot, expire: () => { session.expire(); return snapshot(); },

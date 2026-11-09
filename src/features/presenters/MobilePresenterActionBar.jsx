@@ -11,6 +11,7 @@ import usePresenterHintsController from "./usePresenterHintsController.js";
 import { CHAT_BOT_VISIBILITY_OPTIONS } from "../../components/chat/chatBotVisibility.js";
 import { getResultsPresenter } from "./resultsPresenter.js";
 import { getResultsPresenterDisabledReason } from "./resultsPresenterAvailability.js";
+import WheelResultsEntry from '../infortune/WheelResultsEntry.jsx';
 
 const presenterNames = Object.fromEntries(CHAT_BOT_VISIBILITY_OPTIONS.map(({ key, nick }) => [key, nick]));
 
@@ -312,6 +313,7 @@ export function ResultsActionBar({
       }`}
       style={desktop ? { containerType: "inline-size" } : undefined}
       aria-label="Commandes des résultats"
+      data-results-actions
     >
       {!desktop ? (
         <HomeActionButton
@@ -339,14 +341,17 @@ export function ResultsActionBar({
         size={buttonSize}
         state={presenterState.entries[PRESENTER_HINT_KEYS.pivot]}
       />
-      <HomeActionButton
+      <WheelResultsEntry size={buttonSize} hostRef={hostRef} vocabularyRoundId={roundId}
+        vocabularyReady={presenterState.phaseKey === 'results'
+          && presenterState.resultsAvailability?.roundId === String(roundId || '')
+          && !!presenterState.resultsAvailability?.vocabReady}><HomeActionButton
         imageKey={UI_IMAGE_KEYS.home.stats}
         imageOffsetY="-2%"
         imageScale={1.26}
         label="Ouvrir les statistiques"
         onClick={onOpenStats}
         size={buttonSize}
-      />
+      /></WheelResultsEntry>
       {!desktop ? <ResultsChatButton onClick={onOpenChat} size={buttonSize} /> : null}
     </div>
   );

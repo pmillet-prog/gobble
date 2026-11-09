@@ -120,6 +120,28 @@ identifier avant d'installer un second relais.
 
 ## Vérification locale sans lancer le backend
 
+### Polices et réparation des images archivées
+
+L'export charge explicitement les polices craie, Caveat pour les caractères
+manquants et Noto Emoji pour les pictogrammes. Il ne dépend pas des polices
+installées sur la VM. Les textes nouvellement publiés conservent leurs accents
+et ligatures, en majuscules comme auparavant.
+
+La copie compatible d'Urban Class, préparée par
+`python scripts/prepare-chalkboard-fonts.py`, supprime les correspondances vers
+ses glyphes vides afin d'autoriser une police de secours. Le fichier original
+reste dans `public/chalkfont/Urban Class.ttf` et l'identifiant de la police ne
+change pas. FontTools est nécessaire uniquement pour préparer cette copie.
+
+`CHALKBOARD_PNG_VERSION` identifie le moteur de rendu. Après mise à jour du
+backend, l'archiveur reconstruit les anciennes images hebdomadaires à partir
+des snapshots conservés, une par passage de sa tâche habituelle (une minute),
+après les nouveaux exports. L'ancienne image reste disponible jusqu'à la fin
+de la reconstruction, puis une URL versionnée évite les anciennes copies en
+cache. Cette réparation ne renvoie pas les e-mails déjà traités et ne supprime
+ni les snapshots ni les images d'origine. Les accents retirés des textes avant
+leur enregistrement ne peuvent pas être récupérés à partir de ces snapshots.
+
 ```sh
 node --test server/tests/chalkboardPersistence.test.js server/tests/chalkboardExports.test.js server/tests/chalkboardRaster.test.js
 node server/scripts/benchmark-chalkboard-sponge.mjs

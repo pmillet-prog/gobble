@@ -48,3 +48,7 @@
   .infortune-swap__money[data-moving="true"] { animation: none; transform: translateX(calc(var(--to) * 100%)); }
   .infortune-swap__player[data-involved="true"] .infortune-swap__head { animation: none; }
 }
+.infortune-exchange-animation[data-cancelled="true"] h2 > span { color: #ffb782; text-decoration: line-through; animation: infortune-cancel-swap 1s ease-in-out 2; }
+.infortune-exchange-animation[data-cancelled="true"] header > p:last-child { max-width: 400px; margin: 10px auto 0; color: #eaf7ff; font-size: 14px; letter-spacing: normal; }
+@keyframes infortune-cancel-swap { 25% { transform: translateX(-8px); } 75% { transform: translateX(8px); } }
+@media(prefers-reduced-motion:reduce) { .infortune-exchange-animation[data-cancelled="true"] h2 > span { animation: none; } }

@@ -100,8 +100,8 @@ test("typed paragraph breaks survive resizing, publication and re-editing", () =
   assert.deepEqual(stored.lineBreaks, element.lineBreaks);
   assert.deepEqual(stored.paragraphBreaks, element.paragraphBreaks);
   const wider = reflowChalkboardText(stored, 1600, measure);
-  assert.deepEqual(getChalkboardTextLines(wider), ["BONJOUR A TOUS", "A BIENTOT SUR LE TABLEAU !"]);
-  assert.equal(getChalkboardEditableText(wider), "BONJOUR A TOUS\nA BIENTOT SUR LE TABLEAU !");
+  assert.deepEqual(getChalkboardTextLines(wider), ["BONJOUR À TOUS", "À BIENTÔT SUR LE TABLEAU !"]);
+  assert.equal(getChalkboardEditableText(wider), "BONJOUR À TOUS\nÀ BIENTÔT SUR LE TABLEAU !");
 });
 
 test("publication and deletion undo preserve all lines and their lower-line hit area", () => {

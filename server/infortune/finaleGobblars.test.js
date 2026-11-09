@@ -17,7 +17,7 @@ function harness({ bank = 0, balance = 500, waitForPayment } = {}) {
   } };
   const game = createTournamentWheelFinale({ roomId: 'r', tournamentId: 't', startsAt: 1000, puzzle, wallet,
     ranking: [{ userId:1, installId:'1', nick:'Alice', points:0, basePoints:0, gobbles:0, roundScoreSum:0 }], ledger: { banks:new Map([['user:1',bank]]) },
-    timers: { setTimeout() { return 1; }, clearTimeout() {} }, now: () => time });
+    freeLetters: [], timers: { setTimeout() { return 1; }, clearTimeout() {} }, now: () => time });
   let id = 0;
   return { game, paid, balance: () => walletBalance, expire() { time=121000; game.finish(); },
     buy(letter, cost, extra={}) { return game.submit('user:1',{type:'buy',letter,currency:'gobblars',confirmedCost:cost,requestId:`request-${++id}`,...extra}); } };

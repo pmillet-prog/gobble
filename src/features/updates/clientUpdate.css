@@ -1,0 +1,26 @@
+.client-update-backdrop {
+  position: fixed; inset: 0; z-index: 300000; display: grid; place-items: center;
+  padding: max(20px, env(safe-area-inset-top)) 20px max(20px, env(safe-area-inset-bottom));
+  background: #071427dd; overflow-y: auto;
+}
+.client-update {
+  box-sizing: border-box; width: min(100%, 440px); padding: 28px; border-radius: 24px;
+  background: #f8fafc; color: #15233b; text-align: center; font-family: system-ui, sans-serif;
+  box-shadow: 0 20px 80px #0008; border: 1px solid #fff6;
+}
+.client-update__icon { display: block; color: #0369a1; font-size: 52px; line-height: 1; }
+.client-update h2 { margin: 18px 0 12px; font-size: 24px; line-height: 1.2; }
+.client-update p { margin: 12px 0; font-size: 16px; line-height: 1.5; }
+.client-update .client-update__saved { color: #475569; font-size: 14px; }
+.client-update .client-update__error { color: #b91c1c; font-size: 14px; }
+.client-update button {
+  width: 100%; margin-top: 12px; padding: 14px; border: 0; border-radius: 14px;
+  background: #0369a1; color: white; font: inherit; font-weight: 750; cursor: pointer;
+}
+.client-update button:focus-visible { outline: 3px solid #38bdf8; outline-offset: 4px; }
+.client-update button[aria-disabled="true"] { opacity: .7; cursor: wait; }
+.theme-dark .client-update { background: #142239; color: #f1f5f9; border-color: #334155; }
+.theme-dark .client-update__icon { color: #7dd3fc; }
+.theme-dark .client-update .client-update__saved { color: #bac9dc; }
+.theme-dark .client-update .client-update__error { color: #fda4af; }
+@media (max-width: 360px) { .client-update { padding: 24px 18px; } }

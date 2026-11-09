@@ -56,8 +56,10 @@ export function createAvatarThumbnailCache({ fetchImpl = (...args) => fetch(...a
       const entry = entryFor(source);
       const wasIdle = !entry.listeners.size;
       entry.listeners.add(listener);
-      const versioned = /[?&]v=\d+/.test(source);
-      const lifetime = entry.value.status === "failed" ? 15000 : versioned ? 86400000 : 120000;
+      // A round outlasts the old two-minute TTL. Keep successful decoded images
+      // across results remounts; avatar edits/reconnects change their source URL.
+      const lifetime = entry.value.status === "ready" ? Infinity
+        : entry.value.status === "failed" ? 15000 : 120000;
       if (!entry.pending && (entry.value === initial || (wasIdle && now() - entry.at > lifetime))) {
         if (entry.value.url) revokeURL(entry.value.url);
         entry.value = initial;

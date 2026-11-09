@@ -1,13 +1,18 @@
 // A shared-context track with sample-accurate envelopes. No timers or frame
 // loop of its own; the physical wheel / camera supplies playback intent.
+// Optional disposal tails keep only a bounded cleanup timer until onended.
 export function createBufferedTrack({ context, url, volume = 0.5, duration = Infinity,
-  fadeIn = 0.15, fadeOut = 0.35, loop = false, syncClock = true, resumeFromPlayback = false, fetchAudio = globalThis.fetch }) {
+  fadeIn = 0.15, fadeOut = 0.35, disposeFadeOut = 0, loop = false, syncClock = true, resumeFromPlayback = false, fetchAudio = globalThis.fetch }) {
   const bus = context.createGain(); bus.gain.value = volume; bus.connect(context.destination);
   const abort = new AbortController(), retiring = new Set();
   let buffer, loading, voice = null, disposed = false, muted = false, suspended = false, level = 1, finishedKey = null;
   let desired = { active: false, time: 0, key: null };
+  let disposal = null, onDrained = null;
   function disconnect(record) {
+    if (record.disconnected) return;
+    record.disconnected = true; record.source.onended = null;
     record.source.disconnect(); record.gain.disconnect(); retiring.delete(record);
+    if (!retiring.size) onDrained?.();
   }
   function clearRetiring() {
     for (const record of [...retiring]) { try { record.source.stop(); } catch {} disconnect(record); }
@@ -19,6 +24,7 @@ export function createBufferedTrack({ context, url, volume = 0.5, duration = Inf
     const record = voice; voice = null;
     if (!record) return;
     const now = context.currentTime, parameter = record.gain.gain;
+    fade = Math.min(Math.max(0, fade), Math.max(0, record.endsAt - now));
     if (parameter.cancelAndHoldAtTime) parameter.cancelAndHoldAtTime(now);
     else { const value = parameter.value; parameter.cancelScheduledValues(now); parameter.setValueAtTime(value, now); }
     parameter.linearRampToValueAtTime(0, now + fade);
@@ -53,7 +59,7 @@ export function createBufferedTrack({ context, url, volume = 0.5, duration = Inf
       if (remaining > fadeOut + attack) gain.gain.setValueAtTime(1, now + remaining - fadeOut);
       gain.gain.linearRampToValueAtTime(0, now + remaining);
     }
-    const record = { source, gain, key: value.key, offset: time, started: now }; voice = record;
+    const record = { source, gain, key: value.key, offset: time, started: now, endsAt: now + remaining }; voice = record;
     source.onended = () => {
       if (voice === record) { voice = null; finishedKey = record.key; }
       disconnect(record);
@@ -78,9 +84,26 @@ export function createBufferedTrack({ context, url, volume = 0.5, duration = Inf
     setMuted(value) { if (value) rememberPlayback(); muted = value; sync(desired); if (value) clearRetiring(); },
     setSuspended(value) { if (value) rememberPlayback(); suspended = value; sync(desired); if (value) clearRetiring(); },
     dispose() {
-      disposed = true; abort.abort(); stop(0);
+      if (disposed) return disposal;
+      disposed = true; abort.abort(); buffer = null;
+      if (disposeFadeOut > 0 && !muted && !suspended && context.state === "running" && (voice || retiring.size)) {
+        stop(disposeFadeOut);
+        disposal = new Promise(resolve => {
+          let timer;
+          const release = () => {
+            onDrained = null; clearTimeout(timer); clearRetiring(); bus.disconnect(); resolve();
+          };
+          onDrained = release;
+          // Audio onended normally releases first. Bound cleanup even if the
+          // browser interrupts the context during the fade.
+          timer = setTimeout(release, disposeFadeOut * 1000 + 60);
+          if (!retiring.size) release();
+        });
+        return disposal;
+      }
+      stop(0);
       clearRetiring();
-      buffer = null; bus.disconnect();
+      bus.disconnect();
     },
   };
 }

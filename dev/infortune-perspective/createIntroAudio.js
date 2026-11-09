@@ -8,7 +8,7 @@ export function introAudioGain(time) {
 
 // Only the short local excerpt is decoded. A scheduled GainNode fade works on
 // mobile too, without depending on HTMLMediaElement.volume or render frequency.
-export function createIntroAudio({ url, onStatus = () => {}, fetchAudio = globalThis.fetch,
+export function createIntroAudio({ url, onStatus = () => {}, fetchAudio = globalThis.fetch, closeContextOnDispose = true,
   createContext = () => {
     const Context = globalThis.AudioContext || globalThis.webkitAudioContext;
     return Context ? new Context() : null;
@@ -81,7 +81,7 @@ export function createIntroAudio({ url, onStatus = () => {}, fetchAudio = global
     dispose() {
       disposed = true; abort.abort(); stop(); buffer = null;
       context?.removeEventListener?.("statechange", contextChanged);
-      if (context && context.state !== "closed") void context.close().catch(() => {});
+      if (closeContextOnDispose && context && context.state !== "closed") void context.close().catch(() => {});
     },
   };
 }

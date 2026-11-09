@@ -80,3 +80,45 @@ test("an audience reaction resumes at its playback position after hiding or muti
   assert.equal(app.sources.length, 3, "A completed reaction is not replayed when sound is re-enabled.");
   app.track.dispose();
 });
+
+test("celebration disposal fades the live voice before disconnecting and cannot restart it", async () => {
+  const app = harness({ disposeFadeOut: .9 }); await app.track.prepare();
+  app.track.sync({ active: true, time: 0, key: 1 }); app.context.currentTime = 2;
+  const disposal = app.track.dispose();
+  assert.equal(app.track.dispose(), disposal);
+  assert.deepEqual(app.sources[0].stops.at(-1), [2.9]);
+  assert.deepEqual(app.gains[1].events.at(-1), ['ramp', 0, 2.9]);
+  assert.equal(app.gains[0].disconnected, false);
+  app.track.sync({ active: true, time: 0, key: 2 }); app.track.setMuted(false);
+  assert.equal(app.sources.length, 1);
+  app.sources[0].onended(); await disposal;
+  assert.ok(app.gains.every(gain => gain.disconnected));
+  assert.ok(app.sources.every(source => source.disconnected));
+});
+
+test("a celebration exit fade cannot extend past the clip's natural end", async () => {
+  const app = harness({ disposeFadeOut: .9 }); await app.track.prepare();
+  app.track.sync({ active: true, time: 0, key: 1 }); app.context.currentTime = 4.8;
+  const disposal = app.track.dispose();
+  assert.deepEqual(app.sources[0].stops.at(-1), [5]);
+  assert.deepEqual(app.gains[1].events.at(-1), ['ramp', 0, 5]);
+  app.sources[0].onended(); await disposal;
+});
+
+test("mute and backgrounding interrupt a departing celebration and release its bus", async () => {
+  for (const method of ['setMuted', 'setSuspended']) {
+    const app = harness({ disposeFadeOut: .9 }); await app.track.prepare();
+    app.track.sync({ active: true, time: 0, key: 1 });
+    const disposal = app.track.dispose(); app.track[method](true); await disposal;
+    assert.ok(app.sources[0].disconnected); assert.ok(app.gains[0].disconnected);
+    app.track[method](false); assert.equal(app.sources.length, 1);
+  }
+});
+
+test("an interrupted audio clock cannot retain a departing celebration indefinitely", async t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const app = harness({ disposeFadeOut: .9 }); await app.track.prepare();
+  app.track.sync({ active: true, time: 0, key: 1 });
+  const disposal = app.track.dispose(); t.mock.timers.tick(960); await disposal;
+  assert.ok(app.sources[0].disconnected); assert.ok(app.gains[0].disconnected);
+});

@@ -1,0 +1,7 @@
+.infortune-wheel-emblem { position:relative; display:inline-block; flex-shrink:0; font-size:var(--wheel-emblem-size); width:1em; height:1em; vertical-align:middle; }
+.infortune-wheel-emblem__disc { display:grid; place-items:center; width:100%; height:100%; box-sizing:border-box; border:.046512em solid #e8c37b; border-radius:50%; background:repeating-conic-gradient(#48b5c9 0deg 45deg,#ecba72 45deg 90deg,#96addc 90deg 135deg,#e97768 135deg 180deg); }
+.infortune-wheel-emblem__disc i { display:grid; place-items:center; width:1.5em; height:1.5em; box-sizing:border-box; border:.1em solid #e8c37b; border-radius:50%; background:#14263e; color:#ffe2a4; font-size:.232558em; line-height:1; font-style:normal; }
+.infortune-wheel-emblem__pointer { position:absolute; top:-.081395em; left:50%; transform:translateX(-50%); z-index:1; width:.16279em; height:.209302em; background:#fff1c0; clip-path:polygon(0 0,100% 0,50% 100%); }
+.infortune-wheel-emblem[data-spinning=true] .infortune-wheel-emblem__disc { box-shadow:0 0 .29em #facc5533; animation:infortune-loading-turn 2.4s cubic-bezier(.35,.1,.65,.9) infinite; }
+@keyframes infortune-loading-turn { to { transform:rotate(360deg); } }
+@media(prefers-reduced-motion:reduce) { .infortune-wheel-emblem[data-spinning=true] .infortune-wheel-emblem__disc { animation:none; } }

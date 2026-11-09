@@ -2,6 +2,7 @@ import { createFeatureStore } from "../../../app/core/createFeatureStore.js";
 import { createFinaleController } from "./createFinaleController.js";
 import { subscribeForegroundClockRefresh } from "../../../utils/realtimeClock.js";
 import { gameAudioFocus } from '../../audio/gameAudioFocus.js';
+import { newFinaleWins } from './finaleWins.js';
 
 export const FINALE_RESULT_MS = 4000;
 const empty = () => ({ finale: null, controller: null, loaded: false, phase: "idle", seconds: 0, startsIn: 0, introElapsedMs: 0, resultSeconds: 0, rewardWalletHold: null, error: "" });
@@ -13,6 +14,7 @@ export function createTournamentFinaleFeature({ getKernel, ports, scope }, { now
   let requestSequence = 0;
   const requestPrefix = `finale-${Math.random().toString(36).slice(2)}-${now()}`;
   const pending = new Set();
+  const winListeners = new Set();
   const silence = audioFocus.claim();
   function reset() {
     silence.set({ ambient: false, effects: false });
@@ -45,13 +47,13 @@ export function createTournamentFinaleFeature({ getKernel, ports, scope }, { now
       : !loaded ? "loading" : "playing";
     silence.set({ ambient: current >= introStartsAt, effects: ['intro', 'playing', 'result', 'loading', 'ranking'].includes(phase) });
     if (phase === 'ranking' || phase === 'idle') store.set('rewardWalletHold', null);
-    store.patch({ phase, introElapsedMs: Math.max(0, current - introStartsAt), startsIn: Math.max(0, Math.ceil((finale.startsAt - current) / 1000)), seconds: Math.max(0, Math.ceil((finale.deadlineAt - Math.max(current, finale.startsAt)) / 1000)), resultSeconds: Math.max(0, Math.ceil((resultUntil - current) / 1000)) });
+    store.patch({ phase, introElapsedMs: Math.max(0, current - introStartsAt), startsIn: Math.max(0, Math.ceil((introStartsAt - current) / 1000)), seconds: Math.max(0, Math.ceil((finale.deadlineAt - Math.max(current, finale.startsAt)) / 1000)), resultSeconds: Math.max(0, Math.ceil((resultUntil - current) / 1000)) });
     if (phase !== "idle") tick = timers.setTimeout(() => {
       if (now() + offset >= finale.deadlineAt && !store.getState().finale.closed) sync();
       refresh();
     }, expired && current >= finale.podiumAt ? 1000 : Math.min(1000, Math.max(1, (phase === 'result' ? resultUntil : current < introStartsAt ? introStartsAt : current < finale.startsAt ? finale.startsAt : expired ? finale.podiumAt : finale.deadlineAt) - current)));
   }
-  function receive(finale) {
+  function receive(finale, announce = false) {
     if (!finale || String(finale.roomId) !== String(roomId)) return;
     const previous = store.getState().finale;
     const sameTournament = previous?.tournamentId === finale.tournamentId;
@@ -65,6 +67,10 @@ export function createTournamentFinaleFeature({ getKernel, ports, scope }, { now
     const sampledOffset = finale.serverNow - now();
     offset = sameTournament ? Math.max(offset, sampledOffset) : sampledOffset;
     store.patch({ finale }); refresh();
+    if (announce) {
+      const wins = newFinaleWins(previous, finale);
+      if (wins.length) for (const listener of winListeners) listener(wins);
+    }
     if (finale.closed && store.getState().controller && !store.getState().controller.store.getState().outcome) sync();
   }
   function request(type, value = {}) {
@@ -128,16 +134,16 @@ export function createTournamentFinaleFeature({ getKernel, ports, scope }, { now
       if (roomId && resumeSnapshot) { handlePayload(resumeSnapshot.breakState); sync(); }
     }
   }
-  return { store, retry: sync, landReward() { store.set('rewardWalletHold', null); }, continueToRanking() { resultUntil = 0; refresh(); }, start() {
+  return { store, subscribeWins(listener) { winListeners.add(listener); return () => winListeners.delete(listener); }, retry: sync, landReward() { store.set('rewardWalletHold', null); }, continueToRanking() { resultUntil = 0; refresh(); }, start() {
     const clearRoom = value => { if (String(value?.roomId) === String(roomId)) reset(); };
     scope.add(ports.realtime.bind({ roundEnded: handlePayload, breakStarted: handlePayload,
-      infortuneFinale: value => { receive(value); if (!store.getState().controller) sync(); }, connect: sync,
+      infortuneFinale: value => { receive(value, true); if (!store.getState().controller) sync(); }, connect: sync,
       roundStarted: clearRoom,
       // Presence changes also broadcast this event during the tournament with
       // isOpen:false. Only an actual return to the lobby ends the finale.
       tournamentLobbyUpdate: value => { if (value?.isOpen === true) clearRoom(value); } }));
     scope.add(getKernel().subscribe(observeKernel)); observeKernel();
     scope.add(subscribeForegroundClockRefresh(() => { refresh(); if (roomId) sync(); }));
-    scope.add(() => { reset(); silence.release(); roomId = null; });
+    scope.add(() => { reset(); silence.release(); roomId = null; winListeners.clear(); });
   } };
 }

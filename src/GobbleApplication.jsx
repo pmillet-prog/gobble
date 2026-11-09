@@ -1,6 +1,7 @@
 // Fichier UTF-8 : conserver les accents, emojis et règles de normalisation (??, etc.). Ne pas convertir d'encodage.
 // 
 import React, { Suspense, useEffect, useState, useRef, useLayoutEffect } from "react";
+import { CLIENT_VERSION } from './features/updates/clientVersion.js';
 import "./styles/desktopResponsive.css";
 import "./styles/gameRuntime.css";
 import { playBlackHoleOutro3D } from "./effects/blackHoleOutro3D.js";
@@ -592,7 +593,7 @@ function getMassiveBoggleFeedbackPoints(points, rawWord) {
   return safePoints;
 }
 const SETTINGS_STORAGE_KEY = "gobble_settings_v1";
-const FRONT_BUILD_TAG = "2026-08-20-minor-fixes-1";
+const FRONT_BUILD_TAG = CLIENT_VERSION || 'development';
 const readLocalSettings = () => {
   if (typeof window === "undefined" || typeof localStorage === "undefined") {
     return {};
@@ -8210,7 +8211,7 @@ function handleTouchEnd() {
   }, [phase]);
   useEffect(() => {
     if (phase === "results" && !isMobileLayout) {
-      setDesktopResultsSummaryExpanded(true);
+      setDesktopResultsSummaryExpanded(false);
     }
   }, [phase, isMobileLayout]);
   const isTargetRound =

@@ -115,7 +115,7 @@ export function drawChalkStroke(context, element, offsetX = 0, offsetY = 0, clip
   context.restore();
 }
 
-function drawChalkText(context, element, offsetX = 0, offsetY = 0) {
+function drawChalkText(context, element, offsetX = 0, offsetY = 0, fontFallback) {
   const random = createRandom(element.seed);
   context.save();
   context.translate(element.cx - offsetX, element.cy - offsetY);
@@ -123,7 +123,7 @@ function drawChalkText(context, element, offsetX = 0, offsetY = 0) {
   context.scale(element.scale, element.scale);
   context.textAlign = "center";
   context.textBaseline = "middle";
-  context.font = chalkboardCanvasFont(element.font, element.fontSize);
+  context.font = chalkboardCanvasFont(element.font, element.fontSize, fontFallback);
   context.fillStyle = normalizeChalkboardTextColor(element.color);
   if (isChalkboardFontId(element.font)) {
     // These faces contain their own chalk grain. Keep natural glyph proportions.
@@ -143,7 +143,7 @@ function drawChalkText(context, element, offsetX = 0, offsetY = 0) {
   context.restore();
 }
 
-export function drawChalkElement(context, element, offsetX = 0, offsetY = 0, clipBounds = null, startPoint = 1) {
+export function drawChalkElement(context, element, offsetX = 0, offsetY = 0, clipBounds = null, startPoint = 1, fontFallback) {
   if (element?.type === "erase") {
     const points = element.points;
     if (!points?.length) return;
@@ -166,5 +166,5 @@ export function drawChalkElement(context, element, offsetX = 0, offsetY = 0, cli
     context.restore();
   }
   if (element?.type === "stroke") drawChalkStroke(context, element, offsetX, offsetY, clipBounds, startPoint);
-  if (element?.type === "text") drawChalkText(context, element, offsetX, offsetY);
+  if (element?.type === "text") drawChalkText(context, element, offsetX, offsetY, fontFallback);
 }

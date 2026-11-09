@@ -1,7 +1,6 @@
 import { createStateFeature } from "../../app/core/createStateFeature.js";
 import { getDefaultRoomId } from "../../app/adapters/deviceCapabilities.js";
 import { chatAvatarRevisions } from "../avatar/chatAvatarRevisions.js";
-import { playerProfileUserId } from "../overlays/playerProfileTarget.js";
 import { resolvePresenterKey } from "../presenters/presenterIdentity.js";
 import {
   CHAT_BOT_VISIBILITY_STORAGE_KEY,
@@ -362,8 +361,8 @@ export function createChatFeature(context, options = {}) {
     const normalizedEntries = history
       .map((entry) => normalizeChatMessageShape(entry))
       .filter(Boolean);
-    // History also arrives after reconnect: recover edits missed while disconnected.
-    chatAvatarRevisions.refresh(normalizedEntries.map(playerProfileUserId).filter(Boolean));
+    // Repeated history/room subscriptions must not invalidate decoded avatars.
+    // The connection event below recovers edits missed while disconnected.
     let historyCapelloIntervention = null;
     let historyPivotIntervention = null;
     let historyRomejkoIntervention = null;
@@ -570,7 +569,9 @@ export function createChatFeature(context, options = {}) {
     realtimeUnsubscribe = null;
     realtimeSocket = nextSocket;
     if (!active || typeof realtimeSocket?.bind !== "function") return;
+    if (realtimeSocket.connected) chatAvatarRevisions.refreshKnown();
     realtimeUnsubscribe = realtimeSocket.bind({
+      connect: () => chatAvatarRevisions.refreshKnown(),
       "avatar:updated": chatAvatarRevisions.update,
       "chat:history": onChatHistory,
       "chat:message_delete": onChatMessageDelete,

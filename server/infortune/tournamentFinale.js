@@ -1,4 +1,5 @@
 import { createInfortuneFinaleSession } from "../../shared/createInfortuneFinaleSession.js";
+import { drawFinaleGiftLetters } from '../../shared/finaleGiftLetters.js';
 import { buyFinaleLetter } from './buyFinaleLetter.js';
 import { normalizeFinaleText } from '../../shared/infortuneFinaleRules.js';
 import { infortunePlayerKey } from "../../shared/infortunePlateaus.js";
@@ -8,14 +9,14 @@ import { INFORTUNE_FINALE_DURATION_MS, INFORTUNE_FINALE_VICTORY_POINTS,
 // The room owns one game, with private sessions keyed by authenticated identity.
 // Public updates contain only standings and deadlines until the finale closes.
 export function createTournamentWheelFinale({ roomId, tournamentId, startsAt, introStartsAt = startsAt, puzzle, ranking, ledger,
-  rules = {}, wallet = null, now = Date.now, timers = globalThis, onChange = () => {}, onWin = () => {}, onFinish = () => {} }) {
+  rules = {}, wallet = null, random = Math.random, freeLetters = drawFinaleGiftLetters(puzzle.clue, random), now = Date.now, timers = globalThis, onChange = () => {}, onWin = () => {}, onFinish = () => {} }) {
   const deadlineAt = startsAt + INFORTUNE_FINALE_DURATION_MS;
   const podiumAt = deadlineAt + INFORTUNE_FINAL_RANKING_MS;
   const participants = new Map(), outcomes = new Map();
   for (const entry of ranking) {
     const key = infortunePlayerKey(entry);
     if (entry.isBot || !key || participants.has(key)) continue;
-    participants.set(key, { entry, session: createInfortuneFinaleSession({ puzzle,
+    participants.set(key, { entry, session: createInfortuneFinaleSession({ puzzle, freeLetters,
       bank: ledger?.banks.get(key) || 0, rules: { ...rules, victoryPoints: INFORTUNE_FINALE_VICTORY_POINTS } }) });
   }
   let closed = false, disposed = false, revision = 0;

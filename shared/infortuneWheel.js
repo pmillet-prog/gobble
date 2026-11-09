@@ -18,6 +18,11 @@ export const EXCHANGE_SECTOR_INDICES = Object.freeze([1, 5, 10, 15, 20]);
 export const EXCHANGE_SECTORS = Object.freeze(WHEEL_SECTORS.map((sector, index) =>
   EXCHANGE_SECTOR_INDICES.includes(index) ? Object.freeze({ ...sector, kind: "exchange", amount: null, label: "Échange", color: "#56d9e9" }) : sector));
 export const infortuneSectors = exchange => exchange ? EXCHANGE_SECTORS : WHEEL_SECTORS;
+// Draw physical wedges, not distinct amounts: five 150s have five chances.
+export function drawInfortuneSector(sectors, random = Math.random) {
+  const index = Math.min(sectors.length - 1, Math.max(0, Math.floor(random() * sectors.length)));
+  return { index, sector: sectors[index] };
+}
 export const INFORTUNE_REWARDS = Object.freeze({ gobble: 100, bonus: 1000, good: 50, perfect: 100 });
 export const INFORTUNE_BONUS_GOBBLARS = 100;
 export const infortuneLaunchBonus = quality => quality === 'perfect' ? INFORTUNE_REWARDS.perfect : quality === 'good' ? INFORTUNE_REWARDS.good : 0;

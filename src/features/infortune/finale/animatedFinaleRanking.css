@@ -1,0 +1,31 @@
+.finale-ranking__legend { display:flex; justify-content:space-between; padding:0 16px 8px; font-size:10px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; color:var(--game-muted); }
+.finale-ranking__scroll { min-height:0; overflow:auto; overscroll-behavior:contain; scrollbar-gutter:stable; padding:4px; border-radius:14px; background:var(--game-soft); outline-offset:-3px; }
+.finale-ranking { position:relative; list-style:none; margin:0; padding:0; }
+.finale-ranking [data-ranking-row] { position:absolute; inset:0 0 auto; height:60px; display:flex; align-items:center; gap:10px; padding:6px 12px; border:1px solid var(--game-border); border-radius:11px; background:var(--game-panel); box-shadow:0 2px 3px #07142b08; transition:transform 950ms cubic-bezier(.2,.8,.2,1),border-color .3s,background .3s; box-sizing:border-box; }
+.finale-ranking [data-self=true] { background:var(--game-selected); border-color:var(--game-accent); }
+.finale-ranking[data-instant=true] [data-ranking-row] { transition:none; }
+.finale-ranking [data-award=true] { z-index:2; border-color:#e4a821; box-shadow:0 0 0 2px #f8c74455,0 6px 18px #8b5a1233; }
+.finale-ranking__place { width:28px; flex-shrink:0; text-align:center; font-weight:900; color:var(--game-muted); font-variant-numeric:tabular-nums; }
+.finale-ranking__place > span:first-child:not(.sr-only) { font-size:24px; }
+.finale-ranking__player { flex:1; min-width:0; font-size:15px; font-weight:800; line-height:1.3; }
+.finale-ranking__name { display:flex; align-items:center; gap:4px; min-width:0; }
+.finale-ranking__nickname { display:block; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:inherit; }
+.finale-ranking__wheel-badge { display:inline-flex; flex-shrink:0; margin-left:3px; }
+.finale-ranking__player em { margin-left:4px; font-size:9px; font-weight:500; font-style:normal; }
+.finale-ranking__player small { display:block; font-size:10px; color:var(--game-muted); font-weight:500; margin-top:3px; }
+.finale-ranking__player small[data-playing=true]::before { content:''; display:inline-block; width:5px; height:5px; border-radius:50%; margin-right:5px; background:#c48820; animation:finale-live-dot 1.5s ease-in-out infinite; }
+.finale-ranking__total { position:relative; min-width:66px; text-align:right; }
+.finale-ranking__score { display:flex; flex-direction:column; line-height:1; font-variant-numeric:tabular-nums; }
+.finale-ranking__score b { font-size:26px; letter-spacing:-.05em; }
+.finale-ranking__score small { margin-top:3px; font-size:9px; color:var(--game-muted); }
+.finale-ranking__bonus { position:absolute; right:64px; top:0; padding:4px 6px; border-radius:7px; background:#f8c744; color:#422408; font-size:22px; font-weight:950; line-height:1; transform-origin:right; animation:finale-bonus-arrive 550ms cubic-bezier(.2,1.7,.4,1) both; }
+.finale-ranking[data-stage=count] .finale-ranking__bonus { animation:finale-bonus-credit 700ms ease-in both; }
+.finale-ranking[data-stage=move] .finale-ranking__bonus { visibility:hidden; }
+.finale-ranking[data-stage=count] [data-award=true] .finale-ranking__score { animation:finale-score-pulse 750ms ease-out both; }
+.finale-ranking__live { min-height:16px; font-size:11px; text-align:center; color:var(--game-muted); margin:6px 0 0; }
+@keyframes finale-live-dot { 50% { opacity:.35; } }
+@keyframes finale-bonus-arrive { from { opacity:0; transform:translateY(-14px) scale(.4); } to { opacity:1; transform:none; } }
+@keyframes finale-bonus-credit { 40% { opacity:1; } to { opacity:0; transform:translateX(54px) scale(.3); } }
+@keyframes finale-score-pulse { 50% { color:var(--game-accent); transform:scale(1.15); } }
+@media(max-width:420px) { .finale-ranking [data-ranking-row] { gap:7px; padding:6px 8px; } .finale-ranking__player { font-size:13px; } .finale-ranking__place { width:24px; } .finale-ranking__score b { font-size:24px; } .finale-ranking__total { min-width:48px; } .finale-ranking__bonus { right:44px; } }
+@media(prefers-reduced-motion:reduce) { .finale-ranking [data-ranking-row] { transition:none; } .finale-ranking *, .finale-ranking *::before { animation:none !important; } }

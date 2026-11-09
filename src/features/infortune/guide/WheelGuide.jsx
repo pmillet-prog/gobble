@@ -7,6 +7,7 @@ const pages = [
     short: 'La cagnotte', title: 'Fais grandir ta cagnotte', image: 'cagnotte-v1',
     alt: 'Le plateau de la roue, les trois candidats et leur cagnotte en euros.',
     content: <><p>Entre les manches du mini-tournoi, tu as <strong>4 lancers de roue</strong> pour préparer ta finale.</p>
+      <p>Les <strong>3 premiers sont facultatifs</strong> : clique sur Christian dans le bandeau des résultats dans les 20 secondes. Sinon, le serveur tire pour toi avec les mêmes cases et probabilités. Le <strong>4e lancer est obligatoire</strong>.</p>
       <p>Le montant obtenu s’ajoute à ta <strong>cagnotte en euros</strong>. Un bon lancer rapporte 50 € de plus, un lancer parfait 100 €. Chaque gobble trouvé ajoute aussi 100 €, en plus des 5 gobblars gagnés.</p>
       <p><strong>Bonus :</strong> +1 000 € et +100 gobblars. <strong>Passe :</strong> aucun montant de case. <strong>Banqueroute :</strong> la cagnotte retombe à zéro.</p>
       <aside>Garde cette cagnotte pour acheter des lettres en finale.</aside></>,
@@ -17,12 +18,14 @@ const pages = [
     content: <><p>Des cases <strong>Échange</strong> apparaissent au dernier lancer. Les cagnottes sont alors cachées.</p>
       <p>Si tu tombes sur l’une d’elles, tu peux <strong>échanger toute ta cagnotte avec l’un des deux autres candidats de ton plateau</strong>.</p>
       <p>Tu préfères garder la tienne ? Choisis <strong>« Ne pas échanger »</strong>. Sans réponse à la fin de ton chrono, aucun échange n’est demandé.</p>
+      <p>Si vous vous choisissez mutuellement, <strong>les deux échanges s’annulent</strong> : chacun garde sa cagnotte.</p>
       <aside>Le tableau sous la roue indique qui doit encore lancer et qui choisit un échange. Un autre joueur peut aussi échanger avec toi.</aside></>,
   },
   {
     short: 'La finale', title: 'Dévoile la question, trouve la réponse', image: 'finale-v2',
     alt: 'Exemple de finale : la question dévoilée décrit un instrument indiquant le nord ; BOUSSOLE est saisi comme réponse.',
     content: <><p>Le tableau cache <strong>une question ou une énigme</strong>. Ce n’est pas une grille où chercher un mot.</p>
+      <p><strong>3 lettres sont offertes à tous</strong>, même après une banqueroute. Toutes leurs occurrences sont dévoilées.</p>
       <ol><li><strong>Achète des lettres</strong> pour lire la question : 50 € la consonne, 150 € la voyelle.</li>
         <li><strong>Trouve la réponse à cette question.</strong> Inutile de tout dévoiler si tu as compris !</li>
         <li>Appuie sur <strong>« J’ai la réponse »</strong>, saisis <strong>un mot</strong>, puis valide avant la fin du chrono. <strong>Une seule tentative !</strong></li></ol>
@@ -31,10 +34,10 @@ const pages = [
   },
 ];
 
-export default function WheelGuide({ onComplete }) {
+export default function WheelGuide({ onComplete, allowEarlyClose = false }) {
   const [page, setPage] = React.useState(0), [visited, setVisited] = React.useState(0);
   const dialog = React.useRef(null), heading = React.useRef(null), scroll = React.useRef(null);
-  const canClose = visited === pages.length - 1, current = pages[page];
+  const canClose = allowEarlyClose || visited === pages.length - 1, current = pages[page];
   React.useEffect(() => {
     const node = dialog.current, previous = document.activeElement;
     node.showModal();
@@ -43,6 +46,7 @@ export default function WheelGuide({ onComplete }) {
   React.useEffect(() => { scroll.current?.scrollTo(0, 0); heading.current?.focus({ preventScroll: true }); }, [page]);
   function go(next) { setPage(next); setVisited(value => Math.max(value, next)); }
   return createPortal(<dialog ref={dialog} className="wheel-guide" aria-labelledby="wheel-guide-title"
+    onKeyDown={event => { if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); if (canClose) onComplete(); } }}
     onCancel={event => { event.preventDefault(); if (canClose) onComplete(); }}>
     <header className="wheel-guide__header"><span>LA NOUVELLE ROUE · MODE D’EMPLOI</span>
       {canClose && <button type="button" aria-label="Fermer les explications" onClick={onComplete}>✕</button>}</header>

@@ -12,8 +12,11 @@ export function chalkboardFontFamily(id) {
   return isChalkboardFontId(id) ? `"${fontFaceFamily(id)}", sans-serif` : '"GobbleCaveat", "Segoe Print", cursive';
 }
 
-export function chalkboardCanvasFont(id, size) {
-  return `${isChalkboardFontId(id) ? 400 : 700} ${size}px ${chalkboardFontFamily(id)}`;
+export function chalkboardCanvasFont(id, size, fallbackFamily) {
+  const family = fallbackFamily
+    ? isChalkboardFontId(id) ? `"${fontFaceFamily(id)}", ${fallbackFamily}` : fallbackFamily
+    : chalkboardFontFamily(id);
+  return `${isChalkboardFontId(id) ? 400 : 700} ${size}px ${family}`;
 }
 
 export function pickChalkboardFont(fonts, random = Math.random) {
@@ -23,7 +26,7 @@ export function pickChalkboardFont(fonts, random = Math.random) {
 }
 
 export function loadChalkboardFont(font) {
-  if (!isChalkboardFontId(font?.id) || !/^\/chalkfont\/[^/]+$/.test(font?.src || "")) {
+  if (!isChalkboardFontId(font?.id) || !/^\/chalkfont\/(?:compatible\/)?[^/]+$/.test(font?.src || "")) {
     return Promise.reject(new Error("invalid_chalkboard_font"));
   }
   const key = `${font.id}:${font.src}`;
@@ -42,8 +45,7 @@ export function loadChalkboardFont(font) {
 }
 
 export function uppercaseChalkboardText(value) {
-  return String(value || "").toLocaleUpperCase("fr-FR").normalize("NFD")
-    .replace(/\p{M}/gu, "").replace(/Œ/g, "OE").replace(/Æ/g, "AE").slice(0, 280);
+  return String(value || "").toLocaleUpperCase("fr-FR").normalize("NFC").slice(0, 280);
 }
 
 export function measureChalkboardText(text, fontSize, font) {

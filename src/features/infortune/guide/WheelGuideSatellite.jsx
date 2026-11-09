@@ -11,8 +11,8 @@ export default function WheelGuideSatellite() {
   React.useEffect(() => {
     if (guide && String(guide.userId) !== String(userId)) overlays.set('wheelGuide', null);
   }, [guide, userId, overlays]);
-  if (!guide || !atHome || String(guide.userId) !== String(userId)) return null;
-  return <React.Suspense fallback={null}><Guide onComplete={() => {
+  if (!guide || (!atHome && !guide.replay) || String(guide.userId) !== String(userId)) return null;
+  return <React.Suspense fallback={null}><Guide allowEarlyClose={!!guide.replay} onComplete={() => {
     guide.onComplete?.();
     overlays.set('wheelGuide', null);
   }} /></React.Suspense>;

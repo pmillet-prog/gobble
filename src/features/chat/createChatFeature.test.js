@@ -161,6 +161,7 @@ test("chat feature owns realtime messages, unread counts and socket cleanup", ()
     "chat:message_reaction",
     "chat:message_update",
     "chatMessage",
+    "connect",
   ]);
 
   socket.fire("chatMessage", {
@@ -176,6 +177,13 @@ test("chat feature owns realtime messages, unread counts and socket cleanup", ()
   socket.fire("avatar:updated", { userId: 9035, revision: 2 });
   assert.match(chatAvatarRevisions.url(9035), /\/9035\/chat\.png\?v=2/);
   assert.equal(chat.store.getState().messages, unchangedMessages, "editing an avatar does not rebuild the message list");
+
+  const avatarBeforeHistory = chatAvatarRevisions.url(9035);
+  socket.fire("chat:history", [{ id: "avatar-history", userId: 9035, nick: "Autre", text: "Salut" }]);
+  socket.fire("chat:history", [{ id: "avatar-history", userId: 9035, nick: "Autre", text: "Salut" }]);
+  assert.equal(chatAvatarRevisions.url(9035), avatarBeforeHistory, "repeated histories reuse decoded avatars");
+  socket.fire("connect");
+  assert.notEqual(chatAvatarRevisions.url(9035), avatarBeforeHistory, "a real reconnect recovers missed edits");
 
   socket.fire("chatMessage", {
     createdAt: 2,
@@ -218,6 +226,8 @@ test("chat feature owns realtime messages, unread counts and socket cleanup", ()
   );
   assert.deepEqual(deferredLabels, [
     "chat-message",
+    "chat-history",
+    "chat-history",
     "chat-message",
     "chat-reaction",
     "chat-update",

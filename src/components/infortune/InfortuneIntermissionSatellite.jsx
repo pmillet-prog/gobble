@@ -9,6 +9,7 @@ import InfortuneStageTransition from './InfortuneStageTransition.jsx';
 import InfortuneLeaderWalk, { usePreloadLeaderScene } from './InfortuneLeaderWalk.jsx';
 import InfortuneSocialDock, { InfortuneSocialDockContext } from './InfortuneSocialDock.jsx';
 import { useWheelOverlayLayer } from '../../features/infortune/useWheelOverlayLayer.js';
+import InfortuneAutomaticResult from './InfortuneAutomaticResult.jsx';
 
 const Stage = React.lazy(() => import("./InfortuneIntermissionStage.jsx"));
 class StageBoundary extends React.Component {
@@ -32,6 +33,7 @@ function ActiveIntermission({ muted = false, onOpenChat, onOpenPlayers }) {
     landLaunch: () => feature.landLaunch(state.key),
     recordResult: result => feature.recordResult(result, state.key),
     ready: () => feature.ready(state.key),
+    autoSpin: () => feature.autoSpin(state.key),
     chooseExchange: target => feature.chooseExchange(target, state.key),
     launched: value => feature.launched(value, state.key) }), [feature, state.key]);
   const dialog = React.useRef(null);
@@ -46,6 +48,7 @@ function ActiveIntermission({ muted = false, onOpenChat, onOpenPlayers }) {
     style={preparing ? { visibility: 'hidden', pointerEvents: 'none' } : undefined}
     className="infortune-intermission" role={preparing ? undefined : "dialog"} aria-modal={preparing ? undefined : "true"} aria-label="La roue de l’infortune">
     {state.stage === 'leaders' && state.closing ? <InfortuneLeaderWalk cue={state.closing} bank={state.economy?.members?.[state.plateau?.self?.id]?.bank} />
+    : result?.automatic ? <InfortuneAutomaticResult state={state} feature={commands} />
     : state.stage === "seating" || waitingWithoutPlateau ? <InfortuneGameSurface bank={state.economy?.members?.[state.plateau?.self?.id]?.bank}>
       {state.economyError && <p role="alert">{state.economyError} <button onClick={() => feature.retry()}>Réessayer</button></p>}
       {state.stage === "seating" ? <div className="infortune-intermission__waiting" role="status">

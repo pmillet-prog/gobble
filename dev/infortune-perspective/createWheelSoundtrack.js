@@ -5,6 +5,7 @@ import { createWheelAudience } from "./wheelAudienceReactions.js";
 import { createWheelAudioPreload } from "./wheelAudioPreload.js";
 import { exchangeImpact } from "../../shared/infortuneExchangePlan.js";
 import { createExchangeArrivalSound } from "./createExchangeArrivalSound.js";
+import { CELEBRATION_FADE_OUT_MS } from "../../src/audio/fadeOutMediaAudio.js";
 
 export function createWheelSoundtrack(options) {
   const preload = createWheelAudioPreload(options.fetchAudio);
@@ -34,7 +35,7 @@ export function createWheelSoundtrack(options) {
     setIntroMuted(value) { introMuted = !!value; player?.setIntroMuted(introMuted); },
     setHidden(value) { hidden = value; player?.setHidden(value); },
     preview: id => player?.preview(id), previewAudience: id => player?.previewAudience(id),
-    dispose() { disposed = true; player?.dispose(); preload.dispose(); },
+    dispose() { disposed = true; const completion = player?.dispose(); preload.dispose(); return completion; },
   };
 }
 
@@ -43,7 +44,7 @@ function createActiveWheelSoundtrack({ urls, onStatus, fetchAudio = globalThis.f
   makeTrack = createBufferedTrack }) {
   let context;
   try { context = createContext(); } catch { context = null; }
-  const intro = createIntroAudio({ url: urls.intro, onStatus, fetchAudio, createContext: () => context });
+  const intro = createIntroAudio({ url: urls.intro, onStatus, fetchAudio, createContext: () => context, closeContextOnDispose: false });
   const arrival = createExchangeArrivalSound({ context, clips: urls.exchangeArrival, random, fetchAudio });
   const tracks = [];
   const track = options => {
@@ -53,12 +54,14 @@ function createActiveWheelSoundtrack({ urls, onStatus, fetchAudio = globalThis.f
   const music = track({ url: urls.spin, volume: 0.48, fadeIn: 0.4, fadeOut: 0.65, loop: true, syncClock: false });
   const drums = track({ url: urls.drums, volume: 0.65, loop: true, syncClock: false, fadeIn: 0.08, fadeOut: 0.15 });
   const results = Object.fromEntries(Object.entries(urls.results).map(([id, url]) =>
-    [id, track({ url, volume: 0.9, duration: 3, fadeIn: 0.01, fadeOut: 0.12 })]));
+    [id, track({ url, volume: 0.9, duration: 3, fadeIn: 0.01,
+      fadeOut: ['jackpot', 'bonus'].includes(id) ? CELEBRATION_FADE_OUT_MS / 1000 : 0.12,
+      disposeFadeOut: ['jackpot', 'bonus'].includes(id) ? CELEBRATION_FADE_OUT_MS / 1000 : 0 })]));
   const audience = createWheelAudience({ urls: urls.audience, track, random });
   let spin = { phase: "ready", id: 0, elapsed: 0 }, result = null, drumsStartedAt = null;
   let hidden = false, interrupted = false, muted = false, introMuted = false;
   let camera = { sequence: "intro", time: 0, playing: false }, generation = 0, preview = 0;
-  let preparation = null, disposed = false;
+  let preparation = null, disposed = false, disposal = null;
   function syncMusic() {
     const spinning = spin.phase === "spinning", suspense = spinning && drumsStartedAt !== null;
     music?.sync({ active: spinning, time: spin.elapsed, key: spin.id, level: suspense ? 0.28 : 1 });
@@ -139,6 +142,15 @@ function createActiveWheelSoundtrack({ urls, onStatus, fetchAudio = globalThis.f
       for (const player of Object.values(results)) player?.sync({ active: false });
       audience.preview(id);
     },
-    dispose() { disposed = true; for (const player of tracks) player.dispose(); arrival.dispose(); intro.dispose(); },
+    dispose() {
+      if (disposed) return disposal;
+      disposed = true;
+      const tails = tracks.map(player => player.dispose()).filter(Boolean);
+      arrival.dispose(); intro.dispose();
+      const close = () => { if (context && context.state !== 'closed') return context.close().catch(() => {}); };
+      if (tails.length) disposal = Promise.all(tails).then(close);
+      else close();
+      return disposal;
+    },
   };
 }

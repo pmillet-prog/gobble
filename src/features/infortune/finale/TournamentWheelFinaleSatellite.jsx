@@ -11,6 +11,7 @@ import "./tournamentWheelFinale.css";
 import InfortuneSocialDock, { InfortuneSocialDockContext } from '../../../components/infortune/InfortuneSocialDock.jsx';
 import { useWheelOverlayLayer } from '../useWheelOverlayLayer.js';
 import FinaleSettingsButton from '../../../components/infortune/FinaleSettingsButton.jsx';
+import useFinaleWinSound from './useFinaleWinSound.js';
 
 const loadFinale = () => import("../../../components/infortune/finale/InfortuneFinale.jsx");
 const Finale = React.lazy(loadFinale);
@@ -21,6 +22,7 @@ function ActiveFinale() {
   const feature = useFeatureRuntime("infortuneFinale");
   const state = useFeatureSelector(feature, value => value);
   const selfNick = useApplicationSelector(value => value.session.nickname);
+  useFinaleWinSound(feature, selfNick, !!state.finale && state.phase !== 'idle');
   const visible = ["intro", "playing", "result", "ranking", "loading"].includes(state.phase);
   React.useEffect(() => {
     if (!state.finale) return;

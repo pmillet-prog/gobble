@@ -1,4 +1,4 @@
-import { PRESENTER_IDENTITIES } from "./presenterIdentities.js";
+import { INFORTUNE_PRESENTER_KEYS, PRESENTER_IDENTITIES } from "./presenterIdentities.js";
 
 export const INFORTUNE_PLATEAU_VERSION = 1;
 export function infortunePlayerKey(player) {
@@ -47,7 +47,7 @@ export function buildInfortunePlateaus({ roomId, roundId, players, ranking = [],
     shuffle(band, random).forEach(({ order, ...player }, i) => slots[i].members.push(Object.freeze(player)));
   }
   for (const group of groups) {
-    const presenters = shuffle(Object.keys(PRESENTER_IDENTITIES), random);
+    const presenters = shuffle(INFORTUNE_PRESENTER_KEYS, random);
     while (group.members.length < 3) {
       const presenterKey = presenters.pop();
       group.members.push(Object.freeze({ id: `${group.id}:presenter:${presenterKey}`, userId: null,

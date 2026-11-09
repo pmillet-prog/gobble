@@ -15,7 +15,7 @@ async function harness({ clockSkew = 0, introMs = 0, creditBeforeAnswer = false,
     puzzle: { id: "p", category: "Orientation", kind: "riddle", clue: "Mon aiguille indique le nord.", answer: "boussole" },
     ranking: [{ userId: 1, nick: "Alice", points: 30, basePoints: 30, gobbles: 0, roundScoreSum: 100, pos: 1 },
       { userId: 2, nick: "Bob", points: 25, basePoints: 25, gobbles: 0, roundScoreSum: 90, pos: 2 }],
-    ledger: { banks: new Map([["user:1", 500], ["user:2", 500]]) }, timers, now: () => time,
+    freeLetters: [], ledger: { banks: new Map([["user:1", 500], ["user:2", 500]]) }, timers, now: () => time,
     onChange: value => { publicUpdates.push(value); if (!holdPublicUpdates) handlers.get("infortuneFinale")?.(value); }, onWin: (...value) => awards.push(value) });
   const realtime = { bind(values) { for (const entry of Object.entries(values)) handlers.set(...entry); return () => handlers.clear(); },
     emit(event, value, ack) {
@@ -47,6 +47,28 @@ async function harness({ clockSkew = 0, introMs = 0, creditBeforeAnswer = false,
   return { feature, kernel, server, at, jobs, handlers, sent, awards, publicUpdates, flush, audioFocus, preferences,
     suspendUntil(target) { time = target; }, dropNext() { drop = 1; }, async dispose() { lease.release(); server.dispose(); await flush(); } };
 }
+
+test('the results countdown reaches zero at the announcement; the two playing minutes start afterward', async () => {
+  const h = await harness({ introMs: 4000 });
+  try {
+    assert.equal(h.feature.store.getState().startsIn, 36);
+    await h.at(36_000); assert.equal(h.feature.store.getState().startsIn, 1); assert.equal(h.feature.store.getState().phase, 'waiting');
+    await h.at(37_000); assert.equal(h.feature.store.getState().startsIn, 0); assert.equal(h.feature.store.getState().phase, 'intro');
+    await h.at(41_000); assert.equal(h.feature.store.getState().phase, 'playing'); assert.equal(h.feature.store.getState().seconds, 120);
+  } finally { await h.dispose(); }
+});
+
+test('live wins announce once while snapshots and reconnects stay silent', async () => {
+  const h = await harness(), heard = [];
+  const release = h.feature.subscribeWins(rows => heard.push(rows.map(row => row.nick)));
+  try {
+    await h.at(42_000);
+    h.server.submit('user:2', { type: 'answer', answer: 'boussole' }); await h.flush();
+    assert.deepEqual(heard, [['Bob']]);
+    h.handlers.get('infortuneFinale')(h.server.publicSnapshot()); h.handlers.get('connect')(); await h.flush();
+    assert.deepEqual(heard, [['Bob']]);
+  } finally { release(); await h.dispose(); }
+});
 
 test('returning from the home lobby restores a committed purchase whose acknowledgement was lost', async () => {
   const h = await harness({ introMs: 4000 });

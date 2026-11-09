@@ -8,6 +8,7 @@ import { createCelebrationFixture } from "./demo/celebrationFixtures.js";
 import { getPresenterPodiumAvatar } from "./presenterPodiumAvatars.js";
 import { preparePodiumAvatars, releasePodiumAvatars } from "./preparePodiumAvatars.js";
 import { PRESENTER_IDENTITIES, resolvePresenterKey } from "../presenters/presenterIdentity.js";
+import { getTournamentPodiumEntries } from "./tournamentPodiumModel.js";
 
 const catalog = JSON.parse(fs.readFileSync(new URL("../../../public/avatars/v1/catalog.json", import.meta.url)));
 
@@ -70,6 +71,21 @@ test("a bot guest can win or place second without replacing the demo user's resu
     assert.equal(fixture.self.userId, "demo-self");
     assert.equal(fixture.self.rank, position === "winner" ? 1 : position === "second" ? 2 : 7);
   }
+});
+
+test("FouKro fills a missing podium place with his existing portrait, even without a presenter key", () => {
+  const entrants = getTournamentPodiumEntries({ ranking: [
+    { nick: "Jean-Bière FouKro", isBot: true, points: 140 },
+    { nick: "Lina", userId: 12, points: 100 },
+    { nick: "Paul", userId: 13, points: 90 },
+  ] });
+  const bot = entrants.players[2];
+  assert.equal(bot.nick, "Jean-Bière FouKro");
+  assert.equal(bot.rank, 3);
+  const portrait = getPresenterPodiumAvatar(bot);
+  assert.equal(portrait.key, "foucault");
+  assert.equal(portrait.poses.neutral, "/bots/presenters/foucault/frame-1.webp");
+  assert.equal(portrait.poses.blink, "/bots/presenters/foucault/frame-2.webp");
 });
 
 test("a bot podium prepares only existing poses, shares identical frames and releases them", async () => {

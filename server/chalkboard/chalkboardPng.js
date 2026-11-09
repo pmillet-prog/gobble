@@ -1,19 +1,15 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { mkdir, rename, writeFile } from "node:fs/promises";
-import { createCanvas, GlobalFonts, loadImage } from "@napi-rs/canvas";
-import { chalkboardFontCatalog } from "./chalkboardFontCatalog.js";
-import { chalkboardFontFamily } from "../../src/features/chalkboard/chalkboardFonts.js";
+import { createCanvas, loadImage } from "@napi-rs/canvas";
+import { prepareChalkboardExportFonts, CHALKBOARD_EXPORT_FONT_FALLBACK } from './chalkboardExportFonts.js';
 import { drawChalkElement } from "../../src/features/chalkboard/chalkboardPaint.js";
 import { boundsIntersect, getElementBounds, CHALKBOARD_WORLD, CHALKBOARD_TILE_SIZE } from "../../src/features/chalkboard/chalkboardModel.js";
 
 const PUBLIC_DIR = fileURLToPath(new URL("../../public/", import.meta.url));
 
 export async function renderChalkboardPng(snapshot, filename) {
-  for (const font of chalkboardFontCatalog.getFonts()) {
-    const family = chalkboardFontFamily(font.id).split('"')[1];
-    if (!GlobalFonts.has(family) && !GlobalFonts.registerFromPath(path.join(PUBLIC_DIR, decodeURIComponent(font.src)), family)) throw new Error("chalkboard_export_font_failed");
-  }
+  prepareChalkboardExportFonts();
   const board = createCanvas(CHALKBOARD_WORLD.width, CHALKBOARD_WORLD.height);
   const context = board.getContext("2d");
   context.fillStyle = "#263c2c";
@@ -32,7 +28,7 @@ export async function renderChalkboardPng(snapshot, filename) {
       for (const group of groups) {
         if (!boundsIntersect(group.bounds, bounds)) continue;
         ink.clearRect(0, 0, tile.width, tile.height);
-        for (const item of group.items) if (boundsIntersect(item.bounds, bounds)) drawChalkElement(ink, item.element, x, y, bounds);
+        for (const item of group.items) if (boundsIntersect(item.bounds, bounds)) drawChalkElement(ink, item.element, x, y, bounds, 1, CHALKBOARD_EXPORT_FONT_FALLBACK);
         context.drawImage(tile, x, y);
       }
     }

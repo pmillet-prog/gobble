@@ -8,6 +8,7 @@ function harness(options = {}) {
   let time = 0, sequence = 0, view, snapshot, clicks = 0;
   const frames = new Map(), results = [];
   const controller = createWheelController({
+    random: () => 0,
     ...options,
     audio: { unlock() {}, tick() { clicks++; }, suspend() {}, resume() {}, dispose() {} },
     now: () => time,
@@ -23,6 +24,16 @@ function harness(options = {}) {
     finish(fps = 60) { for (let i = 0; i < fps * 25 && view.phase !== "finished"; i++) this.advance(1000 / fps); assert.equal(view.phase, "finished"); },
   };
 }
+
+test('the same maximum-power throw from uniformly shifted starting wedges reaches all 24 results', () => {
+  const indices = new Set();
+  for (let i = 0; i < 24; i++) {
+    const app = harness({ random: () => (i + .5) / 24 });
+    app.controller.beginCharge(); app.advance(1500); app.controller.endCharge(); app.finish();
+    indices.add(app.results[0].index); app.controller.dispose();
+  }
+  assert.equal(indices.size, 24);
+});
 
 test("same physical throw yields identical result at 30, 60 and 144 Hz, exactly once", () => {
   const outcomes = [];

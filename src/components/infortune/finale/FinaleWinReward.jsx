@@ -4,6 +4,8 @@ import { useOptionalApplicationKernel } from '../../../app/react/ApplicationRunt
 import { GOBBLARS_SPEND_SOUND_URL } from '../../../audio/audioAssets.js';
 import { normalizeSoundMasterVolume, SOUND_MASTER_VOLUME_DEFAULT } from '../../../audio/audioPreferences.js';
 import { resolveSoundSettings } from '../../../audio/equalizer.js';
+import { fadeOutMediaAudio } from '../../../audio/fadeOutMediaAudio.js';
+import applauseUrl from '../../../../dev/infortune-perspective/assets/audience-top.mp3';
 import './finaleWinReward.css';
 
 const number = value => value.toLocaleString('fr-FR');
@@ -13,13 +15,19 @@ export default function FinaleWinReward({ bank, outcome, onLand }) {
   const [flight, setFlight] = React.useState(null), [landed, setLanded] = React.useState(false);
   callback.current = onLand;
   React.useLayoutEffect(() => {
-    const audio = new Audio(GOBBLARS_SPEND_SOUND_URL), lease = kernel?.features.acquire('preferences');
-    audio.preload = 'auto';
+    const audio = new Audio(GOBBLARS_SPEND_SOUND_URL), applause = new Audio(applauseUrl), lease = kernel?.features.acquire('preferences');
+    const sounds = [audio, applause];
+    let closing = false;
+    for (const sound of sounds) sound.preload = 'auto';
     const preferences = () => {
       const settings = lease?.feature.store.getState() || {};
-      audio.volume = normalizeSoundMasterVolume(settings.soundMasterVolume, SOUND_MASTER_VOLUME_DEFAULT) * resolveSoundSettings('cashRegister').volume;
-      audio.muted = !!settings.isSfxMuted;
-      if (audio.muted || !audio.volume) audio.pause();
+      const volume = normalizeSoundMasterVolume(settings.soundMasterVolume, SOUND_MASTER_VOLUME_DEFAULT);
+      audio.volume = volume * resolveSoundSettings('cashRegister').volume;
+      if (!closing) applause.volume = volume * .95;
+      for (const sound of sounds) {
+        sound.muted = !!settings.isSfxMuted;
+        if (sound.muted || !volume || !sound.volume) sound.pause();
+      }
     };
     preferences(); const unsubscribe = lease?.feature.store.subscribe(preferences);
     let done = false;
@@ -27,6 +35,7 @@ export default function FinaleWinReward({ bank, outcome, onLand }) {
     const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
     const timer = setTimeout(() => {
       if (document.hidden) { land(); return; }
+      if (!applause.muted && applause.volume) void applause.play().catch(() => {});
       if (outcome.gobblars > 0 && !audio.muted && audio.volume) void audio.play().catch(() => {});
       if (reduced || outcome.gobblars <= 0) { land(); return; }
       const from = source.current?.getBoundingClientRect();
@@ -38,10 +47,13 @@ export default function FinaleWinReward({ bank, outcome, onLand }) {
         dx: to.x + to.width / 2 - from.x - from.width / 2, dy: to.y + to.height / 2 - from.y - from.height / 2 });
     }, 30);
     const landing = setTimeout(land, 1600);
-    const visibility = () => { if (document.hidden) { audio.pause(); clearTimeout(timer); clearTimeout(landing); land(); } };
+    const visibility = () => { if (document.hidden) { for (const sound of sounds) sound.pause(); clearTimeout(timer); clearTimeout(landing); land(); } };
     document.addEventListener('visibilitychange', visibility);
     return () => {
-      clearTimeout(timer); clearTimeout(landing); unsubscribe?.(); lease?.release(); audio.pause(); audio.removeAttribute('src'); audio.load();
+      closing = true;
+      clearTimeout(timer); clearTimeout(landing);
+      audio.pause(); audio.removeAttribute('src'); audio.load();
+      void fadeOutMediaAudio(applause).then(() => { unsubscribe?.(); lease?.release(); });
       document.removeEventListener('visibilitychange', visibility);
     };
   }, [kernel]);

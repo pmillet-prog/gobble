@@ -7,17 +7,18 @@ import { finalePurchaseQuote } from './infortuneFinalePurchases.js';
 // Pure domain session: no sockets, UI, storage or wallet writes. The answer stays
 // private until submission. The workshop hosts it locally; live will host it on
 // the server and send only the explicit public snapshot.
-export function createInfortuneFinaleSession({ puzzle, bank, rules: rawRules }) {
+export function createInfortuneFinaleSession({ puzzle, bank, rules: rawRules, freeLetters = [] }) {
   if (!Number.isSafeInteger(bank) || bank < 0) throw new RangeError("infortune_finale_invalid_bankroll");
   const rules = normalizeFinaleRules(rawRules);
   const characters = finaleClueCharacters(puzzle.clue);
-  const purchased = new Set();
+  const gift = [...new Set(freeLetters.map(normalizeFinaleText))].filter(letter => /^[A-Z]$/.test(letter));
+  const purchased = new Set(gift);
   let balance = bank, outcome = null, lastPurchase = null;
   let gobblarPurchases = 0, gobblarsSpent = 0;
 
   function snapshot() {
     return {
-      puzzleId: puzzle.id, category: puzzle.category, kind: puzzle.kind,
+      puzzleId: puzzle.id, category: puzzle.category, kind: puzzle.kind, freeLetters: gift,
       bank: balance, spent: bank - balance, rules, purchased: [...purchased], outcome, lastPurchase, gobblarPurchases, gobblarsSpent,
       tiles: characters.map((character, index) => {
         const letter = normalizeFinaleText(character);

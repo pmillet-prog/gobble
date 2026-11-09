@@ -13,7 +13,7 @@ export function registerChalkboardArchiveRoutes({ router, repository }) {
     const rows = await repository.listArchives(before || "9999-99-99", 31);
     const archives = rows.slice(0, 30).map(row => ({
       weekId: row.week_id,
-      imageUrl: `/api/chalkboard/archives/${row.week_id}/image.png`,
+      imageUrl: `/api/chalkboard/archives/${row.week_id}/image.png?v=${row.png_version || 0}`,
     }));
     return res.json({ ok: true, archives, next: rows.length > 30 ? archives.at(-1).weekId : null });
   });
@@ -25,9 +25,11 @@ export function registerChalkboardArchiveRoutes({ router, repository }) {
     if (!archive) return res.status(404).json({ ok: false, error: "not_found" });
     res.set("Content-Type", "image/png");
     res.set("X-Content-Type-Options", "nosniff");
-    res.set("Cache-Control", "public, max-age=31536000, immutable");
+    const currentVersion = String(archive.png_version || 0);
+    const immutable = req.query?.v === currentVersion;
+    res.set("Cache-Control", immutable ? "public, max-age=31536000, immutable" : "no-cache");
     await new Promise(resolve => {
-      res.sendFile(path.resolve(archive.png_path), { maxAge: "1y", immutable: true }, error => {
+      res.sendFile(path.resolve(archive.png_path), { maxAge: immutable ? "1y" : 0, immutable }, error => {
         if (error && !res.headersSent) {
           res.set("Cache-Control", "no-store");
           res.set("Content-Type", "application/json; charset=utf-8");

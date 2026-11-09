@@ -2,6 +2,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Worker } from "node:worker_threads";
 import { chalkboardMailConfig, isChalkboardMailEnabled } from "./chalkboardMail.js";
+import { CHALKBOARD_PNG_VERSION } from './chalkboardExportVersion.js';
 
 export function runChalkboardExportWorker(workerData) {
   return new Promise((resolve, reject) => {
@@ -29,17 +30,19 @@ export function createChalkboardExports({ service,
     active = (async () => {
       await service.getSnapshot("free"); // Monday reset, even with no visitors.
       const deliveryEnabled = !!mailEnabled();
-      const job = await service.repository.nextExport(now(), { mailEnabled: deliveryEnabled });
+      const pending = await service.repository.nextExport(now(), { mailEnabled: deliveryEnabled });
+      const job = pending || await service.repository.nextArchiveToRender?.(now());
       if (!job) return;
       try {
         let filename = job.png_path;
-        if (!filename) {
-          filename = path.join(directory, `${job.id}.png`);
+        if (!filename || (job.png_version || 0) < CHALKBOARD_PNG_VERSION) {
+          // Keep the previous archive readable until its replacement is complete.
+          filename = path.join(directory, `${job.id}${filename ? `.v${CHALKBOARD_PNG_VERSION}` : ''}.png`);
           await runWorker({ action: "render", snapshot: JSON.parse(job.snapshot), filename });
-          await service.repository.setPng(job.id, filename);
+          await service.repository.setPng(job.id, filename, CHALKBOARD_PNG_VERSION);
         }
         // Local archives remain available without SMTP attempts or retries.
-        if (!deliveryEnabled) return;
+        if (!pending || !deliveryEnabled) return;
         if (!configured()) throw new Error("mail_not_configured");
         await runWorker({ action: "send", id: job.id, weekId: job.week_id, filename });
         await service.repository.markSent(job.id, now());

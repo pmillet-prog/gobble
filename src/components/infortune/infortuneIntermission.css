@@ -18,3 +18,9 @@
 .infortune-exchange > small { display: block; margin: 8px; color: #b8c5d1; }
 .infortune-exchange .infortune-contestants { background: transparent; }
 @media (max-height: 480px) { .infortune-intermission > header { padding: 5px 12px; } .infortune-intermission__controls { padding: 5px; } .infortune-intermission__controls button { padding: 6px 12px; } }
+.infortune-automatic-result { padding: 20px 12px; text-align: center; }
+.infortune-automatic-result > strong { font-size: 32px; color: #d49724; }
+.infortune-automatic-result button { padding: 10px; border-radius: 10px; border: 1px solid #c28c38; background: #fff0cc; color: #172538; font-weight: 700; }
+.infortune-automatic-result__choices { display: flex; justify-content: center; gap: 12px; margin: 12px 0; }
+.infortune-automatic-result__choices button { display: flex; align-items: center; gap: 8px; }
+.infortune-automatic-result__choices img { width: 52px; height: 52px; object-fit: contain; }

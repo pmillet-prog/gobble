@@ -1,0 +1,8 @@
+.finale-answer-keyboard { display: grid; gap: 5px; width: 100%; }
+.finale-answer-keyboard__row { display: flex; gap: 4px; justify-content: center; }
+.finale-answer-keyboard button { flex: 1; min-width: 0; min-height: 44px; border-radius: 7px; border: 1px solid #52718b; background: linear-gradient(#25435f,#142b40); color: #f5f9ff; font: 700 clamp(15px,3.8vw,19px)/1 system-ui,sans-serif; }
+.finale-answer-keyboard button:disabled { opacity: .4; }
+.finale-answer-keyboard .finale-answer-keyboard__erase { flex: 3; display: flex; gap: 5px; align-items: center; justify-content: center; background: #8d382a; border-color: #d49672; font-size: 13px; }
+.finale-answer-keyboard__erase span { font-size: 23px; }
+.finale-answer-keyboard button:focus-visible { outline: 3px solid #ffd680; outline-offset: 1px; }
+@media(max-height:650px) { .finale-answer-keyboard button { min-height: 36px; } }

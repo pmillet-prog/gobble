@@ -290,7 +290,10 @@ export default function useDesktopLayoutController(
       if (!rect || rect.width <= 0 || rect.height <= 0) return;
 
       const gap = 8;
-      const zoneBottom = clampValue(rect.bottom, 0, viewportHeight);
+      // The recap must stop above the results controls (including the timed
+      // wheel invitation), even when its wide drawer overlaps the words column.
+      const actions = host.querySelector('[data-results-actions]')?.getBoundingClientRect();
+      const zoneBottom = clampValue(actions?.height > 0 ? Math.min(rect.bottom, actions.top) : rect.bottom, 0, viewportHeight);
       const bottomOffset = Math.max(gap, Math.round(viewportHeight - zoneBottom + gap));
       const nextMaxWidth = clampValue(Math.round(rect.width * 0.52), 360, 820);
       const rawCenterX = rect.left + rect.width / 2;
@@ -341,6 +344,8 @@ export default function useDesktopLayoutController(
     if (typeof ResizeObserver !== "undefined" && observedHost) {
       observer = new ResizeObserver(() => scheduleUpdate());
       observer.observe(observedHost);
+      const actions = observedHost.querySelector('[data-results-actions]');
+      if (actions) observer.observe(actions);
     }
 
     return () => {

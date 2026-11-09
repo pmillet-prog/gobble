@@ -30,17 +30,14 @@ function WheelStage({ feature, muted, preparing, contestants, economy, groups, s
     if (exchangeReplay) sound.exchange(exchangeReplay.activeExchange, selfId, `${economy.roundNumber}:${exchangeReplay.index}`);
   }, [exchangeReplay, selfId, economy?.roundNumber, sound.exchange]);
   useInfortuneCamera(wheel, sound, feature, { enabled: !preparing });
-  const latestWheel = React.useRef(wheel); latestWheel.current = wheel;
   React.useEffect(() => {
     if (!wheel.inputLocked && wheel.stageStatus.phase === "ready" && stage === "wheel") feature.ready();
   }, [wheel.inputLocked, wheel.stageStatus.phase, stage, feature]);
   React.useEffect(() => {
     if (!launchUntil || stage !== "wheel") return;
-    let timer;
-    const launch = () => { if (!latestWheel.current.autoLaunch()) timer = setTimeout(launch, 250); };
-    timer = setTimeout(launch, Math.max(0, launchUntil - Date.now()));
+    const timer = setTimeout(() => feature.autoSpin(), Math.max(0, launchUntil - Date.now()));
     return () => clearTimeout(timer);
-  }, [launchUntil, stage]);
+  }, [launchUntil, stage, feature]);
   React.useEffect(() => {
     const observer = new ResizeObserver(([entry]) => setSize({ width: entry.contentRect.width, height: entry.contentRect.height }));
     observer.observe(wheel.scene.current); return () => observer.disconnect();
@@ -48,11 +45,13 @@ function WheelStage({ feature, muted, preparing, contestants, economy, groups, s
   const bank = displayedEconomy?.members?.[plateau?.self?.id]?.bank;
   const byId = id => plateau?.members.find(player => player.id === id)?.nick;
   const chosen = economy?.members?.[plateau?.self?.id]?.target;
+  const choiceExpired = economy?.members?.[selfId]?.choiceExpired;
   const exchanges = stage === "settled" ? economy?.exchangeOrder?.[plateau?.id]?.filter(id => economy.members[id]?.target)
     .map(id => `${byId(id)} ↔ ${byId(economy.members[id].target)}`).join(" · ") : null;
+  const stageMessage = { exchange: "Sélectionne un avatar du plateau.", "exchange-wait": `Les candidats terminent leurs choix…${chosen ? ` Ton choix : ${byId(chosen)}.` : ""}`,
+    accounting: "Enregistrement du lancer…", waiting: "Ton lancer est terminé.", settled: exchangeReplay ? `Les échanges du plateau · ${exchangeReplay.index + 1} / ${exchangeReplay.exchanges.length}` : `Ta cagnotte est à jour.${exchanges ? ` ${exchanges}` : ""}` }[stage];
   const status = economyError ? <><span role="alert">{economyError}</span> <button type="button" onClick={onRetry}>Réessayer</button></>
-    : { exchange: "Sélectionne un avatar du plateau.", "exchange-wait": `Les candidats terminent leurs choix…${chosen ? ` Ton choix : ${byId(chosen)}.` : ""}`,
-      accounting: "Enregistrement du lancer…", waiting: "Ton lancer est terminé.", settled: exchangeReplay ? `Les échanges du plateau · ${exchangeReplay.index + 1} / ${exchangeReplay.exchanges.length}` : `Ta cagnotte est à jour.${exchanges ? ` ${exchanges}` : ""}` }[stage];
+    : choiceExpired ? `Délai d’échange écoulé : aucun échange demandé. ${stageMessage || ''}` : stageMessage;
   return <InfortuneWheelPlay wheel={wheel} sound={wheel.flat ? null : sound} subtitle={`Lancer ${economy?.roundNumber || 1}/4`} bank={bank}
     launchBank={economy?.members?.[selfId]?.launchBank} onLaunchLand={feature.landLaunch}
     until={stage === "wheel" ? launchUntil : null} status={status} exchanging={stage !== "wheel"}

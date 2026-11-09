@@ -87,11 +87,12 @@ async function runWithBusyRetry(task, retries = SQLITE_BUSY_MAX_RETRIES) {
   });
 }
 
-function runSerializedWrite(task) {
+function runSerializedWrite(task, { priority = "normal" } = {}) {
   return runSerializedSqliteWrite(task, {
     retries: SQLITE_BUSY_MAX_RETRIES,
     baseMs: SQLITE_BUSY_RETRY_BASE_MS,
     label: "word-vault",
+    priority,
   });
 }
 
@@ -238,7 +239,8 @@ export async function addWordVaultEntryForUser(userId, rawWord) {
             addedAt: now,
           },
         };
-      })
+      }),
+      { priority: "interactive" }
     );
     return result;
   } catch (err) {
@@ -266,7 +268,8 @@ export async function removeWordVaultEntryForUser(userId, rawWord) {
           sanitized.wordKey
         );
         return Number(result?.changes) > 0;
-      })
+      }),
+      { priority: "interactive" }
     );
     return { ok: true, removed };
   } catch (err) {

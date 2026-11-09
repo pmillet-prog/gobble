@@ -1,3 +1,5 @@
+import { CELEBRATION_FADE_OUT_MS } from '../../src/audio/fadeOutMediaAudio.js';
+
 export const AUDIENCE_REACTIONS = [
   ["low1", "Pas ouf 1"], ["low2", "Pas ouf 2"], ["honorable", "Honorable"],
   ["fiveHundred", "400 / 500"], ["top", "1 000 / Bonus"],
@@ -45,7 +47,8 @@ export function nearSpecialSector({ phase, elapsed, velocity, sectorIndex, secto
 // or draws another random sample; explicit auditioning is a separate action.
 export function createWheelAudience({ urls = {}, track, random = Math.random }) {
   const players = Object.fromEntries(Object.entries(urls).map(([id, url]) => [id,
-    track({ url, volume: 0.65, fadeIn: 0.015, fadeOut: 0.22, syncClock: false, resumeFromPlayback: true }),
+    track({ url, volume: 0.95, fadeIn: 0.015, fadeOut: id === 'top' ? CELEBRATION_FADE_OUT_MS / 1000 : 0.22,
+      disposeFadeOut: id === 'top' ? CELEBRATION_FADE_OUT_MS / 1000 : 0, syncClock: false, resumeFromPlayback: true }),
   ]));
   let lastSpinId = null, lastSuspenseId = null, lastExchangeId = null, audition = 0;
   function reset() { for (const player of Object.values(players)) player?.sync({ active: false }); }

@@ -1,4 +1,6 @@
 import { loadInfortuneContestants } from './loadInfortuneContestants.js';
+import { prepareSavedAvatar } from '../avatar/prepareSavedAvatar.js';
+import { savedAvatarImages } from '../avatar/savedAvatarImages.js';
 
 const releaseFrames = frames => {
   for (const actor of frames.values()) for (const canvas of new Set(Object.values(actor))) {
@@ -40,10 +42,15 @@ export function createLeaderPortraitPreparation(cue, dependencies = {}) {
       const poses = {};
       try {
         if (player.avatar) {
-          renderer ||= await (dependencies.createRenderer ? dependencies.createRenderer()
-            : (await import('../avatar/avatarRenderer.js')).createAvatarRenderer());
           for (const pose of ['happy', 'blink']) {
-            const frame = await renderer.prepare(player.avatar, { transparent: true, expression: 'happy', blink: pose === 'blink', nickname: player.nick, portraitOffsetY: 0 });
+            const options = { view: 'portrait', transparent: true, expression: 'happy', blink: pose === 'blink', nickname: player.nick, portraitOffsetY: 0 };
+            let frame = await prepareSavedAvatar(player.avatar, options);
+            signal.throwIfAborted();
+            if (!frame) {
+              renderer ||= await (dependencies.createRenderer ? dependencies.createRenderer()
+                : (await import('../avatar/avatarRenderer.js')).createAvatarRenderer());
+              frame = await renderer.prepare(player.avatar, options);
+            }
             signal.throwIfAborted();
             const canvas = makeCanvas(size); poses[pose] = canvas;
             frame.draw(canvas, 'portrait');
@@ -51,7 +58,7 @@ export function createLeaderPortraitPreparation(cue, dependencies = {}) {
         } else {
           // Accounts without a created avatar keep the game's actual default.
           const image = await (dependencies.loadDefault ? dependencies.loadDefault()
-            : (await import('../avatar/avatarAssetCache.js')).loadAvatarImage('/avatars/default.png'));
+            : savedAvatarImages.load('/avatars/default.png'));
           signal.throwIfAborted();
           const canvas = makeCanvas(size), scale = Math.min(size / image.width, size / image.height);
           canvas.getContext('2d').drawImage(image, (size - image.width * scale) / 2, (size - image.height * scale) / 2, image.width * scale, image.height * scale);

@@ -1,6 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { chalkboardCanvasFont, pickChalkboardFont, loadChalkboardFont } from "./chalkboardFonts.js";
+import { chalkboardCanvasFont, pickChalkboardFont, loadChalkboardFont, uppercaseChalkboardText } from "./chalkboardFonts.js";
+
+test('text entry preserves composed accents and ligatures', () => {
+  assert.equal(uppercaseChalkboardText('é è ê à ù ç œ æ'), 'É È Ê À Ù Ç Œ Æ');
+  assert.equal(uppercaseChalkboardText('e\u0301cole'), 'ÉCOLE');
+});
 
 test("random choice includes newly supplied faces and leaves the catalog unchanged", () => {
   const fonts = Object.freeze(["chalk", "white-chalk", "nouvelle-craie"].map(id => Object.freeze({ id })));

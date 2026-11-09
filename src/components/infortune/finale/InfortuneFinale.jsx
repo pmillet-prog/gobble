@@ -3,6 +3,7 @@ import { normalizeFinaleAnswer } from "../../../../shared/infortuneFinaleRules.j
 import InfortuneGameSurface from "../InfortuneGameSurface.jsx";
 import FinaleLetterBoard from "./FinaleLetterBoard.jsx";
 import FinaleLetterShop from "./FinaleLetterShop.jsx";
+import FinaleAnswerKeyboard from './FinaleAnswerKeyboard.jsx';
 import useFinaleFeedback from '../../../features/infortune/finale/useFinaleFeedback.js';
 import { finaleBankExhausted, finaleGobblarPrice } from '../../../../shared/infortuneFinalePurchases.js';
 import FinaleGobblarConfirmation from './FinaleGobblarConfirmation.jsx';
@@ -70,7 +71,8 @@ export default function InfortuneFinale({ controller, onReplay, onClose, onConti
             <input ref={answerInput} id="infortune-finale-answer" value={answer} onChange={event => setAnswer(event.target.value)} placeholder="Ta réponse en un mot…"
               disabled={state.busy} autoComplete="off" autoCorrect="off" spellCheck={false} maxLength={40} inputMode="none" enterKeyHint="done" />
           </form>}
-          <FinaleLetterShop state={state} mode={mode} onBuy={buyLetter} onType={letter => setAnswer(value => (value + letter).slice(0, 40))} onErase={() => setAnswer(value => value.slice(0, -1))} />
+          {mode === 'answer' ? <FinaleAnswerKeyboard disabled={state.busy} onType={letter => setAnswer(value => (value + letter).slice(0, 40))} onErase={() => setAnswer(value => value.slice(0, -1))} />
+            : <FinaleLetterShop state={state} onBuy={buyLetter} />}
           {mode === "answer" && <button type="submit" form="finale-answer-form" className="infortune-finale-primary" disabled={state.busy || !validAnswer}>{state.busy ? 'Validation…' : 'Valider ma réponse · une seule tentative'}</button>}
         <p className="infortune-finale__potential">À gagner : <strong>+{number(state.rules.victoryPoints)} points</strong> et <strong>{number(Math.floor(state.bank / state.rules.bankPerGobblar))} gobblars</strong></p>
         {state.error && <p className="infortune-finale-answer__error" role="alert">{state.error}</p>}

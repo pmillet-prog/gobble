@@ -9,6 +9,8 @@ import { createInfortuneLedger, createInfortuneRoundEconomy } from "../../../ser
 import { EXCHANGE_SECTOR_INDICES, WHEEL_SECTORS } from "../../../shared/infortuneWheel.js";
 import { INFORTUNE_EXCHANGE_STEP_MS } from "../../../shared/infortuneExchangePlan.js";
 import { INFORTUNE_LEADER_WINDOW_MS } from '../../../shared/infortuneLeaders.js';
+import { wheelInvitationEvent, completeWheelInvitation } from './wheelInvitationPresentation.js';
+import { isResultsVocabularyReady } from '../presenters/resultsPresenterAvailability.js';
 
 const exchangeIndex = EXCHANGE_SECTOR_INDICES[0];
 const fiveHundredIndex = WHEEL_SECTORS.findIndex(sector => sector.amount === 500);
@@ -86,7 +88,7 @@ test('the authoritative result/break schedule opens the wheel even when the star
   for (const event of ['roundEnded', 'breakStarted']) {
     let now = 1000;
     const app = harness(null, undefined, { now: () => now });
-    const policy = { ...seatingPayload().infortune, afterResults: true, resultsReadyAt: 1000, resultsVisibleAt: 1000, openedAt: 21000 };
+    const policy = { ...seatingPayload().infortune, optional: false, afterResults: true, resultsReadyAt: 1000, resultsVisibleAt: 1000, openedAt: 21000 };
     const value = { ...payload, infortune: policy, nextStartAt: 76000 };
     if (event === 'breakStarted') delete value.results;
     app.handlers.get(event)(value);
@@ -104,7 +106,7 @@ test('the authoritative result/break schedule opens the wheel even when the star
 
 test("results stay visible until the server's wheel opening, then waiting ends with the next round", () => {
   let now = 1000;
-  const policy = { ...infortuneRoundPolicy({ enabled: true, round: 1, totalRounds: 5 }), afterResults: true,
+  const policy = { ...infortuneRoundPolicy({ enabled: true, round: 1, totalRounds: 5 }), optional: false, afterResults: true,
     openedAt: 12000, resultsReadyAt: 1000 };
   const app = harness(policy, undefined, { now: () => now });
   app.handlers.get('roundEnded')({ ...payload, infortune: policy });
@@ -152,7 +154,7 @@ test("the wheel reserves room time only between tournament rounds and preserves 
 test('login and reconnect restore the wheel from the hydrated session without a resume preview', () => {
   for (const entryKind of ['join', 'resume']) for (const alreadySpun of [false, true]) {
     const value = seatingPayload([1]);
-    const policy = { ...value.infortune, afterResults: true, resultsReadyAt: 1000, openedAt: 21000 };
+    const policy = { ...value.infortune, optional: false, afterResults: true, resultsReadyAt: 1000, openedAt: 21000 };
     const ledger = createInfortuneLedger();
     const server = createInfortuneRoundEconomy({ ledger, policy, groups: policy.groups, now: () => 30000,
       random: () => .4, timers: { setTimeout() { return 1; }, clearTimeout() {} } });
@@ -269,6 +271,135 @@ test("a server-disabled or final-round session never opens the wheel", () => {
   assert.equal(app.feature.begin("r1", payload, 1000), null); assert.equal(app.timers.size, 0); app.dispose();
 });
 
+test('optional wheels stay in results without mounting the scene; a click opts in and the common car still opens', () => {
+  for (const click of [false, true]) {
+    let now = 1000, app;
+    const policy = { ...seatingPayload().infortune, afterResults: true, resultsVisibleAt: now, openedAt: 21000 };
+    const server = createInfortuneRoundEconomy({ ledger: createInfortuneLedger(), policy, groups: policy.groups, now: () => now, random: () => .2,
+      timers: { setTimeout() { return 1; }, clearTimeout() {} }, onChange: economy => app?.handlers.get('infortuneEconomy')({ ...payload, economy }) });
+    app = harness(policy, (action, ack) => ack(server.submit('user:1', action)), { now: () => now });
+    app.handlers.get('roundEnded')({ ...payload, infortune: { ...policy, economy: server.snapshot() } });
+    assert.equal(app.feature.store.getState().stage, 'optional');
+    assert.equal(app.feature.store.getState().visible, false); assert.equal(app.feature.store.getState().preparation, null);
+    if (click) {
+      app.feature.requestWheel(); assert.equal(server.snapshot().members['user:1'].optedIn, true);
+      assert.equal(app.feature.store.getState().speaking, true); assert.equal(app.feature.store.getState().visible, false);
+      app.feature.enterWheel(); assert.equal(app.feature.store.getState().visible, true);
+      app.feature.autoSpin();
+    }
+    now = 21000; server.submit('user:1', { type: 'snapshot' });
+    assert.equal(app.feature.store.getState().result.automatic, true);
+    assert.equal(app.feature.store.getState().result.after, 500);
+    assert.equal(app.feature.store.getState().visible, click);
+    app.handlers.get('breakStarted')({ ...payload, serverNow: now, wheelClosing: { id: 'car', startsAt: now, endsAt: now + 5000, leaders: [] } });
+    assert.equal(app.feature.store.getState().stage, 'leaders'); assert.equal(app.feature.store.getState().visible, true);
+    app.dispose(); server.dispose();
+  }
+});
+
+test('Mauresque reminds only after the first-round vocabulary ends or is skipped, without joining the wheel', () => {
+  for (const noVocabAnimation of [false, true]) {
+    const commands = [];
+    const policy = { ...seatingPayload().infortune, afterResults: true, resultsVisibleAt: 1000, openedAt: 21000 };
+    const app = harness(policy, action => commands.push(action));
+    try {
+      app.feature.schedule({ ...payload, infortune: policy });
+      const vocabulary = { phase: 'results', roundId: 'r1' };
+      for (const state of [vocabulary, { ...vocabulary, vocabDecisionRoundId: 'r1', vocabOverlayOpen: true },
+        { ...vocabulary, vocabDecisionRoundId: 'r1', vocabOverlayRequest: { id: 1 } }]) {
+        assert.equal(app.feature.showWheelReminder(isResultsVocabularyReady(state)), false);
+      }
+      assert.equal(app.feature.showWheelReminder(isResultsVocabularyReady({ ...vocabulary,
+        vocabDecisionRoundId: 'r1', noVocabAnimation })), true);
+      const event = wheelInvitationEvent(app.feature.store.getState());
+      assert.equal(event.text, 'cliquez moi dessus pour lancer la roue!');
+      completeWheelInvitation(app.feature, event);
+      const state = app.feature.store.getState();
+      assert.equal(state.reminderSpeaking, false);
+      assert.equal(state.entered, false);
+      assert.equal(state.visible, false);
+      assert.equal(app.feature.showWheelReminder(true), false, 'one reminder per round');
+      assert.deepEqual(commands, [], 'the reminder never opts in or spins');
+    } finally { app.dispose(); }
+  }
+});
+
+test('clicking during the reminder still waits for the accepted invitation before opening the wheel', () => {
+  const commands = [];
+  const policy = { ...seatingPayload().infortune, afterResults: true, resultsVisibleAt: 1000, openedAt: 21000 };
+  const app = harness(policy, (action, ack) => { commands.push(action.type); ack({ ok: true }); });
+  try {
+    app.feature.schedule({ ...payload, infortune: policy });
+    app.feature.showWheelReminder(true);
+    const reminder = wheelInvitationEvent(app.feature.store.getState());
+    app.feature.requestWheel();
+    completeWheelInvitation(app.feature, reminder);
+    assert.deepEqual(commands, ['join']);
+    assert.equal(app.feature.store.getState().reminderSpeaking, false);
+    assert.equal(app.feature.store.getState().speaking, true);
+    assert.equal(app.feature.store.getState().visible, false);
+    completeWheelInvitation(app.feature, wheelInvitationEvent(app.feature.store.getState()));
+    assert.equal(app.feature.store.getState().visible, true);
+    assert.equal(app.feature.showWheelReminder(true), false);
+  } finally { app.dispose(); }
+});
+
+test('later rounds, hidden tabs and expired invitations cannot trigger the first-round reminder', () => {
+  for (const round of [1, 2, 3, 4]) {
+    let now = 1000;
+    const documentTarget = { hidden: true };
+    const policy = { ...seatingPayload().infortune, ...infortuneRoundPolicy({ enabled: true, round, totalRounds: 5 }),
+      afterResults: true, resultsVisibleAt: 1000, openedAt: 21000 };
+    const app = harness(policy, undefined, { documentTarget, now: () => now });
+    try {
+      app.feature.schedule({ ...payload, infortune: policy });
+      assert.equal(app.feature.showWheelReminder(true), false);
+      documentTarget.hidden = false;
+      if (round === 1) now = 21000;
+      assert.equal(app.feature.showWheelReminder(true), false);
+      assert.equal(app.feature.store.getState().reminderSpeaking, false);
+    } finally { app.dispose(); }
+  }
+});
+
+test('resuming the same results does not replay the reminder; stale completion cannot dismiss a new one', () => {
+  const policy = { ...seatingPayload().infortune, afterResults: true, resultsVisibleAt: 1000, openedAt: 21000 };
+  const app = harness(policy);
+  try {
+    app.feature.schedule({ ...payload, infortune: policy });
+    app.feature.showWheelReminder(true);
+    const oldReminder = wheelInvitationEvent(app.feature.store.getState());
+    app.session.startRound({ roomId: 'room', roundId: 'r2', infortune: policy });
+    app.session.startRound({ roomId: 'room', roundId: 'r1', infortune: policy });
+    app.feature.schedule({ ...payload, infortune: policy });
+    assert.equal(app.feature.showWheelReminder(true), false);
+    app.session.startRound({ roomId: 'room', roundId: 'new-tournament-r1', infortune: policy });
+    app.feature.schedule({ ...payload, roundId: 'new-tournament-r1', infortune: policy });
+    assert.equal(app.feature.showWheelReminder(true), true);
+    completeWheelInvitation(app.feature, oldReminder);
+    assert.equal(app.feature.store.getState().reminderSpeaking, true);
+  } finally { app.dispose(); }
+});
+
+test('rejoining an optional wheel restores an accepted invitation or its completed automatic gain', () => {
+  for (const finished of [false, true]) {
+    const policy = { ...seatingPayload().infortune, afterResults: true, resultsVisibleAt: 1000, openedAt: 21000 };
+    const server = createInfortuneRoundEconomy({ ledger: createInfortuneLedger(), policy, groups: policy.groups, now: () => 5000, random: () => .2,
+      timers: { setTimeout() { return 1; }, clearTimeout() {} } });
+    server.submit('user:1', { type: 'join' });
+    if (finished) server.submit('user:1', { type: 'spin', skip: true });
+    const app = harness(policy, (action, ack) => ack(server.submit('user:1', action)), { now: () => 5000 });
+    const infortune = { ...policy, economy: server.snapshot() };
+    app.session.hydrateSnapshot({ roomId: 'room', phase: 'results', capturedAt: 5000,
+      lastRoundResults: { payload: { ...payload, infortune } }, breakState: { ...payload, infortune, nextStartAt: 61000 } });
+    const state = app.feature.store.getState();
+    assert.equal(state.visible, !finished);
+    if (finished) { assert.equal(state.result.automatic, true); assert.equal(state.result.after, 500); }
+    else { assert.equal(state.entered, true); assert.equal(state.stage, 'wheel'); }
+    app.dispose(); server.dispose();
+  }
+});
+
 const groupedPolicy = { ...infortuneRoundPolicy({ enabled: true, round: 1, totalRounds: 5 }), plateauVersion: 1 };
 const seatingPayload = (ids = [1, 2, 3]) => ({ roomId: "room", roundId: "r1", infortune: { ...groupedPolicy, openedAt: 7000,
   groups: buildInfortunePlateaus({ roomId: "room", roundId: "r1", players: ids.map(userId => ({ userId, nick: `Joueur ${userId}` })), random: () => .5 }) } });
@@ -276,7 +407,7 @@ const seatingPayload = (ids = [1, 2, 3]) => ({ roomId: "room", roundId: "r1", in
 test('preparation starts with results and keeps the same plateau at opening without early commands', () => {
   let now = 1000; const commands = [];
   const value = seatingPayload();
-  const policy = { ...value.infortune, afterResults: true, resultsReadyAt: 1000, resultsVisibleAt: 7000, openedAt: 27000 };
+  const policy = { ...value.infortune, optional: false, afterResults: true, resultsReadyAt: 1000, resultsVisibleAt: 7000, openedAt: 27000 };
   const app = harness(policy, value => commands.push(value), { now: () => now });
   app.handlers.get('roundEnded')({ ...payload, infortune: policy });
   assert.equal(app.feature.store.getState().preparation, null);
@@ -330,12 +461,12 @@ test("a late joiner cannot replace a candidate in a frozen group, and foreign/ol
   app.feature.receive(payload); assert.equal((await spin.promise).wheelResult, null); app.dispose();
 });
 
-function economicHarness({ round = 4, ids = [1, 2, 3], omitFirstSpinAck = false, alreadySpun = false } = {}) {
+function economicHarness({ round = 4, ids = [1, 2, 3], omitFirstSpinAck = false, alreadySpun = false, now = () => 1000, documentTarget, serverTimers, afterResults = false } = {}) {
   const seating = seatingPayload(ids), ledger = createInfortuneLedger();
-  const policy = { ...groupedPolicy, ...infortuneRoundPolicy({ enabled: true, round, totalRounds: 5 }), openedAt: 1000 };
+  const policy = { ...groupedPolicy, ...infortuneRoundPolicy({ enabled: true, round, totalRounds: 5 }), openedAt: 1000, afterResults };
   let app, spinRequests = 0;
-  const server = createInfortuneRoundEconomy({ ledger, policy, groups: seating.infortune.groups, now: () => 1000, random: () => 0.4,
-    timers: { setTimeout() { return 1; }, clearTimeout() {} },
+  const server = createInfortuneRoundEconomy({ ledger, policy, groups: seating.infortune.groups, now, random: () => 0.4,
+    timers: serverTimers || { setTimeout() { return 1; }, clearTimeout() {} },
     onChange(economy) { if (!omitFirstSpinAck) app?.handlers.get("infortuneEconomy")({ ...payload, economy }); } });
   const submit = server.submit;
   server.submit = (id, action) => {
@@ -349,7 +480,7 @@ function economicHarness({ round = 4, ids = [1, 2, 3], omitFirstSpinAck = false,
     if (value.type === "spin" && ++spinRequests === 1 && omitFirstSpinAck) return;
     if (value.type === "presented" && spinRequests === 1 && omitFirstSpinAck) return;
     ack(reply);
-  });
+  }, { now, documentTarget });
   const infortune = { ...policy, groups: seating.infortune.groups, economy: server.snapshot() };
   const spin = app.feature.begin("r1", { ...payload, infortune }, 1000);
   return { ...app, server, ledger, spin, get spinRequests() { return spinRequests; } };
@@ -444,7 +575,7 @@ test('declining locally is sent to the server before the other players finish, a
   const app = economicHarness();
   app.feature.recordResult({ index: exchangeIndex }); app.feature.complete();
   assert.equal(app.feature.store.getState().stage, 'exchange');
-  assert.equal(app.feature.store.getState().choiceUntil, 11_000);
+  assert.equal(app.feature.store.getState().choiceUntil, null, 'the group is not ready yet');
   assert.equal(app.feature.store.getState().spinUntil, 41_000);
   app.feature.chooseExchange(null);
   assert.equal(app.feature.store.getState().stage, 'exchange-wait');
@@ -521,6 +652,49 @@ test("deadline settlement is still shown before results without changing the roo
   app.expire(INFORTUNE_EXCHANGE_STEP_MS);
   assert.equal((await app.spin.promise).cancelled, false);
   assert.equal(app.timers.size, 0); app.dispose(); app.server.dispose();
+});
+
+test('returning before the exchange deadline keeps the avatars selectable; a later return explicitly expires the choice', () => {
+  for (const elapsed of [3000, 11000]) {
+    let time = 1000, timerId = 0;
+    const jobs = new Map();
+    const serverTimers = { setTimeout(fn, delay) { jobs.set(++timerId, { fn, at: time + delay }); return timerId; }, clearTimeout(id) { jobs.delete(id); } };
+    const documentTarget = new EventTarget();
+    documentTarget.hidden = false; documentTarget.visibilityState = 'visible';
+    const app = economicHarness({ now: () => time, documentTarget, serverTimers, afterResults: true });
+    app.server.submit('user:2', { type: 'spin', index: passIndex });
+    app.server.submit('user:3', { type: 'spin', index: passIndex });
+    app.feature.recordResult({ index: exchangeIndex, kind: 'exchange', label: 'Échange' });
+    documentTarget.hidden = true; documentTarget.visibilityState = 'hidden'; documentTarget.dispatchEvent(new Event('visibilitychange'));
+    assert.equal(app.feature.store.getState().stage, 'exchange');
+    time += elapsed;
+    for (const [id, job] of [...jobs]) if (job.at <= time) { jobs.delete(id); job.fn(); }
+    documentTarget.hidden = false; documentTarget.visibilityState = 'visible'; documentTarget.dispatchEvent(new Event('visibilitychange'));
+    const member = app.feature.store.getState().economy.members['user:1'];
+    if (elapsed < 10000) {
+      assert.equal(member.choiceExpired, false); assert.equal(app.feature.store.getState().stage, 'exchange');
+      app.feature.chooseExchange('user:2');
+      assert.equal(app.server.snapshot().members['user:1'].target, 'user:2');
+    } else {
+      assert.equal(member.choiceExpired, true); assert.equal(member.choiceMade, true); assert.equal(member.target, null);
+      assert.notEqual(app.feature.store.getState().stage, 'exchange');
+    }
+    app.dispose(); app.server.dispose();
+  }
+});
+
+test('a late local exchange animation cannot replace the automatic result committed while away', () => {
+  const app = economicHarness();
+  app.feature.launched({ quality: { kind: 'good' } });
+  app.server.submit('user:1', { type: 'spin', skip: true });
+  const committed = app.feature.store.getState().economy.members['user:1'].result;
+  assert.equal(committed.automatic, true);
+  assert.equal(committed.sector.kind, 'amount');
+  assert.equal(app.feature.store.getState().stage, 'exchange-wait');
+  app.feature.complete({ index: exchangeIndex, kind: 'exchange', label: 'Échange' });
+  assert.deepEqual(app.feature.store.getState().result, committed);
+  assert.equal(app.feature.store.getState().stage, 'exchange-wait');
+  app.dispose(); app.server.dispose();
 });
 
 test("reconnecting after an exchange result resumes the choice, and a late joiner still goes to results", async () => {

@@ -163,6 +163,7 @@ const SOUND_PATHS = {
   presenterPunch5: withSoundAssetVersion(`${SOUND_ROOT}/presenters/punch5.mp3`),
 };
 export const GOBBLARS_REWARD_SOUND_URL = SOUND_PATHS.vocabCling;
+export const SPECIAL_FOUND_SOUND_URL = SOUND_PATHS.specialFound;
 export const GOBBLARS_SPEND_SOUND_URL = withSoundAssetVersion(`${SOUND_ROOT}/game/Cash%20Register.mp3`);
 export const SCORE_SFX_KEYS = SCORE_SOUND_PATHS.map((src) => {
   const label = src.split("/").pop()?.split(".")[0] || "00";

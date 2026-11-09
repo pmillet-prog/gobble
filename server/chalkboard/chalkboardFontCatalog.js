@@ -1,4 +1,5 @@
-import { readdirSync, statSync } from "node:fs";
+import { existsSync, readdirSync, statSync } from "node:fs";
+import path from 'node:path';
 import { fileURLToPath } from "node:url";
 import { chalkboardFontIdFromFilename } from "../../shared/chalkboardRules.js";
 
@@ -25,7 +26,8 @@ export function createChalkboardFontCatalog({ directory = DEFAULT_DIRECTORY } = 
     const byId = new Map();
     for (const filename of files) {
       const id = chalkboardFontIdFromFilename(filename);
-      if (!byId.has(id)) byId.set(id, Object.freeze({ id, src: `/chalkfont/${encodeURIComponent(filename)}` }));
+      const compatible = filename === 'Urban Class.ttf' && existsSync(path.join(directory, 'compatible', filename));
+      if (!byId.has(id)) byId.set(id, Object.freeze({ id, src: `/chalkfont/${compatible ? 'compatible/' : ''}${encodeURIComponent(filename)}` }));
     }
     fonts = Object.freeze([...byId.values()].sort((a, b) => a.id.localeCompare(b.id)));
     lastChange = changed;

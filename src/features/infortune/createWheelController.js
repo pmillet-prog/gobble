@@ -1,4 +1,4 @@
-import { DEFAULT_PHYSICS, FIXED_STEP, MAX_LAUNCH_SPEED, MIN_LAUNCH_SPEED, TAU, normalizeAngle, sectorAtPointer } from "./wheelConfig.js";
+import { DEFAULT_PHYSICS, FIXED_STEP, MAX_LAUNCH_SPEED, MIN_LAUNCH_SPEED, PEG_PITCH, TAU, WHEEL_SECTORS, normalizeAngle, sectorAtPointer } from "./wheelConfig.js";
 import { angularDelta, createWheelState, gestureVelocity, launchWheel, stepWheel } from "./wheelPhysics.js";
 import { dragWheelTo, stepPawl } from "./wheelPawl.js";
 import { WHEEL_GEOMETRY } from "./wheelGeometry.js";
@@ -15,9 +15,13 @@ export function createWheelController({
   now = () => performance.now(),
   requestFrame = callback => requestAnimationFrame(callback),
   cancelFrame = handle => cancelAnimationFrame(handle),
+  random = Math.random,
 }) {
   let pawlModel = initialPawlModel;
-  let state = createWheelState(undefined, 0, 1, pegRadius, pawlModel), physics = DEFAULT_PHYSICS;
+  // Shift by whole wedges: the peg physics is unchanged, while identical
+  // gestures no longer start on the same denomination every round.
+  const initialAngle = PEG_PITCH / 2 + Math.floor(random() * WHEEL_SECTORS.length) * TAU / WHEEL_SECTORS.length;
+  let state = createWheelState(initialAngle, 0, 1, pegRadius, pawlModel), physics = DEFAULT_PHYSICS;
   let phase = "ready", frame = null, previousTime = null, accumulator = 0;
   let disposed = false, paused = false, samples = [], dragAngle = 0, gestureStart = null;
   let dragMotion = null, dragTarget = 0;

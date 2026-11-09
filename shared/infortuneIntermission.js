@@ -15,7 +15,7 @@ export function scheduleInfortuneAfterResults(policy, resultsReadyAt, roundEnded
 
 export function infortuneRoundPolicy({ enabled, training, round, totalRounds }) {
   if (!enabled || training || !Number.isInteger(round) || round < 1 || round >= totalRounds) return null;
-  return { enabled: true, roundNumber: round, exchangeEnabled: round === 4, banksHidden: round >= 4,
+  return { enabled: true, roundNumber: round, optional: round < 4, exchangeEnabled: round === 4, banksHidden: round >= 4,
     launchWindowMs: INFORTUNE_LAUNCH_WINDOW_MS, windowMs: round === 4 ? 50_000 : INFORTUNE_WINDOW_MS };
 }
 

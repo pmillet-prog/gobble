@@ -16,9 +16,10 @@ export function SettingsPreferenceChoices({ darkMode, isMobileLayout, onSound, o
   </nav>;
 }
 
-export function SettingsHelpChoices({ darkMode, isConnecting, onQuickHelp, onTutorial }) {
+export function SettingsHelpChoices({ darkMode, isConnecting, onQuickHelp, onTutorial, onWheelGuide }) {
   return <nav className={`settings-choices${darkMode ? " is-dark" : ""}`} aria-label="Aide">
     <Choice label="Aide rapide" detail="Consulter les règles du jeu" icon="help" tone="is-help" onClick={onQuickHelp} />
+    {onWheelGuide && <Choice label="Mode d’emploi de la roue" detail="Cagnotte, échanges et finale" icon="casino" tone="is-help" onClick={onWheelGuide} />}
     <Choice label="Didacticiel" detail="Apprendre en jouant, étape par étape" icon="school" tone="is-tutorial" onClick={onTutorial} disabled={isConnecting} />
   </nav>;
 }

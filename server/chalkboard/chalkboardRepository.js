@@ -2,6 +2,7 @@ import { mkdir } from "node:fs/promises";
 import path from "node:path";
 import sqlite3 from "sqlite3";
 import { open } from "sqlite";
+import { CHALKBOARD_PNG_VERSION } from './chalkboardExportVersion.js';
 
 export async function openChalkboardRepository(filename) {
   await mkdir(path.dirname(filename), { recursive: true });
@@ -11,11 +12,15 @@ export async function openChalkboardRepository(filename) {
     CREATE TABLE IF NOT EXISTS chalkboard_entries (id TEXT PRIMARY KEY, json TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS chalkboard_exports (
       id TEXT PRIMARY KEY, week_id TEXT NOT NULL, snapshot TEXT NOT NULL,
-      created_at INTEGER NOT NULL, requested_by TEXT, png_path TEXT,
+      created_at INTEGER NOT NULL, requested_by TEXT, png_path TEXT, png_version INTEGER NOT NULL DEFAULT 0,
       sent_at INTEGER, attempts INTEGER NOT NULL DEFAULT 0, next_attempt_at INTEGER NOT NULL DEFAULT 0, error TEXT
     );
     CREATE INDEX IF NOT EXISTS chalkboard_exports_pending ON chalkboard_exports(next_attempt_at,created_at) WHERE sent_at IS NULL;
     CREATE INDEX IF NOT EXISTS chalkboard_archives_week ON chalkboard_exports(week_id DESC) WHERE requested_by IS NULL AND png_path IS NOT NULL;`);
+  const columns = await db.all('PRAGMA table_info(chalkboard_exports)');
+  if (!columns.some(column => column.name === 'png_version')) {
+    await db.exec('ALTER TABLE chalkboard_exports ADD COLUMN png_version INTEGER NOT NULL DEFAULT 0');
+  }
 
   async function load() {
     const meta = await db.get("SELECT json FROM chalkboard_meta WHERE id=1");
@@ -52,12 +57,13 @@ export async function openChalkboardRepository(filename) {
   return {
     load, save, enqueue,
     nextExport: (now, { mailEnabled = true } = {}) => db.get("SELECT * FROM chalkboard_exports WHERE sent_at IS NULL AND next_attempt_at<=? AND (? OR png_path IS NULL) ORDER BY created_at LIMIT 1", now, mailEnabled ? 1 : 0),
-    setPng: (id, filename) => db.run("UPDATE chalkboard_exports SET png_path=? WHERE id=?", filename, id),
+    nextArchiveToRender: (now, version = CHALKBOARD_PNG_VERSION) => db.get("SELECT * FROM chalkboard_exports WHERE requested_by IS NULL AND id = 'weekly-' || week_id AND png_path IS NOT NULL AND png_version < ? AND next_attempt_at <= ? ORDER BY week_id DESC LIMIT 1", version, now),
+    setPng: (id, filename, version = CHALKBOARD_PNG_VERSION) => db.run("UPDATE chalkboard_exports SET png_path=?,png_version=? WHERE id=?", filename, version, id),
     markSent: (id, now) => db.run("UPDATE chalkboard_exports SET sent_at=?, error=NULL WHERE id=?", now, id),
     markFailed: (id, now, attempts, error) => db.run("UPDATE chalkboard_exports SET attempts=?,next_attempt_at=?,error=? WHERE id=?", attempts, now + Math.min(3600000, 60000 * 2 ** Math.min(attempts - 1, 6)), error, id),
-    exportStatus: id => db.get("SELECT id,week_id,created_at,png_path,sent_at,attempts,error FROM chalkboard_exports WHERE id=?", id),
-    listArchives: (before = "9999-99-99", limit = 31) => db.all("SELECT week_id,created_at FROM chalkboard_exports WHERE requested_by IS NULL AND id = 'weekly-' || week_id AND png_path IS NOT NULL AND week_id < ? ORDER BY week_id DESC LIMIT ?", before, limit),
-    getArchive: weekId => db.get("SELECT png_path FROM chalkboard_exports WHERE id=? AND week_id=? AND requested_by IS NULL AND png_path IS NOT NULL", `weekly-${weekId}`, weekId),
+    exportStatus: id => db.get("SELECT id,week_id,created_at,png_path,png_version,sent_at,attempts,error FROM chalkboard_exports WHERE id=?", id),
+    listArchives: (before = "9999-99-99", limit = 31) => db.all("SELECT week_id,created_at,png_version FROM chalkboard_exports WHERE requested_by IS NULL AND id = 'weekly-' || week_id AND png_path IS NOT NULL AND week_id < ? ORDER BY week_id DESC LIMIT ?", before, limit),
+    getArchive: weekId => db.get("SELECT png_path,png_version FROM chalkboard_exports WHERE id=? AND week_id=? AND requested_by IS NULL AND png_path IS NOT NULL", `weekly-${weekId}`, weekId),
     close: () => db.close(),
   };
 }

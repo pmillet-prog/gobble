@@ -5,7 +5,7 @@ export function createInitialResultsState() {
     analysis: null,
     receivedRound: null,
     definitionBlink: false,
-    desktopSummaryExpanded: true,
+    desktopSummaryExpanded: false,
     dismissedTournamentFinaleKey: null,
     guidedStep: null,
     highlightPlayers: [],

@@ -13,7 +13,21 @@ export function createChatAvatarRevisions() {
     }
     listeners.get(userId)?.forEach(listener => listener());
   }
+  function refresh(userIds) {
+    const stamp = ++generation;
+    for (const raw of new Set(userIds)) {
+      const id = validId(raw);
+      if (id) publish(id, { revision: records.get(id)?.revision || 0, generation: stamp });
+    }
+  }
+  function remember(userIds) {
+    for (const raw of userIds) {
+      const id = validId(raw);
+      if (id && !records.has(id)) publish(id, { revision: 0, generation: 0 });
+    }
+  }
   return {
+    remember,
     update({ userId, revision } = {}) {
       const id = validId(userId);
       if (!id || !Number.isSafeInteger(revision) || revision < 1) return;
@@ -21,13 +35,8 @@ export function createChatAvatarRevisions() {
       if ((current?.revision || 0) >= revision) return;
       publish(id, { revision, generation: current?.generation || 0 });
     },
-    refresh(userIds) {
-      const stamp = ++generation;
-      for (const raw of new Set(userIds)) {
-        const id = validId(raw);
-        if (id) publish(id, { revision: records.get(id)?.revision || 0, generation: stamp });
-      }
-    },
+    refresh,
+    refreshKnown: () => refresh([...records.keys(), ...listeners.keys()]),
     url(userId) {
       const id = validId(userId);
       if (!id) return "";
@@ -41,6 +50,7 @@ export function createChatAvatarRevisions() {
     subscribe(userId, listener) {
       const id = validId(userId);
       if (!id) return () => {};
+      remember([id]);
       if (!listeners.has(id)) listeners.set(id, new Set());
       listeners.get(id).add(listener);
       return () => {

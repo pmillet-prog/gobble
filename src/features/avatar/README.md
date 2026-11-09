@@ -45,8 +45,10 @@ Sur la VM actuelle, la base est `~/gobble_runtime/gobble.db` ; les sauvegardes
 `avatarThumbnailCache` partage les blobs déjà décodés entre chat, classements et
 tournois, avec 128 entrées conservées hors affichages actifs et quatre téléchargements
 simultanés au maximum. Une révision d'avatar ou une reconnexion sélectionne une
-nouvelle entrée. Sans révision connue, une prochaine ouverture après deux minutes
-revalide l'image ; aucune vérification périodique n'est ajoutée aux lignes affichées.
+nouvelle entrée. Les images chargées restent réutilisées après chaque manche, même
+sans révision connue ; seule une vraie reconnexion invalide les avatars connus,
+pas une nouvelle réception de l'historique du chat. Les avatars absents sont
+revérifiés à une nouvelle ouverture après deux minutes.
 Les erreurs peuvent être retentées lors d'une nouvelle ouverture après 15 secondes.
 
 ## Ressources de cérémonie

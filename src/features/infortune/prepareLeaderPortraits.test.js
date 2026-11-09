@@ -1,6 +1,31 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createLeaderPortraitPreparation } from './prepareLeaderPortraits.js';
+import { avatarAssetSignature } from '../../../shared/avatarRenderAssets.js';
+import { savedAvatarImages } from '../avatar/savedAvatarImages.js';
+
+test('the car parade draws saved happy/blinking images without loading the modular renderer', async t => {
+  const urls = [], drawn = [], canvases = [];
+  t.mock.method(savedAvatarImages, 'load', async url => { urls.push(url); return { url, width: 600, height: 600 }; });
+  const avatar = { hair: 'bob' };
+  avatar.renderedAssets = { userId: 12, revision: 3, version: 1, signature: avatarAssetSignature(avatar),
+    frames: { stage_happy: { size: 600 }, stage_blink: { size: 600 } } };
+  const job = createLeaderPortraitPreparation({ leaders: [{ id: 'user:12', userId: 12, nick: 'Test', avatar }] }, {
+    createRenderer: () => { assert.fail('saved portraits must not rebuild avatar parts'); },
+    makeCanvas: size => {
+      const context = { clearRect() {}, drawImage: image => drawn.push(image.url) };
+      const canvas = { width: size, height: size, getContext: () => context }; canvases.push(canvas); return canvas;
+    },
+  });
+  try {
+    await job.ready;
+    assert.equal(job.getSnapshot().size, 1);
+    assert.deepEqual(urls, ['/api/auth/avatars/12/render/3/1/stage_happy.png', '/api/auth/avatars/12/render/3/1/stage_blink.png']);
+    assert.deepEqual(drawn, urls);
+    assert.notEqual(job.getSnapshot().get('user:12').happy, job.getSnapshot().get('user:12').blink);
+  } finally { job.dispose(); }
+  assert.ok(canvases.every(canvas => canvas.width === 0 && canvas.height === 0));
+});
 
 test('large ties batch public appearances, render original happy/blinking poses, and release canvases', async () => {
   const requests = [], poses = [], canvases = [];

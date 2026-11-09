@@ -26,7 +26,8 @@ test("three successive swaps and mutual choices replay the actual intermediate b
     while (replay) {
       assert.deepEqual(replay.banks, banks);
       const { from, to, sourceBank, targetBank } = replay.activeExchange;
-      banks[from] = targetBank; banks[to] = sourceBank; count++;
+      if (!replay.activeExchange.cancelled) { banks[from] = targetBank; banks[to] = sourceBank; }
+      count++;
       replay = advancePlateauExchangeReplay(replay);
     }
     assert.equal(count, plan.exchanges.length); assert.deepEqual(banks, plan.banks);

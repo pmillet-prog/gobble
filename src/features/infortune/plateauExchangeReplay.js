@@ -19,7 +19,7 @@ export function advancePlateauExchangeReplay(replay) {
   if (index >= replay.exchanges.length) return null;
   const { from, to, sourceBank, targetBank } = replay.activeExchange;
   return { ...replay, index, activeExchange: replay.exchanges[index],
-    banks: { ...replay.banks, [from]: targetBank, [to]: sourceBank } };
+    banks: replay.activeExchange.cancelled ? replay.banks : { ...replay.banks, [from]: targetBank, [to]: sourceBank } };
 }
 
 export function exchangeReplayEconomy(economy, replay) {

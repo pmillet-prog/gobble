@@ -13,7 +13,7 @@ function seededRandom(seed = 123) {
 function harness(launchGame = {}) {
   let time = 0, sequence = 0, snapshot, view, meter;
   const frames = new Map(), launches = [], results = [];
-  const controller = createWheelController({ launchGame: { random: seededRandom(), ...launchGame }, pegRadius: 1.3,
+  const controller = createWheelController({ random: () => 0, launchGame: { random: seededRandom(), ...launchGame }, pegRadius: 1.3,
     now: () => time,
     requestFrame(callback) { const id = ++sequence; frames.set(id, callback); return id; },
     cancelFrame(id) { frames.delete(id); },

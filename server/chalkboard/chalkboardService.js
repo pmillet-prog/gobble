@@ -86,8 +86,7 @@ function normalizeStroke(raw, index) {
 }
 
 function normalizeText(raw, index, fontIds) {
-  const text = String(raw?.text || "").toLocaleUpperCase("fr-FR").normalize("NFD")
-    .replace(/\p{M}/gu, "").replace(/Œ/g, "OE").replace(/Æ/g, "AE")
+  const text = String(raw?.text || "").toLocaleUpperCase("fr-FR").normalize("NFC")
     .replace(/\s+/g, " ").trim().slice(0, MAX_TEXT_LENGTH);
   if (!text) return null;
   return {

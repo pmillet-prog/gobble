@@ -8,6 +8,13 @@
 - Keep the user's product goal in mind, but push back on shortcuts that would make live operation harder later.
 - Do not touch the VM or live deployment unless the user explicitly asks for it in the current conversation.
 
+## Temporary Test Files
+
+- Do not leave generated test files accumulating in `.tmp`. Put disposable browser profiles, test caches and build outputs in a dedicated `.tmp/codex-tests/<run-id>/` directory, separate from Paul's files and source assets.
+- Test runners must automatically remove their own disposable run directory in `finally`, including after a failed test, once their own browser and preview processes have closed. Before reusing an older runner, add this cleanup if it is missing. This never authorizes stopping or restarting the Gobble backend.
+- Keep only useful small reports and requested screenshots outside the disposable directory. Preserve source scripts, fixtures, original media, databases and backups; never treat the whole `.tmp` folder as disposable.
+- Before recursive removal, verify the resolved absolute target is inside the dedicated run directory and refuse paths containing reparse points. Do not delete files still used by an active process. If cleanup fails or a run is interrupted, report the remaining directory and clean it up when safe.
+
 ## Rédaction des patchnotes
 
 - Les patchnotes s’adressent aux joueurs. Leur référence est la dernière version publique qu’ils ont pu utiliser, jamais un prototype local, un état intermédiaire du développement ou le dernier commit.

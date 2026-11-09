@@ -11,8 +11,6 @@
 /* Drawers slide beyond the screen edge, without leaving a visible strip. */
 .settings-menu-frame[data-layout] { overflow: hidden; }
 .settings-menu-frame[data-layout="desktop"] .settings-menu-layout { inset: 0; padding: 16px; }
-/* Desktop drawers cover the game header, including its floating counters. */
-body:has(> .settings-menu-frame[data-layout="desktop"]) > .currency-layer { z-index: 20080; }
 /* Reserve the mobile counters' space; only the main card needs side margins. */
 .settings-menu-frame[data-layout="mobile"] .settings-menu-layout {
   left: 0;

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { createWheelSoundtrack } from "./createWheelSoundtrack.js";
 import { resultSoundVariant } from "./wheelSoundPlan.js";
 
-function harness(random = () => 0, { context, introMuted = false } = {}) {
+function harness(random = () => 0, { context, introMuted = false, disposeTrack = () => {} } = {}) {
   const tracks = new Map();
   const engine = createWheelSoundtrack({ urls: { intro: "intro", spin: "music", drums: "drums",
     results: Object.fromEntries(["small", "good", "jackpot", "bonus", "bankrupt", "exchange"].map(id => [id, id])),
@@ -12,7 +12,7 @@ function harness(random = () => 0, { context, introMuted = false } = {}) {
     fetchAudio: async () => ({ ok: true, arrayBuffer: async () => new ArrayBuffer(1) }),
     makeTrack(options) {
       const track = { options, calls: [], prepare() {}, sync(value) { this.calls.push(value); },
-        setMuted(value) { this.muted = value; }, setSuspended(value) { this.suspended = value; }, dispose() { this.disposed = true; } };
+        setMuted(value) { this.muted = value; }, setSuspended(value) { this.suspended = value; }, dispose() { this.disposed = true; return disposeTrack(options); } };
       tracks.set(options.url, track); return track;
     },
   });
@@ -123,4 +123,21 @@ test("the audience reacts at actual rest even while the camera launch shot is st
   app.spin(0, 2, 2); app.phase("finished", { kind: "amount", amount: 400 });
   assert.equal(app.last("audience-500-2").active, true);
   app.engine.dispose();
+});
+
+test("leaving the wheel keeps its shared context open until the celebration fades", async () => {
+  let finish, closed = 0;
+  const app = harness(() => 0, {
+    context: { state: 'running', decodeAudioData: async () => ({ duration: 5 }), close: async () => { closed++; } },
+    disposeTrack: ({ url }) => url === 'audience-top' ? new Promise(resolve => { finish = resolve; }) : undefined,
+  });
+  app.phase('finished', { kind: 'bonus' });
+  for (const id of ['audience-top', 'bonus', 'jackpot']) assert.equal(app.tracks.get(id).options.disposeFadeOut, .9);
+  const completion = app.engine.dispose();
+  assert.equal(closed, 0, 'unmount must not cut the fade by closing the AudioContext');
+  app.engine.setHidden(true);
+  assert.ok(app.tracks.get('audience-top').suspended, 'background controls still reach the tail');
+  finish(); await completion;
+  assert.equal(closed, 1);
+  await app.engine.dispose(); assert.equal(closed, 1);
 });

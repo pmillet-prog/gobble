@@ -16,7 +16,7 @@ function harness() {
   const timers = { setTimeout(fn, ms) { const key = ++id; tasks.set(key, { fn, at: clock + ms }); return key; }, clearTimeout(key) { tasks.delete(key); } };
   const ledger = createInfortuneLedger(); for (const entry of ranking) ledger.banks.set(`user:${entry.userId}`, 1200);
   const game = createTournamentWheelFinale({ roomId: "room", tournamentId: "t1", startsAt: 41_000, puzzle, ranking, ledger,
-    timers, now: () => clock, onChange: update => updates.push(update), onWin: (...value) => wins.push(value), onFinish: value => finished.push(value) });
+    freeLetters: [], timers, now: () => clock, onChange: update => updates.push(update), onWin: (...value) => wins.push(value), onFinish: value => finished.push(value) });
   const at = value => {
     clock = value;
     for (const [key, task] of [...tasks]) if (task.at <= clock) { tasks.delete(key); task.fn(); }

@@ -1,9 +1,11 @@
+import { createSqliteWriteScheduler } from "./createSqliteWriteScheduler.js";
+
 const DEFAULT_BUSY_RETRIES = 30;
 const DEFAULT_BUSY_RETRY_BASE_MS = 80;
 const DEFAULT_QUEUE_WARN_MS = 1000;
 const DEFAULT_TASK_WARN_MS = 3000;
 
-let writeQueue = Promise.resolve();
+const scheduleWrite = createSqliteWriteScheduler();
 let writeSeq = 0;
 
 export function isSqliteBusyError(err) {
@@ -48,6 +50,7 @@ export function runSerializedSqliteWrite(
     label = "sqlite-write",
     queueWarnMs = DEFAULT_QUEUE_WARN_MS,
     taskWarnMs = DEFAULT_TASK_WARN_MS,
+    priority = "normal",
   } = {}
 ) {
   const id = ++writeSeq;
@@ -67,9 +70,7 @@ export function runSerializedSqliteWrite(
       }
     }
   };
-  const next = writeQueue.then(execute, execute);
-  writeQueue = next.catch(() => {});
-  return next;
+  return scheduleWrite(execute, { priority });
 }
 
 export async function runSqliteImmediateTransaction(db, task, { label = "sqlite-transaction" } = {}) {

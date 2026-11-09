@@ -110,7 +110,7 @@ test("only an exchange tile authorizes a choice, and targets stay inside the tri
   assert.equal(instance.choose(1, "user:2").ok, false);
   instance.spin(1, fiveHundred); assert.equal(instance.choose(1, "user:2").ok, false);
   instance.spin(2, EXCHANGE_SECTOR_INDICES[0]);
-  assert.equal(instance.snapshot('user:2').members['user:2'].choiceUntil, 11_000, 'the choice opens after this player returns, while others still spin');
+  assert.equal(instance.snapshot('user:2').members['user:2'].choiceUntil, null, 'the timer waits until every player in this trio can choose');
   for (const id of [3,4,5,6]) instance.spin(id, pass);
   assert.equal(instance.choose(2, undefined).ok, false);
   assert.equal(instance.choose(2, "user:2").ok, false);
@@ -224,12 +224,13 @@ test('declining an exchange is final, finishes the group early, and does not pre
   assert.equal(instance.snapshot().exchangeReplays.g1.length, 1);
 });
 
-test('each player has ten seconds after their own presentation; another trio keeps spinning when that choice expires', () => {
+test('each trio gets ten seconds once everyone is ready; another trio can keep spinning independently', () => {
   const instance = game({ groups: [trio, { id: 'g2', members: [human(4), human(5), human(6)] }] });
   instance.spin(1, EXCHANGE_SECTOR_INDICES[0]);
+  instance.spin(2, pass); instance.spin(3, pass);
   assert.equal(instance.snapshot('user:1').members['user:1'].choiceUntil, 11_000);
   instance.at(4000); instance.spin(4, EXCHANGE_SECTOR_INDICES[0]);
-  assert.equal(instance.snapshot('user:4').members['user:4'].choiceUntil, 14_000);
+  assert.equal(instance.snapshot('user:4').members['user:4'].choiceUntil, null);
   instance.at(11_000);
   const first = instance.snapshot();
   assert.equal(first.members['user:1'].choiceMade, true);

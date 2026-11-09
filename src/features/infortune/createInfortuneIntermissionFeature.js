@@ -8,7 +8,7 @@ import { subscribeForegroundClockRefresh } from "../../utils/realtimeClock.js";
 import { INFORTUNE_CLIENT_ENABLED } from './infortuneAvailability.js';
 import { createWheelLeaderPresentation } from './createWheelLeaderPresentation.js';
 
-const initial = () => ({ key: null, sessionId: null, visible: false, stage: "idle", roomId: null, roundId: null,
+const initial = () => ({ key: null, sessionId: null, visible: false, optional: false, entered: false, speaking: false, reminderSpeaking: false, roundNumber: null, stage: "idle", roomId: null, roundId: null,
   result: null, preparation: null, presented: false, gainLanded: false, launchGainLanded: false, closing: null, opensAt: null, nextStartAt: null, launchUntil: null, spinUntil: null, choiceUntil: null, serverOffset: 0, groups: [], plateau: null, plateauStatus: null, economy: null, economyError: null, exchangeReplay: null });
 const sameRound = (a, b) => a?.roundId != null && String(a.roundId) === String(b?.roundId)
   && String(a.roomId) === String(b?.roomId);
@@ -26,6 +26,7 @@ export function createInfortuneIntermissionFeature({ getKernel, scope, ports }, 
   let deadlineAt = null;
   let presentationDone = false, spinRequested = false, chosenTarget;
   let scheduled = null, openingTimer = null, resumeSnapshot, resumeSessionId, activePolicy = null;
+  let remindedRound = null;
   const requests = createInfortuneRequests({ realtime: ports?.realtime, timers, receive: receiveEconomy,
     onError: economyError => { if (pending) store.patch({ economyError }); } });
   const leaders = createWheelLeaderPresentation({ timers, now,
@@ -33,12 +34,12 @@ export function createInfortuneIntermissionFeature({ getKernel, scope, ports }, 
     begin(closing) {
       if (!pending || store.getState().stage === 'leaders') return;
       wheelDone = presentationDone = true; clearTimers();
-      store.patch({ stage: 'leaders', visible: true, closing, presented: true, gainLanded: true, exchangeReplay: null });
+      store.patch({ stage: 'leaders', visible: true, speaking: false, reminderSpeaking: false, preparation: null, closing, presented: true, gainLanded: true, exchangeReplay: null });
     },
     skip() {
       if (!pending) return;
       wheelDone = presentationDone = true; clearTimers();
-      store.patch({ stage: 'waiting', closing: null, presented: true, gainLanded: true, exchangeReplay: null });
+      store.patch({ stage: 'waiting', visible: false, closing: null, presented: true, gainLanded: true, exchangeReplay: null });
     } });
   const session = () => (gameplay || getKernel().features.prepare("gameplaySession")).store.getState();
   const identity = readIdentity || (() => { const state = getKernel().getState().session;
@@ -98,7 +99,7 @@ export function createInfortuneIntermissionFeature({ getKernel, scope, ports }, 
     if (!pending || !presentationDone || wheelDone || !economy || !state.plateau) return;
     const self = economy.members[state.plateau?.self.id];
     if (self?.spin === "pending") { store.patch({ stage: "accounting" }); return; }
-    if (self?.needsExchange && !self.choiceMade && state.choiceUntil && !economy.resolvedGroups.includes(state.plateau.id)) {
+    if (self?.needsExchange && !self.choiceMade && !economy.resolvedGroups.includes(state.plateau.id)) {
       store.patch({ stage: "exchange" }); return;
     }
     if (economy.exchangeEnabled && !economy.resolvedGroups.includes(state.plateau.id)) {
@@ -140,11 +141,18 @@ export function createInfortuneIntermissionFeature({ getKernel, scope, ports }, 
     }
     const launchUntil = economy.members[selfId]?.launchUntil;
     const ownResult = economy.members[selfId]?.result;
+    if (ownResult?.automatic) {
+      presentationDone = true;
+      store.patch({ result: ownResult, presented: true, gainLanded: true, launchGainLanded: true });
+    }
     if ((presentationDone || wheelDone) && ownResult && !store.getState().result) store.set("result", ownResult);
-    const choiceDeadline = economy.members[selfId]?.choiceUntil ?? economy.choiceUntil;
+    const choiceDeadline = selfId ? economy.members[selfId]?.choiceUntil : economy.choiceUntil;
     store.patch({ economy, serverOffset: clockOffset, launchUntil: !launched && launchUntil ? launchUntil - clockOffset : null,
       spinUntil: economy.spinDeadlineAt ? economy.spinDeadlineAt - clockOffset : null,
       choiceUntil: choiceDeadline ? choiceDeadline - clockOffset : null }); advanceEconomy();
+    // Broadcasts intentionally omit private results; fetch our committed draw
+    // when a suspended browser missed the acknowledgement.
+    if (selfId && economy.members[selfId]?.spin === 'done' && !ownResult && !store.getState().result) command({ type: 'snapshot' });
   }
   function chooseExchange(target, key = store.getState().key) {
     const state = store.getState();
@@ -187,11 +195,17 @@ export function createInfortuneIntermissionFeature({ getKernel, scope, ports }, 
     if (!scheduled || pending) return;
     if (!sameRound(session(), scheduled)) { scheduled = null; return; }
     const remaining = scheduled.infortune.openedAt - now() - clockOffset;
+    const optional = !!scheduled.infortune.optional;
+    const untilVisible = (scheduled.infortune.resultsVisibleAt ?? scheduled.infortune.openedAt) - now() - clockOffset;
+    if (optional && untilVisible <= 0) {
+      const value = scheduled; scheduled = null;
+      begin(value.roundId, value, now() + clockOffset); return;
+    }
     if (remaining > 0) {
       const untilPreparation = (scheduled.infortune.resultsVisibleAt ?? scheduled.infortune.openedAt) - now() - clockOffset;
-      const plateau = untilPreparation <= 0 && Array.isArray(scheduled.infortune.groups)
+      const plateau = !optional && untilPreparation <= 0 && Array.isArray(scheduled.infortune.groups)
         ? selectInfortunePlateau(scheduled.infortune.groups, identity()) : null;
-      store.patch({ stage: "scheduled", roomId: scheduled.roomId, roundId: scheduled.roundId,
+      store.patch({ stage: "scheduled", optional, roundNumber: scheduled.infortune.roundNumber, roomId: scheduled.roomId, roundId: scheduled.roundId,
         groups: scheduled.infortune.groups || [],
         preparation: plateau ? (store.getState().preparation || { plateau, economy: scheduled.infortune.economy }) : null,
         opensAt: scheduled.infortune.openedAt - clockOffset });
@@ -215,6 +229,7 @@ export function createInfortuneIntermissionFeature({ getKernel, scope, ports }, 
     if (!sameRound(session(), value)) return;
     // A break snapshot is also authoritative: recover a missed result event.
     if (!pending && !scheduled) schedule(value);
+    if (pending && value?.infortune?.economy) receiveEconomy({ ...value, economy: value.infortune.economy });
     if (value?.nextStartAt) store.set("nextStartAt", value.nextStartAt - clockOffset);
     if (pending && value?.wheelClosing) leaders.receive(value.wheelClosing,
       Number.isFinite(value.serverNow) ? value.serverNow - now() : clockOffset);
@@ -237,7 +252,7 @@ export function createInfortuneIntermissionFeature({ getKernel, scope, ports }, 
     const state = store.getState();
     if (!pending || wheelDone || state.plateauStatus === "assigned" || state.plateauStatus === "absent") return;
     const plateau = state.preparation?.plateau || selectInfortunePlateau(seating.infortune.groups, identity());
-    store.patch({ plateau, preparation: null, plateauStatus: plateau ? "assigned" : "absent", stage: plateau ? "wheel" : "waiting" });
+    store.patch({ plateau, preparation: null, plateauStatus: plateau ? "assigned" : "absent", stage: plateau ? state.optional && !state.entered ? 'optional' : "wheel" : "waiting" });
     if (!plateau) { complete(); return; }
     armTimers(seating.infortune.openedAt ?? session().endsAt, now() + clockOffset);
     if (seating.infortune.economy) {
@@ -249,6 +264,7 @@ export function createInfortuneIntermissionFeature({ getKernel, scope, ports }, 
         command({ type: "presented" }, advanceEconomy);
         advanceEconomy();
       }
+      if (state.optional && self?.optedIn && self.spin === 'pending') store.patch({ entered: true, visible: true, stage: 'wheel' });
       if (pending) command({ type: "snapshot" });
     }
   }
@@ -269,8 +285,9 @@ export function createInfortuneIntermissionFeature({ getKernel, scope, ports }, 
     const promise = pending;
     const key = ++generation;
     const preparation = store.getState().preparation;
+    const optional = !!policy.optional && !!policy.afterResults;
     store.replace({ ...initial(), preparation, groups: value?.infortune?.groups || store.getState().groups, serverOffset: clockOffset, plateau: preparation?.plateau || null, economy: preparation?.economy || null,
-      nextStartAt: store.getState().nextStartAt, key, sessionId: current.sessionId, visible: true,
+      nextStartAt: store.getState().nextStartAt, key, sessionId: current.sessionId, visible: !optional, optional, roundNumber: policy.roundNumber, opensAt: openedAt - clockOffset,
       stage: preparation ? "wheel" : policy.plateauVersion ? "seating" : "wheel", plateauStatus: policy.plateauVersion ? "waiting" : null,
       roomId: current.roomId, roundId });
     armTimers(openedAt, nowServerMs, !!policy.plateauVersion);
@@ -279,6 +296,33 @@ export function createInfortuneIntermissionFeature({ getKernel, scope, ports }, 
     return { started: true, promise };
   }
   return { store, begin, schedule, receive, receivePlateau, complete, eligible, recordResult, chooseExchange,
+    showWheelReminder(vocabularyReady, key = store.getState().key) {
+      const state = store.getState();
+      if (!vocabularyReady || documentTarget?.hidden || !pending || key !== state.key || !state.optional
+        || state.roundNumber !== 1 || state.stage !== 'optional' || !state.plateau || state.entered
+        || state.result || now() >= state.opensAt || sameRound(state, remindedRound)) return false;
+      remindedRound = { roomId: state.roomId, roundId: state.roundId };
+      store.set('reminderSpeaking', true);
+      return true;
+    },
+    finishWheelReminder(key = store.getState().key) {
+      if (key === store.getState().key) store.set('reminderSpeaking', false);
+    },
+    requestWheel() {
+      const state = store.getState();
+      if (!pending || !state.optional || !state.plateau || state.entered || state.result || now() >= state.opensAt) return;
+      store.patch({ entered: true, speaking: false, reminderSpeaking: false, preparation: { plateau: state.plateau, economy: state.economy } });
+      command({ type: 'join' }, () => {
+        if (pending && store.getState().key === state.key) store.set('speaking', true);
+      });
+    },
+    enterWheel(key = store.getState().key) {
+      const state = store.getState();
+      if (!pending || !state.entered || key !== state.key || state.closing || state.stage === 'leaders') return;
+      store.patch({ speaking: false, visible: true, stage: state.result?.automatic ? 'waiting' : 'wheel' });
+      if (state.result?.automatic) advanceEconomy();
+    },
+    autoSpin(key = store.getState().key) { if (pending && key === store.getState().key && !store.getState().result) command({ type: 'spin', skip: true }, advanceEconomy); },
     landLaunch(key = store.getState().key) {
       if (pending && key === store.getState().key) store.set('launchGainLanded', true);
     },
@@ -290,7 +334,9 @@ export function createInfortuneIntermissionFeature({ getKernel, scope, ports }, 
       command({ type: "ready" });
     },
     retry() {
-      if (chosenTarget !== undefined) chooseExchange(chosenTarget);
+      if (store.getState().optional && store.getState().entered && !store.getState().visible)
+        command({ type: 'join' }, () => store.set('speaking', true));
+      else if (chosenTarget !== undefined) chooseExchange(chosenTarget);
       else if (!presentationDone && !store.getState().result) command({ type: "ready" });
       else { spinRequested = false; recordResult(store.getState().result); if (presentationDone && store.getState().economy?.exchangeEnabled) command({ type: "presented" }, advanceEconomy); }
     },
@@ -303,6 +349,15 @@ export function createInfortuneIntermissionFeature({ getKernel, scope, ports }, 
       const lease = getKernel().features.acquire("gameplaySession");
       gameplay = lease.feature;
       scope.add(lease.release);
+      const onHidden = () => {
+        if (!documentTarget?.hidden || !pending) return;
+        const state = store.getState(), self = state.economy?.members[state.plateau?.self.id];
+        if (state.optional && !state.entered) return;
+        if (self?.spin === 'pending') command({ type: 'spin', skip: true }, advanceEconomy);
+        else if (self) { presentationDone = true; command({ type: 'presented' }, advanceEconomy); }
+      };
+      documentTarget?.addEventListener?.('visibilitychange', onHidden);
+      scope.add(() => documentTarget?.removeEventListener?.('visibilitychange', onHidden));
       scope.add(subscribeForegroundClockRefresh(() => {
         openScheduled();
         if (!pending) return;

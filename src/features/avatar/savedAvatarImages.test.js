@@ -57,6 +57,25 @@ test("missing thumbnails recover on a later visit, active rows never poll", asyn
   assert.equal(calls, 2);
 });
 
+test("30 live players reuse unversioned thumbnails after every three-minute round", async () => {
+  let clock = 1000, decoded = 0;
+  const requests = [];
+  const cache = createAvatarThumbnailCache({ now: () => clock, fetchImpl: async source => {
+    requests.push(source);
+    return { ok: true, headers: new Headers({ "content-type": "image/png" }), blob: async () => new Blob([source]) };
+  }, createURL: () => `blob:${requests.length}`, revokeURL: () => {}, decode: async () => { decoded++; } });
+  const sources = Array.from({ length: 30 }, (_, index) => `/api/auth/avatars/${index + 1}/chat.png?r=2`);
+  for (let round = 0; round < 5; round++) {
+    const off = sources.map(source => cache.subscribe(source, () => {}));
+    await settle();
+    assert.ok(sources.every(source => cache.snapshot(source).status === "ready"));
+    assert.equal(requests.length, 30, `round ${round + 1} must not refetch the same avatars`);
+    assert.equal(decoded, 30);
+    off.forEach(stop => stop());
+    clock += 180000;
+  }
+});
+
 test("account synchronization preserves the saved image descriptor but editable drafts discard it", async () => {
   const renderedAssets = { version: 1, revision: 4, userId: 7 };
   const value = { ...normalizeAvatar({}), renderedAssets };

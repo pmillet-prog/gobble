@@ -3,9 +3,10 @@ import { fileURLToPath } from "node:url";
 import react from "@vitejs/plugin-react";
 import { nativeMediaManifestPlugin } from "./scripts/android/mediaManifestPlugin.mjs";
 import { cameraTimelineStoragePlugin } from "./dev/infortune-perspective/cameraTimelineStoragePlugin.mjs";
+import { clientVersionPlugin } from './scripts/clientVersionPlugin.mjs';
 
 export default defineConfig({
-  plugins: [react(), nativeMediaManifestPlugin(), cameraTimelineStoragePlugin()],
+  plugins: [react(), nativeMediaManifestPlugin(), cameraTimelineStoragePlugin(), clientVersionPlugin()],
   worker: { format: 'es' },
   optimizeDeps: {
     entries: ["index.html"],

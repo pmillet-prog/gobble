@@ -37,7 +37,7 @@ test("four inter-round wheels carry their exchanged banks into the 120-second fi
     economy.dispose(); now += 100_000;
   }
   const before = ledger.banks.get("user:3");
-  const finale = createTournamentWheelFinale({ roomId: "room", tournamentId: "t", startsAt: now, now: () => now,
+  const finale = createTournamentWheelFinale({ freeLetters: [], roomId: "room", tournamentId: "t", startsAt: now, now: () => now,
     puzzle: { id: "p", category: "Orientation", kind: "riddle", clue: "Mon aiguille indique le nord.", answer: "boussole" }, ledger,
     ranking: players.map((player, i) => ({ ...player, points: 30 - i * 3, basePoints: 30 - i * 3, gobbles: 0, roundScoreSum: 100 - i, pos: i + 1 })),
     onFinish: value => { finalRanking = value.ranking; }, timers: { setTimeout() { return 1; }, clearTimeout() {} } });

@@ -15,7 +15,7 @@ test('results get twenty seconds after the outro, even when calculation takes lo
 });
 test('the server blocks early spins and shortens the break only after the result presentation', () => {
   let now = 1000;
-  const policy = scheduleInfortuneAfterResults(infortuneRoundPolicy({ enabled: true, round: 1, totalRounds: 5 }), now);
+  const policy = scheduleInfortuneAfterResults({ ...infortuneRoundPolicy({ enabled: true, round: 1, totalRounds: 5 }), optional: false }, now);
   const economy = createInfortuneRoundEconomy({ policy, ledger: createInfortuneLedger(),
     groups: [{ id: 'g', members: [{ id: 'user:1' }] }], now: () => now,
     timers: { setTimeout() { return 1; }, clearTimeout() {} } });

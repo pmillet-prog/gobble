@@ -32,3 +32,13 @@ test("reconnecting refreshes only history participants, recovering missed avatar
   store.refresh([1]);
   assert.notEqual(store.url(1), after);
 });
+
+test("reconnecting also refreshes unversioned ranking players who never wrote in chat", () => {
+  const store = createChatAvatarRevisions();
+  const stop = store.subscribe(42, () => {});
+  const previous = store.url(42);
+  stop();
+  store.refreshKnown();
+  assert.notEqual(store.url(42), previous);
+  assert.match(store.url(42), /sync=/);
+});

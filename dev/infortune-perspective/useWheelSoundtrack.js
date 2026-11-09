@@ -14,7 +14,12 @@ export function useWheelSoundtrack(muted, audioEvents) {
   React.useEffect(() => deferWheelSetup(() => {
     const instance = createWheelSoundtrack({ urls: WHEEL_SOUND_ASSETS, onStatus: setStatus });
     const lease = kernel?.features.acquire('preferences');
-    const applyIntroPreference = () => instance.setIntroMuted((lease?.feature.store.getState() || readStoredPreferences()).soundWheelIntroEnabled === false);
+    let closing = false;
+    const applyIntroPreference = () => {
+      const settings = lease?.feature.store.getState() || readStoredPreferences();
+      instance.setIntroMuted(settings.soundWheelIntroEnabled === false);
+      if (closing && (settings.isSfxMuted || settings.soundMasterVolume === 0)) instance.setMuted(true);
+    };
     applyIntroPreference();
     const releasePreference = lease?.feature.store.subscribe(applyIntroPreference);
     player.current = instance; audioEvents.current = instance.handleWheel; instance.setMuted(latestMuted.current); instance.prepare();
@@ -25,8 +30,12 @@ export function useWheelSoundtrack(muted, audioEvents) {
     document.addEventListener("visibilitychange", visibility);
     if (document.hidden) visibility();
     return () => {
-      document.removeEventListener("visibilitychange", visibility); audioEvents.current = null;
-      releasePreference?.(); lease?.release(); instance.dispose(); player.current = null;
+      closing = true; audioEvents.current = null; player.current = null;
+      const release = () => { document.removeEventListener("visibilitychange", visibility); releasePreference?.(); lease?.release(); };
+      const completion = instance.dispose();
+      // Keep mute/background controls alive for the brief applause tail.
+      if (completion) void completion.then(release, release);
+      else release();
     };
   }), [audioEvents, kernel]);
   React.useEffect(() => { player.current?.setMuted(muted); }, [muted]);

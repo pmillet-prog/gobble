@@ -1,0 +1,6 @@
+.wheel-results-entry { position: relative; flex-shrink: 0; }
+.wheel-results-entry__button { width: 100%; height: 100%; background: none; border: none; padding: 0; filter: drop-shadow(0 2px 2px #0004); }
+.wheel-results-entry__button:disabled { opacity: .5; filter: grayscale(1); }
+.wheel-results-entry__button:focus-visible { outline: 3px solid #efa82f; border-radius: 50%; }
+.wheel-results-entry__portrait { display: block; width: 100%; height: 100%; background: url('/bots/presenters/mauresque/button-v2.webp') no-repeat center / contain; transform: translateY(15%) scale(1.4); }
+.wheel-results-entry__notification { position: absolute; pointer-events: none; left: 62%; top: 5%; display: grid; place-items: center; width: 23px; height: 23px; border-radius: 50%; border: 2px solid #fff8dc; background: radial-gradient(circle at 34% 25%,#ffef83,#ff5a36 38%,#c9142f 76%); box-shadow: 0 0 0 2px #74081c,0 0 13px #ff3b3099; color: white; font: 900 15px/1 system-ui; }

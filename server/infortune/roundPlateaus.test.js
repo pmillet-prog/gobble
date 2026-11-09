@@ -17,7 +17,10 @@ test("zero to sixty humans get reciprocal trios, only the missing places become 
       assert.equal(group.members.length, 3);
       const bots = group.members.filter(player => player.isBot);
       assert.equal(new Set(bots.map(player => player.presenterKey)).size, bots.length);
-      for (const bot of bots) assert.equal(bot.nick, PRESENTER_IDENTITIES[bot.presenterKey].nick);
+      for (const bot of bots) {
+        assert.equal(bot.nick, PRESENTER_IDENTITIES[bot.presenterKey].nick);
+        assert.notEqual(bot.presenterKey, "foucault", "adding a podium portrait does not change wheel casting");
+      }
       for (const self of group.members.filter(player => !player.isBot)) {
         const plate = selectInfortunePlateau(groups, self);
         assert.equal(plate.opponents.length, 2);

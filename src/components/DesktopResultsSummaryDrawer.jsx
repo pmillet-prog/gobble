@@ -4,7 +4,7 @@ import { createPortal } from "react-dom";
 function DesktopResultsSummaryDrawer({
   darkMode = false,
   enabled = false,
-  expanded = true,
+  expanded = false,
   layout = null,
   onToggleExpanded,
   renderPanel,
@@ -19,7 +19,7 @@ function DesktopResultsSummaryDrawer({
       className="fixed z-[12040] pointer-events-none"
       style={{
         left: `${layout.centerX}px`,
-        bottom: `${layout.bottom}px`,
+        bottom: 0,
         transform: "translateX(-50%)",
       }}
     >
@@ -27,7 +27,9 @@ function DesktopResultsSummaryDrawer({
         className="relative pointer-events-auto transition-transform duration-300"
         style={{
           width: `min(92vw, ${layout.maxWidth}px)`,
-          transform: expanded ? "translateY(0)" : "translateY(calc(100% - 28px))",
+          // Collapse at the viewport edge; only the open drawer clears the
+          // results controls. Applying that offset outside leaves the panel visible.
+          transform: expanded ? `translateY(-${layout.bottom}px)` : "translateY(calc(100% - 28px))",
         }}
       >
         <div className="flex justify-center">

@@ -13,6 +13,9 @@ const PORTRAITS = {
   romejko: { urls: ROMEJKO_FRAME_URLS, config: ROMEJKO_INTERVENTION_CONFIG, bounds: [56, 30, 354, 515], reactionBottoms: { hit1: 558, hit2: 587, stars: 569 } },
   lepers: { urls: LEPERS_FRAME_URLS, config: LEPERS_INTERVENTION_CONFIG, bounds: [36, 2, 432, 599], reactionBottoms: { hit1: 572, hit2: 572, stars: 597 } },
   capello: { urls: CAPELLO_FRAME_URLS, config: CAPELLO_INTERVENTION_CONFIG, bounds: [60, 49, 339, 452], reactionBottoms: { hit1: 518, hit2: 556, stars: 524 } },
+  foucault: { urls: ["/bots/presenters/foucault/frame-1.webp", "/bots/presenters/foucault/frame-2.webp"],
+    config: { neutralFrame: 0, blinkFrame: 1, reactionUrls: { hit1: "/bots/foucault/hit-1.png", hit2: "/bots/foucault/hit-2.png", stars: "/bots/foucault/stars.png" } },
+    bounds: [73, 31, 354, 540], reactionBottoms: { hit1: 359, hit2: 361, stars: 381 } },
 };
 
 export function getPresenterPodiumAvatar(player) {

@@ -69,21 +69,31 @@ restent à l’opposé, ainsi que Bonus et le 1 000. Le 1 000 est encadré par
 secteurs, les quatre 200 de 5 à 7 et les deux 300 de 11 et 13 secteurs.
 La régularité exacte des trois 100 ne permet pas d’en mettre un à côté de
 chacun des deux gains spéciaux opposés : la priorité est au voisinage du 1 000.
-La simulation physique reste locale ; le serveur reçoit l'indice et la qualité
+La simulation physique reste locale, avec une position de départ tirée uniformément
+par secteur (les crans et la physique restent identiques) ; le serveur reçoit l'indice et la qualité
 du lancer, vérifie l'appartenance au groupe et applique son propre barème.
 
 `infortune:action` enregistre une fois le lancer, puis le choix éventuel d'un
 des deux adversaires, ou un refus explicite (`target: null`). Chaque joueur a
-10 secondes après le retour de sa propre caméra au plateau, sans attendre les
-autres trios ; `members[id].choiceUntil` porte cette échéance serveur. Les échanges de chaque trio sont
+10 secondes une fois les trois joueurs de son plateau revenus, sans attendre les
+autres trios ; un choix anticipé reste possible. `members[id].choiceUntil` porte cette échéance serveur. Les échanges de chaque trio sont
 appliqués selon un ordre tiré au sort à l'ouverture du plateau. Une
 requête répétée ou un double clic ne réapplique jamais un gain/échange.
 Après verrouillage des choix d’un trio, le snapshot révèle ses cagnottes et
 publie `exchangeReplays[groupId]` avec les montants avant chaque transfert.
+Deux choix réciproques produisent un seul événement `cancelled: true` : aucun
+transfert, et une animation explicite d'annulation pour les trois joueurs.
 Les autres trios restent masqués tant qu’ils choisissent. Le client rejoue
 tous les échanges de son propre trio, même entre les deux adversaires, en
 3,2 secondes par transfert. Les snapshots répétés ne relancent pas l’animation.
-Les lancers manquants sont tirés automatiquement à la limite commune. Tout
+Les lancers 1 à 3 sont facultatifs : un `join` pendant les 20 secondes des résultats
+réserve la roue au joueur qui clique sur Christian. Les autres restent sur les
+résultats et reçoivent un tirage serveur à la fin de ces 20 secondes. Chaque secteur
+physique a une chance sur 24 ; les montants répétés conservent leur multiplicité.
+Le quatrième reste obligatoire. Les échéances serveur individuelles couvrent
+l'absence de geste, un navigateur suspendu après le lancer (20 secondes), ainsi
+qu'un accusé de présentation perdu (10 secondes après résultat). La limite commune
+reste le dernier recours. Le résultat privé est conservé pour la reconnexion. Tout
 échange sans choix confirmé à l'échéance est refusé automatiquement (`target: null`).
 Refuser n'empêche pas un autre joueur de choisir sa cagnotte. Les résultats de la
 manche sont lus pendant 20 secondes avant la roue. Le plafond collectif de roue
@@ -118,6 +128,10 @@ préfère les animations réduites. Les essais locaux utilisent la même intro.
 `tournamentFinale.js` conserve les achats et l'unique réponse par compte ;
 `infortune:finale` reçoit uniquement des intentions, jamais des points ni des prix.
 Les lettres cachées et la solution ne sont pas envoyées dans les messages publics.
+Trois lettres distinctes réellement présentes dans l'énigme sont tirées une fois
+par finale et offertes à tous, toutes occurrences comprises. Elles ne coûtent
+rien et ne font pas progresser le tarif des achats en gobblars. Le clavier de
+réponse est en AZERTY, avec une touche « Effacer » élargie.
 Pour cette majeure, Paul a autorisé la banque actuelle en production :
 `RELEASE_SCOPE.infortuneFinaleDrafts` permet son tirage sans modifier les statuts
 éditoriaux de relecture. Les consonnes coûtent

@@ -3,6 +3,7 @@ import SettingsMenuFrame from "./SettingsMenuFrame.jsx";
 import SettingsPanelHost from "./SettingsPanelHost.jsx";
 import SettingsShortcutMenu from "./SettingsShortcutMenu.jsx";
 import { SettingsHelpChoices, SettingsPreferenceChoices } from "./SettingsNavigationChoices.jsx";
+import { useFeatureRuntime } from '../../app/react/useFeatureRuntime.js';
 import AnimatedTimeWheel, {
   TIME_WHEEL_MULTI_ROLL_DURATION_MS as PLAYTIME_MULTI_ROLL_DURATION_MS,
   TIME_WHEEL_ROLL_DURATION_MS as PLAYTIME_ROLL_DURATION_MS,
@@ -18,6 +19,7 @@ const PLAYTIME_MINUTE_OPTIONS = Array.from({ length: 12 }, (_, index) => index *
 const PLAYTIME_PRESET_MINUTES = [5, 15, 30, 60, 120];
 
 function SettingsMenu(props) {
+  const overlays = useFeatureRuntime('overlays');
   const {
     ACCOUNT_SERVER_BUSY_MESSAGE,
     AUTH_MODAL_MODES,
@@ -453,6 +455,10 @@ function SettingsMenu(props) {
         {isHelpMenuOpen ? <SettingsHelpChoices
           darkMode={menuDarkMode} isConnecting={isConnecting}
           onQuickHelp={() => { setIsSettingsOpen(false); setShowHelp(true); }}
+          onWheelGuide={() => {
+            closeSettingsMenu({ animatePanels: true });
+            overlays.openWheelGuide({ userId: authState?.user?.id, replay: true });
+          }}
           onTutorial={() => { closeSettingsMenu({ animatePanels: true }); openTutorialFromHome(); }}
         /> : <SettingsShortcutMenu
           darkMode={menuDarkMode}

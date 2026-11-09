@@ -1,23 +1,20 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, rm } from "node:fs/promises";
-import os from "node:os";
 import path from "node:path";
 import { chalkboardMailConfig, isChalkboardMailEnabled } from "./chalkboardMail.js";
 import { createChalkboardExports } from "./chalkboardExports.js";
 import { openChalkboardRepository } from "./chalkboardRepository.js";
 import { registerChalkboardRoutes } from "./registerChalkboardRoutes.js";
+import { createRunDirectory } from '../tests/helpers/createRunDirectory.js';
 
 const state = weekId => ({ weekId, revision: 1, boards: { free: [] } });
 
 async function repositoryFixture(t) {
-  const directory = await mkdtemp(path.join(os.tmpdir(), "gobble-chalkboard-mail-policy-"));
+  const { directory, cleanup } = await createRunDirectory('chalkboard-mail-policy');
   const repository = await openChalkboardRepository(path.join(directory, "board.sqlite"));
   t.after(async () => {
     await repository.close();
-    assert.equal(path.dirname(directory), path.resolve(os.tmpdir()));
-    assert.ok(path.basename(directory).startsWith("gobble-chalkboard-mail-policy-"));
-    await rm(directory, { recursive: true, force: true });
+    await cleanup();
   });
   return { directory, repository };
 }

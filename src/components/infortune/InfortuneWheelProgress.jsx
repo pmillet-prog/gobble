@@ -32,7 +32,7 @@ export default function InfortuneWheelProgress({ economy, groups, serverOffset =
       </div>)}
     </div>}
     <p className="infortune-play__explanation">{progress.pending || progress.spinning || progress.returning
-      ? economy.exchangeEnabled ? 'Chaque joueur choisit dès son retour au plateau. Les autres lancers continuent.' : 'Les cagnottes se mettent à jour. La suite commence dès que tous les lancers sont terminés.'
+      ? economy.exchangeEnabled ? 'Tu peux choisir dès ton retour. Les 10 secondes de choix démarrent quand ton plateau est prêt.' : 'Les cagnottes se mettent à jour. La suite commence dès que tous les lancers sont terminés.'
       : progress.choosing ? 'Les derniers choix sont en cours. Chaque plateau révèle ensuite ses cagnottes.'
       : stage === 'settled' ? 'Les choix sont terminés. Les échanges sont en cours.' : 'Tout le monde a terminé. La suite arrive…'}</p>
   </section>;
