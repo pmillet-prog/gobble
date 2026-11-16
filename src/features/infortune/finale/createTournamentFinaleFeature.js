@@ -4,7 +4,7 @@ import { subscribeForegroundClockRefresh } from "../../../utils/realtimeClock.js
 import { gameAudioFocus } from '../../audio/gameAudioFocus.js';
 import { newFinaleWins } from './finaleWins.js';
 
-export const FINALE_RESULT_MS = 4000;
+export const FINALE_RESULT_MS = 5000;
 const empty = () => ({ finale: null, controller: null, loaded: false, phase: "idle", seconds: 0, startsIn: 0, introElapsedMs: 0, resultSeconds: 0, rewardWalletHold: null, error: "" });
 
 export function createTournamentFinaleFeature({ getKernel, ports, scope }, { now = Date.now, timers = globalThis, audioFocus = gameAudioFocus } = {}) {
@@ -41,8 +41,8 @@ export function createTournamentFinaleFeature({ getKernel, ports, scope }, { now
       if (!outcome.expired) resultUntil = current + FINALE_RESULT_MS;
     }
     const phase = current < introStartsAt ? "waiting" : current < finale.startsAt ? "intro"
-      : expired && finale.closed && current >= finale.podiumAt ? "idle"
       : current < resultUntil ? 'result'
+      : expired && finale.closed && current >= finale.podiumAt ? "idle"
       : expired || controller?.store.getState().outcome || loaded && !controller ? "ranking"
       : !loaded ? "loading" : "playing";
     silence.set({ ambient: current >= introStartsAt, effects: ['intro', 'playing', 'result', 'loading', 'ranking'].includes(phase) });
@@ -134,7 +134,7 @@ export function createTournamentFinaleFeature({ getKernel, ports, scope }, { now
       if (roomId && resumeSnapshot) { handlePayload(resumeSnapshot.breakState); sync(); }
     }
   }
-  return { store, subscribeWins(listener) { winListeners.add(listener); return () => winListeners.delete(listener); }, retry: sync, landReward() { store.set('rewardWalletHold', null); }, continueToRanking() { resultUntil = 0; refresh(); }, start() {
+  return { store, subscribeWins(listener) { winListeners.add(listener); return () => winListeners.delete(listener); }, retry: sync, landReward() { store.set('rewardWalletHold', null); }, continueToRanking() { if (now() + offset >= resultUntil) refresh(); }, start() {
     const clearRoom = value => { if (String(value?.roomId) === String(roomId)) reset(); };
     scope.add(ports.realtime.bind({ roundEnded: handlePayload, breakStarted: handlePayload,
       infortuneFinale: value => { receive(value, true); if (!store.getState().controller) sync(); }, connect: sync,

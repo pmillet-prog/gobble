@@ -149,12 +149,19 @@ test("a disconnected player is spun automatically and declines an unanswered exc
   instance.spin(2, 18); assert.deepEqual([...instance.ledger.banks], before);
 });
 
-test("presenters also draw their fourth-round overlay and choose inside their own group", () => {
+test("presenters never initiate fourth-round exchanges, but humans can still choose them", () => {
   const groups = [{ id: "g1", members: [human(1), human(2), { id: "b1", isBot: true, presenterKey: "pivot" }] }];
   const instance = game({ groups, random: () => (EXCHANGE_SECTOR_INDICES[0] + 0.1) / WHEEL_SECTORS.length });
   const bot = instance.snapshot().members.b1;
-  assert.equal(bot.needsExchange, true); assert.equal(bot.choiceMade, true);
-  assert.ok(["user:1", "user:2"].includes(bot.target)); instance.close();
+  assert.equal(bot.needsExchange, false); assert.equal(bot.choiceMade, true);
+  assert.equal(bot.target, null);
+  assert.equal(instance.submit('b1', { type: 'exchange', target: 'user:1' }).ok, false);
+  instance.ledger.banks.set('user:1', 1234);
+  instance.spin(1, EXCHANGE_SECTOR_INDICES[0]); instance.spin(2, pass);
+  assert.equal(instance.choose(1, 'b1').ok, true);
+  assert.equal(instance.snapshot().members.b1.bank, 1234);
+  assert.equal(instance.snapshot().exchangeReplays.g1.length, 1);
+  assert.equal(instance.snapshot().exchangeReplays.g1[0].from, 'user:1'); instance.close();
 });
 
 test("socket handlers use the connected account and current room, never the submitted identity", () => {

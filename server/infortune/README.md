@@ -79,6 +79,8 @@ des deux adversaires, ou un refus explicite (`target: null`). Chaque joueur a
 autres trios ; un choix anticipé reste possible. `members[id].choiceUntil` porte cette échéance serveur. Les échanges de chaque trio sont
 appliqués selon un ordre tiré au sort à l'ouverture du plateau. Une
 requête répétée ou un double clic ne réapplique jamais un gain/échange.
+Les bots ne déclenchent aucun échange. Les humains peuvent toujours choisir
+la cagnotte d’un bot de leur plateau à la quatrième manche.
 Après verrouillage des choix d’un trio, le snapshot révèle ses cagnottes et
 publie `exchangeReplays[groupId]` avec les montants avant chaque transfert.
 Deux choix réciproques produisent un seul événement `cancelled: true` : aucun
@@ -154,14 +156,27 @@ le solde restant selon le barème de gobblars. La conversion affiche les deux
 montants, anime le transfert vers le portefeuille et joue le son de caisse.
 L’animation ne crédite rien elle-même : le reçu serveur fait foi, et le compteur
 libère son affichage à l’arrivée du transfert. Le client affiche la réponse et les
-gains pendant quatre secondes, avec un bouton pour rejoindre le classement
-immédiatement. Ce retour local ne suspend pas le chrono collectif ni les mises
+gains et la question complète pendant au moins cinq secondes. Ce retour local
+ne suspend pas le chrono collectif ni les mises
 à jour du classement provisoire. Une réponse incorrecte termine
 aussi la tentative. À l'échéance commune, les tentatives restantes expirent ; le
 classement final est affiché **15 secondes**, puis le podium existant commence.
+Si tous les participants ont déjà répondu, la fin et le podium sont avancés
+à cinq secondes après la dernière réponse. Les snapshots de reconnexion et le
+retour au salon suivent cette nouvelle échéance. La pause à partir du début
+du podium dure **17,5 secondes**, au lieu de 35.
 Les trophées, médailles et avatars du podium sont déterminés seulement une fois
 la finale close. Recharger la page restitue les achats, la réponse et les mêmes
 échéances. Quitter une salle libère les timers et abonnements du satellite client.
+
+Le vote `wheel-future-2026-11` s’ouvre une fois par compte à partir de 100 manches
+(même compteur que le profil). `POST /api/infortune/vote` enregistre les choix
+multiples ou « Passer » ; une nouvelle validation remplace la réponse du compte.
+La proposition 8 exige une suggestion de 1 à 2 000 caractères. Les réponses sont
+persistées dans `wheel-votes.sqlite` du dossier de données du serveur.
+`GET /api/dev/infortune/votes` exige l’autorisation dev du compte et fournit les
+totaux, les votants, les choix et les suggestions. Le menu dev ouvre les résultats ;
+« À propos » permet aux comptes éligibles de modifier leur réponse.
 
 Dans l'atelier 3D : « Échange de cagnottes » → « Tester la manche 4 » rejoue
 l'intro et la chute des tuiles. « Tester le choix d'un échange » permet de

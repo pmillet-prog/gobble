@@ -251,6 +251,8 @@ test('a failed answer or leaving the result releases the temporary wallet displa
     await h.feature.store.getState().controller.submitAnswer(answer);
     if (answer === 'parapluie') assert.equal(h.feature.store.getState().rewardWalletHold, null);
     h.feature.continueToRanking();
+    assert.equal(h.feature.store.getState().phase, 'result');
+    await h.at(41_000 + FINALE_RESULT_MS);
     assert.equal(h.feature.store.getState().rewardWalletHold, null);
     assert.equal(h.preferences.getState().gobblarsBalance, 100);
     await h.dispose();
@@ -279,8 +281,10 @@ test("the real finale feature waits for results, survives clock skew, ranks earl
   await h.at(100_000);
   h.server.submit("user:2", { type: "answer", answer: "boussole" });
   assert.equal(h.feature.store.getState().finale.ranking[1].points, 35);
-  await h.at(161_000);
-  assert.equal(h.feature.store.getState().phase, "ranking");
+  assert.equal(h.feature.store.getState().seconds, 5);
+  await h.at(104_999); assert.equal(h.feature.store.getState().phase, "ranking");
+  await h.at(105_000);
+  assert.equal(h.feature.store.getState().phase, "idle");
   assert.equal(h.feature.store.getState().finale.closed, true);
   await h.at(176_000); assert.equal(h.feature.store.getState().phase, "idle");
   assert.deepEqual(h.audioFocus.store.getState(), { ambient: true, effects: false });
@@ -312,17 +316,19 @@ test('the shared intro reserves four seconds before the full game clock and surv
   await h.dispose(); assert.equal(h.jobs.size, 0);
 });
 
-test('answer feedback preserves live ranking updates, can be skipped, and is not replayed by reconnect', async () => {
+test('answer feedback preserves the complete question for five seconds and is not replayed by reconnect', async () => {
   const h = await harness(); await h.at(41_000);
   await h.feature.store.getState().controller.submitAnswer('boussole');
   h.server.submit('user:2', { type: 'answer', answer: 'boussole' });
   assert.equal(h.feature.store.getState().phase, 'result');
   assert.equal(h.feature.store.getState().finale.ranking[1].points, 35);
   await h.at(42_000); h.handlers.get('connect')(); await h.flush();
-  assert.equal(h.feature.store.getState().resultSeconds, 3);
-  h.feature.continueToRanking(); assert.equal(h.feature.store.getState().phase, 'ranking');
+  assert.equal(h.feature.store.getState().resultSeconds, 4);
+  h.feature.continueToRanking(); assert.equal(h.feature.store.getState().phase, 'result');
+  await h.at(45_999); assert.equal(h.feature.store.getState().phase, 'result');
+  await h.at(46_000); assert.equal(h.feature.store.getState().phase, 'idle');
   h.handlers.get('connect')(); await h.flush();
-  assert.equal(h.feature.store.getState().phase, 'ranking');
+  assert.equal(h.feature.store.getState().phase, 'idle');
   assert.equal(h.awards.length, 2);
   await h.dispose();
 });
@@ -331,7 +337,8 @@ test('a correct answer just before the deadline is acknowledged before final sta
   const h = await harness(); await h.at(160_900);
   await h.feature.store.getState().controller.submitAnswer('boussole');
   await h.at(161_000); assert.equal(h.feature.store.getState().phase, 'result');
-  await h.at(164_900); assert.equal(h.feature.store.getState().phase, 'ranking');
+  await h.at(165_899); assert.equal(h.feature.store.getState().phase, 'result');
+  await h.at(165_900); assert.equal(h.feature.store.getState().phase, 'ranking');
   await h.at(176_000); assert.equal(h.feature.store.getState().phase, 'idle');
   await h.dispose();
 });

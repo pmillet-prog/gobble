@@ -1,4 +1,6 @@
 .gobble-reward { position: absolute; inset: 0; pointer-events: none; --reward-y: clamp(120px,30vh,250px); }
+body:has(.vocab-progress-dialog) .gobble-reward { --reward-y: calc(85px + env(safe-area-inset-top, 0px)); }
+body:has(.vocab-progress-dialog) .gobble-reward__announcement { padding: 8px 20px; }
 .gobble-reward__announcement { position: absolute; left: 50%; top: var(--reward-y); transform: translate(-50%,-50%); width: min(300px,90vw); padding: 18px 24px; border-radius: 24px; border: 1px solid #fcd34d; background: linear-gradient(145deg,#fff9e8f5,#ffedb7f5); color: #74451a; text-align: center; box-shadow: 0 8px 36px #38210025; transition: opacity 300ms,transform 400ms; animation: gobble-reward-appear 350ms ease-out; }
 .gobble-reward__announcement small { display: block; font-size: 12px; font-weight: 600; }
 .gobble-reward__announcement strong { display: block; margin-top: 5px; font-size: clamp(27px,6vw,38px); font-weight: 900; }

@@ -17,6 +17,7 @@ import WheelGuideSatellite from '../features/infortune/guide/WheelGuideSatellite
 import TournamentWheelFinaleSatellite from "../features/infortune/finale/TournamentWheelFinaleSatellite.jsx";
 import { GameBalancesRuntime } from "../features/gobblars/GameBalances.jsx";
 import ResultsLoadingSatellite from "../features/round/ResultsLoadingSatellite.jsx";
+import { WheelVoteProvider } from "../features/wheelVote/WheelVoteProvider.jsx";
 import socketClient from "../socket.js";
 import { readBrowserSessionSnapshot } from "./adapters/browserSessionSnapshot.js";
 import { createRealtimeGateway } from "./adapters/createRealtimeGateway.js";
@@ -47,7 +48,7 @@ function ApplicationRuntime() {
   );
 
   return (
-    <>
+    <WheelVoteProvider enabled={bootReady}>
       <ScreenOrientationSatellite />
       <MaintenanceRecoverySatellite />
       <ClientUpdateSatellite />
@@ -66,7 +67,7 @@ function ApplicationRuntime() {
         onOverlayVisibleChange={handleOverlayVisibleChange}
         onReady={handleReady}
       />
-    </>
+    </WheelVoteProvider>
   );
 }
 

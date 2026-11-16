@@ -10,6 +10,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "fs";
 import { randomUUID } from "crypto";
 import { infortuneRoundPolicy, infortuneBreakDuration, scheduleInfortuneAfterResults } from "../shared/infortuneIntermission.js";
 import { scheduleWheelClosing } from "./infortune/scheduleWheelClosing.js";
+import { scheduleFinaleBreak } from "./infortune/scheduleFinaleBreak.js";
 import { INFORTUNE_PLATEAU_VERSION } from "../shared/infortunePlateaus.js";
 import { snapshotInfortunePlayers, finalizeInfortunePlateaus } from "./infortune/roundPlateaus.js";
 import { createInfortuneLedger, creditInfortuneGobbles } from "./infortune/roundEconomy.js";
@@ -23,6 +24,8 @@ import { INFORTUNE_FINALE_INTRO_MS, INFORTUNE_FINALE_DURATION_MS, INFORTUNE_FINA
 import { infortuneTournamentEnabled } from "../shared/releaseScope.js";
 import { registerWorkshopAccess } from "./realtime/registerWorkshopAccess.js";
 import { registerWheelDiagnosticRoutes } from "./infortune/registerWheelDiagnosticRoutes.js";
+import { registerWheelVoteRoutes } from "./infortune/registerWheelVoteRoutes.js";
+import { createWheelVoteRepository } from "./infortune/wheelVoteRepository.js";
 import { createWheelDiagnosticRepository } from "./infortune/wheelDiagnosticRepository.js";
 
 import {
@@ -236,6 +239,7 @@ import {
 } from "./stats/teamDuelService.js";
 import {
   initPlayerProfileService,
+  getPlayerRoundCount,
   getPublicPlayerProfileByUserId,
 } from "./stats/playerProfileService.js";
 import { applyPendingScoreRecordRollback } from "./stats/scoreRecordRollbackService.js";
@@ -1778,6 +1782,14 @@ registerWheelDiagnosticRoutes(app, {
   repository: wheelDiagnosticRepository,
 });
 
+const wheelVoteRepository = createWheelVoteRepository({ filename: () => path.join(RUNTIME_DATA_DIR, "wheel-votes.sqlite") });
+registerWheelVoteRoutes(app, {
+  readAccount: async request => (await getAuthFromCookieHeader(request.headers.cookie))?.user,
+  isAllowed: areDevToolsAllowedForAccount,
+  readRoundCount: getPlayerRoundCount,
+  repository: wheelVoteRepository,
+});
+
 // ===== SERVE FRONT VITE (dist) =====
 app.use(express.static(path.join(__dirname, "../dist")));
 
@@ -1787,6 +1799,7 @@ app.get("*", (req, res) => {
 
 
 const server = http.createServer(app);
+server.once("close", () => { void wheelVoteRepository.close().catch(error => console.error("[wheel-votes] close failed", error.message)); });
 server.once("close", () => { void wheelDiagnosticRepository.close().catch(error => console.error("[wheel-diagnostics] close failed", error.message)); });
 const io = new Server(server, {
   cors: {
@@ -1931,7 +1944,7 @@ const TOURNAMENT_TOTAL_ROUNDS = 5;
 const TOURNAMENT_SPECIAL_ROUNDS = [2, 4];
 const TOURNAMENT_MASSIVE_BOGGLE_ROUND = 3;
 const TOURNAMENT_RESULTS_BREAK_MS = 20 * 1000;
-const TOURNAMENT_FINAL_BREAK_MS = 35 * 1000;
+const TOURNAMENT_FINAL_BREAK_MS = 17.5 * 1000;
 const TOURNAMENT_END_TOTAL_BREAK_MS = TOURNAMENT_RESULTS_BREAK_MS + TOURNAMENT_FINAL_BREAK_MS;
 const INTER_TOURNAMENT_COUNTDOWN_MS = 5 * 1000;
 const MINI_TOURNAMENT_INTRO_MS = 5 * 1000;
@@ -4498,6 +4511,8 @@ function emitTournamentLobby(room) {
 
 function enterInterTournamentLobby(room) {
   if (!room) return;
+  room.infortuneFinaleBreak?.dispose();
+  room.infortuneFinaleBreak = null;
   room.infortuneFinale?.dispose();
   room.infortuneFinale = null;
   void targetQuizHandlers.closeRoomRound(room.id, room.currentRound?.id)
@@ -11724,6 +11739,8 @@ async function endRoundForRoom(room) {
     if (puzzle) {
       room.infortuneRecentPuzzles = [...(room.infortuneRecentPuzzles || []).slice(-30), puzzle.id];
       room.infortuneFinale?.dispose();
+      room.infortuneFinaleBreak?.dispose();
+      room.infortuneFinaleBreak = null;
       openTournamentFinale = introStartsAt => {
         room.infortuneFinale = createTournamentWheelFinale({ roomId: room.id, tournamentId: t.id,
         introStartsAt, startsAt: introStartsAt + INFORTUNE_FINALE_INTRO_MS, puzzle, ranking: totalRanking, ledger: t.infortune,
@@ -11732,7 +11749,11 @@ async function endRoundForRoom(room) {
             clearThemeProfileResponseCache(entry.installId);
             emitToInstallId(room, entry.installId, 'gobblarsBalanceUpdated', { balance });
           } }),
-        onChange: finale => io.to(room.id).emit("infortuneFinale", finale),
+        onChange: finale => {
+          tournamentSummaryAt = finale.podiumAt;
+          io.to(room.id).emit("infortuneFinale", finale);
+          room.infortuneFinaleBreak?.update(finale);
+        },
         onWin: (entry, outcome) => {
           const total = t.totals.get(entry.nick);
           if (total) t.totals.set(entry.nick, { ...total, points: (total.points || 0) + outcome.points });
@@ -11895,6 +11916,8 @@ async function endRoundForRoom(room) {
   if (infortune) advanceWheelClosing = scheduleWheelClosing({ room, round: room.currentRound,
     publish: value => io.to(room.id).emit('breakStarted', value), startNext: startRoundForRoom,
     onError: error => console.warn('startRoundForRoom failed', error) });
+  if (openTournamentFinale) room.infortuneFinaleBreak = scheduleFinaleBreak({ room, finale: room.infortuneFinale,
+    afterPodiumMs: TOURNAMENT_FINAL_BREAK_MS, publish: value => io.to(room.id).emit('breakStarted', value), enterLobby: enterInterTournamentLobby });
   emitRoomsStats();
 
   scheduleLepersResultIntervention(room, lepersResult);
@@ -11928,7 +11951,7 @@ async function endRoundForRoom(room) {
   }
   // Wheel rounds advance through their collective closing scene. Do not leave a
   // second next-round timer at the same deadline when the ceiling is reached.
-  if (!infortune) setTimeout(() => {
+  if (!infortune && !openTournamentFinale) setTimeout(() => {
     if (room.breakState?.nextStartAt !== nextStartAt) return;
     if (breakKind === "tournament_end" || breakKind === "training_end") {
       enterInterTournamentLobby(room);

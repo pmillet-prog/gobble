@@ -1,6 +1,7 @@
 /* Above the game header/intros, below menus. The wheel raises both layers;
    counters must always stay below its social/settings overlays. */
 .currency-layer { position: fixed; inset: 0; z-index: calc(var(--infortune-social-z, 300) - 100); pointer-events: none; }
+body:has(.vocab-progress-dialog) .currency-layer { z-index: max(12050, calc(var(--infortune-social-z, 300) - 100)); }
 /* Keep the same ordering above the podium's full-screen surface at 20000. */
 body:has(.tournament-celebration-screen) { --infortune-social-z: 20160; }
 .currency-slot { display: block; width: 94px; height: 42px; flex: 0 0 94px; }

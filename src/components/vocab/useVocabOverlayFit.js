@@ -23,6 +23,8 @@ export default function useVocabOverlayFit(open) {
       // schedules another fit if a viewport resize changes the text wrapping.
       const panelWidth = panel.offsetWidth;
       const panelHeight = panel.offsetHeight;
+      const padding = getComputedStyle(viewport);
+      const verticalPadding = parseFloat(padding.paddingTop) + parseFloat(padding.paddingBottom);
       const viewportStyles = {
         left: `${visualViewport?.offsetLeft || 0}px`,
         top: `${visualViewport?.offsetTop || 0}px`,
@@ -30,7 +32,7 @@ export default function useVocabOverlayFit(open) {
         height: `${height}px`,
       };
       const scale = Math.min(1, Math.max(1, width - 32) / Math.max(1, panelWidth),
-        Math.max(1, height - 32) / Math.max(1, panelHeight));
+        Math.max(1, height - verticalPadding) / Math.max(1, panelHeight));
       scaleRef.current = scale;
       for (const [property, value] of Object.entries(viewportStyles)) {
         writeStyle(viewport, property, value);
@@ -43,6 +45,7 @@ export default function useVocabOverlayFit(open) {
     fit();
     const observer = new ResizeObserver(schedule);
     observer.observe(panel);
+    observer.observe(viewport);
     window.addEventListener("resize", schedule);
     visualViewport?.addEventListener("resize", schedule);
     visualViewport?.addEventListener("scroll", schedule);

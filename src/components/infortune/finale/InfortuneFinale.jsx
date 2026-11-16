@@ -59,7 +59,7 @@ export default function InfortuneFinale({ controller, onReplay, onClose, onConti
           {state.outcome.typo && <p>Petite faute tolérée.</p>}</>
           : <p>Ta proposition : « {state.outcome.proposal} ». Aucun gain de finale cette fois.</p>}
         {onReplay && <button type="button" className="infortune-finale-primary" onClick={onReplay}>Une autre énigme</button>}
-        {onContinue && <><button type="button" className="infortune-finale-primary" onClick={onContinue}>Voir le classement</button>
+        {onContinue && <><button type="button" className="infortune-finale-primary" disabled={resultSeconds > 0} onClick={onContinue}>Voir le classement</button>
           <p className="infortune-finale-result__next" role="status">Classement dans {resultSeconds} s</p></>}
       </section> : <section className="infortune-finale__commands" aria-label="Lettres et réponse">
         <div className="infortune-finale__tabs" aria-label="Action de finale">

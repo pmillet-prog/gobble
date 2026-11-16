@@ -1,0 +1,33 @@
+.wheel-vote { width: min(720px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); padding: 0; margin: auto; color: #172b42; background: #fffdf7; border: 1px solid #d5b46a; border-radius: 20px; box-shadow: 0 20px 80px #0005; font-size: 14px; line-height: 1.55; }
+.wheel-vote[open] { display: flex; flex-direction: column; }
+.wheel-vote::backdrop { background: #081529bf; }
+.wheel-vote header, .wheel-vote footer { flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 20px; background: #f4ecd9; }
+.wheel-vote header { border-bottom: 1px solid #d8caa9; }
+.wheel-vote h1 { font-size: 19px; font-weight: 800; }
+.wheel-vote h2 { font-size: 16px; font-weight: 750; margin: 12px 0; }
+.wheel-vote__body { overflow-y: auto; overscroll-behavior: contain; padding: 18px 20px; min-height: 0; }
+.wheel-vote p { margin: 0 0 12px; }
+.wheel-vote button { border: 1px solid #b9c4cd; border-radius: 10px; background: #fff; padding: 9px 14px; font-weight: 700; }
+.wheel-vote button:focus-visible, .wheel-vote input:focus-visible, .wheel-vote textarea:focus-visible { outline: 3px solid #14826e; outline-offset: 3px; }
+.wheel-vote button:disabled { opacity: .5; cursor: wait; }
+.wheel-vote .wheel-vote__primary, .wheel-vote button[aria-pressed="true"] { background: #176d5c; color: #fff; border-color: #176d5c; }
+.wheel-vote__notice { padding: 12px; background: #eaf3ee; border-radius: 10px; margin-bottom: 14px; }
+.wheel-vote__proposals { list-style: none; padding: 0; }
+.wheel-vote li { margin-bottom: 12px; }
+.wheel-vote__choice { display: flex; align-items: flex-start; gap: 12px; padding: 12px; border: 1px solid #d9dfdf; border-radius: 10px; margin-bottom: 8px; cursor: pointer; }
+.wheel-vote__choice:has(input:checked) { background: #eaf3ee; border-color: #176d5c; }
+.wheel-vote__choice input { margin-top: 4px; width: 18px; height: 18px; flex-shrink: 0; accent-color: #176d5c; }
+.wheel-vote__input { display: grid; gap: 6px; margin: 12px 0; font-weight: 700; }
+.wheel-vote textarea { width: 100%; padding: 10px; border: 1px solid #97aaa9; border-radius: 10px; resize: vertical; background: white; color: #172b42; }
+.wheel-vote__privacy { font-size: 12px; color: #526374; }
+.wheel-vote__error { color: #a42525; font-weight: 700; }
+.wheel-vote__suggestion { white-space: pre-wrap; overflow-wrap: anywhere; }
+.wheel-vote__toolbar { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
+.wheel-vote__table { width: 100%; border-collapse: collapse; margin-bottom: 18px; }
+.wheel-vote__table caption { text-align: left; font-weight: 800; font-size: 16px; padding-bottom: 10px; }
+.wheel-vote__table th, .wheel-vote__table td { border-bottom: 1px solid #d9dfdf; padding: 9px 8px; text-align: left; }
+.wheel-vote__table tbody th { font-weight: 500; }
+.wheel-vote__table td { text-align: center; font-weight: 800; font-variant-numeric: tabular-nums; }
+.wheel-vote__voters { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; }
+.wheel-vote__voters button { display: flex; flex-direction: column; text-align: left; overflow-wrap: anywhere; }
+@media (max-width: 480px) { .wheel-vote { font-size: 13px; } .wheel-vote header, .wheel-vote footer, .wheel-vote__body { padding: 12px; } }

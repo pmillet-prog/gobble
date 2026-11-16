@@ -2,6 +2,7 @@ export const INFORTUNE_FINALE_INTRO_MS = 4000;
 export const INFORTUNE_FINALE_DURATION_MS = 120_000;
 export const INFORTUNE_FINALE_VICTORY_POINTS = 10;
 export const INFORTUNE_FINAL_RANKING_MS = 15_000;
+export const INFORTUNE_ALL_FINISHED_MS = 5000;
 
 // Keep the tournament's existing tie breakers after adding the wheel bonus.
 export function rankInfortuneFinale(entries, outcomes = new Map()) {

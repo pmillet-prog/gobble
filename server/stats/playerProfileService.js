@@ -500,6 +500,14 @@ async function getLiveHeadToHeadSummary(viewerUserId, targetUserId) {
   };
 }
 
+export async function getPlayerRoundCount(userId) {
+  const key = normalizeUserId(userId);
+  if (!key) return 0;
+  const lifetime = await getPlayerLifetimeStats(key);
+  const weekly = getWeeklyPlayerSnapshot(key);
+  return Math.max(finiteInt(lifetime?.roundsPlayed), finiteInt(weekly?.allTime?.roundsPlayed));
+}
+
 export async function getPublicPlayerProfileByUserId(
   userId,
   { fallbackNick = "", viewerUserId = null } = {}

@@ -52,10 +52,9 @@ export function createInfortuneRoundEconomy({ ledger, policy, groups, now = Date
   }
   for (const group of groups) for (const player of group.members) {
     if (!player.isBot && !ledger.banks.has(player.id)) ledger.banks.set(player.id, 0);
-    const exchange = player.isBot && policy.exchangeEnabled && ledger.presenterResults.get(player.presenterKey) === "exchange";
-    const opponents = group.members.filter(other => other.id !== player.id);
-    members.set(player.id, { player, group, spin: player.isBot ? "done" : "pending", needsExchange: !!exchange,
-      choiceMade: !!exchange, choiceExpired: false, target: exchange ? opponents[Math.floor(random() * opponents.length)].id : null,
+    // Presenters keep an exchangeable bank, but never initiate an exchange.
+    members.set(player.id, { player, group, spin: player.isBot ? "done" : "pending", needsExchange: false,
+      choiceMade: !!player.isBot, choiceExpired: false, target: null,
       optedIn: !optional, fallbackAt: null, presented: !!player.isBot, launchUntil: null, choiceUntil: null, bank: player.isBot ? ledger.presenters.get(player.presenterKey) || 0 : null });
   }
   const bank = member => member.player.isBot ? member.bank : ledger.banks.get(member.player.id) || 0;

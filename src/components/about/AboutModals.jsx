@@ -1,6 +1,8 @@
 import React from "react";
 import AboutCredits from "./AboutCredits.jsx";
+import { ModifyWheelVoteButton } from '../../features/wheelVote/WheelVoteProvider.jsx';
 import { SUPPORT_DONORS } from "../../constants/supportDonors";
+import PatchNotes20261116Minor from "./patchNotes/PatchNotes20261116Minor.jsx";
 import PatchNotes20261109Minor from "./patchNotes/PatchNotes20261109Minor.jsx";
 import PatchNotes20261107Major from "./patchNotes/PatchNotes20261107Major.jsx";
 import PatchNotes20261104Minor from "./patchNotes/PatchNotes20261104Minor.jsx";
@@ -113,6 +115,8 @@ export default function AboutModals({
               >
                 Soutenir Gobble
               </button>
+              <ModifyWheelVoteButton onOpen={() => setIsAboutOpen(false)}
+                className={`w-full rounded-xl border px-3 py-2 text-[12px] font-semibold ${menuDarkMode ? 'bg-slate-800/90 border-white/15 text-slate-100' : 'bg-slate-50 border-slate-200 text-slate-900'}`} />
               <AboutCredits darkMode={menuDarkMode} />
             </div>
           </div>
@@ -292,6 +296,7 @@ export default function AboutModals({
               </button>
             </div>
             <div className="max-h-[68vh] overflow-y-auto px-4 py-4 text-[13px] leading-6 space-y-4">
+              <PatchNotes20261116Minor menuDarkMode={menuDarkMode} />
               <PatchNotes20261109Minor menuDarkMode={menuDarkMode} />
               <PatchNotes20261107Major menuDarkMode={menuDarkMode} />
               <PatchNotes20261104Minor menuDarkMode={menuDarkMode} />

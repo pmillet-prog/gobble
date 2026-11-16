@@ -1,6 +1,7 @@
 import React from "react";
 import PodiumTypographyTuner from "./dev/PodiumTypographyTuner.jsx";
 import WorkshopLinks from "./dev/WorkshopLinks.jsx";
+import WheelVoteResultsButton from '../features/wheelVote/WheelVoteResultsButton.jsx';
 
 let globalAnnouncementDraftCache = "";
 
@@ -196,6 +197,7 @@ export default function DevSettingsPanel({
           {available && !locked ? (
             <>
           <WorkshopLinks className={mutedClass} />
+          <WheelVoteResultsButton className={`w-full rounded-xl border px-3 py-3 text-sm font-semibold ${mutedClass}`} />
           {renderToggle({ keyName: "enabled", label: "Mode developpeur" })}
           <div className={`rounded-xl border px-3 py-2 ${mutedClass}`}>
             <span className="block text-[11px] font-bold uppercase tracking-widest opacity-75">

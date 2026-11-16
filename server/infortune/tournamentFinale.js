@@ -4,14 +4,15 @@ import { buyFinaleLetter } from './buyFinaleLetter.js';
 import { normalizeFinaleText } from '../../shared/infortuneFinaleRules.js';
 import { infortunePlayerKey } from "../../shared/infortunePlateaus.js";
 import { INFORTUNE_FINALE_DURATION_MS, INFORTUNE_FINALE_VICTORY_POINTS,
-  INFORTUNE_FINAL_RANKING_MS, rankInfortuneFinale } from "../../shared/infortuneTournamentFinale.js";
+  INFORTUNE_FINAL_RANKING_MS, INFORTUNE_ALL_FINISHED_MS, rankInfortuneFinale } from "../../shared/infortuneTournamentFinale.js";
 
 // The room owns one game, with private sessions keyed by authenticated identity.
 // Public updates contain only standings and deadlines until the finale closes.
 export function createTournamentWheelFinale({ roomId, tournamentId, startsAt, introStartsAt = startsAt, puzzle, ranking, ledger,
   rules = {}, wallet = null, random = Math.random, freeLetters = drawFinaleGiftLetters(puzzle.clue, random), now = Date.now, timers = globalThis, onChange = () => {}, onWin = () => {}, onFinish = () => {} }) {
-  const deadlineAt = startsAt + INFORTUNE_FINALE_DURATION_MS;
-  const podiumAt = deadlineAt + INFORTUNE_FINAL_RANKING_MS;
+  let deadlineAt = startsAt + INFORTUNE_FINALE_DURATION_MS;
+  let podiumAt = deadlineAt + INFORTUNE_FINAL_RANKING_MS;
+  let finishTimer;
   const participants = new Map(), outcomes = new Map();
   for (const entry of ranking) {
     const key = infortunePlayerKey(entry);
@@ -33,6 +34,7 @@ export function createTournamentWheelFinale({ roomId, tournamentId, startsAt, in
   function finish() {
     if (closed || disposed) return;
     closed = true;
+    timers.clearTimeout(finishTimer); handles.delete(finishTimer);
     for (const { entry, session } of participants.values()) {
       if (!outcomes.has(entry.nick)) {
         session.expire(); outcomes.set(entry.nick, session.snapshot().outcome);
@@ -43,6 +45,7 @@ export function createTournamentWheelFinale({ roomId, tournamentId, startsAt, in
   function schedule(fn, at) {
     const handle = timers.setTimeout(() => { handles.delete(handle); fn(); }, Math.max(0, at - now()));
     handles.add(handle); handle?.unref?.();
+    return handle;
   }
   function snapshot(key) {
     if (now() >= deadlineAt) finish();
@@ -85,6 +88,13 @@ export function createTournamentWheelFinale({ roomId, tournamentId, startsAt, in
       const outcome = result.snapshot.outcome;
       outcomes.set(entry.nick, outcome);
       if (outcome.correct) onWin(entry, outcome);
+      if ([...participants.values()].every(player => player.session.snapshot().outcome)) {
+        // Keep five full seconds for the last answer, even at the original deadline.
+        deadlineAt = now() + INFORTUNE_ALL_FINISHED_MS;
+        podiumAt = deadlineAt;
+        timers.clearTimeout(finishTimer); handles.delete(finishTimer);
+        finishTimer = schedule(finish, deadlineAt);
+      }
       publish();
     }
     return { ...result, finale: publicSnapshot(), snapshot: privateSnapshot(participant) };
@@ -98,7 +108,7 @@ export function createTournamentWheelFinale({ roomId, tournamentId, startsAt, in
     purchases.set(key, tracked); return tracked;
   }
   schedule(publish, startsAt);
-  schedule(finish, deadlineAt);
+  finishTimer = schedule(finish, deadlineAt);
   return { snapshot, publicSnapshot, submit, finish, dispose() {
     disposed = true; for (const handle of handles) timers.clearTimeout(handle); handles.clear();
   } };

@@ -16,6 +16,8 @@
 }
 
 .vocab-progress-panel { contain: layout style; }
+/* Reserve a separate top rail for the reward announcement and its two gains. */
+body:has(.gobble-reward) .vocab-progress-dialog { padding-top: calc(140px + env(safe-area-inset-top, 0px)); }
 .vocab-progress-heading { align-self: flex-start; padding-right: 80px; font-size: 18px; font-weight: 900; }
 .vocab-section-label { font-size: 10px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; opacity: .65; }
 

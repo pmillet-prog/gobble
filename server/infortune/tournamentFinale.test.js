@@ -97,3 +97,26 @@ test("finale transport derives identity from the socket and refuses old tourname
   player.isBot = true; send({ type: "snapshot" }); assert.equal(reply.ok, false);
   h.game.dispose();
 });
+
+test('the last submitted answer schedules the podium in five seconds and retries never postpone it', () => {
+  for (const lastAnswerAt of [50_000, 160_999]) {
+    const h = harness();
+    try {
+      h.at(41_000);
+      h.game.submit('user:1', { type: 'answer', answer: 'boussole' });
+      h.game.submit('user:2', { type: 'answer', answer: 'soleil' });
+      assert.equal(h.game.publicSnapshot().deadlineAt, 161_000);
+      h.at(lastAnswerAt);
+      h.game.submit('user:3', { type: 'answer', answer: 'soleil' });
+      assert.equal(h.game.publicSnapshot().remaining, 0);
+      assert.equal(h.game.publicSnapshot().deadlineAt, lastAnswerAt + 5000);
+      assert.equal(h.game.publicSnapshot().podiumAt, lastAnswerAt + 5000);
+      h.at(lastAnswerAt + 1000);
+      h.game.submit('user:3', { type: 'answer', answer: 'boussole' });
+      assert.equal(h.game.publicSnapshot().podiumAt, lastAnswerAt + 5000);
+      h.at(lastAnswerAt + 4999); assert.equal(h.finished.length, 0);
+      h.at(lastAnswerAt + 5000); assert.equal(h.finished.length, 1);
+      h.at(176_000); assert.equal(h.finished.length, 1);
+    } finally { h.game.dispose(); }
+  }
+});
