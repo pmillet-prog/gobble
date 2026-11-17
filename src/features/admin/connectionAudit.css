@@ -1,0 +1,8 @@
+.connection-audit { margin-top: 12px; padding-top: 12px; border-top: 1px solid #94a3b844; min-width: 0; }
+.connection-audit-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.connection-audit-scroll { overflow-x: auto; max-height: 420px; margin-block: 10px; border: 1px solid #94a3b855; border-radius: 8px; }
+.connection-audit table { border-collapse: collapse; width: 100%; min-width: 590px; text-align: left; }
+.connection-audit th, .connection-audit td { padding: 9px; border-bottom: 1px solid #94a3b844; vertical-align: top; }
+.connection-audit th { background: #94a3b81a; }
+.connection-audit small { display: block; margin-top: 4px; opacity: .8; }
+.connection-audit code { overflow-wrap: anywhere; font-size: 11px; }

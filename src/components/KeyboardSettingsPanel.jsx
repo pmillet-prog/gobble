@@ -25,7 +25,7 @@ export default function KeyboardSettingsPanel({
 
   return (
     <div
-      className={`absolute inset-y-0 right-0 w-full max-w-md border-l-2 shadow-2xl transition-transform duration-300 ${panelClass} ${
+      className={`settings-menu-drawer absolute inset-y-0 right-0 w-full max-w-md shadow-2xl transition-transform duration-300 ${panelClass} ${
         isOpen ? "translate-x-0" : "translate-x-full pointer-events-none"
       }`}
     >

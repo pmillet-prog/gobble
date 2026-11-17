@@ -479,7 +479,7 @@ function SettingsMenu(props) {
         />}
       </div>
       <div
-        className={`absolute inset-y-0 right-0 w-full max-w-md border-l-2 shadow-2xl transition-transform duration-300 ${settingsShellClass} ${isGeneralMenuOpen ? "translate-x-0" : "translate-x-full invisible pointer-events-none"}`}
+        className={`settings-menu-drawer absolute inset-y-0 right-0 w-full max-w-md shadow-2xl transition-transform duration-300 ${settingsShellClass} ${isGeneralMenuOpen ? "translate-x-0" : "translate-x-full invisible pointer-events-none"}`}
         inert={isGeneralMenuOpen ? undefined : ""}
         aria-hidden={isGeneralMenuOpen ? undefined : true}
       >
@@ -756,7 +756,7 @@ function SettingsMenu(props) {
         }}
       />
       <div
-        className={`absolute inset-y-0 right-0 w-full max-w-md border-l-2 border-amber-300/70 shadow-2xl transition-transform duration-300 bg-[linear-gradient(180deg,rgba(18,47,103,0.97),rgba(7,22,55,0.99))] text-amber-50 ${
+        className={`settings-menu-drawer absolute inset-y-0 right-0 w-full max-w-md border-amber-300/70 shadow-2xl transition-transform duration-300 bg-[linear-gradient(180deg,rgba(18,47,103,0.97),rgba(7,22,55,0.99))] text-amber-50 ${
           isThemeMenuOpen ? "translate-x-0" : "translate-x-full pointer-events-none"
         }`}
         inert={isThemeMenuOpen ? undefined : ""}

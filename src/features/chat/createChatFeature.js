@@ -167,7 +167,7 @@ export function createInitialChatState(storage = globalThis.localStorage) {
     homeChatOpen: false,
     homeUnreadCount: 0,
     input: "",
-    messages: withoutPresentedBotInterventions(readStoredChatMessages()),
+    messages: withoutPresentedBotInterventions(readStoredChatMessages(storage)),
     mobileBotUnreadCount: 0,
     mobileChatClosing: false,
     mobileChatOpen: false,
@@ -388,7 +388,7 @@ export function createChatFeature(context, options = {}) {
     );
     if (!normalizedHistory.length) return;
     feature.set("messages", (previous) =>
-      capChatMessagesByType([...previous, ...normalizedHistory])
+      capChatMessagesByType([...normalizedHistory, ...previous])
     );
   }
 
@@ -923,6 +923,20 @@ export function createChatFeature(context, options = {}) {
       active = true;
       bindRealtime();
       let previous = store.getState();
+      const flushMessages = () => {
+        if (persistTimer == null) return;
+        clearTimeout(persistTimer);
+        persistTimer = null;
+        try {
+          storage?.setItem(CHAT_MESSAGES_STORAGE_KEY,
+            JSON.stringify(capChatMessagesByType(store.getState().messages)));
+        } catch (_) {}
+      };
+      const documentTarget = options.documentTarget ?? globalThis.document;
+      scope.listen(options.windowTarget ?? globalThis.window, "pagehide", flushMessages);
+      scope.listen(documentTarget, "visibilitychange", () => {
+        if (documentTarget?.visibilityState === "hidden") flushMessages();
+      });
       const persist = () => {
         const state = store.getState();
         try {
@@ -947,15 +961,7 @@ export function createChatFeature(context, options = {}) {
         } catch (_) {}
         if (state.messages !== previous.messages) {
           if (persistTimer != null) clearTimeout(persistTimer);
-          persistTimer = setTimeout(() => {
-            persistTimer = null;
-            try {
-              storage?.setItem(
-                CHAT_MESSAGES_STORAGE_KEY,
-                JSON.stringify(capChatMessagesByType(store.getState().messages))
-              );
-            } catch (_) {}
-          }, 650);
+          persistTimer = setTimeout(flushMessages, 650);
         }
         previous = state;
       };
@@ -963,7 +969,7 @@ export function createChatFeature(context, options = {}) {
       scope.add(unsubscribe);
       scope.add(() => {
         active = false;
-        if (persistTimer != null) clearTimeout(persistTimer);
+        flushMessages();
         for (const timerId of reactionToastTimers) clearTimeout(timerId);
         reactionToastTimers.clear();
         realtimeUnsubscribe?.();

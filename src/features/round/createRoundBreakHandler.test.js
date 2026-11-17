@@ -3,6 +3,8 @@ import test from "node:test";
 
 import { createPresenterHintsController } from "../presenters/createPresenterHintsController.js";
 import { createRoundBreakHandler } from "./createRoundBreakHandler.js";
+import { createTournamentWheelFinale } from "../../../server/infortune/tournamentFinale.js";
+import { scheduleFinaleBreak } from "../../../server/infortune/scheduleFinaleBreak.js";
 
 const pivot = {
   id: "round-2:pivot",
@@ -37,7 +39,11 @@ function createHarness({ roundId = "round-2", phase = "playing" } = {}) {
     phaseRef: { current: phase },
     ensureTournamentBaseline() {},
   });
-  const render = () => presenters.setScope(state.roundId, state.phase);
+  const render = () => {
+    presenters.setScope(state.roundId, state.phase);
+    // These checks cover round ownership after the vocabulary presentation.
+    presenters.setResultsAvailability({ roundId: state.roundId, vocabReady: true });
+  };
   render();
   return { onBreak, presenters, render, state };
 }
@@ -110,6 +116,67 @@ test("the final tournament break keeps Pivot and the completed tournament", () =
   assertPivotAvailable(harness);
   assert.equal(harness.state.tournament.id, "completed-tournament");
   assert.equal(harness.state.tournamentFinaleHoldUntil, 95_000);
+});
+
+test("the podium gate follows the real shortened finale and opens before the next lobby", () => {
+  for (const lastAnswerAt of [50_000, 160_999, null]) {
+    const client = createHarness({ phase: "results" });
+    let now = 1000, sequence = 0, lobbyEntered = false, scheduler;
+    const jobs = new Map();
+    const timers = {
+      setTimeout(fn, delay) { jobs.set(++sequence, { at: now + delay, fn }); return sequence; },
+      clearTimeout(id) { jobs.delete(id); },
+    };
+    const at = target => {
+      while (true) {
+        const next = [...jobs].filter(([, job]) => job.at <= target).sort((a, b) => a[1].at - b[1].at)[0];
+        if (!next) break;
+        now = next[1].at; jobs.delete(next[0]); next[1].fn();
+      }
+      now = target;
+    };
+    const room = { id: "room-4x4", currentRound: {}, lastRoundResults: { payload: {} } };
+    const ranking = [1, 2].map(userId => ({ userId, nick: `Joueur ${userId}`, points: 30 - userId,
+      basePoints: 30 - userId, gobbles: 0, roundScoreSum: 100 - userId, pos: userId }));
+    const finale = createTournamentWheelFinale({ roomId: room.id, tournamentId: "t", startsAt: 41_000,
+      puzzle: { clue: "Mon aiguille indique le nord.", answer: "boussole" }, freeLetters: [], ranking,
+      now: () => now, timers, onChange: value => scheduler?.update(value),
+      onFinish: value => {
+        room.breakState.tournamentSummary = { id: "t", ranking: value.ranking };
+        client.onBreak({ roomId: room.id, ...room.breakState });
+      },
+    });
+    room.infortuneFinale = finale;
+    room.breakState = { ...breakPayload, breakKind: "tournament_end", tournamentSummaryAt: finale.publicSnapshot().podiumAt,
+      tournamentSummary: { id: "t", ranking, pendingWheel: true } };
+    // The roundEnded handler retains the original server deadline in this guard.
+    client.state.tournamentFinaleHoldUntil = room.breakState.tournamentSummaryAt;
+    client.onBreak(room.breakState);
+    const canShowPodium = () => client.state.phase === "results" && !client.state.tournamentSummary.pendingWheel
+      && now >= Math.max(client.state.tournamentSummaryAt, client.state.tournamentFinaleHoldUntil);
+    scheduler = scheduleFinaleBreak({ room, finale, afterPodiumMs: 17_500, now: () => now, timers,
+      publish: client.onBreak, enterLobby: () => { lobbyEntered = true; client.state.phase = "lobby"; } });
+    try {
+      at(41_000);
+      finale.submit("user:1", { type: "answer", answer: "boussole" });
+      if (lastAnswerAt !== null) {
+        at(lastAnswerAt);
+        finale.submit("user:2", { type: "answer", answer: "soleil" });
+      }
+      const podiumAt = lastAnswerAt === null ? 176_000 : lastAnswerAt + 5000;
+      at(podiumAt - 1);
+      assert.equal(canShowPodium(), false, "keep the full result presentation before the ceremony");
+      at(podiumAt);
+      assert.equal(canShowPodium(), true, `podium must open at ${podiumAt}, before the lobby`);
+      assert.equal(lobbyEntered, false);
+      assert.equal(client.state.tournamentSummary.ranking[0].points, 39, "use the final ranking including the wheel bonus");
+      client.onBreak({ roomId: room.id, ...room.breakState });
+      assert.equal(canShowPodium(), true, "repeated/reconnect snapshots must not postpone the podium");
+      at(podiumAt + 17_499); assert.equal(canShowPodium(), true);
+      at(podiumAt + 17_500); assert.equal(lobbyEntered, true);
+    } finally { scheduler.dispose(); finale.dispose(); }
+    assert.equal(jobs.size, 0);
+  }
 });
 
 test("another room cannot replace the displayed results", () => {

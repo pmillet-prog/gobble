@@ -190,6 +190,7 @@ export function createAuthRouter({
   onAvatarSaved,
   isMaintenanceModeActive,
   onPasswordReset,
+  connectionAudit,
 }) {
   const router = express.Router();
 
@@ -218,6 +219,7 @@ export function createAuthRouter({
         rawInstallId,
         resolvedInstallId,
       });
+      void connectionAudit?.record(req, linked.user || auth.user, rawInstallId, 'session');
       return res.json({
         ok: true,
         status: "authenticated",
@@ -333,6 +335,7 @@ export function createAuthRouter({
 
     const session = await createSession(attached.user.id);
     res.setHeader("Set-Cookie", serializeCookie(SESSION_COOKIE_NAME, session.token, req));
+    void connectionAudit?.record(req, attached.user, rawInstallId, 'register');
     return res.json({
       ok: true,
       status: "authenticated",
@@ -394,6 +397,7 @@ export function createAuthRouter({
 
     const session = await createSession(attached.user.id);
     res.setHeader("Set-Cookie", serializeCookie(SESSION_COOKIE_NAME, session.token, req));
+    void connectionAudit?.record(req, attached.user, rawInstallId, 'claim');
     return res.json({
       ok: true,
       status: "authenticated",
@@ -452,6 +456,7 @@ export function createAuthRouter({
       return res.status(401).json({ ok: false, error: "invalid_credentials" });
     }
     res.setHeader("Set-Cookie", serializeCookie(SESSION_COOKIE_NAME, session.token, req));
+    void connectionAudit?.record(req, attached.user, rawInstallId, 'login');
     return res.json({
       ok: true,
       status: "authenticated",

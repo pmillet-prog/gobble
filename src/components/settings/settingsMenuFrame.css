@@ -10,14 +10,12 @@
 }
 /* Drawers slide beyond the screen edge, without leaving a visible strip. */
 .settings-menu-frame[data-layout] { overflow: hidden; }
-.settings-menu-frame[data-layout="desktop"] .settings-menu-layout { inset: 0; padding: 16px; }
-/* Reserve the mobile counters' space; only the main card needs side margins. */
-.settings-menu-frame[data-layout="mobile"] .settings-menu-layout {
-  left: 0;
-  right: 0;
-  padding-left: max(12px, env(safe-area-inset-left));
-  padding-right: max(12px, env(safe-area-inset-right));
+.settings-menu-frame[data-layout="desktop"] .settings-menu-layout {
+  inset: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
 }
+/* Insets also constrain absolute drawers; padding only constrained the main card.
+   Keep the full border outside the scrolling content, including its header. */
+.settings-menu-drawer { border-width: 2px; border-radius: 24px; overflow: hidden; }
 .settings-menu-card { padding: 16px; }
 .settings-menu-close { width: 40px; height: 40px; flex: 0 0 40px; }
 @media (max-height: 520px) {

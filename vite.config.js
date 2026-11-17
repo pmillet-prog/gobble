@@ -41,7 +41,9 @@ export default defineConfig({
       ],
     },
     proxy: {
-      "/api": "http://127.0.0.1:4000",
+      // Append the actual peer so a client-supplied forwarding header cannot
+      // masquerade as the client address in the connection security journal.
+      "/api": { target: "http://127.0.0.1:4000", xfwd: true },
       "/socket.io": {
         target: "http://127.0.0.1:4000",
         ws: true,

@@ -2,6 +2,7 @@ import { mkdir } from "node:fs/promises";
 import path from "node:path";
 import sqlite3 from "sqlite3";
 import { open } from "sqlite";
+import { chatHistoryMetadata, restoreChatHistory } from "./restoreChatHistory.js";
 
 const DAY_MS = 86_400_000;
 export const DEFAULT_CHAT_AUDIT_RETENTION_DAYS = 30;
@@ -25,10 +26,15 @@ export async function openChatAuditRepository(filename, {
         action TEXT NOT NULL CHECK(action IN ('sent','edited','deleted')),
         at INTEGER NOT NULL, sent_at INTEGER NOT NULL,
         nick TEXT NOT NULL, user_id INTEGER, install_id TEXT,
-        text TEXT NOT NULL, previous_text TEXT, submitted_text TEXT
+        text TEXT NOT NULL, previous_text TEXT, submitted_text TEXT, public_metadata TEXT
       );
       CREATE INDEX IF NOT EXISTS chat_audit_room_time ON chat_audit(room_id,at);
-      CREATE INDEX IF NOT EXISTS chat_audit_time ON chat_audit(at);`);
+      CREATE INDEX IF NOT EXISTS chat_audit_time ON chat_audit(at);
+      CREATE INDEX IF NOT EXISTS chat_audit_message ON chat_audit(room_id,message_id,seq);`);
+    const columns = await db.all("PRAGMA table_info(chat_audit)");
+    if (!columns.some(column => column.name === "public_metadata")) {
+      await db.exec("ALTER TABLE chat_audit ADD COLUMN public_metadata TEXT");
+    }
   } catch (error) {
     await db.close();
     throw error;
@@ -48,11 +54,18 @@ export async function openChatAuditRepository(filename, {
     retentionDays,
     async append({ action, roomId, message, previousText = null, submittedText = null, at = now() }) {
       await db.run(`INSERT INTO chat_audit
-        (room_id,message_id,action,at,sent_at,nick,user_id,install_id,text,previous_text,submitted_text)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+        (room_id,message_id,action,at,sent_at,nick,user_id,install_id,text,previous_text,submitted_text,public_metadata)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
       roomId, message.id, action, at, message.t, message.nick || "Anonyme",
       message.userId || null, message.installId || null, message.text,
-      previousText, submittedText && submittedText !== message.text ? submittedText : null);
+      previousText, submittedText && submittedText !== message.text ? submittedText : null,
+      JSON.stringify(chatHistoryMetadata(message)));
+    },
+    history({ roomId, limit = 200 } = {}) {
+      if (typeof roomId !== "string" || !roomId || !Number.isInteger(limit) || limit < 1 || limit > 200) {
+        throw new Error("invalid_chat_history_query");
+      }
+      return restoreChatHistory(db, { roomId, limit, cutoff: cutoff() });
     },
     async list({ roomId, from, to, before, query = "" } = {}) {
       const end = to == null ? now() : Number(to);

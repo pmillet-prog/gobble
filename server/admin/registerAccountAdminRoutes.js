@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { contentExclusions, resolveContentReference } from "./contentExclusions.js";
 
-export function registerAccountAdminRoutes(app, { getAuth, isAdmin, accounts, assertOffline, onChanged = () => {} }) {
+export function registerAccountAdminRoutes(app, { getAuth, isAdmin, accounts, assertOffline, connectionAudit, onChanged = () => {} }) {
   const previews = new Map();
   const route = (method, url, handler) => app[method](`/api/admin/${url}`, async (req, res) => {
     res.set("Cache-Control", "no-store");
@@ -11,9 +11,9 @@ export function registerAccountAdminRoutes(app, { getAuth, isAdmin, accounts, as
       if (!isAdmin(auth.user) || auth.user.mustResetPassword) return res.status(403).json({ ok: false, error: "admin_forbidden" });
       // JSON plus a same-site origin check protects credentialed writes even
       // where the application's public CORS policy accepts other origins.
-      if (method === "post") {
+      if (method === "post" || url === 'accounts/:userId/connections') {
         const origin = req.headers.origin;
-        if (!req.is("application/json") || (origin && new URL(origin).host !== req.get("host"))) return res.status(403).json({ ok: false, error: "admin_forbidden" });
+        if ((method === 'post' && !req.is("application/json")) || req.headers['sec-fetch-site'] === 'cross-site' || (origin && new URL(origin).host !== req.get("host"))) return res.status(403).json({ ok: false, error: "admin_forbidden" });
       }
       return res.json(await handler(req, auth.user));
     } catch (error) {
@@ -25,6 +25,9 @@ export function registerAccountAdminRoutes(app, { getAuth, isAdmin, accounts, as
   });
   route("get", "capabilities", () => ({ ok: true, accountAdmin: true, contentAdmin: true }));
   route("get", "accounts", async req => ({ ok: true, accounts: await accounts.search(req.query.q) }));
+  route("get", "accounts/:userId/connections", async req => ({ ok: true,
+    ...await connectionAudit.list(Number(req.params.userId), req.query.before === undefined ? null : Number(req.query.before)),
+  }));
   route("post", "accounts/merge-preview", async (req, actor) => {
     const plan = await accounts.preview(req.body.targetId, req.body.sourceId);
     if ([plan.target.id, plan.source.id].includes(actor.id)) throw new Error("cannot_target_self");

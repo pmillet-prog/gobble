@@ -1,5 +1,6 @@
 import React from "react";
 import AboutCredits from "./AboutCredits.jsx";
+import AboutPrivacy from "./AboutPrivacy.jsx";
 import { ModifyWheelVoteButton } from '../../features/wheelVote/WheelVoteProvider.jsx';
 import { SUPPORT_DONORS } from "../../constants/supportDonors";
 import PatchNotes20261116Minor from "./patchNotes/PatchNotes20261116Minor.jsx";
@@ -54,7 +55,7 @@ export default function AboutModals({
             aria-label="Fermer à propos"
           />
           <div
-            className={`relative w-full max-w-xs rounded-2xl border p-4 shadow-2xl ${
+            className={`relative w-full max-w-xs max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-2xl border p-4 shadow-2xl ${
               menuDarkMode
                 ? "bg-slate-900/95 border-white/10 text-slate-100"
                 : "bg-white/95 border-slate-200 text-slate-900"
@@ -118,6 +119,7 @@ export default function AboutModals({
               <ModifyWheelVoteButton onOpen={() => setIsAboutOpen(false)}
                 className={`w-full rounded-xl border px-3 py-2 text-[12px] font-semibold ${menuDarkMode ? 'bg-slate-800/90 border-white/15 text-slate-100' : 'bg-slate-50 border-slate-200 text-slate-900'}`} />
               <AboutCredits darkMode={menuDarkMode} />
+              <AboutPrivacy darkMode={menuDarkMode} />
             </div>
           </div>
         </div>

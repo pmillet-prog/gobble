@@ -7,13 +7,25 @@ La recherche porte sur une période, un pseudo ou le texte ; les pages contienne
 au maximum 50 événements. La période par défaut couvre les dernières 24 heures.
 Les dates affichées utilisent le fuseau du navigateur.
 
-L'archivage est automatique, indépendamment de l'ouverture des menus. Il commence
-à l'activation de cette version du serveur : aucun ancien message n'est reconstitué.
+L'archivage est automatique, indépendamment de l'ouverture des menus. Les messages
+antérieurs à son activation ne peuvent pas être reconstitués s'ils n'ont pas été archivés.
 Les messages de bots, annonces système et réactions ne sont pas archivés.
 Chaque événement contient l'identifiant du message, le salon, la date, le pseudo
 et les identifiants d'auteur issus de la session serveur. Les modifications gardent
 le texte avant/après ; le texte saisi avant le filtre anti-spoiler est conservé s'il
 diffère du texte affiché. Supprimer du chat ne supprime pas le journal de modération.
+
+Au démarrage, chaque salon recharge les 200 derniers messages de joueurs encore
+disponibles dans cette archive et non supprimés, dans l'ordre de leur envoi. Une
+modification restaure seulement le dernier texte affiché ; ni les anciennes versions,
+ni les saisies avant censure ne sont exposées au chat public. Les nouveaux événements
+conservent aussi les informations publiques de réponse et les badges du message.
+Les anciens événements restent récupérables avec le texte, l'auteur et la date.
+Les réactions, bots et annonces système ne sont pas restaurés par cette archive.
+
+À la reconnexion, le navigateur conserve les messages les plus récents par date,
+même si l'historique reçu est plus ancien. Sa sauvegarde différée est finalisée
+quand la page est quittée ou masquée, avant qu'un rechargement ne perde les derniers messages.
 
 La base dédiée est `${GOBBLE_DATA_DIR}/chat-audit.sqlite`, ou `data/chat-audit.sqlite`
 sans cette variable. Elle doit rester dans le répertoire de données persistant,

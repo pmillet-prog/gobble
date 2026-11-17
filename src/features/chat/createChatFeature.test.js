@@ -86,6 +86,55 @@ test("chat persistence ignores transient input and unread state", () => {
   scope.dispose();
 });
 
+test("pending player messages survive page reload, backgrounding and feature shutdown", () => {
+  for (const exit of ["pagehide", "hidden", "dispose"]) {
+    const storage = createMemoryStorage();
+    const windowTarget = new EventTarget(), documentTarget = new EventTarget();
+    const scope = createResourceScope(`chat-persist-${exit}`);
+    const chat = createChatFeature({ scope }, { storage, windowTarget, documentTarget });
+    chat.start();
+    try {
+      chat.set("messages", [{ id: exit, nick: "Test", text: "Juste avant la mise à jour", t: 123 }]);
+      assert.equal(storage.getItem("gobble_chat_messages_v1"), null, "normal writes stay debounced");
+      if (exit === "pagehide") windowTarget.dispatchEvent(new Event("pagehide"));
+      if (exit === "hidden") {
+        documentTarget.visibilityState = "hidden";
+        documentTarget.dispatchEvent(new Event("visibilitychange"));
+      }
+      if (exit === "dispose") scope.dispose();
+      const nextScope = createResourceScope("chat-after-reload");
+      try {
+        const restored = createChatFeature({ scope: nextScope }, { storage });
+        assert.deepEqual(restored.store.getState().messages, chat.store.getState().messages);
+      } finally { nextScope.dispose(); }
+      assert.equal(storage.writes.length, 1);
+    } finally { scope.dispose(); }
+    windowTarget.dispatchEvent(new Event("pagehide"));
+    documentTarget.dispatchEvent(new Event("visibilitychange"));
+    assert.equal(storage.writes.length, 1, "shutdown removes listeners and clears the pending timer");
+  }
+});
+
+test("older reconnect history cannot displace recent player messages and server edits take precedence", () => {
+  const handlers = new Map();
+  const socket = { bind(next) { Object.entries(next).forEach(([key, value]) => handlers.set(key, value)); return () => handlers.clear(); } };
+  const scope = createResourceScope("chat-history-reconnect");
+  const chat = createChatFeature({ scope }, { storage: createMemoryStorage() });
+  chat.configureRealtime({ socket }); chat.start();
+  const entry = n => ({ id: `m${n}`, nick: "Test", text: `Message ${n}`, t: n });
+  try {
+    chat.set("messages", Array.from({ length: 200 }, (_, i) => entry(i + 101)));
+    const history = Array.from({ length: 200 }, (_, i) => entry(i + 1));
+    history[149] = { ...history[149], text: "Texte corrigé", editedAt: 400 };
+    handlers.get("chat:history")(history);
+    const restored = chat.store.getState().messages;
+    assert.deepEqual(restored.map(message => message.t), Array.from({ length: 200 }, (_, i) => i + 101));
+    assert.equal(restored.find(message => message.id === "m150").text, "Texte corrigé");
+    handlers.get("chat:history")([]);
+    assert.deepEqual(chat.store.getState().messages, restored, "an empty server does not clear the local copy");
+  } finally { scope.dispose(); }
+});
+
 test("chat keeps bot messages disabled by default and persists the preference", () => {
   const storage = createMemoryStorage();
   const scope = createResourceScope("chat-test");

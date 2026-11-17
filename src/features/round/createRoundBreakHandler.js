@@ -32,6 +32,10 @@ export function createRoundBreakHandler(runtime) {
     }
     if (bk !== "tournament_end") {
       runtime.setTournamentFinaleHoldUntil(null);
+    } else if (Number.isFinite(summaryAt) && summaryAt > 0) {
+      // The wheel can move the ceremony forward when everyone has answered.
+      // Replace the initial deadline too, otherwise its guard hides the podium.
+      runtime.setTournamentFinaleHoldUntil(summaryAt);
     }
     if (bk) {
       runtime.phaseRef.current = "results";

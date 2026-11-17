@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, lstat, readdir } from "node:fs/promises";
 import path from "node:path";
-import os from "node:os";
+import sqlite3 from "sqlite3";
+import { open } from "sqlite";
 import { openChatAuditRepository } from "./chatAuditRepository.js";
 import { createAuditedChatCommands } from "./auditedChatCommands.js";
 import { createChatMessageMutations } from "./chatMessageMutations.js";
@@ -17,18 +18,92 @@ const mutations = createChatMessageMutations({
   censorTargetSpoilersInChatText: (_room, text) => text.replace("secret", "******"),
 });
 const commandsFor = archive => createAuditedChatCommands({ archive, ...mutations, pushChatMessage: (room, entry) => room.chatMessages.push(entry) });
-async function setup(t, options) {
-  const directory = await mkdtemp(path.join(os.tmpdir(), "gobble-chat-audit-"));
-  const filename = path.join(directory, "audit.sqlite");
-  let repository = await openChatAuditRepository(filename, options);
-  t.after(async () => {
-    await repository.close();
-    const relative = path.relative(os.tmpdir(), directory);
-    assert.ok(relative.startsWith("gobble-chat-audit-") && !relative.includes(path.sep));
-    await rm(directory, { recursive: true, force: true });
-  });
-  return { get repository() { return repository; }, async reopen() { await repository.close(); repository = await openChatAuditRepository(filename, options); } };
+async function noLinks(directory) {
+  const stat = await lstat(directory);
+  assert.equal(stat.isSymbolicLink(), false, `Refusing reparse point: ${directory}`);
+  if (stat.isDirectory()) for (const entry of await readdir(directory)) await noLinks(path.join(directory, entry));
 }
+async function setup(t, { prepare, ...options } = {}) {
+  const workspace = process.cwd(), testsRoot = path.resolve(workspace, ".tmp/codex-tests");
+  await mkdir(testsRoot, { recursive: true });
+  const directory = await mkdtemp(path.join(testsRoot, "chat-audit-"));
+  const filename = path.join(directory, "audit.sqlite");
+  let repository;
+  t.after(async () => {
+    try {
+      await repository?.close();
+      const relative = path.relative(testsRoot, path.resolve(directory));
+      assert.ok(relative.startsWith("chat-audit-") && !relative.includes(path.sep) && !path.isAbsolute(relative));
+      for (const ancestor of [workspace, path.dirname(testsRoot), testsRoot]) {
+        assert.equal((await lstat(ancestor)).isSymbolicLink(), false, `Refusing reparse point: ${ancestor}`);
+      }
+      await noLinks(directory);
+      await rm(directory, { recursive: true, force: true });
+    } catch (error) { console.error(`Remaining disposable directory: ${directory}`); throw error; }
+  });
+  await prepare?.(filename);
+  repository = await openChatAuditRepository(filename, options);
+  return { get repository() { return repository; }, async reopen() {
+    await repository.close(); repository = null; repository = await openChatAuditRepository(filename, options);
+  } };
+}
+
+test("restart restores public player messages in order with latest edits and excludes deleted text", async t => {
+  const h = await setup(t);
+  const room = { id: roomId, chatMessages: [] }, commands = commandsFor(h.repository);
+  const first = message({ id: "first", t: Date.now() - 1000, team: "red",
+    replyTo: { id: "earlier", nick: "Test", text: "Une question", t: 1 },
+    isDailyChampion: true, weeklyVocabPodiumRank: 2, isWeeklyVocabChampion: false });
+  await commands.send(room, first);
+  await commands.send(room, message({ id: "removed", text: "À supprimer" }));
+  await commands.edit(room, { messageId: "first", installId: "7", text: "un secret" });
+  await commands.delete(room, { messageId: "removed", installId: "7" });
+  await commands.send(room, message({ id: "last", t: first.t + 500, text: "Dernier message" }));
+  await h.reopen();
+  const restored = await h.repository.history({ roomId });
+  assert.deepEqual(restored.map(entry => entry.id), ["first", "last"]);
+  assert.deepEqual(restored[0], { ...first, roomId, text: "un ******", editedAt: room.chatMessages[0].editedAt });
+  assert.equal(JSON.stringify(restored).includes("secret"), false);
+  assert.equal(restored.some(entry => "submittedText" in entry || "previousText" in entry || "action" in entry), false);
+});
+
+test("restored live history keeps only the latest 200 messages for the requested room and retention", async t => {
+  let now = Date.now();
+  const h = await setup(t, { now: () => now });
+  for (let i = 0; i < 205; i++) {
+    await h.repository.append({ action: "sent", roomId, message: message({ id: `m${i}`, t: now - 1000 + i }) });
+  }
+  await h.repository.append({ action: "sent", roomId: "other-room", message: message({ id: "private-to-other-room" }) });
+  await h.reopen();
+  const restored = await h.repository.history({ roomId });
+  assert.equal(restored.length, 200);
+  assert.equal(restored[0].id, "m5");
+  assert.equal(restored.at(-1).id, "m204");
+  assert.deepEqual((await h.repository.history({ roomId, limit: 2 })).map(entry => entry.id), ["m203", "m204"]);
+  assert.throws(() => h.repository.history({ roomId, limit: 201 }), /invalid_chat_history_query/);
+  now += 31 * 86400000;
+  assert.deepEqual(await h.repository.history({ roomId }), []);
+});
+
+test("existing audit databases migrate without losing previously archived player messages", async t => {
+  const h = await setup(t, { prepare: async filename => {
+    const db = await open({ filename, driver: sqlite3.Database });
+    try {
+      await db.exec(`CREATE TABLE chat_audit (
+        seq INTEGER PRIMARY KEY AUTOINCREMENT, room_id TEXT NOT NULL, message_id TEXT NOT NULL,
+        action TEXT NOT NULL, at INTEGER NOT NULL, sent_at INTEGER NOT NULL, nick TEXT NOT NULL,
+        user_id INTEGER, install_id TEXT, text TEXT NOT NULL, previous_text TEXT, submitted_text TEXT);`);
+      await db.run(`INSERT INTO chat_audit (room_id,message_id,action,at,sent_at,nick,user_id,install_id,text)
+        VALUES (?,?,'sent',?,?,'Test',7,'7','Ancien message')`, roomId, "legacy", Date.now(), Date.now());
+    } finally { await db.close(); }
+  } });
+  await h.reopen();
+  const restored = await h.repository.history({ roomId });
+  assert.equal(restored.length, 1);
+  assert.equal(restored[0].text, "Ancien message");
+  assert.equal(restored[0].id, "legacy");
+  assert.equal((await h.repository.list({ roomId })).entries[0].text, "Ancien message");
+});
 
 test("send/edit/delete archive exact versions and authenticated identity across database reopen", async t => {
   const setupResult = await setup(t);

@@ -52,7 +52,9 @@ export default function WheelGraphicsSetup({ force = false, onComplete }) {
         <button type="button" onClick={() => controller.current?.begin()}>Mesurer et choisir l’affichage</button>
         </>}
       </> : state.phase === "running" ? <>
-        <p role="status">Essai {state.index + 1}/3 : {diagnosticProfileLabel(state.profile)}… Le lancer se fait tout seul.</p>
+        {/* Keep dynamic sentences as single strings: browser translation may replace
+            text nodes, so React must update the element's text instead of removing fragments. */}
+        <p role="status">{`Essai ${state.index + 1}/3 : ${diagnosticProfileLabel(state.profile)}… Le lancer se fait tout seul.`}</p>
         <MeasureBoundary key={state.profile} onError={() => controller.current?.receive({ profile: state.profile, status: "error" })}>
           <React.Suspense fallback={<p>Préparation de la mesure…</p>}>
             <Stage profile={state.profile} onReady={profile => controller.current?.ready(profile)} onComplete={run => controller.current?.receive(run)} />
@@ -60,9 +62,9 @@ export default function WheelGraphicsSetup({ force = false, onComplete }) {
         </MeasureBoundary>
         <p>Le contrôle s’arrête dès qu’un niveau convient. En cas de blocage prolongé, tu pourras continuer en 2D puis réessayer.</p>
       </> : <>
-        <p><strong>{state.recommendation.reason === "manual" ? "Mode choisi" : isWheelGraphicsFallback(state.recommendation) ? "Affichage provisoire" : "Réglage conseillé"} : {diagnosticProfileLabel(state.recommendation.profile)}.</strong></p>
+        <p><strong>{`${state.recommendation.reason === "manual" ? "Mode choisi" : isWheelGraphicsFallback(state.recommendation) ? "Affichage provisoire" : "Réglage conseillé"} : ${diagnosticProfileLabel(state.recommendation.profile)}.`}</strong></p>
         <p>{wheelGraphicsReason(state.recommendation)}</p>
-        {state.runs?.length > 0 && <p>Niveaux essayés : {state.runs.map(run => diagnosticProfileLabel(run.profile)).join(" → ")}.</p>}
+        {state.runs?.length > 0 && <p>{`Niveaux essayés : ${state.runs.map(run => diagnosticProfileLabel(run.profile)).join(" → ")}.`}</p>}
         {isWheelGraphicsFallback(state.recommendation) && <p>Le test n’a pas pu mesurer correctement la fluidité. Cela ne signifie pas que ton appareil est trop lent pour la 3D.</p>}
         {state.recommendation.lastCheck && <p>Le nouveau contrôle a été interrompu. Ton précédent réglage mesuré a été conservé.</p>}
         {(isWheelGraphicsFallback(state.recommendation) || state.recommendation.lastCheck) && <button type="button" onClick={() => controller.current?.retry()}>Reprendre la mesure</button>}

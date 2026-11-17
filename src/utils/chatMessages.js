@@ -270,36 +270,33 @@ export function dedupeChatMessages(messages) {
 
 export function capChatMessagesByType(messages) {
   const deduped = dedupeChatMessages(messages);
-  const system = [];
-  const user = [];
+  // A reconnect can append an older server history after recent local messages.
+  // Select by message time, not by arrival order, before enforcing the limits.
+  deduped.sort((a, b) => getChatMessageSortTime(a) - getChatMessageSortTime(b)
+    || String(a?.id || "").localeCompare(String(b?.id || "")));
+  const retained = [];
+  let systemCount = 0;
+  let userCount = 0;
   for (let i = deduped.length - 1; i >= 0; i -= 1) {
     const msg = deduped[i];
     if (isSystemChatMessage(msg)) {
-      if (system.length < CHAT_SYSTEM_HISTORY_MAX) {
-        system.push(msg);
+      if (systemCount < CHAT_SYSTEM_HISTORY_MAX) {
+        retained.push(msg);
+        systemCount += 1;
       }
       continue;
     }
-    if (user.length < CHAT_MESSAGES_HISTORY_MAX) {
-      user.push(msg);
+    if (userCount < CHAT_MESSAGES_HISTORY_MAX) {
+      retained.push(msg);
+      userCount += 1;
     }
   }
-  const merged = [...user.reverse(), ...system.reverse()];
-  merged.sort((a, b) => {
-    const tA = getChatMessageSortTime(a);
-    const tB = getChatMessageSortTime(b);
-    if (tA !== tB) return tA - tB;
-    return String(a?.id || "").localeCompare(String(b?.id || ""));
-  });
-  return merged.slice(-CHAT_BUFFER_MAX);
+  return retained.reverse();
 }
 
-export function readStoredChatMessages() {
-  if (typeof window === "undefined" || typeof localStorage === "undefined") {
-    return [];
-  }
+export function readStoredChatMessages(storage = globalThis.localStorage) {
   try {
-    const raw = localStorage.getItem(CHAT_MESSAGES_STORAGE_KEY);
+    const raw = storage?.getItem(CHAT_MESSAGES_STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     return capChatMessagesByType(parsed);

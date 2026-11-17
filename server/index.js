@@ -264,6 +264,7 @@ import {
 import { createAuthRouter } from "./auth/authRouter.js";
 import { registerAccountAdminRoutes } from "./admin/registerAccountAdminRoutes.js";
 import { isAdminAccount } from "./admin/adminAccess.js";
+import { createConnectionAudit } from "./auth/connectionAudit.js";
 import { isAccountUnderMaintenance } from "./admin/accountMaintenance.js";
 import { contentExclusions, registerContentReference } from "./admin/contentExclusions.js";
 import { createAvatarObjectiveBatcher } from "./avatars/avatarObjectiveBatcher.js";
@@ -397,6 +398,7 @@ void initWordVaultService().catch((err) =>
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const app = express();
+const connectionAudit = createConnectionAudit({ filename: () => path.join(RUNTIME_DATA_DIR, 'connection-audit.sqlite') });
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: "1mb" }));
 app.set("trust proxy", true);
@@ -448,6 +450,7 @@ app.use((req, res, next) => {
 app.use(
   "/api/auth",
   createAuthRouter({
+    connectionAudit,
     normalizeInstallIdRaw,
     resolveCanonicalInstallId,
     onAvatarPurchase: userId => clearThemeProfileResponseCache(String(userId)),
@@ -462,6 +465,7 @@ app.use(
 );
 
 registerAccountAdminRoutes(app, {
+  connectionAudit,
   getAuth: req => getAuthFromCookieHeader(req.headers.cookie),
   isAdmin: user => isAdminAccount(user, getDevAccessConfig()),
   accounts: accountAdministration,
@@ -2074,6 +2078,8 @@ const AUTH_SESSION_COOKIE_NAME = "gobble_session";
 const RUNTIME_DATA_DIR = process.env.GOBBLE_DATA_DIR
   ? path.resolve(process.env.GOBBLE_DATA_DIR)
   : path.join(__dirname, "../data");
+connectionAudit.start();
+server.once('close', () => { void connectionAudit.close().catch(error => console.warn('[connection-audit] close failed', error.code)); });
 const chatAudit = await openChatAuditRepository(path.join(RUNTIME_DATA_DIR, "chat-audit.sqlite"), {
   retentionDays: process.env.GOBBLE_CHAT_AUDIT_RETENTION_DAYS || 30,
 });
@@ -4157,6 +4163,9 @@ const rooms = new Map(
   Object.entries(ROOM_CONFIGS)
     .map(([roomId, config]) => [roomId, createRoomState(roomId, config)])
 );
+for (const room of rooms.values()) {
+  room.chatMessages = await chatAudit.history({ roomId: room.id, limit: MAX_CHAT_HISTORY });
+}
 rooms.forEach((room) => hydrateDailyMedals(room));
 let botManager = null;
 

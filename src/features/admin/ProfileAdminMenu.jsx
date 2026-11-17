@@ -2,6 +2,7 @@ import React from "react";
 import { useFeatureRuntime, useFeatureSelector } from "../../app/react/useFeatureRuntime.js";
 import { accountAdminRequest } from "./accountAdminApi.js";
 import "./accountAdmin.css";
+const ConnectionAuditPanel = React.lazy(() => import('./ConnectionAuditPanel.jsx'));
 
 export default function ProfileAdminMenu({ userId, nickname, viewerUserId }) {
   const feature = useFeatureRuntime("accountAdmin");
@@ -41,9 +42,11 @@ export default function ProfileAdminMenu({ userId, nickname, viewerUserId }) {
     {open ? <div className="profile-admin-menu">
       <p>Compte conservé : <strong>{nickname}</strong> · #{userId}</p>
       <div className="profile-admin-actions">
+        <button type="button" disabled={busy} onClick={() => selectMode("connections")}>Historique des connexions</button>
         <button type="button" disabled={busy} onClick={() => selectMode("reset")}>Réinitialiser le mot de passe</button>
         <button type="button" disabled={busy} onClick={() => selectMode("merge")}>Fusionner un compte</button>
       </div>
+      {mode === 'connections' ? <React.Suspense fallback={<p role="status">Chargement…</p>}><ConnectionAuditPanel key={userId} userId={userId} /></React.Suspense> : null}
       {mode === "reset" ? <div className="profile-admin-confirm">
         <p>Le mot de passe de <strong>{nickname}</strong> deviendra <strong>gobble2026</strong>. Un nouveau mot de passe sera demandé à la prochaine connexion.</p>
         <button type="button" disabled={busy} onClick={() => run(async () => {
